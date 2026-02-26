@@ -106,6 +106,10 @@ export async function recomputeDepths(sessionId) {
   return fetchJSON(`/sessions/${sessionId}/recompute-depths`, { method: 'POST' });
 }
 
+export async function computePageRank(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/compute-pagerank`, { method: 'POST' });
+}
+
 // SSE for live progress
 export function subscribeProgress(sessionId, onMessage, onDone) {
   const source = new EventSource(`${BASE}/sessions/${sessionId}/events`);

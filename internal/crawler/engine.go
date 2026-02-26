@@ -163,6 +163,11 @@ func (e *Engine) Run(seeds []string) error {
 		log.Printf("WARNING: depth recomputation failed: %v", err)
 	}
 
+	// Compute internal PageRank
+	if err := e.store.ComputePageRank(context.Background(), e.session.ID); err != nil {
+		log.Printf("WARNING: PageRank computation failed: %v", err)
+	}
+
 	// Update session status
 	e.session.Status = "completed"
 	e.session.Pages = uint64(e.pagesCrawled.Load())

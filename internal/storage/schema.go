@@ -106,6 +106,11 @@ ALTER TABLE seocrawler.pages
     ADD COLUMN IF NOT EXISTS x_robots_tag String AFTER content_encoding
 `
 
+const AlterPagesV3 = `
+ALTER TABLE seocrawler.pages
+    ADD COLUMN IF NOT EXISTS pagerank Float64 DEFAULT 0 AFTER found_on
+`
+
 // Migrations is the ordered list of DDL statements.
 var Migrations = []string{
 	CreateDatabase,
@@ -113,4 +118,5 @@ var Migrations = []string{
 	CreatePages,
 	CreateLinks,
 	AlterPagesV2,
+	AlterPagesV3,
 }

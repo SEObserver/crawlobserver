@@ -1,6 +1,7 @@
 <script>
   import { getSessions, getStats, getPages, getExternalLinks, getInternalLinks, getProgress,
-    startCrawl, stopCrawl, resumeCrawl, deleteSession, recomputeDepths, subscribeProgress, getTheme, updateTheme,
+    startCrawl, stopCrawl, resumeCrawl, deleteSession, recomputeDepths, computePageRank,
+    subscribeProgress, getTheme, updateTheme,
     getPageHTML, getStorageStats, getPageDetail, getSystemStats } from './lib/api.js';
 
   let sessions = $state([]);
@@ -30,7 +31,7 @@
   let filters = $state({});
 
   const TAB_FILTERS = {
-    overview:     ['url', 'status_code', 'title', 'word_count', 'internal_links_out', 'external_links_out', 'body_size', 'fetch_duration_ms', 'depth'],
+    overview:     ['url', 'status_code', 'title', 'word_count', 'internal_links_out', 'external_links_out', 'body_size', 'fetch_duration_ms', 'depth', 'pagerank'],
     titles:       ['url', 'title', 'title_length', 'h1'],
     meta:         ['url', 'meta_description', 'meta_desc_length', 'meta_keywords', 'og_title'],
     headings:     ['url', 'h1', 'h2'],
@@ -464,6 +465,17 @@
     finally { recomputing = false; }
   }
 
+  let computingPR = $state(false);
+  async function handleComputePageRank(id) {
+    computingPR = true;
+    error = null;
+    try {
+      await computePageRank(id);
+      await selectSession(selectedSession);
+    } catch (e) { error = e.message; }
+    finally { computingPR = false; }
+  }
+
   function statusBadge(code) {
     if (code >= 200 && code < 300) return 'badge-success';
     if (code >= 300 && code < 400) return 'badge-info';
@@ -851,6 +863,9 @@
             <div class="stat-card"><div class="stat-value">{fmtSize(pg.BodySize)}</div><div class="stat-label">Size</div></div>
             <div class="stat-card"><div class="stat-value">{fmt(pg.FetchDurationMs)}</div><div class="stat-label">Response Time</div></div>
             <div class="stat-card"><div class="stat-value">{pg.Depth}</div><div class="stat-label">Depth</div></div>
+            {#if pg.PageRank > 0}
+              <div class="stat-card"><div class="stat-value" style="color: var(--accent)">{pg.PageRank.toFixed(1)}</div><div class="stat-label">PageRank</div></div>
+            {/if}
             {#if pg.FoundOn}
               <div class="stat-card"><div class="stat-value" style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><a href={urlDetailHref(pg.FoundOn)} onclick={(e) => goToUrlDetail(e, pg.FoundOn)} style="color: var(--accent);">{pg.FoundOn}</a></div><div class="stat-label">Found On</div></div>
             {/if}
@@ -1071,6 +1086,9 @@
             <button class="btn btn-sm" onclick={() => handleRecomputeDepths(selectedSession.ID)} disabled={recomputing}>
               {recomputing ? 'Recomputing...' : 'Recompute Depths'}
             </button>
+            <button class="btn btn-sm" onclick={() => handleComputePageRank(selectedSession.ID)} disabled={computingPR}>
+              {computingPR ? 'Computing...' : 'Compute PageRank'}
+            </button>
             <button class="btn btn-sm btn-danger" onclick={() => handleDelete(selectedSession.ID)}>Delete</button>
           {/if}
           <button class="btn btn-sm" onclick={() => selectSession(selectedSession)}>
@@ -1118,7 +1136,7 @@
           {#if tab === 'overview'}
             <table>
               <thead>
-                <tr><th>URL</th><th>Status</th><th>Title</th><th>Words</th><th>Int Out</th><th>Ext Out</th><th>Size</th><th>Time</th><th>Depth</th><th></th></tr>
+                <tr><th>URL</th><th>Status</th><th>Title</th><th>Words</th><th>Int Out</th><th>Ext Out</th><th>Size</th><th>Time</th><th>Depth</th><th>PR</th><th></th></tr>
                 <tr class="filter-row">
                   {#each TAB_FILTERS.overview as key}
                     <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
@@ -1138,6 +1156,7 @@
                     <td>{fmtSize(p.BodySize)}</td>
                     <td>{fmt(p.FetchDurationMs)}</td>
                     <td>{p.Depth}</td>
+                    <td style="color: var(--accent); font-weight: 500;">{p.PageRank > 0 ? p.PageRank.toFixed(1) : '-'}</td>
                     <td>
                       {#if p.BodySize > 0}
                         <button class="btn-html" title="View HTML" onclick={() => openHtmlModal(p.URL)}>
@@ -1388,6 +1407,32 @@
                 </div>
               {:else}
                 <p class="chart-empty">No status code data available.</p>
+              {/if}
+
+              {#if stats?.top_pagerank?.length > 0}
+                {@const prEntries = stats.top_pagerank}
+                {@const prMax = prEntries[0].pagerank}
+                {@const prBarH = 28}
+                {@const prGap = 4}
+                {@const prSvgH = prEntries.length * (prBarH + prGap)}
+                <div class="chart-section">
+                  <h3 class="chart-title">Top 20 Internal PageRank</h3>
+                  <svg class="chart-svg" viewBox="0 0 600 {prSvgH}" preserveAspectRatio="xMinYMin meet">
+                    {#each prEntries as entry, i}
+                      {@const barW = prMax > 0 ? (entry.pagerank / prMax) * 340 : 0}
+                      {@const y = i * (prBarH + prGap)}
+                      {@const opacity = 0.4 + (0.6 * (1 - i / Math.max(prEntries.length - 1, 1)))}
+                      {@const shortUrl = entry.url.replace(/^https?:\/\/[^/]+/, '')}
+                      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                      <g class="chart-bar-clickable" style="cursor:pointer" onclick={() => goToUrlDetail({preventDefault:()=>{}}, entry.url)}>
+                        <rect x="0" y={y} width="600" height={prBarH} fill="transparent" />
+                        <text x="155" y={y + prBarH / 2 + 4} text-anchor="end" class="chart-label" style="font-size: 10px;">{shortUrl.length > 28 ? shortUrl.slice(0, 28) + '...' : shortUrl || '/'}</text>
+                        <rect x="160" y={y} width={Math.max(barW, 2)} height={prBarH} rx="4" class="chart-bar chart-bar-accent" style="opacity: {opacity}" />
+                        <text x={164 + barW} y={y + prBarH / 2 + 4} class="chart-value" style="font-size: 11px;">{entry.pagerank.toFixed(1)}</text>
+                      </g>
+                    {/each}
+                  </svg>
+                </div>
               {/if}
             </div>
           {/if}

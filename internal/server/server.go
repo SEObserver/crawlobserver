@@ -65,6 +65,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /api/sessions/{id}/stop", s.handleStopCrawl)
 	mux.HandleFunc("POST /api/sessions/{id}/resume", s.handleResumeCrawl)
 	mux.HandleFunc("POST /api/sessions/{id}/recompute-depths", s.handleRecomputeDepths)
+	mux.HandleFunc("POST /api/sessions/{id}/compute-pagerank", s.handleComputePageRank)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
 
 	// Static frontend files with SPA fallback
@@ -429,6 +430,20 @@ func (s *Server) handleRecomputeDepths(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{
 		"status":  "ok",
 		"message": fmt.Sprintf("Depths recomputed for session %s", sessionID),
+	})
+}
+
+func (s *Server) handleComputePageRank(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+
+	if err := s.store.ComputePageRank(r.Context(), sessionID); err != nil {
+		writeError(w, http.StatusInternalServerError, "pagerank computation failed: "+err.Error())
+		return
+	}
+
+	writeJSON(w, map[string]string{
+		"status":  "ok",
+		"message": fmt.Sprintf("PageRank computed for session %s", sessionID),
 	})
 }
 

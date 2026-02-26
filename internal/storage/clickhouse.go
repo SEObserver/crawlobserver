@@ -79,7 +79,7 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			lang, og_title, og_description, og_image, schema_types,
 			headers, redirect_chain, body_size, fetch_duration_ms,
 			content_encoding, x_robots_tag,
-			error, depth, found_on, body_html, crawled_at
+			error, depth, found_on, pagerank, body_html, crawled_at
 		)`)
 	if err != nil {
 		return fmt.Errorf("preparing pages batch: %w", err)
@@ -108,7 +108,7 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			p.Lang, p.OGTitle, p.OGDescription, p.OGImage, p.SchemaTypes,
 			p.Headers, chain, p.BodySize, p.FetchDurationMs,
 			p.ContentEncoding, p.XRobotsTag,
-			p.Error, p.Depth, p.FoundOn, p.BodyHTML, p.CrawledAt,
+			p.Error, p.Depth, p.FoundOn, p.PageRank, p.BodyHTML, p.CrawledAt,
 		); err != nil {
 			return fmt.Errorf("appending page row: %w", err)
 		}
@@ -320,7 +320,7 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 			images_count, images_no_alt,
 			lang, og_title, og_description, og_image, schema_types,
 			body_size, fetch_duration_ms, content_encoding, x_robots_tag,
-			error, depth, found_on, crawled_at
+			error, depth, found_on, pagerank, crawled_at
 		FROM seocrawler.pages
 		WHERE crawl_session_id = ?`
 	args := []interface{}{sessionID}
@@ -355,13 +355,19 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 			&p.ImagesCount, &p.ImagesNoAlt,
 			&p.Lang, &p.OGTitle, &p.OGDescription, &p.OGImage, &p.SchemaTypes,
 			&p.BodySize, &p.FetchDurationMs, &p.ContentEncoding, &p.XRobotsTag,
-			&p.Error, &p.Depth, &p.FoundOn, &p.CrawledAt,
+			&p.Error, &p.Depth, &p.FoundOn, &p.PageRank, &p.CrawledAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning page: %w", err)
 		}
 		pages = append(pages, p)
 	}
 	return pages, nil
+}
+
+// PageRankEntry holds a URL and its PageRank score.
+type PageRankEntry struct {
+	URL      string  `json:"url"`
+	PageRank float64 `json:"pagerank"`
 }
 
 // SessionStats holds aggregate stats for a crawl session.
@@ -376,6 +382,7 @@ type SessionStats struct {
 	DepthDistribution map[uint16]uint64 `json:"depth_distribution"`
 	PagesPerSecond    float64           `json:"pages_per_second"`
 	CrawlDurationSec  float64           `json:"crawl_duration_sec"`
+	TopPageRank       []PageRankEntry   `json:"top_pagerank"`
 }
 
 // SessionStats retrieves aggregate statistics for a crawl session.
@@ -447,6 +454,21 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 		}
 		if stats.CrawlDurationSec > 0 {
 			stats.PagesPerSecond = float64(stats.TotalPages) / stats.CrawlDurationSec
+		}
+	}
+
+	// Top PageRank
+	prRows, err := s.conn.Query(ctx, `
+		SELECT url, pagerank FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND pagerank > 0
+		ORDER BY pagerank DESC LIMIT 20`, sessionID)
+	if err == nil {
+		defer prRows.Close()
+		for prRows.Next() {
+			var e PageRankEntry
+			if err := prRows.Scan(&e.URL, &e.PageRank); err == nil {
+				stats.TopPageRank = append(stats.TopPageRank, e)
+			}
 		}
 	}
 
@@ -582,7 +604,7 @@ func (s *Store) GetPage(ctx context.Context, sessionID, url string) (*PageRow, e
 			lang, og_title, og_description, og_image, schema_types,
 			headers, redirect_chain, body_size, fetch_duration_ms,
 			content_encoding, x_robots_tag,
-			error, depth, found_on, crawled_at
+			error, depth, found_on, pagerank, crawled_at
 		FROM seocrawler.pages
 		WHERE crawl_session_id = ? AND url = ?
 		LIMIT 1`, sessionID, url)
@@ -597,7 +619,7 @@ func (s *Store) GetPage(ctx context.Context, sessionID, url string) (*PageRow, e
 		&p.Lang, &p.OGTitle, &p.OGDescription, &p.OGImage, &p.SchemaTypes,
 		&p.Headers, &redirectChain, &p.BodySize, &p.FetchDurationMs,
 		&p.ContentEncoding, &p.XRobotsTag,
-		&p.Error, &p.Depth, &p.FoundOn, &p.CrawledAt,
+		&p.Error, &p.Depth, &p.FoundOn, &p.PageRank, &p.CrawledAt,
 	); err != nil {
 		return nil, fmt.Errorf("querying page detail: %w", err)
 	}
@@ -689,6 +711,176 @@ func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string, inLimit
 	}
 
 	return result, nil
+}
+
+// ComputePageRank computes internal PageRank for all pages in a session.
+// Uses uint32 IDs for memory efficiency and iterative power method.
+func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
+	// 1. Load all crawled URLs and assign numeric IDs
+	urlRows, err := s.conn.Query(ctx, `
+		SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+	if err != nil {
+		return fmt.Errorf("querying URLs: %w", err)
+	}
+	defer urlRows.Close()
+
+	urlToID := make(map[string]uint32)
+	idToURL := make([]string, 0)
+	for urlRows.Next() {
+		var u string
+		if err := urlRows.Scan(&u); err != nil {
+			return fmt.Errorf("scanning URL: %w", err)
+		}
+		urlToID[u] = uint32(len(idToURL))
+		idToURL = append(idToURL, u)
+	}
+
+	n := uint32(len(idToURL))
+	if n == 0 {
+		return nil
+	}
+
+	// 2. Load internal links as adjacency list (outgoing edges by source ID)
+	linkRows, err := s.conn.Query(ctx, `
+		SELECT source_url, target_url FROM seocrawler.links
+		WHERE crawl_session_id = ? AND is_internal = true`, sessionID)
+	if err != nil {
+		return fmt.Errorf("querying links: %w", err)
+	}
+	defer linkRows.Close()
+
+	outLinks := make([][]uint32, n)
+	for linkRows.Next() {
+		var src, tgt string
+		if err := linkRows.Scan(&src, &tgt); err != nil {
+			return fmt.Errorf("scanning link: %w", err)
+		}
+		srcID, srcOK := urlToID[src]
+		tgtID, tgtOK := urlToID[tgt]
+		if srcOK && tgtOK && srcID != tgtID {
+			outLinks[srcID] = append(outLinks[srcID], tgtID)
+		}
+	}
+
+	// 3. Deduplicate outgoing links per node
+	for i := range outLinks {
+		if len(outLinks[i]) > 1 {
+			seen := make(map[uint32]bool, len(outLinks[i]))
+			j := 0
+			for _, id := range outLinks[i] {
+				if !seen[id] {
+					seen[id] = true
+					outLinks[i][j] = id
+					j++
+				}
+			}
+			outLinks[i] = outLinks[i][:j]
+		}
+	}
+
+	// 4. PageRank iteration (power method)
+	const damping = 0.85
+	const iterations = 20
+	const tolerance = 1e-6
+
+	rank := make([]float64, n)
+	newRank := make([]float64, n)
+	initial := 1.0 / float64(n)
+	for i := range rank {
+		rank[i] = initial
+	}
+
+	for iter := 0; iter < iterations; iter++ {
+		// Reset newRank with teleportation base
+		base := (1.0 - damping) / float64(n)
+		for i := range newRank {
+			newRank[i] = base
+		}
+
+		// Accumulate dangling node mass (nodes with no outgoing links)
+		var danglingSum float64
+		for i := uint32(0); i < n; i++ {
+			if len(outLinks[i]) == 0 {
+				danglingSum += rank[i]
+			}
+		}
+		danglingContrib := damping * danglingSum / float64(n)
+		for i := range newRank {
+			newRank[i] += danglingContrib
+		}
+
+		// Distribute rank through links
+		for src := uint32(0); src < n; src++ {
+			if len(outLinks[src]) == 0 {
+				continue
+			}
+			contrib := damping * rank[src] / float64(len(outLinks[src]))
+			for _, tgt := range outLinks[src] {
+				newRank[tgt] += contrib
+			}
+		}
+
+		// Check convergence
+		var diff float64
+		for i := range rank {
+			d := newRank[i] - rank[i]
+			if d < 0 {
+				d = -d
+			}
+			diff += d
+		}
+
+		rank, newRank = newRank, rank
+
+		if diff < tolerance {
+			log.Printf("PageRank converged after %d iterations (diff=%.2e)", iter+1, diff)
+			break
+		}
+	}
+
+	// 5. Normalize to 0-100 scale
+	var maxRank float64
+	for _, r := range rank {
+		if r > maxRank {
+			maxRank = r
+		}
+	}
+	if maxRank > 0 {
+		for i := range rank {
+			rank[i] = (rank[i] / maxRank) * 100.0
+		}
+	}
+
+	// 6. Write back to ClickHouse in chunks
+	const chunkSize = 500
+	for i := 0; i < int(n); i += chunkSize {
+		end := i + chunkSize
+		if end > int(n) {
+			end = int(n)
+		}
+
+		var cases []string
+		var quotedURLs []string
+		for j := i; j < end; j++ {
+			escapedURL := strings.ReplaceAll(idToURL[j], "'", "\\'")
+			cases = append(cases, fmt.Sprintf("url = '%s', %.6f", escapedURL, rank[j]))
+			quotedURLs = append(quotedURLs, fmt.Sprintf("'%s'", escapedURL))
+		}
+
+		query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
+			pagerank = multiIf(%s, pagerank)
+			WHERE crawl_session_id = '%s' AND url IN (%s)`,
+			strings.Join(cases, ", "),
+			strings.ReplaceAll(sessionID, "'", "\\'"),
+			strings.Join(quotedURLs, ", "))
+
+		if err := s.conn.Exec(ctx, query); err != nil {
+			return fmt.Errorf("updating pagerank chunk %d: %w", i/chunkSize, err)
+		}
+	}
+
+	log.Printf("ComputePageRank: computed for %d pages in session %s", n, sessionID)
+	return nil
 }
 
 // RecomputeDepths runs a BFS from seed URLs and updates depth/found_on in the pages table.

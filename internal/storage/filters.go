@@ -55,6 +55,7 @@ var PageFilters = map[string]FilterDef{
 	"canonical_is_self":  {Column: "canonical_is_self", Type: FilterBool},
 	"h1":                 {Column: "h1", Type: FilterArray},
 	"h2":                 {Column: "h2", Type: FilterArray},
+	"pagerank":           {Column: "pagerank", Type: FilterUint},
 }
 
 // LinkFilters defines the allowed filter columns for the links table.
