@@ -51,6 +51,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/sessions/{id}/progress", s.handleProgress)
 	mux.HandleFunc("GET /api/sessions/{id}/events", s.handleSSE)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
+	mux.HandleFunc("GET /api/theme", s.handleTheme)
 
 	// API routes - write
 	mux.HandleFunc("POST /api/crawl", s.handleStartCrawl)
@@ -125,6 +126,10 @@ func (s *Server) Stop(ctx context.Context) error {
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleTheme(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.cfg.Theme)
 }
 
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {

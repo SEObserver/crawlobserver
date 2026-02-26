@@ -50,3 +50,14 @@ server:
   # Basic auth credentials (CHANGE THESE before exposing to the internet)
   username: admin
   password: seocrawler
+
+# Theme / branding
+theme:
+  # Application name shown in sidebar
+  app_name: SEOCrawler
+  # Logo URL (leave empty for default icon)
+  logo_url: ""
+  # Primary accent color (hex)
+  accent_color: "#7c3aed"
+  # Color mode: "light" or "dark"
+  mode: light

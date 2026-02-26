@@ -13,6 +13,7 @@ type Config struct {
 	Storage    StorageConfig    `mapstructure:"storage"`
 	Resources  ResourcesConfig  `mapstructure:"resources"`
 	Server     ServerConfig     `mapstructure:"server"`
+	Theme      ThemeConfig      `mapstructure:"theme"`
 }
 
 type CrawlerConfig struct {
@@ -57,6 +58,13 @@ type ServerConfig struct {
 	Password string `mapstructure:"password"`
 }
 
+type ThemeConfig struct {
+	AppName     string `mapstructure:"app_name" json:"app_name"`
+	LogoURL     string `mapstructure:"logo_url" json:"logo_url"`
+	AccentColor string `mapstructure:"accent_color" json:"accent_color"`
+	Mode        string `mapstructure:"mode" json:"mode"` // "light" or "dark"
+}
+
 func SetDefaults() {
 	viper.SetDefault("crawler.workers", 10)
 	viper.SetDefault("crawler.delay", "1s")
@@ -84,6 +92,11 @@ func SetDefaults() {
 	viper.SetDefault("server.port", 8899)
 	viper.SetDefault("server.username", "admin")
 	viper.SetDefault("server.password", "seocrawler")
+
+	viper.SetDefault("theme.app_name", "SEOCrawler")
+	viper.SetDefault("theme.logo_url", "")
+	viper.SetDefault("theme.accent_color", "#7c3aed")
+	viper.SetDefault("theme.mode", "light")
 }
 
 func Load() (*Config, error) {

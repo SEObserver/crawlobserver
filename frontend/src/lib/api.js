@@ -37,6 +37,10 @@ export async function getHealth() {
   return fetchJSON('/health');
 }
 
+export async function getTheme() {
+  return fetchJSON('/theme');
+}
+
 export async function startCrawl(seeds, options = {}) {
   return fetchJSON('/crawl', {
     method: 'POST',
