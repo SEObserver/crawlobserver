@@ -626,31 +626,69 @@ func (s *Store) GetPage(ctx context.Context, sessionID, url string) (*PageRow, e
 	return &p, nil
 }
 
-// GetPageLinks retrieves outbound and inbound links for a URL.
-func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string) ([]LinkRow, error) {
-	rows, err := s.conn.Query(ctx, `
+// PageLinksResult holds outbound links, inbound links (paginated), and counts.
+type PageLinksResult struct {
+	OutLinks      []LinkRow `json:"out_links"`
+	InLinks       []LinkRow `json:"in_links"`
+	OutLinksCount uint64    `json:"out_links_count"`
+	InLinksCount  uint64    `json:"in_links_count"`
+}
+
+// GetPageLinks retrieves outbound and inbound links for a URL with inbound pagination.
+func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string, inLimit, inOffset int) (*PageLinksResult, error) {
+	result := &PageLinksResult{}
+
+	// Counts
+	countRow := s.conn.QueryRow(ctx, `
+		SELECT countIf(source_url = ?), countIf(target_url = ?)
+		FROM seocrawler.links
+		WHERE crawl_session_id = ? AND (source_url = ? OR target_url = ?)`,
+		url, url, sessionID, url, url)
+	if err := countRow.Scan(&result.OutLinksCount, &result.InLinksCount); err != nil {
+		return nil, fmt.Errorf("querying link counts: %w", err)
+	}
+
+	// Outbound links (all, capped at 1000)
+	outRows, err := s.conn.Query(ctx, `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
 		FROM seocrawler.links
-		WHERE crawl_session_id = ? AND (source_url = ? OR target_url = ?)
-		ORDER BY source_url, target_url
-		LIMIT 500`, sessionID, url, url)
+		WHERE crawl_session_id = ? AND source_url = ?
+		ORDER BY target_url
+		LIMIT 1000`, sessionID, url)
 	if err != nil {
-		return nil, fmt.Errorf("querying page links: %w", err)
+		return nil, fmt.Errorf("querying outbound links: %w", err)
 	}
-	defer rows.Close()
-
-	var links []LinkRow
-	for rows.Next() {
+	defer outRows.Close()
+	for outRows.Next() {
 		var l LinkRow
-		if err := rows.Scan(
-			&l.CrawlSessionID, &l.SourceURL, &l.TargetURL, &l.AnchorText,
-			&l.Rel, &l.IsInternal, &l.Tag, &l.CrawledAt,
-		); err != nil {
-			return nil, fmt.Errorf("scanning page link: %w", err)
+		if err := outRows.Scan(&l.CrawlSessionID, &l.SourceURL, &l.TargetURL, &l.AnchorText,
+			&l.Rel, &l.IsInternal, &l.Tag, &l.CrawledAt); err != nil {
+			return nil, fmt.Errorf("scanning outbound link: %w", err)
 		}
-		links = append(links, l)
+		result.OutLinks = append(result.OutLinks, l)
 	}
-	return links, nil
+
+	// Inbound links (paginated)
+	inRows, err := s.conn.Query(ctx, `
+		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
+		FROM seocrawler.links
+		WHERE crawl_session_id = ? AND target_url = ?
+		ORDER BY source_url
+		LIMIT ? OFFSET ?`, sessionID, url, inLimit, inOffset)
+	if err != nil {
+		return nil, fmt.Errorf("querying inbound links: %w", err)
+	}
+	defer inRows.Close()
+	for inRows.Next() {
+		var l LinkRow
+		if err := inRows.Scan(&l.CrawlSessionID, &l.SourceURL, &l.TargetURL, &l.AnchorText,
+			&l.Rel, &l.IsInternal, &l.Tag, &l.CrawledAt); err != nil {
+			return nil, fmt.Errorf("scanning inbound link: %w", err)
+		}
+		result.InLinks = append(result.InLinks, l)
+	}
+
+	return result, nil
 }
 
 // RecomputeDepths runs a BFS from seed URLs and updates depth/found_on in the pages table.

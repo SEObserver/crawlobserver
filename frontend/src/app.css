@@ -466,23 +466,13 @@ tr:hover td { background: var(--bg-hover); }
 }
 .pagination-info { font-size: 13px; color: var(--text-muted); }
 
-/* ===== Filter Bar ===== */
-.filter-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 0 12px;
-}
-.filter-bar input {
-  flex: 1;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-card);
-  color: var(--text);
-  font-size: 13px;
-}
-.filter-bar input::placeholder { color: var(--text-muted); }
+/* ===== Filter Row ===== */
+.filter-row td { padding: 4px 6px; background: var(--bg-card); border-bottom: 1px solid var(--border); }
+.filter-input { width: 100%; padding: 4px 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-family: inherit; }
+.filter-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+.filter-input::placeholder { color: var(--text-muted); font-size: 11px; }
+.btn-filter-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; border-radius: 4px; display: inline-flex; align-items: center; }
+.btn-filter-clear:hover { color: var(--error); background: var(--error-bg); }
 
 /* ===== Empty State ===== */
 .empty-state {
@@ -660,6 +650,69 @@ tr:hover td { background: var(--bg-hover); }
   white-space: pre-wrap;
   word-break: break-all;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+/* ===== Charts ===== */
+.charts-container {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.chart-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chart-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chart-svg {
+  width: 100%;
+  max-width: 600px;
+  height: auto;
+}
+
+.chart-label {
+  font-size: 13px;
+  fill: var(--text-secondary);
+  font-weight: 600;
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+}
+
+.chart-value {
+  font-size: 12px;
+  fill: var(--text-muted);
+  font-weight: 500;
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+}
+
+.chart-bar {
+  transition: opacity 0.15s;
+}
+
+.chart-bar:hover {
+  opacity: 0.85 !important;
+}
+
+.chart-bar-accent { fill: var(--accent); }
+.chart-bar-success { fill: var(--success); }
+.chart-bar-info { fill: var(--info); }
+.chart-bar-warning { fill: var(--warning); }
+.chart-bar-error { fill: var(--error); }
+
+.chart-bar-clickable { cursor: pointer; }
+.chart-bar-clickable:hover .chart-bar { opacity: 0.7 !important; }
+
+.chart-empty {
+  padding: 32px 0;
+  color: var(--text-muted);
+  font-size: 14px;
 }
 
 /* ===== Responsive ===== */

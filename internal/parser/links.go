@@ -6,6 +6,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/SEObserver/seocrawler/internal/normalizer"
+	"golang.org/x/net/publicsuffix"
 )
 
 // Link represents an extracted link from a page.
@@ -58,7 +59,12 @@ func isInternal(baseURL *url.URL, targetURL string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.EqualFold(baseURL.Host, target.Host)
+	baseDomain, err1 := publicsuffix.EffectiveTLDPlusOne(baseURL.Hostname())
+	targetDomain, err2 := publicsuffix.EffectiveTLDPlusOne(target.Hostname())
+	if err1 != nil || err2 != nil {
+		return strings.EqualFold(baseURL.Hostname(), target.Hostname())
+	}
+	return strings.EqualFold(baseDomain, targetDomain)
 }
 
 func isNonHTTP(href string) bool {

@@ -45,8 +45,8 @@ export async function getPageHTML(sessionId, url) {
   return fetchJSON(`/sessions/${sessionId}/page-html?url=${encodeURIComponent(url)}`);
 }
 
-export async function getPageDetail(sessionId, url) {
-  return fetchJSON(`/sessions/${sessionId}/page-detail?url=${encodeURIComponent(url)}`);
+export async function getPageDetail(sessionId, url, inLimit = 100, inOffset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/page-detail?url=${encodeURIComponent(url)}&in_limit=${inLimit}&in_offset=${inOffset}`);
 }
 
 export async function getStorageStats() {

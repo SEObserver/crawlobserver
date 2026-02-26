@@ -2,6 +2,10 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     container_name: seocrawler-clickhouse
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     ports:
       - "${CLICKHOUSE_HTTP_PORT:-18123}:8123"   # HTTP interface
       - "${CLICKHOUSE_PORT:-19000}:9000"         # Native protocol

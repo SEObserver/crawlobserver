@@ -504,15 +504,28 @@
     htmlModalData = { url: '', body_html: '' };
   }
 
-  async function loadPageDetail(sessionId, url) {
+  let inLinksPage = $state(0);
+  const IN_LINKS_PER_PAGE = 100;
+
+  async function loadPageDetail(sessionId, url, inOffset = 0) {
     pageDetailLoading = true;
     try {
-      pageDetail = await getPageDetail(sessionId, url);
+      pageDetail = await getPageDetail(sessionId, url, IN_LINKS_PER_PAGE, inOffset);
+      inLinksPage = Math.floor(inOffset / IN_LINKS_PER_PAGE);
     } catch (e) {
       error = e.message;
     } finally {
       pageDetailLoading = false;
     }
+  }
+
+  async function loadInLinksPage(offset) {
+    if (!pageDetail?.page || !selectedSession) return;
+    try {
+      const data = await getPageDetail(selectedSession.ID, pageDetail.page.URL, IN_LINKS_PER_PAGE, offset);
+      pageDetail = { ...pageDetail, links: { ...pageDetail.links, in_links: data.links.in_links } };
+      inLinksPage = Math.floor(offset / IN_LINKS_PER_PAGE);
+    } catch (e) { error = e.message; }
   }
 
   function urlDetailHref(url) {
@@ -809,8 +822,10 @@
           <p style="color: var(--text-muted); padding: 40px 0;">Loading...</p>
         {:else if pageDetail?.page}
           {@const pg = pageDetail.page}
-          {@const outLinks = pageDetail.links?.filter(l => l.SourceURL === pg.URL) || []}
-          {@const inLinks = pageDetail.links?.filter(l => l.TargetURL === pg.URL) || []}
+          {@const outLinks = pageDetail.links?.out_links || []}
+          {@const inLinks = pageDetail.links?.in_links || []}
+          {@const outLinksCount = pageDetail.links?.out_links_count || 0}
+          {@const inLinksCount = pageDetail.links?.in_links_count || 0}
 
           <!-- Header -->
           <div class="page-header" style="gap: 12px; flex-wrap: wrap;">
@@ -980,7 +995,7 @@
           <!-- Outbound Links -->
           {#if outLinks.length > 0}
             <div class="card" style="margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Outbound Links <span style="color: var(--text-muted);">({outLinks.length})</span></h3>
+              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Outbound Links <span style="color: var(--text-muted);">({fmtN(outLinksCount)})</span></h3>
               <table>
                 <thead><tr><th>Target URL</th><th>Anchor</th><th>Type</th><th>Tag</th><th>Rel</th></tr></thead>
                 <tbody>
@@ -1005,9 +1020,9 @@
           {/if}
 
           <!-- Inbound Links -->
-          {#if inLinks.length > 0}
+          {#if inLinksCount > 0}
             <div class="card" style="margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Inbound Links <span style="color: var(--text-muted);">({inLinks.length})</span></h3>
+              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Inbound Links <span style="color: var(--text-muted);">({fmtN(inLinksCount)})</span></h3>
               <table>
                 <thead><tr><th>Source URL</th><th>Anchor</th><th>Tag</th><th>Rel</th></tr></thead>
                 <tbody>
@@ -1021,6 +1036,13 @@
                   {/each}
                 </tbody>
               </table>
+              {#if inLinksCount > IN_LINKS_PER_PAGE}
+                <div style="display: flex; gap: 8px; align-items: center; margin-top: 12px; justify-content: center;">
+                  <button class="btn btn-sm" disabled={inLinksPage === 0} onclick={() => loadInLinksPage((inLinksPage - 1) * IN_LINKS_PER_PAGE)}>Prev</button>
+                  <span style="color: var(--text-muted); font-size: 0.85rem;">{inLinksPage * IN_LINKS_PER_PAGE + 1}–{Math.min((inLinksPage + 1) * IN_LINKS_PER_PAGE, inLinksCount)} of {fmtN(inLinksCount)}</span>
+                  <button class="btn btn-sm" disabled={(inLinksPage + 1) * IN_LINKS_PER_PAGE >= inLinksCount} onclick={() => loadInLinksPage((inLinksPage + 1) * IN_LINKS_PER_PAGE)}>Next</button>
+                </div>
+              {/if}
             </div>
           {/if}
         {:else}

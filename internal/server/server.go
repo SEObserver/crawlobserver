@@ -368,12 +368,15 @@ func (s *Server) handlePageDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing url parameter")
 		return
 	}
+	inLimit := queryInt(r, "in_limit", 100)
+	inOffset := queryInt(r, "in_offset", 0)
+
 	page, err := s.store.GetPage(r.Context(), sessionID, url)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	links, err := s.store.GetPageLinks(r.Context(), sessionID, url)
+	links, err := s.store.GetPageLinks(r.Context(), sessionID, url, inLimit, inOffset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
