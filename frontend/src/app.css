@@ -22,20 +22,19 @@ body {
   line-height: 1.6;
 }
 
-#app {
-  min-height: 100vh;
-}
+#app { min-height: 100vh; }
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); }
 
-.container { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+.container { max-width: 1600px; margin: 0 auto; padding: 0 24px; }
 
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
+  overflow-x: auto;
 }
 
 .btn {
@@ -52,16 +51,25 @@ a:hover { color: var(--accent-hover); }
   transition: background 0.15s;
 }
 .btn:hover { background: var(--bg-hover); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .btn-primary:hover { background: var(--accent-hover); }
+.btn-sm { padding: 4px 10px; font-size: 13px; }
+.btn-danger { border-color: var(--error); color: var(--error); }
+.btn-danger:hover { background: rgba(248,113,113,0.15); }
 
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
 th {
   color: var(--text-muted); font-weight: 600;
-  font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 tr:hover td { background: var(--bg-hover); }
+
+.cell-url { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-title { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-warn { color: var(--warning); }
 
 .badge {
   display: inline-block; padding: 2px 8px;
@@ -74,16 +82,41 @@ tr:hover td { background: var(--bg-hover); }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
 }
 .stat-card {
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 16px;
+  border-radius: var(--radius); padding: 14px;
 }
-.stat-value { font-size: 28px; font-weight: 700; }
-.stat-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+.stat-value { font-size: 26px; font-weight: 700; }
+.stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* Tab bar */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: var(--radius) var(--radius) 0 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tab {
+  padding: 10px 18px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab:hover { color: var(--text); }
+.tab-active { color: var(--accent); border-bottom-color: var(--accent); }
 
 nav {
   background: var(--bg-card);
@@ -96,10 +129,6 @@ nav {
 nav .logo { font-weight: 700; font-size: 18px; color: var(--accent); }
 nav a { color: var(--text-muted); font-size: 14px; }
 nav a:hover, nav a.active { color: var(--text); }
-
-.btn-sm { padding: 4px 10px; font-size: 13px; }
-.btn-danger { border-color: var(--error); color: var(--error); }
-.btn-danger:hover { background: rgba(248,113,113,0.15); }
 
 .form-grid {
   display: grid;
@@ -117,15 +146,9 @@ nav a:hover, nav a.active { color: var(--text); }
   font-size: 14px;
   font-family: inherit;
 }
-.form-group input:focus, .form-group textarea:focus {
-  outline: none;
-  border-color: var(--accent);
-}
+.form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--accent); }
 .form-group textarea { resize: vertical; }
-.form-group input[type="checkbox"] {
-  width: 18px; height: 18px; padding: 0;
-  accent-color: var(--accent);
-}
+.form-group input[type="checkbox"] { width: 18px; height: 18px; padding: 0; accent-color: var(--accent); }
 
 .pagination {
   display: flex;

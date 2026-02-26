@@ -69,9 +69,14 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 	batch, err := s.conn.PrepareBatch(ctx, `
 		INSERT INTO seocrawler.pages (
 			crawl_session_id, url, final_url, status_code, content_type,
-			title, canonical, meta_robots, meta_description,
+			title, title_length, canonical, canonical_is_self, is_indexable, index_reason,
+			meta_robots, meta_description, meta_desc_length, meta_keywords,
 			h1, h2, h3, h4, h5, h6,
+			word_count, internal_links_out, external_links_out,
+			images_count, images_no_alt, hreflang,
+			lang, og_title, og_description, og_image, schema_types,
 			headers, redirect_chain, body_size, fetch_duration_ms,
+			content_encoding, x_robots_tag,
 			error, depth, found_on, body_html, crawled_at
 		)`)
 	if err != nil {
@@ -85,11 +90,22 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			chain[i] = []interface{}{hop.URL, hop.StatusCode}
 		}
 
+		// Convert hreflang to ClickHouse tuple format
+		hreflang := make([][]interface{}, len(p.Hreflang))
+		for i, h := range p.Hreflang {
+			hreflang[i] = []interface{}{h.Lang, h.URL}
+		}
+
 		if err := batch.Append(
 			p.CrawlSessionID, p.URL, p.FinalURL, p.StatusCode, p.ContentType,
-			p.Title, p.Canonical, p.MetaRobots, p.MetaDescription,
+			p.Title, p.TitleLength, p.Canonical, p.CanonicalIsSelf, p.IsIndexable, p.IndexReason,
+			p.MetaRobots, p.MetaDescription, p.MetaDescLength, p.MetaKeywords,
 			p.H1, p.H2, p.H3, p.H4, p.H5, p.H6,
+			p.WordCount, p.InternalLinksOut, p.ExternalLinksOut,
+			p.ImagesCount, p.ImagesNoAlt, hreflang,
+			p.Lang, p.OGTitle, p.OGDescription, p.OGImage, p.SchemaTypes,
 			p.Headers, chain, p.BodySize, p.FetchDurationMs,
+			p.ContentEncoding, p.XRobotsTag,
 			p.Error, p.Depth, p.FoundOn, p.BodyHTML, p.CrawledAt,
 		); err != nil {
 			return fmt.Errorf("appending page row: %w", err)
@@ -187,6 +203,34 @@ func (s *Store) ExternalLinks(ctx context.Context, sessionID string) ([]LinkRow,
 	return links, nil
 }
 
+// InternalLinksPaginated retrieves internal links with pagination.
+func (s *Store) InternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int) ([]LinkRow, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
+		FROM seocrawler.links
+		WHERE is_internal = true AND crawl_session_id = ?
+		ORDER BY source_url, target_url
+		LIMIT ? OFFSET ?
+	`, sessionID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("querying internal links: %w", err)
+	}
+	defer rows.Close()
+
+	var links []LinkRow
+	for rows.Next() {
+		var l LinkRow
+		if err := rows.Scan(
+			&l.CrawlSessionID, &l.SourceURL, &l.TargetURL, &l.AnchorText,
+			&l.Rel, &l.IsInternal, &l.Tag, &l.CrawledAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning link: %w", err)
+		}
+		links = append(links, l)
+	}
+	return links, nil
+}
+
 // ExternalLinksPaginated retrieves external links with pagination.
 func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int) ([]LinkRow, error) {
 	query := `
@@ -226,9 +270,14 @@ func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, li
 func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset int) ([]PageRow, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT crawl_session_id, url, final_url, status_code, content_type,
-			title, canonical, meta_robots, meta_description,
+			title, title_length, canonical, canonical_is_self, is_indexable, index_reason,
+			meta_robots, meta_description, meta_desc_length, meta_keywords,
 			h1, h2, h3, h4, h5, h6,
-			body_size, fetch_duration_ms, error, depth, found_on, crawled_at
+			word_count, internal_links_out, external_links_out,
+			images_count, images_no_alt,
+			lang, og_title, og_description, og_image, schema_types,
+			body_size, fetch_duration_ms, content_encoding, x_robots_tag,
+			error, depth, found_on, crawled_at
 		FROM seocrawler.pages
 		WHERE crawl_session_id = ?
 		ORDER BY crawled_at DESC
@@ -244,9 +293,14 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 		var p PageRow
 		if err := rows.Scan(
 			&p.CrawlSessionID, &p.URL, &p.FinalURL, &p.StatusCode, &p.ContentType,
-			&p.Title, &p.Canonical, &p.MetaRobots, &p.MetaDescription,
+			&p.Title, &p.TitleLength, &p.Canonical, &p.CanonicalIsSelf, &p.IsIndexable, &p.IndexReason,
+			&p.MetaRobots, &p.MetaDescription, &p.MetaDescLength, &p.MetaKeywords,
 			&p.H1, &p.H2, &p.H3, &p.H4, &p.H5, &p.H6,
-			&p.BodySize, &p.FetchDurationMs, &p.Error, &p.Depth, &p.FoundOn, &p.CrawledAt,
+			&p.WordCount, &p.InternalLinksOut, &p.ExternalLinksOut,
+			&p.ImagesCount, &p.ImagesNoAlt,
+			&p.Lang, &p.OGTitle, &p.OGDescription, &p.OGImage, &p.SchemaTypes,
+			&p.BodySize, &p.FetchDurationMs, &p.ContentEncoding, &p.XRobotsTag,
+			&p.Error, &p.Depth, &p.FoundOn, &p.CrawledAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning page: %w", err)
 		}

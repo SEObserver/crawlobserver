@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -275,6 +276,14 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 			Headers:         result.Headers,
 		}
 
+		// Extract response headers info
+		if enc, ok := result.Headers["Content-Encoding"]; ok {
+			pageRow.ContentEncoding = enc
+		}
+		if xrt, ok := result.Headers["X-Robots-Tag"]; ok {
+			pageRow.XRobotsTag = xrt
+		}
+
 		// Convert redirect chain
 		for _, hop := range result.RedirectChain {
 			pageRow.RedirectChain = append(pageRow.RedirectChain, storage.RedirectHopRow{
@@ -295,18 +304,57 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 				log.Printf("Parse error for %s: %v", result.URL, err)
 			} else {
 				pageRow.Title = pageData.Title
+				pageRow.TitleLength = uint16(len(pageData.Title))
 				pageRow.Canonical = pageData.Canonical
 				pageRow.MetaRobots = pageData.MetaRobots
 				pageRow.MetaDescription = pageData.MetaDescription
+				pageRow.MetaDescLength = uint16(len(pageData.MetaDescription))
+				pageRow.MetaKeywords = pageData.MetaKeywords
 				pageRow.H1 = pageData.H1
 				pageRow.H2 = pageData.H2
 				pageRow.H3 = pageData.H3
 				pageRow.H4 = pageData.H4
 				pageRow.H5 = pageData.H5
 				pageRow.H6 = pageData.H6
+				pageRow.WordCount = uint32(pageData.WordCount)
+				pageRow.Lang = pageData.Lang
+				pageRow.OGTitle = pageData.OGTitle
+				pageRow.OGDescription = pageData.OGDescription
+				pageRow.OGImage = pageData.OGImage
+				pageRow.SchemaTypes = pageData.SchemaTypes
+
+				// Images
+				pageRow.ImagesCount = uint16(len(pageData.Images))
+				noAlt := 0
+				for _, img := range pageData.Images {
+					if img.Alt == "" {
+						noAlt++
+					}
+				}
+				pageRow.ImagesNoAlt = uint16(noAlt)
+
+				// Hreflang
+				for _, h := range pageData.Hreflang {
+					pageRow.Hreflang = append(pageRow.Hreflang, storage.HreflangRow{
+						Lang: h.Lang,
+						URL:  h.URL,
+					})
+				}
+
+				// Canonical self-referencing check
+				if pageData.Canonical != "" {
+					pageRow.CanonicalIsSelf = (pageData.Canonical == result.FinalURL || pageData.Canonical == result.URL)
+				}
+
+				// Indexability
+				pageRow.IsIndexable, pageRow.IndexReason = computeIndexability(
+					uint16(result.StatusCode), pageData.MetaRobots, pageRow.XRobotsTag,
+					pageData.Canonical, result.FinalURL, result.URL,
+				)
 
 				// Process links
 				var linkRows []storage.LinkRow
+				var internalOut, externalOut uint32
 				for _, link := range pageData.Links {
 					linkRows = append(linkRows, storage.LinkRow{
 						CrawlSessionID: e.session.ID,
@@ -319,8 +367,8 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 						CrawledAt:      now,
 					})
 
-					// Add internal links to frontier
 					if link.IsInternal {
+						internalOut++
 						newDepth := result.Depth + 1
 						if e.cfg.Crawler.MaxDepth == 0 || newDepth <= e.cfg.Crawler.MaxDepth {
 							e.front.Add(frontier.CrawlURL{
@@ -330,8 +378,12 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 								FoundOn:  result.URL,
 							})
 						}
+					} else {
+						externalOut++
 					}
 				}
+				pageRow.InternalLinksOut = internalOut
+				pageRow.ExternalLinksOut = externalOut
 
 				if len(linkRows) > 0 {
 					e.buffer.AddLinks(linkRows)
@@ -364,7 +416,42 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 		if pageRow.RedirectChain == nil {
 			pageRow.RedirectChain = []storage.RedirectHopRow{}
 		}
+		if pageRow.Hreflang == nil {
+			pageRow.Hreflang = []storage.HreflangRow{}
+		}
+		if pageRow.SchemaTypes == nil {
+			pageRow.SchemaTypes = []string{}
+		}
 
 		e.buffer.AddPage(pageRow)
 	}
+}
+
+// computeIndexability determines if a page is indexable and why not.
+func computeIndexability(statusCode uint16, metaRobots, xRobotsTag, canonical, finalURL, originalURL string) (bool, string) {
+	// Non-2xx status codes are not indexable
+	if statusCode < 200 || statusCode >= 300 {
+		if statusCode >= 300 && statusCode < 400 {
+			return false, "redirect"
+		}
+		return false, fmt.Sprintf("status_%d", statusCode)
+	}
+
+	// Check meta robots
+	lower := strings.ToLower(metaRobots)
+	if strings.Contains(lower, "noindex") {
+		return false, "meta_noindex"
+	}
+
+	// Check X-Robots-Tag header
+	if strings.Contains(strings.ToLower(xRobotsTag), "noindex") {
+		return false, "x_robots_noindex"
+	}
+
+	// Check canonical pointing elsewhere
+	if canonical != "" && canonical != finalURL && canonical != originalURL {
+		return false, "canonical_mismatch"
+	}
+
+	return true, ""
 }

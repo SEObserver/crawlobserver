@@ -1,21 +1,25 @@
 <script>
-  import { getSessions, getStats, getPages, getLinks, getProgress, startCrawl, stopCrawl, resumeCrawl, deleteSession } from './lib/api.js';
+  import { getSessions, getStats, getPages, getExternalLinks, getInternalLinks, getProgress,
+    startCrawl, stopCrawl, resumeCrawl, deleteSession, subscribeProgress } from './lib/api.js';
 
   let sessions = $state([]);
   let selectedSession = $state(null);
   let stats = $state(null);
   let pages = $state([]);
-  let links = $state([]);
-  let view = $state('pages');
+  let extLinks = $state([]);
+  let intLinks = $state([]);
+  let tab = $state('overview');
   let loading = $state(true);
   let error = $state(null);
 
   // Pagination
   const PAGE_SIZE = 100;
   let pagesOffset = $state(0);
-  let linksOffset = $state(0);
+  let extLinksOffset = $state(0);
+  let intLinksOffset = $state(0);
   let hasMorePages = $state(false);
-  let hasMoreLinks = $state(false);
+  let hasMoreExtLinks = $state(false);
+  let hasMoreIntLinks = $state(false);
 
   // New crawl form
   let showNewCrawl = $state(false);
@@ -27,15 +31,24 @@
   let storeHtml = $state(false);
   let starting = $state(false);
 
-  // Progress polling
+  // Live progress
   let progressInterval = $state(null);
   let liveProgress = $state({});
+  let sseConnections = {};
 
   async function loadSessions() {
     try {
       loading = true;
       sessions = await getSessions() || [];
-      pollRunning();
+      // Connect SSE for running sessions
+      for (const s of sessions) {
+        if (s.is_running && !sseConnections[s.ID]) {
+          sseConnections[s.ID] = subscribeProgress(s.ID,
+            (data) => { liveProgress[s.ID] = data; liveProgress = { ...liveProgress }; },
+            () => { delete sseConnections[s.ID]; loadSessions(); }
+          );
+        }
+      }
     } catch (e) {
       error = e.message;
     } finally {
@@ -43,81 +56,75 @@
     }
   }
 
-  function pollRunning() {
-    if (progressInterval) clearInterval(progressInterval);
-    const hasRunning = sessions.some(s => s.is_running);
-    if (!hasRunning) return;
-
-    progressInterval = setInterval(async () => {
-      const running = sessions.filter(s => s.is_running);
-      if (running.length === 0) {
-        clearInterval(progressInterval);
-        progressInterval = null;
-        loadSessions();
-        return;
-      }
-      for (const s of running) {
-        try {
-          const p = await getProgress(s.ID);
-          liveProgress[s.ID] = p;
-          if (!p.is_running) {
-            loadSessions();
-          }
-        } catch {}
-      }
-      liveProgress = { ...liveProgress };
-    }, 2000);
-  }
-
   async function selectSession(session) {
     selectedSession = session;
-    view = 'pages';
+    tab = 'overview';
     pagesOffset = 0;
-    linksOffset = 0;
+    extLinksOffset = 0;
+    intLinksOffset = 0;
     try {
       stats = await getStats(session.ID);
-      await loadPages();
-      await loadLinks();
+      await loadTabData();
     } catch (e) {
       error = e.message;
     }
   }
 
-  async function loadPages() {
+  async function loadTabData() {
+    if (!selectedSession) return;
+    const id = selectedSession.ID;
     try {
-      const result = await getPages(selectedSession.ID, PAGE_SIZE, pagesOffset);
-      pages = result || [];
-      hasMorePages = pages.length === PAGE_SIZE;
+      if (tab === 'overview' || tab === 'titles' || tab === 'meta' || tab === 'headings' || tab === 'images' || tab === 'indexability' || tab === 'response') {
+        const result = await getPages(id, PAGE_SIZE, pagesOffset);
+        pages = result || [];
+        hasMorePages = pages.length === PAGE_SIZE;
+      } else if (tab === 'internal') {
+        const result = await getInternalLinks(id, PAGE_SIZE, intLinksOffset);
+        intLinks = result || [];
+        hasMoreIntLinks = intLinks.length === PAGE_SIZE;
+      } else if (tab === 'external') {
+        const result = await getExternalLinks(id, PAGE_SIZE, extLinksOffset);
+        extLinks = result || [];
+        hasMoreExtLinks = extLinks.length === PAGE_SIZE;
+      }
     } catch (e) {
       error = e.message;
     }
   }
 
-  async function loadLinks() {
-    try {
-      const result = await getLinks(selectedSession.ID, PAGE_SIZE, linksOffset);
-      links = result || [];
-      hasMoreLinks = links.length === PAGE_SIZE;
-    } catch (e) {
-      error = e.message;
-    }
+  function switchTab(newTab) {
+    tab = newTab;
+    pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
+    loadTabData();
   }
 
-  async function nextPages() {
-    pagesOffset += PAGE_SIZE;
-    await loadPages();
+  async function nextPage() {
+    if (tab === 'internal') { intLinksOffset += PAGE_SIZE; }
+    else if (tab === 'external') { extLinksOffset += PAGE_SIZE; }
+    else { pagesOffset += PAGE_SIZE; }
+    await loadTabData();
   }
-  async function prevPages() {
-    pagesOffset = Math.max(0, pagesOffset - PAGE_SIZE);
-    await loadPages();
+  async function prevPage() {
+    if (tab === 'internal') { intLinksOffset = Math.max(0, intLinksOffset - PAGE_SIZE); }
+    else if (tab === 'external') { extLinksOffset = Math.max(0, extLinksOffset - PAGE_SIZE); }
+    else { pagesOffset = Math.max(0, pagesOffset - PAGE_SIZE); }
+    await loadTabData();
   }
-  async function nextLinks() {
-    linksOffset += PAGE_SIZE;
-    await loadLinks();
+
+  function currentOffset() {
+    if (tab === 'internal') return intLinksOffset;
+    if (tab === 'external') return extLinksOffset;
+    return pagesOffset;
   }
-  async function prevLinks() {
-    linksOffset = Math.max(0, linksOffset - PAGE_SIZE);
-    await loadLinks();
+  function currentData() {
+    if (tab === 'internal') return intLinks;
+    if (tab === 'external') return extLinks;
+    return pages;
+  }
+  function hasMore() {
+    if (tab === 'internal') return hasMoreIntLinks;
+    if (tab === 'external') return hasMoreExtLinks;
+    return hasMorePages;
   }
 
   async function handleStartCrawl() {
@@ -126,13 +133,7 @@
     starting = true;
     error = null;
     try {
-      await startCrawl(seeds, {
-        max_pages: maxPages,
-        max_depth: maxDepth,
-        workers: workers,
-        delay: crawlDelay,
-        store_html: storeHtml,
-      });
+      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml });
       showNewCrawl = false;
       seedInput = '';
       maxPages = 0;
@@ -145,35 +146,11 @@
     }
   }
 
-  async function handleStop(id) {
-    try {
-      await stopCrawl(id);
-      setTimeout(() => loadSessions(), 1000);
-    } catch (e) {
-      error = e.message;
-    }
-  }
-
-  async function handleResume(id) {
-    try {
-      await resumeCrawl(id);
-      setTimeout(() => loadSessions(), 500);
-    } catch (e) {
-      error = e.message;
-    }
-  }
-
+  async function handleStop(id) { try { await stopCrawl(id); setTimeout(() => loadSessions(), 1000); } catch (e) { error = e.message; } }
+  async function handleResume(id) { try { await resumeCrawl(id); setTimeout(() => loadSessions(), 500); } catch (e) { error = e.message; } }
   async function handleDelete(id) {
     if (!confirm('Delete this session and all its data?')) return;
-    try {
-      await deleteSession(id);
-      if (selectedSession && selectedSession.ID === id) {
-        selectedSession = null;
-      }
-      loadSessions();
-    } catch (e) {
-      error = e.message;
-    }
+    try { await deleteSession(id); if (selectedSession?.ID === id) selectedSession = null; loadSessions(); } catch (e) { error = e.message; }
   }
 
   function statusBadge(code) {
@@ -183,20 +160,22 @@
     return 'badge-error';
   }
 
-  function formatDuration(ms) {
-    if (ms < 1000) return `${ms}ms`;
-    return `${(ms / 1000).toFixed(1)}s`;
-  }
+  function fmt(ms) { return ms < 1000 ? `${ms}ms` : `${(ms/1000).toFixed(1)}s`; }
+  function fmtSize(b) { return b < 1024 ? `${b}B` : b < 1048576 ? `${(b/1024).toFixed(1)}KB` : `${(b/1048576).toFixed(1)}MB`; }
+  function fmtN(n) { return new Intl.NumberFormat().format(n); }
+  function trunc(s, n) { return s && s.length > n ? s.slice(0, n) + '...' : (s || '-'); }
 
-  function formatSize(bytes) {
-    if (bytes < 1024) return `${bytes}B`;
-    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)}KB`;
-    return `${(bytes / 1048576).toFixed(1)}MB`;
-  }
-
-  function formatNumber(n) {
-    return new Intl.NumberFormat().format(n);
-  }
+  const TABS = [
+    { id: 'overview', label: 'All Pages' },
+    { id: 'titles', label: 'Titles' },
+    { id: 'meta', label: 'Meta' },
+    { id: 'headings', label: 'H1/H2' },
+    { id: 'images', label: 'Images' },
+    { id: 'indexability', label: 'Indexability' },
+    { id: 'response', label: 'Response' },
+    { id: 'internal', label: 'Internal Links' },
+    { id: 'external', label: 'External Links' },
+  ];
 
   loadSessions();
 </script>
@@ -212,9 +191,7 @@
   {/if}
   <div style="margin-left: auto;">
     {#if !selectedSession}
-      <button class="btn btn-primary" onclick={() => showNewCrawl = !showNewCrawl}>
-        + New Crawl
-      </button>
+      <button class="btn btn-primary" onclick={() => showNewCrawl = !showNewCrawl}>+ New Crawl</button>
     {/if}
   </div>
 </nav>
@@ -223,108 +200,64 @@
   {#if error}
     <div class="card" style="border-color: var(--error); margin-bottom: 16px;">
       <p style="color: var(--error);">{error}</p>
-      <button class="btn" style="margin-top: 8px;" onclick={() => { error = null; }}>
-        Dismiss
-      </button>
+      <button class="btn" style="margin-top: 8px;" onclick={() => error = null}>Dismiss</button>
     </div>
   {/if}
 
   {#if showNewCrawl && !selectedSession}
-    <!-- New Crawl Form -->
     <div class="card" style="margin-bottom: 24px;">
       <h2 style="font-size: 18px; margin-bottom: 16px;">New Crawl</h2>
       <div class="form-grid">
         <div class="form-group" style="grid-column: 1 / -1;">
           <label for="seeds">Seed URLs (one per line)</label>
-          <textarea id="seeds" bind:value={seedInput} rows="3"
-            placeholder="https://example.com"></textarea>
+          <textarea id="seeds" bind:value={seedInput} rows="3" placeholder="https://example.com"></textarea>
         </div>
-        <div class="form-group">
-          <label for="workers">Workers</label>
-          <input id="workers" type="number" bind:value={workers} min="1" max="100" />
-        </div>
-        <div class="form-group">
-          <label for="delay">Delay</label>
-          <input id="delay" type="text" bind:value={crawlDelay} placeholder="1s" />
-        </div>
-        <div class="form-group">
-          <label for="maxpages">Max pages (0 = unlimited)</label>
-          <input id="maxpages" type="number" bind:value={maxPages} min="0" />
-        </div>
-        <div class="form-group">
-          <label for="maxdepth">Max depth (0 = unlimited)</label>
-          <input id="maxdepth" type="number" bind:value={maxDepth} min="0" />
-        </div>
+        <div class="form-group"><label for="workers">Workers</label><input id="workers" type="number" bind:value={workers} min="1" max="100" /></div>
+        <div class="form-group"><label for="delay">Delay</label><input id="delay" type="text" bind:value={crawlDelay} placeholder="1s" /></div>
+        <div class="form-group"><label for="maxpages">Max pages (0 = unlimited)</label><input id="maxpages" type="number" bind:value={maxPages} min="0" /></div>
+        <div class="form-group"><label for="maxdepth">Max depth (0 = unlimited)</label><input id="maxdepth" type="number" bind:value={maxDepth} min="0" /></div>
         <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 24px;">
-          <input id="storehtml" type="checkbox" bind:checked={storeHtml} />
-          <label for="storehtml" style="margin: 0;">Store raw HTML</label>
+          <input id="storehtml" type="checkbox" bind:checked={storeHtml} /><label for="storehtml" style="margin: 0;">Store raw HTML</label>
         </div>
       </div>
       <div style="display: flex; gap: 8px; margin-top: 16px;">
-        <button class="btn btn-primary" onclick={handleStartCrawl} disabled={starting || !seedInput.trim()}>
-          {starting ? 'Starting...' : 'Start Crawl'}
-        </button>
+        <button class="btn btn-primary" onclick={handleStartCrawl} disabled={starting || !seedInput.trim()}>{starting ? 'Starting...' : 'Start Crawl'}</button>
         <button class="btn" onclick={() => showNewCrawl = false}>Cancel</button>
       </div>
     </div>
   {/if}
 
   {#if !selectedSession}
-    <!-- Sessions List -->
     <h1 style="font-size: 24px; margin-bottom: 20px;">Crawl Sessions</h1>
-
     {#if loading}
       <p style="color: var(--text-muted)">Loading...</p>
     {:else if sessions.length === 0}
-      <div class="empty-state">
-        <h2>No crawl sessions yet</h2>
-        <p>Click <strong>+ New Crawl</strong> above to start your first crawl.</p>
-      </div>
+      <div class="empty-state"><h2>No crawl sessions yet</h2><p>Click <strong>+ New Crawl</strong> above to start.</p></div>
     {:else}
       <div class="card">
         <table>
-          <thead>
-            <tr>
-              <th>Seed</th>
-              <th>Status</th>
-              <th>Pages</th>
-              <th>Started</th>
-              <th style="text-align: right;">Actions</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Seed</th><th>Status</th><th>Pages</th><th>Started</th><th style="text-align: right;">Actions</th></tr></thead>
           <tbody>
-            {#each sessions as session}
+            {#each sessions as s}
               <tr>
-                <td style="max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                  {session.SeedURLs?.[0] || '-'}
-                </td>
+                <td class="cell-url">{s.SeedURLs?.[0] || '-'}</td>
                 <td>
-                  {#if session.is_running}
-                    <span class="badge badge-info">
-                      running
-                      {#if liveProgress[session.ID]}
-                        ({formatNumber(liveProgress[session.ID].pages_crawled)} pages,
-                        {formatNumber(liveProgress[session.ID].queue_size)} in queue)
-                      {/if}
-                    </span>
+                  {#if s.is_running}
+                    <span class="badge badge-info">running {#if liveProgress[s.ID]}({fmtN(liveProgress[s.ID].pages_crawled)} pages, {fmtN(liveProgress[s.ID].queue_size)} queued){/if}</span>
                   {:else}
-                    <span class="badge" class:badge-success={session.Status === 'completed'}
-                      class:badge-error={session.Status === 'failed'}
-                      class:badge-warning={session.Status === 'stopped'}>
-                      {session.Status}
-                    </span>
+                    <span class="badge" class:badge-success={s.Status==='completed'} class:badge-error={s.Status==='failed'} class:badge-warning={s.Status==='stopped'}>{s.Status}</span>
                   {/if}
                 </td>
-                <td>{formatNumber(session.PagesCrawled)}</td>
-                <td>{new Date(session.StartedAt).toLocaleString()}</td>
+                <td>{fmtN(s.PagesCrawled)}</td>
+                <td>{new Date(s.StartedAt).toLocaleString()}</td>
                 <td style="text-align: right; white-space: nowrap;">
                   <div style="display: flex; gap: 4px; justify-content: flex-end;">
-                    <button class="btn btn-sm" onclick={() => selectSession(session)}>View</button>
-                    {#if session.is_running}
-                      <button class="btn btn-sm btn-danger" onclick={() => handleStop(session.ID)}>Stop</button>
+                    <button class="btn btn-sm" onclick={() => selectSession(s)}>View</button>
+                    {#if s.is_running}
+                      <button class="btn btn-sm btn-danger" onclick={() => handleStop(s.ID)}>Stop</button>
                     {:else}
-                      <button class="btn btn-sm" onclick={() => handleResume(session.ID)}>Resume</button>
-                      <button class="btn btn-sm btn-danger" onclick={() => handleDelete(session.ID)}>Delete</button>
+                      <button class="btn btn-sm" onclick={() => handleResume(s.ID)}>Resume</button>
+                      <button class="btn btn-sm btn-danger" onclick={() => handleDelete(s.ID)}>Delete</button>
                     {/if}
                   </div>
                 </td>
@@ -334,133 +267,195 @@
         </table>
       </div>
     {/if}
+
   {:else}
     <!-- Session Detail -->
     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
       {#if selectedSession.is_running}
-        <button class="btn btn-danger" onclick={() => handleStop(selectedSession.ID)}>Stop Crawl</button>
+        <button class="btn btn-danger" onclick={() => handleStop(selectedSession.ID)}>Stop</button>
       {:else}
-        <button class="btn" onclick={() => handleResume(selectedSession.ID)}>Resume Crawl</button>
-        <button class="btn btn-danger" onclick={() => handleDelete(selectedSession.ID)}>Delete Session</button>
+        <button class="btn" onclick={() => handleResume(selectedSession.ID)}>Resume</button>
+        <button class="btn btn-danger" onclick={() => handleDelete(selectedSession.ID)}>Delete</button>
       {/if}
-      <button class="btn" onclick={() => { selectSession(selectedSession); }}>Refresh</button>
+      <button class="btn" onclick={() => selectSession(selectedSession)}>Refresh</button>
     </div>
 
     {#if stats}
       <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-value">{formatNumber(stats.total_pages)}</div>
-          <div class="stat-label">Pages crawled</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{formatNumber(stats.internal_links)}</div>
-          <div class="stat-label">Internal links</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{formatNumber(stats.external_links)}</div>
-          <div class="stat-label">External links</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{formatDuration(Math.round(stats.avg_fetch_ms))}</div>
-          <div class="stat-label">Avg fetch time</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" style="color: var(--error)">{formatNumber(stats.error_count)}</div>
-          <div class="stat-label">Errors</div>
-        </div>
+        <div class="stat-card"><div class="stat-value">{fmtN(stats.total_pages)}</div><div class="stat-label">Pages</div></div>
+        <div class="stat-card"><div class="stat-value">{fmtN(stats.internal_links)}</div><div class="stat-label">Internal links</div></div>
+        <div class="stat-card"><div class="stat-value">{fmtN(stats.external_links)}</div><div class="stat-label">External links</div></div>
+        <div class="stat-card"><div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">Avg fetch</div></div>
+        <div class="stat-card"><div class="stat-value" style="color: var(--error)">{fmtN(stats.error_count)}</div><div class="stat-label">Errors</div></div>
       </div>
     {/if}
 
-    <!-- Tabs -->
-    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-      <button class="btn" class:btn-primary={view === 'pages'} onclick={() => { view = 'pages'; pagesOffset = 0; loadPages(); }}>
-        Pages
-      </button>
-      <button class="btn" class:btn-primary={view === 'links'} onclick={() => { view = 'links'; linksOffset = 0; loadLinks(); }}>
-        External Links
-      </button>
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      {#each TABS as t}
+        <button class="tab" class:tab-active={tab === t.id} onclick={() => switchTab(t.id)}>{t.label}</button>
+      {/each}
     </div>
 
-    {#if view === 'pages'}
-      <div class="card">
+    <div class="card" style="border-top-left-radius: 0; border-top-right-radius: 0;">
+
+      {#if tab === 'overview'}
         <table>
-          <thead>
-            <tr>
-              <th>URL</th>
-              <th>Status</th>
-              <th>Title</th>
-              <th>Size</th>
-              <th>Time</th>
-              <th>Depth</th>
-            </tr>
-          </thead>
+          <thead><tr><th>URL</th><th>Status</th><th>Title</th><th>Words</th><th>Int Out</th><th>Ext Out</th><th>Size</th><th>Time</th><th>Depth</th></tr></thead>
           <tbody>
-            {#each pages as page}
+            {#each pages as p}
               <tr>
-                <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                  <a href={page.URL} target="_blank" rel="noopener">{page.URL}</a>
-                </td>
-                <td><span class="badge {statusBadge(page.StatusCode)}">{page.StatusCode}</span></td>
-                <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                  {page.Title || '-'}
-                </td>
-                <td>{formatSize(page.BodySize)}</td>
-                <td>{formatDuration(page.FetchDurationMs)}</td>
-                <td>{page.Depth}</td>
+                <td class="cell-url"><a href={p.URL} target="_blank" rel="noopener">{p.URL}</a></td>
+                <td><span class="badge {statusBadge(p.StatusCode)}">{p.StatusCode}</span></td>
+                <td class="cell-title">{trunc(p.Title, 60)}</td>
+                <td>{fmtN(p.WordCount)}</td>
+                <td>{fmtN(p.InternalLinksOut)}</td>
+                <td>{fmtN(p.ExternalLinksOut)}</td>
+                <td>{fmtSize(p.BodySize)}</td>
+                <td>{fmt(p.FetchDurationMs)}</td>
+                <td>{p.Depth}</td>
               </tr>
             {/each}
           </tbody>
         </table>
 
-        <!-- Pagination -->
-        <div class="pagination">
-          <button class="btn btn-sm" onclick={prevPages} disabled={pagesOffset === 0}>Previous</button>
-          <span class="pagination-info">
-            {pagesOffset + 1}–{pagesOffset + pages.length}
-            {#if stats} of {formatNumber(stats.total_pages)}{/if}
-          </span>
-          <button class="btn btn-sm" onclick={nextPages} disabled={!hasMorePages}>Next</button>
-        </div>
-      </div>
-    {:else}
-      <div class="card">
+      {:else if tab === 'titles'}
         <table>
-          <thead>
-            <tr>
-              <th>Source</th>
-              <th>Target</th>
-              <th>Anchor</th>
-              <th>Rel</th>
-            </tr>
-          </thead>
+          <thead><tr><th>URL</th><th>Title</th><th>Length</th><th>H1</th></tr></thead>
           <tbody>
-            {#each links as link}
+            {#each pages as p}
               <tr>
-                <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                  {link.SourceURL}
-                </td>
-                <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                  <a href={link.TargetURL} target="_blank" rel="noopener">{link.TargetURL}</a>
-                </td>
-                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                  {link.AnchorText || '-'}
-                </td>
-                <td>{link.Rel || '-'}</td>
+                <td class="cell-url"><a href={p.URL} target="_blank" rel="noopener">{p.URL}</a></td>
+                <td class="cell-title" class:cell-warn={p.TitleLength === 0 || p.TitleLength > 60}>{p.Title || '-'}</td>
+                <td class:cell-warn={p.TitleLength === 0 || p.TitleLength > 60}>{p.TitleLength}</td>
+                <td class="cell-title">{p.H1?.[0] || '-'}</td>
               </tr>
             {/each}
           </tbody>
         </table>
 
-        <!-- Pagination -->
+      {:else if tab === 'meta'}
+        <table>
+          <thead><tr><th>URL</th><th>Meta Description</th><th>Length</th><th>Meta Keywords</th><th>OG Title</th></tr></thead>
+          <tbody>
+            {#each pages as p}
+              <tr>
+                <td class="cell-url"><a href={p.URL} target="_blank" rel="noopener">{p.URL}</a></td>
+                <td class="cell-title" class:cell-warn={p.MetaDescLength === 0 || p.MetaDescLength > 160}>{trunc(p.MetaDescription, 80)}</td>
+                <td class:cell-warn={p.MetaDescLength === 0 || p.MetaDescLength > 160}>{p.MetaDescLength}</td>
+                <td class="cell-title">{trunc(p.MetaKeywords, 60)}</td>
+                <td class="cell-title">{trunc(p.OGTitle, 60)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+
+      {:else if tab === 'headings'}
+        <table>
+          <thead><tr><th>URL</th><th>H1</th><th>H1 Count</th><th>H2</th><th>H2 Count</th></tr></thead>
+          <tbody>
+            {#each pages as p}
+              <tr>
+                <td class="cell-url"><a href={p.URL} target="_blank" rel="noopener">{p.URL}</a></td>
+                <td class="cell-title" class:cell-warn={!p.H1?.length || p.H1.length > 1}>{p.H1?.[0] || '-'}</td>
+                <td class:cell-warn={!p.H1?.length || p.H1.length > 1}>{p.H1?.length || 0}</td>
+                <td class="cell-title">{p.H2?.[0] || '-'}</td>
+                <td>{p.H2?.length || 0}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+
+      {:else if tab === 'images'}
+        <table>
+          <thead><tr><th>URL</th><th>Images</th><th>Without Alt</th><th>Title</th><th>Words</th></tr></thead>
+          <tbody>
+            {#each pages as p}
+              <tr>
+                <td class="cell-url"><a href={p.URL} target="_blank" rel="noopener">{p.URL}</a></td>
+                <td>{p.ImagesCount}</td>
+                <td class:cell-warn={p.ImagesNoAlt > 0}>{p.ImagesNoAlt}</td>
+                <td class="cell-title">{trunc(p.Title, 50)}</td>
+                <td>{fmtN(p.WordCount)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+
+      {:else if tab === 'indexability'}
+        <table>
+          <thead><tr><th>URL</th><th>Indexable</th><th>Reason</th><th>Meta Robots</th><th>Canonical</th><th>Self</th></tr></thead>
+          <tbody>
+            {#each pages as p}
+              <tr>
+                <td class="cell-url"><a href={p.URL} target="_blank" rel="noopener">{p.URL}</a></td>
+                <td><span class="badge" class:badge-success={p.IsIndexable} class:badge-error={!p.IsIndexable}>{p.IsIndexable ? 'Yes' : 'No'}</span></td>
+                <td>{p.IndexReason || '-'}</td>
+                <td>{p.MetaRobots || '-'}</td>
+                <td class="cell-url">{trunc(p.Canonical, 60)}</td>
+                <td>{p.CanonicalIsSelf ? 'Yes' : '-'}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+
+      {:else if tab === 'response'}
+        <table>
+          <thead><tr><th>URL</th><th>Status</th><th>Content Type</th><th>Encoding</th><th>Size</th><th>Time</th><th>Redirects</th></tr></thead>
+          <tbody>
+            {#each pages as p}
+              <tr>
+                <td class="cell-url"><a href={p.URL} target="_blank" rel="noopener">{p.URL}</a></td>
+                <td><span class="badge {statusBadge(p.StatusCode)}">{p.StatusCode}</span></td>
+                <td>{p.ContentType || '-'}</td>
+                <td>{p.ContentEncoding || '-'}</td>
+                <td>{fmtSize(p.BodySize)}</td>
+                <td>{fmt(p.FetchDurationMs)}</td>
+                <td>{p.FinalURL !== p.URL ? p.FinalURL : '-'}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+
+      {:else if tab === 'internal'}
+        <table>
+          <thead><tr><th>Source</th><th>Target</th><th>Anchor Text</th><th>Tag</th></tr></thead>
+          <tbody>
+            {#each intLinks as l}
+              <tr>
+                <td class="cell-url">{l.SourceURL}</td>
+                <td class="cell-url"><a href={l.TargetURL} target="_blank" rel="noopener">{l.TargetURL}</a></td>
+                <td class="cell-title">{l.AnchorText || '-'}</td>
+                <td>{l.Tag}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+
+      {:else if tab === 'external'}
+        <table>
+          <thead><tr><th>Source</th><th>Target</th><th>Anchor Text</th><th>Rel</th></tr></thead>
+          <tbody>
+            {#each extLinks as l}
+              <tr>
+                <td class="cell-url">{l.SourceURL}</td>
+                <td class="cell-url"><a href={l.TargetURL} target="_blank" rel="noopener">{l.TargetURL}</a></td>
+                <td class="cell-title">{l.AnchorText || '-'}</td>
+                <td>{l.Rel || '-'}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
+
+      <!-- Pagination -->
+      {#if currentData().length > 0}
         <div class="pagination">
-          <button class="btn btn-sm" onclick={prevLinks} disabled={linksOffset === 0}>Previous</button>
-          <span class="pagination-info">
-            {linksOffset + 1}–{linksOffset + links.length}
-            {#if stats} of {formatNumber(stats.external_links)}{/if}
-          </span>
-          <button class="btn btn-sm" onclick={nextLinks} disabled={!hasMoreLinks}>Next</button>
+          <button class="btn btn-sm" onclick={prevPage} disabled={currentOffset() === 0}>Previous</button>
+          <span class="pagination-info">{currentOffset() + 1}–{currentOffset() + currentData().length}</span>
+          <button class="btn btn-sm" onclick={nextPage} disabled={!hasMore()}>Next</button>
         </div>
-      </div>
-    {/if}
+      {/if}
+    </div>
   {/if}
 </div>

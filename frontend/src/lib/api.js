@@ -17,8 +17,12 @@ export async function getPages(sessionId, limit = 100, offset = 0) {
   return fetchJSON(`/sessions/${sessionId}/pages?limit=${limit}&offset=${offset}`);
 }
 
-export async function getLinks(sessionId, limit = 100, offset = 0) {
+export async function getExternalLinks(sessionId, limit = 100, offset = 0) {
   return fetchJSON(`/sessions/${sessionId}/links?limit=${limit}&offset=${offset}`);
+}
+
+export async function getInternalLinks(sessionId, limit = 100, offset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/internal-links?limit=${limit}&offset=${offset}`);
 }
 
 export async function getStats(sessionId) {
@@ -51,4 +55,23 @@ export async function resumeCrawl(sessionId) {
 
 export async function deleteSession(sessionId) {
   return fetchJSON(`/sessions/${sessionId}`, { method: 'DELETE' });
+}
+
+// SSE for live progress
+export function subscribeProgress(sessionId, onMessage, onDone) {
+  const source = new EventSource(`${BASE}/sessions/${sessionId}/events`);
+  source.onmessage = (e) => {
+    try {
+      onMessage(JSON.parse(e.data));
+    } catch {}
+  };
+  source.addEventListener('done', () => {
+    source.close();
+    if (onDone) onDone();
+  });
+  source.onerror = () => {
+    source.close();
+    if (onDone) onDone();
+  };
+  return source;
 }

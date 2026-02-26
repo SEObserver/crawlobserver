@@ -45,8 +45,10 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/sessions", s.handleSessions)
 	mux.HandleFunc("GET /api/sessions/{id}/pages", s.handlePages)
 	mux.HandleFunc("GET /api/sessions/{id}/links", s.handleLinks)
+	mux.HandleFunc("GET /api/sessions/{id}/internal-links", s.handleInternalLinks)
 	mux.HandleFunc("GET /api/sessions/{id}/stats", s.handleStats)
 	mux.HandleFunc("GET /api/sessions/{id}/progress", s.handleProgress)
+	mux.HandleFunc("GET /api/sessions/{id}/events", s.handleSSE)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 
 	// API routes - write
@@ -154,6 +156,53 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, stats)
+}
+
+func (s *Server) handleInternalLinks(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	limit := queryInt(r, "limit", 100)
+	offset := queryInt(r, "offset", 0)
+	links, err := s.store.InternalLinksPaginated(r.Context(), sessionID, limit, offset)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, links)
+}
+
+func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "streaming not supported")
+		return
+	}
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		default:
+		}
+
+		pages, queue, running := s.manager.Progress(sessionID)
+		data := fmt.Sprintf(`{"pages_crawled":%d,"queue_size":%d,"is_running":%t}`, pages, queue, running)
+		fmt.Fprintf(w, "data: %s\n\n", data)
+		flusher.Flush()
+
+		if !running {
+			fmt.Fprintf(w, "event: done\ndata: {}\n\n")
+			flusher.Flush()
+			return
+		}
+
+		time.Sleep(1 * time.Second)
+	}
 }
 
 func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
