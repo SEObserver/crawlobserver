@@ -1,0 +1,30 @@
+# Binaries
+seocrawler
+/cmd/seocrawler/seocrawler
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test
+*.test
+*.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config with secrets
+config.yaml
+!config.example.yaml
+
+# Vendor (optional)
+/vendor/

@@ -1,0 +1,35 @@
+## SEOCrawler configuration
+
+# Crawler settings
+crawler:
+  # Number of concurrent fetch workers
+  workers: 10
+  # Default delay between requests to the same host
+  delay: 1s
+  # Maximum number of pages to crawl (0 = unlimited)
+  max_pages: 0
+  # Maximum crawl depth (0 = unlimited)
+  max_depth: 0
+  # Request timeout
+  timeout: 30s
+  # User-Agent string
+  user_agent: "SEOCrawler/1.0"
+  # Maximum response body size
+  max_body_size: 10485760  # 10MB
+  # Respect robots.txt
+  respect_robots: true
+
+# ClickHouse connection
+clickhouse:
+  host: localhost
+  port: 9000
+  database: seocrawler
+  username: default
+  password: ""
+
+# Storage buffer settings
+storage:
+  # Flush buffer after this many rows
+  batch_size: 1000
+  # Flush buffer after this duration
+  flush_interval: 5s
