@@ -146,7 +146,7 @@ func (s *Store) InsertLinks(ctx context.Context, links []LinkRow) error {
 func (s *Store) ListSessions(ctx context.Context) ([]CrawlSession, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent
-		FROM seocrawler.crawl_sessions
+		FROM seocrawler.crawl_sessions FINAL
 		ORDER BY started_at DESC
 	`)
 	if err != nil {
@@ -167,6 +167,25 @@ func (s *Store) ListSessions(ctx context.Context) ([]CrawlSession, error) {
 		sessions = append(sessions, sess)
 	}
 	return sessions, nil
+}
+
+// GetSession retrieves a single crawl session by ID.
+func (s *Store) GetSession(sessionID string) (*CrawlSession, error) {
+	row := s.conn.QueryRow(context.Background(), `
+		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent
+		FROM seocrawler.crawl_sessions FINAL
+		WHERE id = ?
+	`, sessionID)
+
+	var sess CrawlSession
+	if err := row.Scan(
+		&sess.ID, &sess.StartedAt, &sess.FinishedAt,
+		&sess.Status, &sess.SeedURLs, &sess.Config,
+		&sess.PagesCrawled, &sess.UserAgent,
+	); err != nil {
+		return nil, fmt.Errorf("querying session %s: %w", sessionID, err)
+	}
+	return &sess, nil
 }
 
 // ExternalLinks retrieves external links for a given session (or all sessions).

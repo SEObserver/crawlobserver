@@ -204,8 +204,32 @@
     }
   }
 
-  async function handleStop(id) { try { await stopCrawl(id); setTimeout(() => loadSessions(), 1000); } catch (e) { error = e.message; } }
-  async function handleResume(id) { try { await resumeCrawl(id); setTimeout(() => loadSessions(), 500); } catch (e) { error = e.message; } }
+  async function handleStop(id) {
+    try {
+      await stopCrawl(id);
+      // Redirect to session detail after stopping
+      setTimeout(async () => {
+        await loadSessions();
+        const sess = sessions.find(s => s.ID === id);
+        if (sess && selectedSession?.ID !== id) {
+          selectSession(sess);
+        }
+      }, 1000);
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleResume(id) {
+    try {
+      await resumeCrawl(id);
+      // Reload sessions and navigate to the resumed session
+      await loadSessions();
+      const sess = sessions.find(s => s.ID === id);
+      if (sess) {
+        await selectSession(sess);
+      }
+    } catch (e) { error = e.message; }
+  }
+
   async function handleDelete(id) {
     if (!confirm('Delete this session and all its data?')) return;
     try {

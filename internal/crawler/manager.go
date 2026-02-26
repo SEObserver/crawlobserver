@@ -141,11 +141,11 @@ func (m *Manager) ResumeCrawl(sessionID string) (string, error) {
 	}
 
 	// Get uncrawled URLs from storage
-	seeds, err := m.store.UncrawledURLs(sessionID)
+	uncrawled, err := m.store.UncrawledURLs(sessionID)
 	if err != nil {
 		return "", fmt.Errorf("fetching uncrawled URLs: %w", err)
 	}
-	if len(seeds) == 0 {
+	if len(uncrawled) == 0 {
 		return "", fmt.Errorf("no uncrawled URLs found for session %s", sessionID)
 	}
 
@@ -155,13 +155,20 @@ func (m *Manager) ResumeCrawl(sessionID string) (string, error) {
 		return "", fmt.Errorf("fetching crawled URLs: %w", err)
 	}
 
+	// Get original session info to preserve seed URLs
+	originalSession, err := m.store.GetSession(sessionID)
+	if err != nil {
+		return "", fmt.Errorf("fetching original session: %w", err)
+	}
+
 	log.Printf("Resuming session %s with %d uncrawled URLs (%d already crawled)",
-		sessionID, len(seeds), len(crawled))
+		sessionID, len(uncrawled), len(crawled))
 
 	cfg := *m.cfg
 	engine := NewEngine(&cfg, m.store)
-	engine.SessionID(seeds)
-	engine.SetSessionID(sessionID)
+
+	// Restore the original session with its seed URLs, not the uncrawled URLs
+	engine.ResumeSession(sessionID, originalSession.SeedURLs)
 
 	// Pre-seed dedup with already crawled URLs
 	engine.PreSeedDedup(crawled)
@@ -171,7 +178,7 @@ func (m *Manager) ResumeCrawl(sessionID string) (string, error) {
 	m.mu.Unlock()
 
 	go func() {
-		if err := engine.Run(seeds); err != nil {
+		if err := engine.Run(uncrawled); err != nil {
 			log.Printf("Resumed crawl %s failed: %v", sessionID, err)
 		}
 		m.mu.Lock()

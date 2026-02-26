@@ -61,6 +61,12 @@ func (e *Engine) SetSessionID(id string) {
 	}
 }
 
+// ResumeSession prepares the engine to resume an existing session.
+func (e *Engine) ResumeSession(id string, originalSeeds []string) {
+	e.session = NewSession(originalSeeds, e.cfg)
+	e.session.ID = id
+}
+
 // PagesCrawled returns the current number of pages crawled.
 func (e *Engine) PagesCrawled() int64 {
 	return e.pagesCrawled.Load()
