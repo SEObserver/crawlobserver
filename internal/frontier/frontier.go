@@ -13,7 +13,8 @@ type CrawlURL struct {
 	Priority int // lower = higher priority
 	Depth    int
 	FoundOn  string
-	index    int // heap index
+	index    int    // heap index
+	host     string // cached host, set by Frontier.Add
 }
 
 // Frontier manages the URL queue with priority, dedup, and per-host politeness.
@@ -22,6 +23,7 @@ type Frontier struct {
 	pq        priorityQueue
 	urldb     *URLDb
 	hostQueue *HostQueue
+	hostCount map[string]int // number of URLs per host in the queue
 	closed    bool
 }
 
@@ -30,6 +32,7 @@ func New(delay time.Duration) *Frontier {
 	f := &Frontier{
 		urldb:     NewURLDb(),
 		hostQueue: NewHostQueue(delay),
+		hostCount: make(map[string]int),
 	}
 	heap.Init(&f.pq)
 	return f
@@ -49,6 +52,8 @@ func (f *Frontier) Add(crawlURL CrawlURL) bool {
 		return false
 	}
 
+	crawlURL.host = extractHost(crawlURL.URL)
+	f.hostCount[crawlURL.host]++
 	heap.Push(&f.pq, &crawlURL)
 	return true
 }
@@ -63,14 +68,27 @@ func (f *Frontier) Next() *CrawlURL {
 		return nil
 	}
 
-	// Try to find a URL whose host is ready
-	// Look through top items for one that can be fetched
-	for i := 0; i < f.pq.Len(); i++ {
-		item := f.pq[i]
-		host := extractHost(item.URL)
+	// Check which hosts in the queue are ready — O(distinct hosts) instead of O(queue size)
+	readySet := make(map[string]bool, len(f.hostCount))
+	for host := range f.hostCount {
 		if f.hostQueue.CanFetch(host) {
+			readySet[host] = true
+		}
+	}
+	if len(readySet) == 0 {
+		return nil
+	}
+
+	// Find the highest-priority URL from a ready host
+	for i := 0; i < f.pq.Len(); i++ {
+		if readySet[f.pq[i].host] {
+			item := f.pq[i]
 			heap.Remove(&f.pq, i)
-			f.hostQueue.RecordFetch(host)
+			f.hostQueue.RecordFetch(item.host)
+			f.hostCount[item.host]--
+			if f.hostCount[item.host] == 0 {
+				delete(f.hostCount, item.host)
+			}
 			return item
 		}
 	}
