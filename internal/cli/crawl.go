@@ -47,6 +47,8 @@ func runCrawl(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
+	config.ApplyResourceLimits(cfg)
+
 	// Collect seed URLs
 	var seeds []string
 

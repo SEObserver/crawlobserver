@@ -11,6 +11,8 @@ type Config struct {
 	Crawler    CrawlerConfig    `mapstructure:"crawler"`
 	ClickHouse ClickHouseConfig `mapstructure:"clickhouse"`
 	Storage    StorageConfig    `mapstructure:"storage"`
+	Resources  ResourcesConfig  `mapstructure:"resources"`
+	Server     ServerConfig     `mapstructure:"server"`
 }
 
 type CrawlerConfig struct {
@@ -43,6 +45,18 @@ type StorageConfig struct {
 	FlushInterval time.Duration `mapstructure:"flush_interval"`
 }
 
+type ResourcesConfig struct {
+	MaxMemoryMB int `mapstructure:"max_memory_mb"` // soft limit, 0 = auto (75% of system RAM)
+	MaxCPU      int `mapstructure:"max_cpu"`        // GOMAXPROCS, 0 = all available
+}
+
+type ServerConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+}
+
 func SetDefaults() {
 	viper.SetDefault("crawler.workers", 10)
 	viper.SetDefault("crawler.delay", "1s")
@@ -62,6 +76,14 @@ func SetDefaults() {
 
 	viper.SetDefault("storage.batch_size", 1000)
 	viper.SetDefault("storage.flush_interval", "5s")
+
+	viper.SetDefault("resources.max_memory_mb", 0) // auto
+	viper.SetDefault("resources.max_cpu", 0)        // all available
+
+	viper.SetDefault("server.host", "127.0.0.1")
+	viper.SetDefault("server.port", 8899)
+	viper.SetDefault("server.username", "admin")
+	viper.SetDefault("server.password", "seocrawler")
 }
 
 func Load() (*Config, error) {

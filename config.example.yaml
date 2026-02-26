@@ -35,3 +35,18 @@ storage:
   batch_size: 1000
   # Flush buffer after this duration
   flush_interval: 5s
+
+# Resource limits
+resources:
+  # Memory soft limit in MB (0 = auto, based on CPU count)
+  max_memory_mb: 0
+  # Max CPU cores / GOMAXPROCS (0 = all available)
+  max_cpu: 0
+
+# Web server settings
+server:
+  host: 127.0.0.1
+  port: 8899
+  # Basic auth credentials (CHANGE THESE before exposing to the internet)
+  username: admin
+  password: seocrawler
