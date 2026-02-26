@@ -3,6 +3,8 @@ package storage
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -223,20 +225,20 @@ func (s *Store) ExternalLinks(ctx context.Context, sessionID string) ([]LinkRow,
 }
 
 // InternalLinksPaginated retrieves internal links with pagination and optional filters.
-func (s *Store) InternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, sourceFilter, targetFilter string) ([]LinkRow, error) {
+func (s *Store) InternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]LinkRow, error) {
 	query := `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
 		FROM seocrawler.links
 		WHERE is_internal = true AND crawl_session_id = ?`
 	args := []interface{}{sessionID}
 
-	if sourceFilter != "" {
-		query += ` AND source_url LIKE ?`
-		args = append(args, "%"+sourceFilter+"%")
+	whereExtra, filterArgs, err := BuildWhereClause(filters)
+	if err != nil {
+		return nil, fmt.Errorf("building filter clause: %w", err)
 	}
-	if targetFilter != "" {
-		query += ` AND target_url LIKE ?`
-		args = append(args, "%"+targetFilter+"%")
+	if whereExtra != "" {
+		query += " AND " + whereExtra
+		args = append(args, filterArgs...)
 	}
 
 	query += ` ORDER BY source_url, target_url LIMIT ? OFFSET ?`
@@ -262,8 +264,8 @@ func (s *Store) InternalLinksPaginated(ctx context.Context, sessionID string, li
 	return links, nil
 }
 
-// ExternalLinksPaginated retrieves external links with pagination.
-func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int) ([]LinkRow, error) {
+// ExternalLinksPaginated retrieves external links with pagination and optional filters.
+func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]LinkRow, error) {
 	query := `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
 		FROM seocrawler.links
@@ -274,6 +276,16 @@ func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, li
 		query += ` AND crawl_session_id = ?`
 		args = append(args, sessionID)
 	}
+
+	whereExtra, filterArgs, err := BuildWhereClause(filters)
+	if err != nil {
+		return nil, fmt.Errorf("building filter clause: %w", err)
+	}
+	if whereExtra != "" {
+		query += " AND " + whereExtra
+		args = append(args, filterArgs...)
+	}
+
 	query += ` ORDER BY source_url, target_url LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 
@@ -297,9 +309,9 @@ func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, li
 	return links, nil
 }
 
-// ListPages retrieves pages for a session with pagination.
-func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset int) ([]PageRow, error) {
-	rows, err := s.conn.Query(ctx, `
+// ListPages retrieves pages for a session with pagination and optional filters.
+func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]PageRow, error) {
+	query := `
 		SELECT crawl_session_id, url, final_url, status_code, content_type,
 			title, title_length, canonical, canonical_is_self, is_indexable, index_reason,
 			meta_robots, meta_description, meta_desc_length, meta_keywords,
@@ -310,10 +322,22 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 			body_size, fetch_duration_ms, content_encoding, x_robots_tag,
 			error, depth, found_on, crawled_at
 		FROM seocrawler.pages
-		WHERE crawl_session_id = ?
-		ORDER BY crawled_at DESC
-		LIMIT ? OFFSET ?
-	`, sessionID, limit, offset)
+		WHERE crawl_session_id = ?`
+	args := []interface{}{sessionID}
+
+	whereExtra, filterArgs, err := BuildWhereClause(filters)
+	if err != nil {
+		return nil, fmt.Errorf("building filter clause: %w", err)
+	}
+	if whereExtra != "" {
+		query += " AND " + whereExtra
+		args = append(args, filterArgs...)
+	}
+
+	query += ` ORDER BY crawled_at DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := s.conn.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("querying pages: %w", err)
 	}
@@ -342,19 +366,23 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 
 // SessionStats holds aggregate stats for a crawl session.
 type SessionStats struct {
-	TotalPages     uint64  `json:"total_pages"`
-	TotalLinks     uint64  `json:"total_links"`
-	InternalLinks  uint64  `json:"internal_links"`
-	ExternalLinks  uint64  `json:"external_links"`
-	AvgFetchMs     float64 `json:"avg_fetch_ms"`
-	ErrorCount     uint64  `json:"error_count"`
-	StatusCodes    map[uint16]uint64 `json:"status_codes"`
+	TotalPages        uint64            `json:"total_pages"`
+	TotalLinks        uint64            `json:"total_links"`
+	InternalLinks     uint64            `json:"internal_links"`
+	ExternalLinks     uint64            `json:"external_links"`
+	AvgFetchMs        float64           `json:"avg_fetch_ms"`
+	ErrorCount        uint64            `json:"error_count"`
+	StatusCodes       map[uint16]uint64 `json:"status_codes"`
+	DepthDistribution map[uint16]uint64 `json:"depth_distribution"`
+	PagesPerSecond    float64           `json:"pages_per_second"`
+	CrawlDurationSec  float64           `json:"crawl_duration_sec"`
 }
 
 // SessionStats retrieves aggregate statistics for a crawl session.
 func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionStats, error) {
 	stats := &SessionStats{
-		StatusCodes: make(map[uint16]uint64),
+		StatusCodes:       make(map[uint16]uint64),
+		DepthDistribution: make(map[uint16]uint64),
 	}
 
 	// Page stats
@@ -388,6 +416,38 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 			return nil, err
 		}
 		stats.StatusCodes[code] = cnt
+	}
+
+	// Depth distribution
+	depthRows, err := s.conn.Query(ctx, `
+		SELECT depth, count() FROM seocrawler.pages
+		WHERE crawl_session_id = ? GROUP BY depth ORDER BY depth`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying depth distribution: %w", err)
+	}
+	defer depthRows.Close()
+	for depthRows.Next() {
+		var depth uint16
+		var cnt uint64
+		if err := depthRows.Scan(&depth, &cnt); err != nil {
+			return nil, err
+		}
+		stats.DepthDistribution[depth] = cnt
+	}
+
+	// Crawl duration and pages/sec
+	var startedAt, finishedAt time.Time
+	durRow := s.conn.QueryRow(ctx, `
+		SELECT started_at, finished_at
+		FROM seocrawler.crawl_sessions FINAL
+		WHERE id = ?`, sessionID)
+	if err := durRow.Scan(&startedAt, &finishedAt); err == nil {
+		if !finishedAt.IsZero() && finishedAt.After(startedAt) {
+			stats.CrawlDurationSec = finishedAt.Sub(startedAt).Seconds()
+		}
+		if stats.CrawlDurationSec > 0 {
+			stats.PagesPerSecond = float64(stats.TotalPages) / stats.CrawlDurationSec
+		}
 	}
 
 	return stats, nil
@@ -591,6 +651,148 @@ func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string) ([]Link
 		links = append(links, l)
 	}
 	return links, nil
+}
+
+// RecomputeDepths runs a BFS from seed URLs and updates depth/found_on in the pages table.
+func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs []string) error {
+	// 1. Get all crawled URLs
+	crawledRows, err := s.conn.Query(ctx, `
+		SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+	if err != nil {
+		return fmt.Errorf("querying crawled URLs: %w", err)
+	}
+	defer crawledRows.Close()
+
+	crawledSet := make(map[string]bool)
+	for crawledRows.Next() {
+		var u string
+		if err := crawledRows.Scan(&u); err != nil {
+			return fmt.Errorf("scanning crawled URL: %w", err)
+		}
+		crawledSet[u] = true
+	}
+
+	if len(crawledSet) == 0 {
+		return nil
+	}
+
+	// 2. Get all internal links as adjacency list
+	linkRows, err := s.conn.Query(ctx, `
+		SELECT source_url, target_url FROM seocrawler.links
+		WHERE crawl_session_id = ? AND is_internal = true`, sessionID)
+	if err != nil {
+		return fmt.Errorf("querying links: %w", err)
+	}
+	defer linkRows.Close()
+
+	adj := make(map[string][]string)
+	for linkRows.Next() {
+		var src, tgt string
+		if err := linkRows.Scan(&src, &tgt); err != nil {
+			return fmt.Errorf("scanning link: %w", err)
+		}
+		adj[src] = append(adj[src], tgt)
+	}
+
+	// 3. BFS from seed URLs
+	depths := make(map[string]uint16)
+	foundOn := make(map[string]string)
+	type bfsItem struct {
+		url   string
+		depth uint16
+	}
+	var queue []bfsItem
+
+	for _, seed := range seedURLs {
+		if crawledSet[seed] {
+			if _, visited := depths[seed]; !visited {
+				depths[seed] = 0
+				foundOn[seed] = ""
+				queue = append(queue, bfsItem{url: seed, depth: 0})
+			}
+		}
+	}
+
+	for len(queue) > 0 {
+		item := queue[0]
+		queue = queue[1:]
+
+		for _, target := range adj[item.url] {
+			if _, visited := depths[target]; !visited {
+				newDepth := item.depth + 1
+				depths[target] = newDepth
+				foundOn[target] = item.url
+				if crawledSet[target] {
+					queue = append(queue, bfsItem{url: target, depth: newDepth})
+				}
+			}
+		}
+	}
+
+	// Assign max depth to unreachable URLs
+	var maxDepth uint16
+	for _, d := range depths {
+		if d > maxDepth {
+			maxDepth = d
+		}
+	}
+	orphanDepth := maxDepth + 1
+	for u := range crawledSet {
+		if _, ok := depths[u]; !ok {
+			depths[u] = orphanDepth
+		}
+	}
+
+	// 4. Build UPDATE mutations in chunks
+	urls := make([]string, 0, len(depths))
+	for u := range depths {
+		urls = append(urls, u)
+	}
+
+	const chunkSize = 500
+	for i := 0; i < len(urls); i += chunkSize {
+		end := i + chunkSize
+		if end > len(urls) {
+			end = len(urls)
+		}
+		chunk := urls[i:end]
+
+		// Build multiIf for depth
+		var depthCases []string
+		var foundOnCases []string
+		for _, u := range chunk {
+			escapedURL := strings.ReplaceAll(u, "'", "\\'")
+			depthCases = append(depthCases, fmt.Sprintf("url = '%s', %d", escapedURL, depths[u]))
+			parent := foundOn[u]
+			escapedParent := strings.ReplaceAll(parent, "'", "\\'")
+			foundOnCases = append(foundOnCases, fmt.Sprintf("url = '%s', '%s'", escapedURL, escapedParent))
+		}
+
+		depthExpr := fmt.Sprintf("multiIf(%s, depth)", strings.Join(depthCases, ", "))
+		foundOnExpr := fmt.Sprintf("multiIf(%s, found_on)", strings.Join(foundOnCases, ", "))
+
+		// Build URL list for WHERE
+		var quotedURLs []string
+		for _, u := range chunk {
+			escapedURL := strings.ReplaceAll(u, "'", "\\'")
+			quotedURLs = append(quotedURLs, fmt.Sprintf("'%s'", escapedURL))
+		}
+
+		query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
+			depth = %s,
+			found_on = %s
+			WHERE crawl_session_id = '%s' AND url IN (%s)`,
+			depthExpr, foundOnExpr,
+			strings.ReplaceAll(sessionID, "'", "\\'"),
+			strings.Join(quotedURLs, ", "))
+
+		if err := s.conn.Exec(ctx, query); err != nil {
+			return fmt.Errorf("updating depths chunk %d: %w", i/chunkSize, err)
+		}
+	}
+
+	log.Printf("RecomputeDepths: updated %d URLs for session %s", len(depths), sessionID)
+	return nil
 }
 
 // Close closes the ClickHouse connection.

@@ -1,6 +1,6 @@
 <script>
   import { getSessions, getStats, getPages, getExternalLinks, getInternalLinks, getProgress,
-    startCrawl, stopCrawl, resumeCrawl, deleteSession, subscribeProgress, getTheme, updateTheme,
+    startCrawl, stopCrawl, resumeCrawl, deleteSession, recomputeDepths, subscribeProgress, getTheme, updateTheme,
     getPageHTML, getStorageStats, getPageDetail, getSystemStats } from './lib/api.js';
 
   let sessions = $state([]);
@@ -26,9 +26,20 @@
   let hasMoreExtLinks = $state(false);
   let hasMoreIntLinks = $state(false);
 
-  // Internal links filters
-  let intSourceFilter = $state('');
-  let intTargetFilter = $state('');
+  // Global filters
+  let filters = $state({});
+
+  const TAB_FILTERS = {
+    overview:     ['url', 'status_code', 'title', 'word_count', 'internal_links_out', 'external_links_out', 'body_size', 'fetch_duration_ms', 'depth'],
+    titles:       ['url', 'title', 'title_length', 'h1'],
+    meta:         ['url', 'meta_description', 'meta_desc_length', 'meta_keywords', 'og_title'],
+    headings:     ['url', 'h1', 'h2'],
+    images:       ['url', 'images_count', 'images_no_alt', 'title', 'word_count'],
+    indexability: ['url', 'is_indexable', 'index_reason', 'meta_robots', 'canonical', 'canonical_is_self'],
+    response:     ['url', 'status_code', 'content_type', 'content_encoding', 'body_size', 'fetch_duration_ms'],
+    internal:     ['source_url', 'target_url', 'anchor_text', 'tag'],
+    external:     ['source_url', 'target_url', 'anchor_text', 'rel'],
+  };
 
   // Settings
   let showSettings = $state(false);
@@ -145,28 +156,73 @@
     showSettings = false;
   }
 
+  // --- Filter helpers ---
+  function applyFilters() {
+    pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
+    if (selectedSession) {
+      pushURL(`/sessions/${selectedSession.ID}/${tab}`, filters);
+    }
+    loadTabData();
+  }
+
+  function clearFilters() {
+    filters = {};
+    pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
+    if (selectedSession) {
+      pushURL(`/sessions/${selectedSession.ID}/${tab}`);
+    }
+    loadTabData();
+  }
+
+  function setFilter(key, val) {
+    filters[key] = val;
+    filters = { ...filters };
+  }
+
+  function hasActiveFilters() {
+    return Object.values(filters).some(v => v && v !== '');
+  }
+
   // --- URL Routing ---
-  function pushURL(path) {
-    if (window.location.pathname !== path) {
-      history.pushState(null, '', path);
+  function pushURL(path, queryFilters = {}, offset = 0) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(queryFilters)) {
+      if (v !== '' && v != null) params.set(k, v);
+    }
+    if (offset > 0) params.set('offset', String(offset));
+    const qs = params.toString();
+    const full = qs ? `${path}?${qs}` : path;
+    if (window.location.pathname + window.location.search !== full) {
+      history.pushState(null, '', full);
     }
   }
 
   function parseRoute() {
     const path = window.location.pathname;
+    const search = window.location.search;
     const urlMatch = path.match(/^\/sessions\/([^/]+)\/url\/(.+)/);
     if (urlMatch) {
-      return { sessionId: urlMatch[1], tab: 'url-detail', detailUrl: decodeURIComponent(urlMatch[2]) };
+      return { sessionId: urlMatch[1], tab: 'url-detail', detailUrl: decodeURIComponent(urlMatch[2]), filters: {}, offset: 0 };
     }
     const m = path.match(/^\/sessions\/([^/]+)(?:\/([^/]+))?/);
     if (m) {
-      return { sessionId: m[1], tab: m[2] || 'overview' };
+      const sp = new URLSearchParams(search);
+      const routeFilters = {};
+      let routeOffset = 0;
+      for (const [k, v] of sp.entries()) {
+        if (k === 'offset') {
+          routeOffset = parseInt(v, 10) || 0;
+        } else if (k !== 'limit') {
+          routeFilters[k] = v;
+        }
+      }
+      return { sessionId: m[1], tab: m[2] || 'overview', filters: routeFilters, offset: routeOffset };
     }
     return null;
   }
 
-  async function navigateTo(path) {
-    pushURL(path);
+  async function navigateTo(path, queryFilters = {}) {
+    pushURL(path, queryFilters);
     await applyRoute();
   }
 
@@ -186,18 +242,24 @@
       }
       if (route.tab === 'url-detail') {
         tab = 'url-detail';
+        filters = {};
         pageDetail = null;
         await loadPageDetail(route.sessionId, route.detailUrl);
       } else {
         tab = route.tab;
         pageDetail = null;
-        pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
+        filters = route.filters || {};
+        const off = route.offset || 0;
+        if (['internal'].includes(tab)) { intLinksOffset = off; }
+        else if (['external'].includes(tab)) { extLinksOffset = off; }
+        else { pagesOffset = off; }
         await loadTabData();
       }
     } else {
       selectedSession = null;
       stats = null;
       pageDetail = null;
+      filters = {};
       await loadSessions();
     }
   }
@@ -207,6 +269,7 @@
   async function selectSession(session) {
     selectedSession = session;
     tab = 'overview';
+    filters = {};
     pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
     pushURL(`/sessions/${session.ID}/overview`);
     try {
@@ -250,15 +313,15 @@
     const id = selectedSession.ID;
     try {
       if (['overview','titles','meta','headings','images','indexability','response'].includes(tab)) {
-        const result = await getPages(id, PAGE_SIZE, pagesOffset);
+        const result = await getPages(id, PAGE_SIZE, pagesOffset, filters);
         pages = result || [];
         hasMorePages = pages.length === PAGE_SIZE;
       } else if (tab === 'internal') {
-        const result = await getInternalLinks(id, PAGE_SIZE, intLinksOffset, intSourceFilter, intTargetFilter);
+        const result = await getInternalLinks(id, PAGE_SIZE, intLinksOffset, filters);
         intLinks = result || [];
         hasMoreIntLinks = intLinks.length === PAGE_SIZE;
       } else if (tab === 'external') {
-        const result = await getExternalLinks(id, PAGE_SIZE, extLinksOffset);
+        const result = await getExternalLinks(id, PAGE_SIZE, extLinksOffset, filters);
         extLinks = result || [];
         hasMoreExtLinks = extLinks.length === PAGE_SIZE;
       }
@@ -269,22 +332,11 @@
 
   function switchTab(newTab) {
     tab = newTab;
+    filters = {};
     pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
-    intSourceFilter = ''; intTargetFilter = '';
     if (selectedSession) {
       pushURL(`/sessions/${selectedSession.ID}/${newTab}`);
     }
-    loadTabData();
-  }
-
-  function applyIntLinksFilter() {
-    intLinksOffset = 0;
-    loadTabData();
-  }
-  function clearIntLinksFilter() {
-    intSourceFilter = '';
-    intTargetFilter = '';
-    intLinksOffset = 0;
     loadTabData();
   }
 
@@ -292,12 +344,14 @@
     if (tab === 'internal') { intLinksOffset += PAGE_SIZE; }
     else if (tab === 'external') { extLinksOffset += PAGE_SIZE; }
     else { pagesOffset += PAGE_SIZE; }
+    if (selectedSession) pushURL(`/sessions/${selectedSession.ID}/${tab}`, filters, currentOffset());
     await loadTabData();
   }
   async function prevPage() {
     if (tab === 'internal') { intLinksOffset = Math.max(0, intLinksOffset - PAGE_SIZE); }
     else if (tab === 'external') { extLinksOffset = Math.max(0, extLinksOffset - PAGE_SIZE); }
     else { pagesOffset = Math.max(0, pagesOffset - PAGE_SIZE); }
+    if (selectedSession) pushURL(`/sessions/${selectedSession.ID}/${tab}`, filters, currentOffset());
     await loadTabData();
   }
 
@@ -399,6 +453,17 @@
     } catch (e) { error = e.message; }
   }
 
+  let recomputing = $state(false);
+  async function handleRecomputeDepths(id) {
+    recomputing = true;
+    error = null;
+    try {
+      await recomputeDepths(id);
+      await selectSession(selectedSession);
+    } catch (e) { error = e.message; }
+    finally { recomputing = false; }
+  }
+
   function statusBadge(code) {
     if (code >= 200 && code < 300) return 'badge-success';
     if (code >= 300 && code < 400) return 'badge-info';
@@ -488,6 +553,7 @@
     { id: 'response', label: 'Response' },
     { id: 'internal', label: 'Internal Links' },
     { id: 'external', label: 'External Links' },
+    { id: 'stats', label: 'Stats' },
   ];
 
   // Boot
@@ -980,6 +1046,9 @@
           {:else}
             <span class="badge" class:badge-success={selectedSession.Status==='completed'} class:badge-error={selectedSession.Status==='failed'} class:badge-warning={selectedSession.Status==='stopped'}>{selectedSession.Status}</span>
             <button class="btn btn-sm" onclick={() => openResumeModal(selectedSession.ID)}>Resume</button>
+            <button class="btn btn-sm" onclick={() => handleRecomputeDepths(selectedSession.ID)} disabled={recomputing}>
+              {recomputing ? 'Recomputing...' : 'Recompute Depths'}
+            </button>
             <button class="btn btn-sm btn-danger" onclick={() => handleDelete(selectedSession.ID)}>Delete</button>
           {/if}
           <button class="btn btn-sm" onclick={() => selectSession(selectedSession)}>
@@ -995,6 +1064,12 @@
             <div class="stat-card"><div class="stat-value">{fmtN(stats.external_links)}</div><div class="stat-label">External links</div></div>
             <div class="stat-card"><div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">Avg response</div></div>
             <div class="stat-card"><div class="stat-value" style="color: var(--error)">{fmtN(stats.error_count)}</div><div class="stat-label">Errors</div></div>
+            {#if stats.pages_per_second > 0}
+              <div class="stat-card"><div class="stat-value">{stats.pages_per_second.toFixed(1)}</div><div class="stat-label">Pages/sec</div></div>
+            {/if}
+            {#if stats.crawl_duration_sec > 0}
+              <div class="stat-card"><div class="stat-value">{stats.crawl_duration_sec < 60 ? stats.crawl_duration_sec.toFixed(0) + 's' : (stats.crawl_duration_sec / 60).toFixed(1) + 'min'}</div><div class="stat-label">Duration</div></div>
+            {/if}
             {#if storageStats?.tables?.length}
               <div class="stat-card">
                 <div class="stat-value">{fmtSize(storageStats.tables.reduce((a, t) => a + t.bytes_on_disk, 0))}</div>
@@ -1020,7 +1095,15 @@
 
           {#if tab === 'overview'}
             <table>
-              <thead><tr><th>URL</th><th>Status</th><th>Title</th><th>Words</th><th>Int Out</th><th>Ext Out</th><th>Size</th><th>Time</th><th>Depth</th><th></th></tr></thead>
+              <thead>
+                <tr><th>URL</th><th>Status</th><th>Title</th><th>Words</th><th>Int Out</th><th>Ext Out</th><th>Size</th><th>Time</th><th>Depth</th><th></th></tr>
+                <tr class="filter-row">
+                  {#each TAB_FILTERS.overview as key}
+                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
+                  {/each}
+                  <td>{#if hasActiveFilters()}<button class="btn-filter-clear" title="Clear filters" onclick={clearFilters}><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>{/if}</td>
+                </tr>
+              </thead>
               <tbody>
                 {#each pages as p}
                   <tr>
@@ -1047,7 +1130,14 @@
 
           {:else if tab === 'titles'}
             <table>
-              <thead><tr><th>URL</th><th>Title</th><th>Length</th><th>H1</th></tr></thead>
+              <thead>
+                <tr><th>URL</th><th>Title</th><th>Length</th><th>H1</th></tr>
+                <tr class="filter-row">
+                  {#each TAB_FILTERS.titles as key}
+                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
+                  {/each}
+                </tr>
+              </thead>
               <tbody>
                 {#each pages as p}
                   <tr>
@@ -1062,7 +1152,14 @@
 
           {:else if tab === 'meta'}
             <table>
-              <thead><tr><th>URL</th><th>Meta Description</th><th>Length</th><th>Meta Keywords</th><th>OG Title</th></tr></thead>
+              <thead>
+                <tr><th>URL</th><th>Meta Description</th><th>Length</th><th>Meta Keywords</th><th>OG Title</th></tr>
+                <tr class="filter-row">
+                  {#each TAB_FILTERS.meta as key}
+                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
+                  {/each}
+                </tr>
+              </thead>
               <tbody>
                 {#each pages as p}
                   <tr>
@@ -1078,7 +1175,15 @@
 
           {:else if tab === 'headings'}
             <table>
-              <thead><tr><th>URL</th><th>H1</th><th>H1 Count</th><th>H2</th><th>H2 Count</th></tr></thead>
+              <thead>
+                <tr><th>URL</th><th>H1</th><th>H1 Count</th><th>H2</th><th>H2 Count</th></tr>
+                <tr class="filter-row">
+                  {#each TAB_FILTERS.headings as key}
+                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
+                  {/each}
+                  <td></td><td></td>
+                </tr>
+              </thead>
               <tbody>
                 {#each pages as p}
                   <tr>
@@ -1094,7 +1199,14 @@
 
           {:else if tab === 'images'}
             <table>
-              <thead><tr><th>URL</th><th>Images</th><th>Without Alt</th><th>Title</th><th>Words</th></tr></thead>
+              <thead>
+                <tr><th>URL</th><th>Images</th><th>Without Alt</th><th>Title</th><th>Words</th></tr>
+                <tr class="filter-row">
+                  {#each TAB_FILTERS.images as key}
+                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
+                  {/each}
+                </tr>
+              </thead>
               <tbody>
                 {#each pages as p}
                   <tr>
@@ -1110,7 +1222,14 @@
 
           {:else if tab === 'indexability'}
             <table>
-              <thead><tr><th>URL</th><th>Indexable</th><th>Reason</th><th>Meta Robots</th><th>Canonical</th><th>Self</th></tr></thead>
+              <thead>
+                <tr><th>URL</th><th>Indexable</th><th>Reason</th><th>Meta Robots</th><th>Canonical</th><th>Self</th></tr>
+                <tr class="filter-row">
+                  {#each TAB_FILTERS.indexability as key}
+                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
+                  {/each}
+                </tr>
+              </thead>
               <tbody>
                 {#each pages as p}
                   <tr>
@@ -1127,7 +1246,15 @@
 
           {:else if tab === 'response'}
             <table>
-              <thead><tr><th>URL</th><th>Status</th><th>Content Type</th><th>Encoding</th><th>Size</th><th>Time</th><th>Redirects</th></tr></thead>
+              <thead>
+                <tr><th>URL</th><th>Status</th><th>Content Type</th><th>Encoding</th><th>Size</th><th>Time</th><th>Redirects</th></tr>
+                <tr class="filter-row">
+                  {#each TAB_FILTERS.response as key}
+                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
+                  {/each}
+                  <td></td>
+                </tr>
+              </thead>
               <tbody>
                 {#each pages as p}
                   <tr>
@@ -1144,14 +1271,15 @@
             </table>
 
           {:else if tab === 'internal'}
-            <div class="filter-bar">
-              <input type="text" placeholder="Filter source URL…" bind:value={intSourceFilter} onkeydown={(e) => e.key === 'Enter' && applyIntLinksFilter()} />
-              <input type="text" placeholder="Filter target URL…" bind:value={intTargetFilter} onkeydown={(e) => e.key === 'Enter' && applyIntLinksFilter()} />
-              <button class="btn btn-sm" onclick={applyIntLinksFilter}>Filter</button>
-              <button class="btn btn-sm btn-ghost" onclick={clearIntLinksFilter}>Clear</button>
-            </div>
             <table>
-              <thead><tr><th>Source</th><th>Target</th><th>Anchor Text</th><th>Tag</th></tr></thead>
+              <thead>
+                <tr><th>Source</th><th>Target</th><th>Anchor Text</th><th>Tag</th></tr>
+                <tr class="filter-row">
+                  {#each TAB_FILTERS.internal as key}
+                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
+                  {/each}
+                </tr>
+              </thead>
               <tbody>
                 {#each intLinks as l}
                   <tr>
@@ -1166,7 +1294,14 @@
 
           {:else if tab === 'external'}
             <table>
-              <thead><tr><th>Source</th><th>Target</th><th>Anchor Text</th><th>Rel</th></tr></thead>
+              <thead>
+                <tr><th>Source</th><th>Target</th><th>Anchor Text</th><th>Rel</th></tr>
+                <tr class="filter-row">
+                  {#each TAB_FILTERS.external as key}
+                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
+                  {/each}
+                </tr>
+              </thead>
               <tbody>
                 {#each extLinks as l}
                   <tr>
@@ -1178,6 +1313,61 @@
                 {/each}
               </tbody>
             </table>
+
+          {:else if tab === 'stats'}
+            <div class="charts-container">
+              {#if stats?.depth_distribution && Object.keys(stats.depth_distribution).length > 0}
+                {@const depthEntries = Object.entries(stats.depth_distribution).map(([k, v]) => [Number(k), v]).sort((a, b) => a[0] - b[0])}
+                {@const depthMax = Math.max(...depthEntries.map(e => e[1]))}
+                {@const depthBarH = 32}
+                {@const depthGap = 6}
+                {@const depthSvgH = depthEntries.length * (depthBarH + depthGap)}
+                <div class="chart-section">
+                  <h3 class="chart-title">Depth Distribution</h3>
+                  <svg class="chart-svg" viewBox="0 0 600 {depthSvgH}" preserveAspectRatio="xMinYMin meet">
+                    {#each depthEntries as [depth, count], i}
+                      {@const barW = depthMax > 0 ? (count / depthMax) * 440 : 0}
+                      {@const y = i * (depthBarH + depthGap)}
+                      {@const opacity = 0.5 + (0.5 * (1 - i / Math.max(depthEntries.length - 1, 1)))}
+                      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                      <g class="chart-bar-clickable" style="cursor:pointer" onclick={() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {depth: String(depth)})}>
+                        <text x="30" y={y + depthBarH / 2 + 5} text-anchor="end" class="chart-label">{depth}</text>
+                        <rect x="40" y={y} width={Math.max(barW, 2)} height={depthBarH} rx="4" class="chart-bar chart-bar-accent" style="opacity: {opacity}" />
+                        <text x={44 + barW} y={y + depthBarH / 2 + 5} class="chart-value">{fmtN(count)}</text>
+                      </g>
+                    {/each}
+                  </svg>
+                </div>
+              {:else}
+                <p class="chart-empty">No depth data available.</p>
+              {/if}
+
+              {#if stats?.status_codes && Object.keys(stats.status_codes).length > 0}
+                {@const scEntries = Object.entries(stats.status_codes).map(([k, v]) => [Number(k), v]).sort((a, b) => a[0] - b[0])}
+                {@const scMax = Math.max(...scEntries.map(e => e[1]))}
+                {@const scBarH = 32}
+                {@const scGap = 6}
+                {@const scSvgH = scEntries.length * (scBarH + scGap)}
+                <div class="chart-section">
+                  <h3 class="chart-title">Status Code Distribution</h3>
+                  <svg class="chart-svg" viewBox="0 0 600 {scSvgH}" preserveAspectRatio="xMinYMin meet">
+                    {#each scEntries as [code, count], i}
+                      {@const barW = scMax > 0 ? (count / scMax) * 440 : 0}
+                      {@const y = i * (scBarH + scGap)}
+                      {@const colorClass = code >= 200 && code < 300 ? 'chart-bar-success' : code >= 300 && code < 400 ? 'chart-bar-info' : code >= 400 && code < 500 ? 'chart-bar-warning' : 'chart-bar-error'}
+                      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                      <g class="chart-bar-clickable" style="cursor:pointer" onclick={() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {status_code: String(code)})}>
+                        <text x="30" y={y + scBarH / 2 + 5} text-anchor="end" class="chart-label">{code}</text>
+                        <rect x="40" y={y} width={Math.max(barW, 2)} height={scBarH} rx="4" class={`chart-bar ${colorClass}`} />
+                        <text x={44 + barW} y={y + scBarH / 2 + 5} class="chart-value">{fmtN(count)}</text>
+                      </g>
+                    {/each}
+                  </svg>
+                </div>
+              {:else}
+                <p class="chart-empty">No status code data available.</p>
+              {/if}
+            </div>
           {/if}
 
           {#if currentData().length > 0}

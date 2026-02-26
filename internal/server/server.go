@@ -64,6 +64,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /api/crawl", s.handleStartCrawl)
 	mux.HandleFunc("POST /api/sessions/{id}/stop", s.handleStopCrawl)
 	mux.HandleFunc("POST /api/sessions/{id}/resume", s.handleResumeCrawl)
+	mux.HandleFunc("POST /api/sessions/{id}/recompute-depths", s.handleRecomputeDepths)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
 
 	// Static frontend files with SPA fallback
@@ -201,10 +202,11 @@ func (s *Server) handlePages(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
 	limit := queryInt(r, "limit", 100)
 	offset := queryInt(r, "offset", 0)
+	filters := parseFilters(r, storage.PageFilters)
 
-	pages, err := s.store.ListPages(r.Context(), sessionID, limit, offset)
+	pages, err := s.store.ListPages(r.Context(), sessionID, limit, offset, filters)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	writeJSON(w, pages)
@@ -214,9 +216,11 @@ func (s *Server) handleLinks(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
 	limit := queryInt(r, "limit", 100)
 	offset := queryInt(r, "offset", 0)
-	links, err := s.store.ExternalLinksPaginated(r.Context(), sessionID, limit, offset)
+	filters := parseFilters(r, storage.LinkFilters)
+
+	links, err := s.store.ExternalLinksPaginated(r.Context(), sessionID, limit, offset, filters)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	writeJSON(w, links)
@@ -236,11 +240,11 @@ func (s *Server) handleInternalLinks(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
 	limit := queryInt(r, "limit", 100)
 	offset := queryInt(r, "offset", 0)
-	source := r.URL.Query().Get("source")
-	target := r.URL.Query().Get("target")
-	links, err := s.store.InternalLinksPaginated(r.Context(), sessionID, limit, offset, source, target)
+	filters := parseFilters(r, storage.LinkFilters)
+
+	links, err := s.store.InternalLinksPaginated(r.Context(), sessionID, limit, offset, filters)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	writeJSON(w, links)
@@ -405,6 +409,26 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "deleted"})
 }
 
+func (s *Server) handleRecomputeDepths(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+
+	sess, err := s.store.GetSession(sessionID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "session not found: "+err.Error())
+		return
+	}
+
+	if err := s.store.RecomputeDepths(r.Context(), sessionID, sess.SeedURLs); err != nil {
+		writeError(w, http.StatusInternalServerError, "recompute failed: "+err.Error())
+		return
+	}
+
+	writeJSON(w, map[string]string{
+		"status":  "ok",
+		"message": fmt.Sprintf("Depths recomputed for session %s", sessionID),
+	})
+}
+
 func basicAuth(next http.Handler, username, password string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, pass, ok := r.BasicAuth()
@@ -440,4 +464,23 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+// parseFilters extracts filter parameters from the request query string.
+func parseFilters(r *http.Request, whitelist map[string]storage.FilterDef) []storage.ParsedFilter {
+	var filters []storage.ParsedFilter
+	for key, values := range r.URL.Query() {
+		if key == "limit" || key == "offset" {
+			continue
+		}
+		def, ok := whitelist[key]
+		if !ok || len(values) == 0 || values[0] == "" {
+			continue
+		}
+		filters = append(filters, storage.ParsedFilter{
+			Def:   def,
+			Value: values[0],
+		})
+	}
+	return filters
 }

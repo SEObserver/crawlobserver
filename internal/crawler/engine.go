@@ -158,6 +158,11 @@ func (e *Engine) Run(seeds []string) error {
 	// Final flush
 	e.buffer.Close()
 
+	// Recompute depths via BFS
+	if err := e.store.RecomputeDepths(context.Background(), e.session.ID, e.session.SeedURLs); err != nil {
+		log.Printf("WARNING: depth recomputation failed: %v", err)
+	}
+
 	// Update session status
 	e.session.Status = "completed"
 	e.session.Pages = uint64(e.pagesCrawled.Load())

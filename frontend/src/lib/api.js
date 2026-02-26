@@ -13,18 +13,27 @@ export async function getSessions() {
   return fetchJSON('/sessions');
 }
 
-export async function getPages(sessionId, limit = 100, offset = 0) {
-  return fetchJSON(`/sessions/${sessionId}/pages?limit=${limit}&offset=${offset}`);
+export async function getPages(sessionId, limit = 100, offset = 0, filters = {}) {
+  let url = `/sessions/${sessionId}/pages?limit=${limit}&offset=${offset}`;
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
+  }
+  return fetchJSON(url);
 }
 
-export async function getExternalLinks(sessionId, limit = 100, offset = 0) {
-  return fetchJSON(`/sessions/${sessionId}/links?limit=${limit}&offset=${offset}`);
+export async function getExternalLinks(sessionId, limit = 100, offset = 0, filters = {}) {
+  let url = `/sessions/${sessionId}/links?limit=${limit}&offset=${offset}`;
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
+  }
+  return fetchJSON(url);
 }
 
-export async function getInternalLinks(sessionId, limit = 100, offset = 0, source = '', target = '') {
+export async function getInternalLinks(sessionId, limit = 100, offset = 0, filters = {}) {
   let url = `/sessions/${sessionId}/internal-links?limit=${limit}&offset=${offset}`;
-  if (source) url += `&source=${encodeURIComponent(source)}`;
-  if (target) url += `&target=${encodeURIComponent(target)}`;
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
+  }
   return fetchJSON(url);
 }
 
@@ -91,6 +100,10 @@ export async function resumeCrawl(sessionId, options = null) {
 
 export async function deleteSession(sessionId) {
   return fetchJSON(`/sessions/${sessionId}`, { method: 'DELETE' });
+}
+
+export async function recomputeDepths(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/recompute-depths`, { method: 'POST' });
 }
 
 // SSE for live progress
