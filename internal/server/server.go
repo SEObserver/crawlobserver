@@ -16,6 +16,7 @@ import (
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/crawler"
 	"github.com/SEObserver/seocrawler/internal/storage"
+	"github.com/spf13/viper"
 )
 
 //go:embed all:frontend/dist
@@ -50,10 +51,13 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/sessions/{id}/stats", s.handleStats)
 	mux.HandleFunc("GET /api/sessions/{id}/progress", s.handleProgress)
 	mux.HandleFunc("GET /api/sessions/{id}/events", s.handleSSE)
+	mux.HandleFunc("GET /api/sessions/{id}/page-html", s.handlePageHTML)
+	mux.HandleFunc("GET /api/storage-stats", s.handleStorageStats)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/theme", s.handleTheme)
 
 	// API routes - write
+	mux.HandleFunc("PUT /api/theme", s.handleUpdateTheme)
 	mux.HandleFunc("POST /api/crawl", s.handleStartCrawl)
 	mux.HandleFunc("POST /api/sessions/{id}/stop", s.handleStopCrawl)
 	mux.HandleFunc("POST /api/sessions/{id}/resume", s.handleResumeCrawl)
@@ -132,6 +136,27 @@ func (s *Server) handleTheme(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, s.cfg.Theme)
 }
 
+func (s *Server) handleUpdateTheme(w http.ResponseWriter, r *http.Request) {
+	var t config.ThemeConfig
+	if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	viper.Set("theme.app_name", t.AppName)
+	viper.Set("theme.logo_url", t.LogoURL)
+	viper.Set("theme.accent_color", t.AccentColor)
+	viper.Set("theme.mode", t.Mode)
+
+	if err := viper.WriteConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
+		return
+	}
+
+	s.cfg.Theme = t
+	writeJSON(w, s.cfg.Theme)
+}
+
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	sessions, err := s.store.ListSessions(r.Context())
 	if err != nil {
@@ -196,7 +221,9 @@ func (s *Server) handleInternalLinks(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
 	limit := queryInt(r, "limit", 100)
 	offset := queryInt(r, "offset", 0)
-	links, err := s.store.InternalLinksPaginated(r.Context(), sessionID, limit, offset)
+	source := r.URL.Query().Get("source")
+	target := r.URL.Query().Get("target")
+	links, err := s.store.InternalLinksPaginated(r.Context(), sessionID, limit, offset, source, target)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -286,6 +313,30 @@ func (s *Server) handleResumeCrawl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]string{"status": "resumed"})
+}
+
+func (s *Server) handlePageHTML(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	url := r.URL.Query().Get("url")
+	if url == "" {
+		writeError(w, http.StatusBadRequest, "missing url parameter")
+		return
+	}
+	html, err := s.store.GetPageHTML(r.Context(), sessionID, url)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{"url": url, "body_html": html})
+}
+
+func (s *Server) handleStorageStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := s.store.StorageStats(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, stats)
 }
 
 func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {

@@ -439,6 +439,24 @@ tr:hover td { background: var(--bg-hover); }
 }
 .pagination-info { font-size: 13px; color: var(--text-muted); }
 
+/* ===== Filter Bar ===== */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 12px;
+}
+.filter-bar input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 13px;
+}
+.filter-bar input::placeholder { color: var(--text-muted); }
+
 /* ===== Empty State ===== */
 .empty-state {
   text-align: center;
@@ -518,6 +536,103 @@ tr:hover td { background: var(--bg-hover); }
   align-items: center;
   gap: 10px;
   margin-bottom: 24px;
+}
+
+/* ===== HTML Button ===== */
+.btn-html {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+}
+.btn-html:hover { background: var(--bg-hover); color: var(--accent); border-color: var(--accent); }
+
+/* ===== HTML Modal ===== */
+.html-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.html-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 1200px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.html-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.html-modal-url {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.html-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.html-modal-body {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.html-modal-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+}
+
+.html-modal-source {
+  margin: 0;
+  padding: 20px;
+  font-size: 12px;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text);
+  overflow: auto;
+  height: 100%;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
 }
 
 /* ===== Responsive ===== */

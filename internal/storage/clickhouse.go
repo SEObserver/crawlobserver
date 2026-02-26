@@ -222,15 +222,27 @@ func (s *Store) ExternalLinks(ctx context.Context, sessionID string) ([]LinkRow,
 	return links, nil
 }
 
-// InternalLinksPaginated retrieves internal links with pagination.
-func (s *Store) InternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int) ([]LinkRow, error) {
-	rows, err := s.conn.Query(ctx, `
+// InternalLinksPaginated retrieves internal links with pagination and optional filters.
+func (s *Store) InternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, sourceFilter, targetFilter string) ([]LinkRow, error) {
+	query := `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
 		FROM seocrawler.links
-		WHERE is_internal = true AND crawl_session_id = ?
-		ORDER BY source_url, target_url
-		LIMIT ? OFFSET ?
-	`, sessionID, limit, offset)
+		WHERE is_internal = true AND crawl_session_id = ?`
+	args := []interface{}{sessionID}
+
+	if sourceFilter != "" {
+		query += ` AND source_url LIKE ?`
+		args = append(args, "%"+sourceFilter+"%")
+	}
+	if targetFilter != "" {
+		query += ` AND target_url LIKE ?`
+		args = append(args, "%"+targetFilter+"%")
+	}
+
+	query += ` ORDER BY source_url, target_url LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := s.conn.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("querying internal links: %w", err)
 	}
@@ -444,6 +456,54 @@ func (s *Store) CrawledURLs(sessionID string) ([]string, error) {
 		urls = append(urls, u)
 	}
 	return urls, nil
+}
+
+// GetPageHTML retrieves the raw HTML for a specific page.
+func (s *Store) GetPageHTML(ctx context.Context, sessionID, url string) (string, error) {
+	var html string
+	row := s.conn.QueryRow(ctx, `
+		SELECT body_html FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND url = ? LIMIT 1`, sessionID, url)
+	if err := row.Scan(&html); err != nil {
+		return "", fmt.Errorf("querying page HTML: %w", err)
+	}
+	return html, nil
+}
+
+// TableStorageStats holds storage stats for a single table.
+type TableStorageStats struct {
+	Name        string `json:"name"`
+	BytesOnDisk uint64 `json:"bytes_on_disk"`
+	Rows        uint64 `json:"rows"`
+}
+
+// StorageStatsResult holds storage stats for all tables.
+type StorageStatsResult struct {
+	Tables []TableStorageStats `json:"tables"`
+}
+
+// StorageStats retrieves disk usage and row counts for all seocrawler tables.
+func (s *Store) StorageStats(ctx context.Context) (*StorageStatsResult, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT table, sum(bytes_on_disk), sum(rows)
+		FROM system.parts
+		WHERE database = 'seocrawler' AND active = 1
+		GROUP BY table
+		ORDER BY table`)
+	if err != nil {
+		return nil, fmt.Errorf("querying storage stats: %w", err)
+	}
+	defer rows.Close()
+
+	result := &StorageStatsResult{}
+	for rows.Next() {
+		var t TableStorageStats
+		if err := rows.Scan(&t.Name, &t.BytesOnDisk, &t.Rows); err != nil {
+			return nil, fmt.Errorf("scanning storage stats: %w", err)
+		}
+		result.Tables = append(result.Tables, t)
+	}
+	return result, nil
 }
 
 // Close closes the ClickHouse connection.

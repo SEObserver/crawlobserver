@@ -1,6 +1,7 @@
 <script>
   import { getSessions, getStats, getPages, getExternalLinks, getInternalLinks, getProgress,
-    startCrawl, stopCrawl, resumeCrawl, deleteSession, subscribeProgress, getTheme } from './lib/api.js';
+    startCrawl, stopCrawl, resumeCrawl, deleteSession, subscribeProgress, getTheme, updateTheme,
+    getPageHTML, getStorageStats } from './lib/api.js';
 
   let sessions = $state([]);
   let selectedSession = $state(null);
@@ -25,6 +26,15 @@
   let hasMoreExtLinks = $state(false);
   let hasMoreIntLinks = $state(false);
 
+  // Internal links filters
+  let intSourceFilter = $state('');
+  let intTargetFilter = $state('');
+
+  // Settings
+  let showSettings = $state(false);
+  let editTheme = $state({ app_name: '', logo_url: '', accent_color: '#7c3aed', mode: 'light' });
+  let savingTheme = $state(false);
+
   // New crawl form
   let showNewCrawl = $state(false);
   let seedInput = $state('');
@@ -34,6 +44,15 @@
   let crawlDelay = $state('1s');
   let storeHtml = $state(false);
   let starting = $state(false);
+
+  // HTML modal
+  let showHtmlModal = $state(false);
+  let htmlModalData = $state({ url: '', body_html: '' });
+  let htmlModalView = $state('render'); // 'render' or 'source'
+  let htmlModalLoading = $state(false);
+
+  // Storage stats
+  let storageStats = $state(null);
 
   // Live progress
   let liveProgress = $state({});
@@ -71,6 +90,43 @@
     applyTheme();
   }
 
+  // --- Settings ---
+  function openSettings() {
+    editTheme = { ...theme };
+    showSettings = true;
+    selectedSession = null;
+    showNewCrawl = false;
+  }
+
+  function previewTheme() {
+    theme.accent_color = editTheme.accent_color;
+    theme.app_name = editTheme.app_name;
+    theme.logo_url = editTheme.logo_url;
+    darkMode = editTheme.mode === 'dark';
+    applyTheme();
+  }
+
+  async function saveTheme() {
+    savingTheme = true;
+    try {
+      const saved = await updateTheme(editTheme);
+      theme = saved;
+      darkMode = saved.mode === 'dark';
+      applyTheme();
+      showSettings = false;
+    } catch (e) {
+      error = e.message;
+    } finally {
+      savingTheme = false;
+    }
+  }
+
+  function cancelSettings() {
+    // Revert to saved theme
+    loadTheme();
+    showSettings = false;
+  }
+
   // --- URL Routing ---
   function pushURL(path) {
     if (window.location.pathname !== path) {
@@ -105,6 +161,7 @@
         if (found) {
           selectedSession = found;
           stats = await getStats(found.ID);
+          loadStorageStats();
           await loadTabData();
         }
       } else {
@@ -126,6 +183,7 @@
     pushURL(`/sessions/${session.ID}/overview`);
     try {
       stats = await getStats(session.ID);
+      loadStorageStats();
       await loadTabData();
     } catch (e) {
       error = e.message;
@@ -136,6 +194,7 @@
     selectedSession = null;
     stats = null;
     showNewCrawl = false;
+    showSettings = false;
     pushURL('/');
   }
 
@@ -167,7 +226,7 @@
         pages = result || [];
         hasMorePages = pages.length === PAGE_SIZE;
       } else if (tab === 'internal') {
-        const result = await getInternalLinks(id, PAGE_SIZE, intLinksOffset);
+        const result = await getInternalLinks(id, PAGE_SIZE, intLinksOffset, intSourceFilter, intTargetFilter);
         intLinks = result || [];
         hasMoreIntLinks = intLinks.length === PAGE_SIZE;
       } else if (tab === 'external') {
@@ -183,9 +242,21 @@
   function switchTab(newTab) {
     tab = newTab;
     pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
+    intSourceFilter = ''; intTargetFilter = '';
     if (selectedSession) {
       pushURL(`/sessions/${selectedSession.ID}/${newTab}`);
     }
+    loadTabData();
+  }
+
+  function applyIntLinksFilter() {
+    intLinksOffset = 0;
+    loadTabData();
+  }
+  function clearIntLinksFilter() {
+    intSourceFilter = '';
+    intTargetFilter = '';
+    intLinksOffset = 0;
     loadTabData();
   }
 
@@ -291,6 +362,31 @@
     return d.toLocaleDateString();
   }
 
+  async function openHtmlModal(url) {
+    htmlModalLoading = true;
+    showHtmlModal = true;
+    htmlModalView = 'render';
+    try {
+      htmlModalData = await getPageHTML(selectedSession.ID, url);
+    } catch (e) {
+      htmlModalData = { url, body_html: '' };
+      error = e.message;
+    } finally {
+      htmlModalLoading = false;
+    }
+  }
+
+  function closeHtmlModal() {
+    showHtmlModal = false;
+    htmlModalData = { url: '', body_html: '' };
+  }
+
+  async function loadStorageStats() {
+    try {
+      storageStats = await getStorageStats();
+    } catch {}
+  }
+
   const TABS = [
     { id: 'overview', label: 'All Pages' },
     { id: 'titles', label: 'Titles' },
@@ -356,6 +452,16 @@
       </div>
     {/if}
 
+    <div class="sidebar-section" style="margin-top: auto;">
+      <div class="sidebar-section-title">General</div>
+      <nav class="sidebar-nav">
+        <button class="sidebar-link" class:active={showSettings} onclick={openSettings}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings
+        </button>
+      </nav>
+    </div>
+
     <div class="sidebar-footer">
       <button class="theme-toggle" onclick={toggleDarkMode}>
         {#if darkMode}
@@ -379,7 +485,51 @@
         </div>
       {/if}
 
-      {#if showNewCrawl && !selectedSession}
+      {#if showSettings}
+        <!-- Settings -->
+        <div class="page-header">
+          <h1>Settings</h1>
+        </div>
+        <div class="card">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="set-appname">App Name</label>
+              <input id="set-appname" type="text" bind:value={editTheme.app_name} oninput={previewTheme} />
+            </div>
+            <div class="form-group">
+              <label for="set-logo">Logo URL</label>
+              <input id="set-logo" type="text" bind:value={editTheme.logo_url} oninput={previewTheme} placeholder="https://example.com/logo.png" />
+            </div>
+            {#if editTheme.logo_url}
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <span style="font-weight: 500; font-size: 0.85rem; color: var(--text-secondary);">Logo Preview</span>
+                <img src={editTheme.logo_url} alt="Logo preview" style="max-height: 48px; border-radius: 6px; background: var(--bg-card);" />
+              </div>
+            {/if}
+            <div class="form-group">
+              <label for="set-accent">Accent Color</label>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <input id="set-accent" type="color" value={editTheme.accent_color} oninput={(e) => { editTheme.accent_color = e.target.value; previewTheme(); }} style="width: 48px; height: 36px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; padding: 2px;" />
+                <span style="font-family: monospace; color: var(--text-secondary);">{editTheme.accent_color}</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <span style="font-weight: 500; font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Mode</span>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'light'} onclick={() => { editTheme.mode = 'light'; previewTheme(); }}>Light</button>
+                <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'dark'} onclick={() => { editTheme.mode = 'dark'; previewTheme(); }}>Dark</button>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 20px;">
+            <button class="btn btn-primary" onclick={saveTheme} disabled={savingTheme}>
+              {savingTheme ? 'Saving...' : 'Save'}
+            </button>
+            <button class="btn" onclick={cancelSettings}>Cancel</button>
+          </div>
+        </div>
+
+      {:else if showNewCrawl && !selectedSession}
         <!-- New Crawl Form -->
         <div class="page-header">
           <h1>New Crawl</h1>
@@ -493,6 +643,18 @@
             <div class="stat-card"><div class="stat-value">{fmtN(stats.external_links)}</div><div class="stat-label">External links</div></div>
             <div class="stat-card"><div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">Avg response</div></div>
             <div class="stat-card"><div class="stat-value" style="color: var(--error)">{fmtN(stats.error_count)}</div><div class="stat-label">Errors</div></div>
+            {#if storageStats?.tables?.length}
+              <div class="stat-card">
+                <div class="stat-value">{fmtSize(storageStats.tables.reduce((a, t) => a + t.bytes_on_disk, 0))}</div>
+                <div class="stat-label">Storage total</div>
+              </div>
+              {#each storageStats.tables as t}
+                <div class="stat-card">
+                  <div class="stat-value">{fmtSize(t.bytes_on_disk)}</div>
+                  <div class="stat-label">{t.name} ({fmtN(t.rows)} rows)</div>
+                </div>
+              {/each}
+            {/if}
           </div>
         {/if}
 
@@ -506,7 +668,7 @@
 
           {#if tab === 'overview'}
             <table>
-              <thead><tr><th>URL</th><th>Status</th><th>Title</th><th>Words</th><th>Int Out</th><th>Ext Out</th><th>Size</th><th>Time</th><th>Depth</th></tr></thead>
+              <thead><tr><th>URL</th><th>Status</th><th>Title</th><th>Words</th><th>Int Out</th><th>Ext Out</th><th>Size</th><th>Time</th><th>Depth</th><th></th></tr></thead>
               <tbody>
                 {#each pages as p}
                   <tr>
@@ -519,6 +681,13 @@
                     <td>{fmtSize(p.BodySize)}</td>
                     <td>{fmt(p.FetchDurationMs)}</td>
                     <td>{p.Depth}</td>
+                    <td>
+                      {#if p.BodySize > 0}
+                        <button class="btn-html" title="View HTML" onclick={() => openHtmlModal(p.URL)}>
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                        </button>
+                      {/if}
+                    </td>
                   </tr>
                 {/each}
               </tbody>
@@ -623,6 +792,12 @@
             </table>
 
           {:else if tab === 'internal'}
+            <div class="filter-bar">
+              <input type="text" placeholder="Filter source URL…" bind:value={intSourceFilter} onkeydown={(e) => e.key === 'Enter' && applyIntLinksFilter()} />
+              <input type="text" placeholder="Filter target URL…" bind:value={intTargetFilter} onkeydown={(e) => e.key === 'Enter' && applyIntLinksFilter()} />
+              <button class="btn btn-sm" onclick={applyIntLinksFilter}>Filter</button>
+              <button class="btn btn-sm btn-ghost" onclick={clearIntLinksFilter}>Clear</button>
+            </div>
             <table>
               <thead><tr><th>Source</th><th>Target</th><th>Anchor Text</th><th>Tag</th></tr></thead>
               <tbody>
@@ -665,3 +840,33 @@
     </div>
   </main>
 </div>
+
+{#if showHtmlModal}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="html-modal-overlay" onclick={closeHtmlModal}>
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="html-modal" onclick={(e) => e.stopPropagation()}>
+      <div class="html-modal-header">
+        <div class="html-modal-url" title={htmlModalData.url}>{htmlModalData.url}</div>
+        <div class="html-modal-actions">
+          <button class="btn btn-sm" class:btn-primary={htmlModalView === 'render'} onclick={() => htmlModalView = 'render'}>Render</button>
+          <button class="btn btn-sm" class:btn-primary={htmlModalView === 'source'} onclick={() => htmlModalView = 'source'}>Source</button>
+          <button class="btn btn-sm" title="Close" onclick={closeHtmlModal}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="html-modal-body">
+        {#if htmlModalLoading}
+          <p style="padding: 40px; color: var(--text-muted); text-align: center;">Loading...</p>
+        {:else if !htmlModalData.body_html}
+          <p style="padding: 40px; color: var(--text-muted); text-align: center;">No HTML stored for this page.</p>
+        {:else if htmlModalView === 'render'}
+          <iframe srcdoc={htmlModalData.body_html} title="Page render" class="html-modal-iframe"></iframe>
+        {:else}
+          <pre class="html-modal-source"><code>{htmlModalData.body_html}</code></pre>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}

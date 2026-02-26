@@ -21,12 +21,23 @@ export async function getExternalLinks(sessionId, limit = 100, offset = 0) {
   return fetchJSON(`/sessions/${sessionId}/links?limit=${limit}&offset=${offset}`);
 }
 
-export async function getInternalLinks(sessionId, limit = 100, offset = 0) {
-  return fetchJSON(`/sessions/${sessionId}/internal-links?limit=${limit}&offset=${offset}`);
+export async function getInternalLinks(sessionId, limit = 100, offset = 0, source = '', target = '') {
+  let url = `/sessions/${sessionId}/internal-links?limit=${limit}&offset=${offset}`;
+  if (source) url += `&source=${encodeURIComponent(source)}`;
+  if (target) url += `&target=${encodeURIComponent(target)}`;
+  return fetchJSON(url);
 }
 
 export async function getStats(sessionId) {
   return fetchJSON(`/sessions/${sessionId}/stats`);
+}
+
+export async function getPageHTML(sessionId, url) {
+  return fetchJSON(`/sessions/${sessionId}/page-html?url=${encodeURIComponent(url)}`);
+}
+
+export async function getStorageStats() {
+  return fetchJSON('/storage-stats');
 }
 
 export async function getProgress(sessionId) {
@@ -39,6 +50,14 @@ export async function getHealth() {
 
 export async function getTheme() {
   return fetchJSON('/theme');
+}
+
+export async function updateTheme(theme) {
+  return fetchJSON('/theme', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(theme),
+  });
 }
 
 export async function startCrawl(seeds, options = {}) {
