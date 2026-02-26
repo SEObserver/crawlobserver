@@ -32,15 +32,84 @@
   let starting = $state(false);
 
   // Live progress
-  let progressInterval = $state(null);
   let liveProgress = $state({});
   let sseConnections = {};
+
+  // --- URL Routing ---
+  function pushURL(path) {
+    if (window.location.pathname !== path) {
+      history.pushState(null, '', path);
+    }
+  }
+
+  function parseRoute() {
+    const path = window.location.pathname;
+    const m = path.match(/^\/sessions\/([^/]+)(?:\/([^/]+))?/);
+    if (m) {
+      return { sessionId: m[1], tab: m[2] || 'overview' };
+    }
+    return null;
+  }
+
+  async function navigateTo(path) {
+    pushURL(path);
+    await applyRoute();
+  }
+
+  async function applyRoute() {
+    const route = parseRoute();
+    if (route) {
+      // Session detail view
+      tab = route.tab;
+      pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
+      if (!selectedSession || selectedSession.ID !== route.sessionId) {
+        // Need to load session
+        if (sessions.length === 0) {
+          await loadSessions();
+        }
+        const found = sessions.find(s => s.ID === route.sessionId);
+        if (found) {
+          selectedSession = found;
+          stats = await getStats(found.ID);
+          await loadTabData();
+        }
+      } else {
+        await loadTabData();
+      }
+    } else {
+      // Sessions list
+      selectedSession = null;
+      stats = null;
+      await loadSessions();
+    }
+  }
+
+  // Listen for back/forward navigation
+  window.addEventListener('popstate', () => applyRoute());
+
+  async function selectSession(session) {
+    selectedSession = session;
+    tab = 'overview';
+    pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
+    pushURL(`/sessions/${session.ID}/overview`);
+    try {
+      stats = await getStats(session.ID);
+      await loadTabData();
+    } catch (e) {
+      error = e.message;
+    }
+  }
+
+  function goHome() {
+    selectedSession = null;
+    stats = null;
+    pushURL('/');
+  }
 
   async function loadSessions() {
     try {
       loading = true;
       sessions = await getSessions() || [];
-      // Connect SSE for running sessions
       for (const s of sessions) {
         if (s.is_running && !sseConnections[s.ID]) {
           sseConnections[s.ID] = subscribeProgress(s.ID,
@@ -56,25 +125,11 @@
     }
   }
 
-  async function selectSession(session) {
-    selectedSession = session;
-    tab = 'overview';
-    pagesOffset = 0;
-    extLinksOffset = 0;
-    intLinksOffset = 0;
-    try {
-      stats = await getStats(session.ID);
-      await loadTabData();
-    } catch (e) {
-      error = e.message;
-    }
-  }
-
   async function loadTabData() {
     if (!selectedSession) return;
     const id = selectedSession.ID;
     try {
-      if (tab === 'overview' || tab === 'titles' || tab === 'meta' || tab === 'headings' || tab === 'images' || tab === 'indexability' || tab === 'response') {
+      if (['overview','titles','meta','headings','images','indexability','response'].includes(tab)) {
         const result = await getPages(id, PAGE_SIZE, pagesOffset);
         pages = result || [];
         hasMorePages = pages.length === PAGE_SIZE;
@@ -95,6 +150,9 @@
   function switchTab(newTab) {
     tab = newTab;
     pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
+    if (selectedSession) {
+      pushURL(`/sessions/${selectedSession.ID}/${newTab}`);
+    }
     loadTabData();
   }
 
@@ -150,7 +208,11 @@
   async function handleResume(id) { try { await resumeCrawl(id); setTimeout(() => loadSessions(), 500); } catch (e) { error = e.message; } }
   async function handleDelete(id) {
     if (!confirm('Delete this session and all its data?')) return;
-    try { await deleteSession(id); if (selectedSession?.ID === id) selectedSession = null; loadSessions(); } catch (e) { error = e.message; }
+    try {
+      await deleteSession(id);
+      if (selectedSession?.ID === id) { selectedSession = null; pushURL('/'); }
+      loadSessions();
+    } catch (e) { error = e.message; }
   }
 
   function statusBadge(code) {
@@ -177,13 +239,14 @@
     { id: 'external', label: 'External Links' },
   ];
 
-  loadSessions();
+  // Boot: apply current URL route
+  applyRoute();
 </script>
 
 <nav>
   <span class="logo">SEOCrawler</span>
   {#if selectedSession}
-    <a href="#" onclick={(e) => { e.preventDefault(); selectedSession = null; }}>Sessions</a>
+    <a href="/" onclick={(e) => { e.preventDefault(); goHome(); }}>Sessions</a>
     <span style="color: var(--text-muted)">/</span>
     <span style="color: var(--text)">{selectedSession.SeedURLs?.[0] || selectedSession.ID}</span>
   {:else}

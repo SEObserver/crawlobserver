@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/SEObserver/seocrawler/internal/config"
@@ -57,13 +58,41 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /api/sessions/{id}/resume", s.handleResumeCrawl)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
 
-	// Static frontend files
+	// Static frontend files with SPA fallback
 	distFS, err := fs.Sub(frontendFS, "frontend/dist")
 	if err != nil {
 		return fmt.Errorf("frontend filesystem: %w", err)
 	}
 	fileServer := http.FileServer(http.FS(distFS))
-	mux.Handle("GET /", fileServer)
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		// Try to serve static file first
+		path := r.URL.Path
+		if path == "/" {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+		// Check if static file exists (assets, etc.)
+		if f, err := distFS.(fs.ReadFileFS).ReadFile(path[1:]); err == nil {
+			// Detect content type from extension
+			switch {
+			case strings.HasSuffix(path, ".js"):
+				w.Header().Set("Content-Type", "application/javascript")
+			case strings.HasSuffix(path, ".css"):
+				w.Header().Set("Content-Type", "text/css")
+			case strings.HasSuffix(path, ".svg"):
+				w.Header().Set("Content-Type", "image/svg+xml")
+			case strings.HasSuffix(path, ".png"):
+				w.Header().Set("Content-Type", "image/png")
+			case strings.HasSuffix(path, ".ico"):
+				w.Header().Set("Content-Type", "image/x-icon")
+			}
+			w.Write(f)
+			return
+		}
+		// SPA fallback: serve index.html for all other routes
+		r.URL.Path = "/"
+		fileServer.ServeHTTP(w, r)
+	})
 
 	// Wrap with basic auth if credentials are configured
 	var handler http.Handler = mux
