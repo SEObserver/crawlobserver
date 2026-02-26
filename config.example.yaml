@@ -24,7 +24,7 @@ crawler:
 # ClickHouse connection
 clickhouse:
   host: localhost
-  port: 9000
+  port: 19000
   database: seocrawler
   username: default
   password: ""

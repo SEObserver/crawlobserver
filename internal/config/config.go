@@ -69,7 +69,7 @@ func SetDefaults() {
 	viper.SetDefault("crawler.store_html", false)
 
 	viper.SetDefault("clickhouse.host", "localhost")
-	viper.SetDefault("clickhouse.port", 9000)
+	viper.SetDefault("clickhouse.port", 19000)
 	viper.SetDefault("clickhouse.database", "seocrawler")
 	viper.SetDefault("clickhouse.username", "default")
 	viper.SetDefault("clickhouse.password", "")
