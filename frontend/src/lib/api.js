@@ -44,6 +44,10 @@ export async function getStorageStats() {
   return fetchJSON('/storage-stats');
 }
 
+export async function getSystemStats() {
+  return fetchJSON('/system-stats');
+}
+
 export async function getProgress(sessionId) {
   return fetchJSON(`/sessions/${sessionId}/progress`);
 }

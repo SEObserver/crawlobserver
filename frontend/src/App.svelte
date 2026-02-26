@@ -1,7 +1,7 @@
 <script>
   import { getSessions, getStats, getPages, getExternalLinks, getInternalLinks, getProgress,
     startCrawl, stopCrawl, resumeCrawl, deleteSession, subscribeProgress, getTheme, updateTheme,
-    getPageHTML, getStorageStats, getPageDetail } from './lib/api.js';
+    getPageHTML, getStorageStats, getPageDetail, getSystemStats } from './lib/api.js';
 
   let sessions = $state([]);
   let selectedSession = $state(null);
@@ -63,6 +63,10 @@
 
   // Storage stats
   let storageStats = $state(null);
+
+  // System stats (CPU/memory monitoring)
+  let systemStats = $state(null);
+  let systemStatsInterval = null;
 
   // Page detail
   let pageDetail = $state(null);
@@ -178,6 +182,11 @@
           selectedSession = found;
           stats = await getStats(found.ID);
           loadStorageStats();
+          if (found.is_running) {
+            startSystemStatsPolling();
+          } else {
+            stopSystemStatsPolling();
+          }
         }
       }
       if (route.tab === 'url-detail') {
@@ -194,6 +203,7 @@
       selectedSession = null;
       stats = null;
       pageDetail = null;
+      stopSystemStatsPolling();
       await loadSessions();
     }
   }
@@ -208,6 +218,11 @@
     try {
       stats = await getStats(session.ID);
       loadStorageStats();
+      if (session.is_running) {
+        startSystemStatsPolling();
+      } else {
+        stopSystemStatsPolling();
+      }
       await loadTabData();
     } catch (e) {
       error = e.message;
@@ -219,6 +234,7 @@
     stats = null;
     showNewCrawl = false;
     showSettings = false;
+    stopSystemStatsPolling();
     pushURL('/');
   }
 
@@ -230,7 +246,7 @@
         if (s.is_running && !sseConnections[s.ID]) {
           sseConnections[s.ID] = subscribeProgress(s.ID,
             (data) => { liveProgress[s.ID] = data; liveProgress = { ...liveProgress }; },
-            () => { delete sseConnections[s.ID]; loadSessions(); }
+            () => { delete sseConnections[s.ID]; stopSystemStatsPolling(); loadSessions(); }
           );
         }
       }
@@ -460,6 +476,26 @@
     try {
       storageStats = await getStorageStats();
     } catch {}
+  }
+
+  async function loadSystemStats() {
+    try {
+      systemStats = await getSystemStats();
+    } catch {}
+  }
+
+  function startSystemStatsPolling() {
+    stopSystemStatsPolling();
+    loadSystemStats();
+    systemStatsInterval = setInterval(loadSystemStats, 2000);
+  }
+
+  function stopSystemStatsPolling() {
+    if (systemStatsInterval) {
+      clearInterval(systemStatsInterval);
+      systemStatsInterval = null;
+    }
+    systemStats = null;
   }
 
   const TABS = [
@@ -961,6 +997,20 @@
                   <div class="stat-label">{t.name} ({fmtN(t.rows)} rows)</div>
                 </div>
               {/each}
+            {/if}
+            {#if selectedSession.is_running && systemStats}
+              <div class="stat-card">
+                <div class="stat-value">{fmtSize(systemStats.mem_alloc)}</div>
+                <div class="stat-label">Memory (Alloc)</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">{fmtSize(systemStats.mem_heap_inuse)}</div>
+                <div class="stat-label">Heap In Use</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">{fmtN(systemStats.num_goroutines)}</div>
+                <div class="stat-label">Goroutines</div>
+              </div>
             {/if}
           </div>
         {/if}

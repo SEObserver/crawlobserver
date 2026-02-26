@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -54,6 +55,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/sessions/{id}/page-html", s.handlePageHTML)
 	mux.HandleFunc("GET /api/sessions/{id}/page-detail", s.handlePageDetail)
 	mux.HandleFunc("GET /api/storage-stats", s.handleStorageStats)
+	mux.HandleFunc("GET /api/system-stats", s.handleSystemStats)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/theme", s.handleTheme)
 
@@ -127,6 +129,18 @@ func (s *Server) Stop(ctx context.Context) error {
 		return s.server.Shutdown(ctx)
 	}
 	return nil
+}
+
+func (s *Server) handleSystemStats(w http.ResponseWriter, r *http.Request) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	writeJSON(w, map[string]interface{}{
+		"mem_alloc":      m.Alloc,
+		"mem_sys":        m.Sys,
+		"mem_heap_inuse": m.HeapInuse,
+		"num_goroutines": runtime.NumGoroutine(),
+		"num_gc":         m.NumGC,
+	})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
