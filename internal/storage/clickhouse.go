@@ -506,6 +506,93 @@ func (s *Store) StorageStats(ctx context.Context) (*StorageStatsResult, error) {
 	return result, nil
 }
 
+// GetPage retrieves all fields for a single page (excluding body_html).
+func (s *Store) GetPage(ctx context.Context, sessionID, url string) (*PageRow, error) {
+	var p PageRow
+	var redirectChain []map[string]interface{}
+	var hreflang []map[string]interface{}
+
+	row := s.conn.QueryRow(ctx, `
+		SELECT crawl_session_id, url, final_url, status_code, content_type,
+			title, title_length, canonical, canonical_is_self, is_indexable, index_reason,
+			meta_robots, meta_description, meta_desc_length, meta_keywords,
+			h1, h2, h3, h4, h5, h6,
+			word_count, internal_links_out, external_links_out,
+			images_count, images_no_alt, hreflang,
+			lang, og_title, og_description, og_image, schema_types,
+			headers, redirect_chain, body_size, fetch_duration_ms,
+			content_encoding, x_robots_tag,
+			error, depth, found_on, crawled_at
+		FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND url = ?
+		LIMIT 1`, sessionID, url)
+
+	if err := row.Scan(
+		&p.CrawlSessionID, &p.URL, &p.FinalURL, &p.StatusCode, &p.ContentType,
+		&p.Title, &p.TitleLength, &p.Canonical, &p.CanonicalIsSelf, &p.IsIndexable, &p.IndexReason,
+		&p.MetaRobots, &p.MetaDescription, &p.MetaDescLength, &p.MetaKeywords,
+		&p.H1, &p.H2, &p.H3, &p.H4, &p.H5, &p.H6,
+		&p.WordCount, &p.InternalLinksOut, &p.ExternalLinksOut,
+		&p.ImagesCount, &p.ImagesNoAlt, &hreflang,
+		&p.Lang, &p.OGTitle, &p.OGDescription, &p.OGImage, &p.SchemaTypes,
+		&p.Headers, &redirectChain, &p.BodySize, &p.FetchDurationMs,
+		&p.ContentEncoding, &p.XRobotsTag,
+		&p.Error, &p.Depth, &p.FoundOn, &p.CrawledAt,
+	); err != nil {
+		return nil, fmt.Errorf("querying page detail: %w", err)
+	}
+
+	for _, m := range redirectChain {
+		hop := RedirectHopRow{}
+		if v, ok := m["url"]; ok {
+			hop.URL, _ = v.(string)
+		}
+		if v, ok := m["status_code"]; ok {
+			hop.StatusCode, _ = v.(uint16)
+		}
+		p.RedirectChain = append(p.RedirectChain, hop)
+	}
+	for _, m := range hreflang {
+		h := HreflangRow{}
+		if v, ok := m["lang"]; ok {
+			h.Lang, _ = v.(string)
+		}
+		if v, ok := m["url"]; ok {
+			h.URL, _ = v.(string)
+		}
+		p.Hreflang = append(p.Hreflang, h)
+	}
+
+	return &p, nil
+}
+
+// GetPageLinks retrieves outbound and inbound links for a URL.
+func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string) ([]LinkRow, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
+		FROM seocrawler.links
+		WHERE crawl_session_id = ? AND (source_url = ? OR target_url = ?)
+		ORDER BY source_url, target_url
+		LIMIT 500`, sessionID, url, url)
+	if err != nil {
+		return nil, fmt.Errorf("querying page links: %w", err)
+	}
+	defer rows.Close()
+
+	var links []LinkRow
+	for rows.Next() {
+		var l LinkRow
+		if err := rows.Scan(
+			&l.CrawlSessionID, &l.SourceURL, &l.TargetURL, &l.AnchorText,
+			&l.Rel, &l.IsInternal, &l.Tag, &l.CrawledAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning page link: %w", err)
+		}
+		links = append(links, l)
+	}
+	return links, nil
+}
+
 // Close closes the ClickHouse connection.
 func (s *Store) Close() error {
 	return s.conn.Close()

@@ -52,6 +52,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/sessions/{id}/progress", s.handleProgress)
 	mux.HandleFunc("GET /api/sessions/{id}/events", s.handleSSE)
 	mux.HandleFunc("GET /api/sessions/{id}/page-html", s.handlePageHTML)
+	mux.HandleFunc("GET /api/sessions/{id}/page-detail", s.handlePageDetail)
 	mux.HandleFunc("GET /api/storage-stats", s.handleStorageStats)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/theme", s.handleTheme)
@@ -340,6 +341,29 @@ func (s *Server) handlePageHTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]string{"url": url, "body_html": html})
+}
+
+func (s *Server) handlePageDetail(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	url := r.URL.Query().Get("url")
+	if url == "" {
+		writeError(w, http.StatusBadRequest, "missing url parameter")
+		return
+	}
+	page, err := s.store.GetPage(r.Context(), sessionID, url)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	links, err := s.store.GetPageLinks(r.Context(), sessionID, url)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, map[string]interface{}{
+		"page":  page,
+		"links": links,
+	})
 }
 
 func (s *Server) handleStorageStats(w http.ResponseWriter, r *http.Request) {
