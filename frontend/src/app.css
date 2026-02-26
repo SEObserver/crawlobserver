@@ -187,6 +187,33 @@ a:hover { color: var(--accent-hover); }
 
 .sidebar-link.active svg { opacity: 1; }
 
+.sidebar-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.sidebar-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.sidebar-stat-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.sidebar-stat-value {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .sidebar-footer {
   margin-top: auto;
   padding: 16px 12px;

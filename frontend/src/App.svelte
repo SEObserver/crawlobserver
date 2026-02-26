@@ -182,11 +182,6 @@
           selectedSession = found;
           stats = await getStats(found.ID);
           loadStorageStats();
-          if (found.is_running) {
-            startSystemStatsPolling();
-          } else {
-            stopSystemStatsPolling();
-          }
         }
       }
       if (route.tab === 'url-detail') {
@@ -203,7 +198,6 @@
       selectedSession = null;
       stats = null;
       pageDetail = null;
-      stopSystemStatsPolling();
       await loadSessions();
     }
   }
@@ -218,11 +212,6 @@
     try {
       stats = await getStats(session.ID);
       loadStorageStats();
-      if (session.is_running) {
-        startSystemStatsPolling();
-      } else {
-        stopSystemStatsPolling();
-      }
       await loadTabData();
     } catch (e) {
       error = e.message;
@@ -234,7 +223,6 @@
     stats = null;
     showNewCrawl = false;
     showSettings = false;
-    stopSystemStatsPolling();
     pushURL('/');
   }
 
@@ -246,7 +234,7 @@
         if (s.is_running && !sseConnections[s.ID]) {
           sseConnections[s.ID] = subscribeProgress(s.ID,
             (data) => { liveProgress[s.ID] = data; liveProgress = { ...liveProgress }; },
-            () => { delete sseConnections[s.ID]; stopSystemStatsPolling(); loadSessions(); }
+            () => { delete sseConnections[s.ID]; loadSessions(); }
           );
         }
       }
@@ -485,17 +473,9 @@
   }
 
   function startSystemStatsPolling() {
-    stopSystemStatsPolling();
+    if (systemStatsInterval) return;
     loadSystemStats();
-    systemStatsInterval = setInterval(loadSystemStats, 2000);
-  }
-
-  function stopSystemStatsPolling() {
-    if (systemStatsInterval) {
-      clearInterval(systemStatsInterval);
-      systemStatsInterval = null;
-    }
-    systemStats = null;
+    systemStatsInterval = setInterval(loadSystemStats, 3000);
   }
 
   const TABS = [
@@ -513,6 +493,7 @@
   // Boot
   loadTheme();
   applyRoute();
+  startSystemStatsPolling();
 </script>
 
 <div class="layout">
@@ -560,6 +541,34 @@
             </button>
           {/each}
         </nav>
+      </div>
+    {/if}
+
+    {#if systemStats}
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">System</div>
+        <div class="sidebar-stats">
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-label">Memory</span>
+            <span class="sidebar-stat-value">{fmtSize(systemStats.mem_alloc)}</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-label">Heap</span>
+            <span class="sidebar-stat-value">{fmtSize(systemStats.mem_heap_inuse)}</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-label">Sys</span>
+            <span class="sidebar-stat-value">{fmtSize(systemStats.mem_sys)}</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-label">Goroutines</span>
+            <span class="sidebar-stat-value">{fmtN(systemStats.num_goroutines)}</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-label">GC cycles</span>
+            <span class="sidebar-stat-value">{fmtN(systemStats.num_gc)}</span>
+          </div>
+        </div>
       </div>
     {/if}
 
@@ -997,20 +1006,6 @@
                   <div class="stat-label">{t.name} ({fmtN(t.rows)} rows)</div>
                 </div>
               {/each}
-            {/if}
-            {#if selectedSession.is_running && systemStats}
-              <div class="stat-card">
-                <div class="stat-value">{fmtSize(systemStats.mem_alloc)}</div>
-                <div class="stat-label">Memory (Alloc)</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">{fmtSize(systemStats.mem_heap_inuse)}</div>
-                <div class="stat-label">Heap In Use</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">{fmtN(systemStats.num_goroutines)}</div>
-                <div class="stat-label">Goroutines</div>
-              </div>
             {/if}
           </div>
         {/if}
