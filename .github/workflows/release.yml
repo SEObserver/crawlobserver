@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            suffix: ''
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            suffix: ''
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            suffix: ''
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            suffix: '.exe'
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend
+        run: |
+          cd frontend && npm ci && npm run build
+          mkdir -p ../internal/server/frontend
+          cp -r dist ../internal/server/frontend/
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags "-X github.com/SEObserver/seocrawler/internal/updater.Version=${{ github.ref_name }}" \
+            -o seocrawler-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }} ./cmd/seocrawler
+
+      - name: Create DMG (macOS)
+        if: matrix.goos == 'darwin'
+        run: |
+          mkdir -p dmg_contents
+          cp seocrawler-${{ matrix.goos }}-${{ matrix.goarch }} dmg_contents/seocrawler
+          chmod +x dmg_contents/seocrawler
+          hdiutil create -volname "SEOCrawler" -srcfolder dmg_contents \
+            -ov -format UDZO seocrawler-${{ matrix.goos }}-${{ matrix.goarch }}.dmg
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: seocrawler-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: seocrawler-${{ matrix.goos }}-${{ matrix.goarch }}*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
