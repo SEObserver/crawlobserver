@@ -13,12 +13,12 @@ export async function getSessions() {
   return fetchJSON('/sessions');
 }
 
-export async function getPages(sessionId) {
-  return fetchJSON(`/sessions/${sessionId}/pages`);
+export async function getPages(sessionId, limit = 100, offset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/pages?limit=${limit}&offset=${offset}`);
 }
 
-export async function getLinks(sessionId) {
-  return fetchJSON(`/sessions/${sessionId}/links`);
+export async function getLinks(sessionId, limit = 100, offset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/links?limit=${limit}&offset=${offset}`);
 }
 
 export async function getStats(sessionId) {

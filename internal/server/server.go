@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/SEObserver/seocrawler/internal/config"
@@ -122,8 +123,8 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePages(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
-	limit := 100
-	offset := 0
+	limit := queryInt(r, "limit", 100)
+	offset := queryInt(r, "offset", 0)
 
 	pages, err := s.store.ListPages(r.Context(), sessionID, limit, offset)
 	if err != nil {
@@ -135,7 +136,9 @@ func (s *Server) handlePages(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleLinks(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
-	links, err := s.store.ExternalLinks(r.Context(), sessionID)
+	limit := queryInt(r, "limit", 100)
+	offset := queryInt(r, "offset", 0)
+	links, err := s.store.ExternalLinksPaginated(r.Context(), sessionID, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -230,6 +233,18 @@ func basicAuth(next http.Handler, username, password string) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func queryInt(r *http.Request, key string, def int) int {
+	v := r.URL.Query().Get(key)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return def
+	}
+	return n
 }
 
 func writeJSON(w http.ResponseWriter, data interface{}) {

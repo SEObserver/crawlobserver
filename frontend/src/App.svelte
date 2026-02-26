@@ -10,6 +10,13 @@
   let loading = $state(true);
   let error = $state(null);
 
+  // Pagination
+  const PAGE_SIZE = 100;
+  let pagesOffset = $state(0);
+  let linksOffset = $state(0);
+  let hasMorePages = $state(false);
+  let hasMoreLinks = $state(false);
+
   // New crawl form
   let showNewCrawl = $state(false);
   let seedInput = $state('');
@@ -28,7 +35,6 @@
     try {
       loading = true;
       sessions = await getSessions() || [];
-      // Start polling progress for running sessions
       pollRunning();
     } catch (e) {
       error = e.message;
@@ -59,7 +65,6 @@
           }
         } catch {}
       }
-      // Force reactivity
       liveProgress = { ...liveProgress };
     }, 2000);
   }
@@ -67,17 +72,52 @@
   async function selectSession(session) {
     selectedSession = session;
     view = 'pages';
+    pagesOffset = 0;
+    linksOffset = 0;
     try {
-      [stats, pages, links] = await Promise.all([
-        getStats(session.ID),
-        getPages(session.ID),
-        getLinks(session.ID)
-      ]);
-      pages = pages || [];
-      links = links || [];
+      stats = await getStats(session.ID);
+      await loadPages();
+      await loadLinks();
     } catch (e) {
       error = e.message;
     }
+  }
+
+  async function loadPages() {
+    try {
+      const result = await getPages(selectedSession.ID, PAGE_SIZE, pagesOffset);
+      pages = result || [];
+      hasMorePages = pages.length === PAGE_SIZE;
+    } catch (e) {
+      error = e.message;
+    }
+  }
+
+  async function loadLinks() {
+    try {
+      const result = await getLinks(selectedSession.ID, PAGE_SIZE, linksOffset);
+      links = result || [];
+      hasMoreLinks = links.length === PAGE_SIZE;
+    } catch (e) {
+      error = e.message;
+    }
+  }
+
+  async function nextPages() {
+    pagesOffset += PAGE_SIZE;
+    await loadPages();
+  }
+  async function prevPages() {
+    pagesOffset = Math.max(0, pagesOffset - PAGE_SIZE);
+    await loadPages();
+  }
+  async function nextLinks() {
+    linksOffset += PAGE_SIZE;
+    await loadLinks();
+  }
+  async function prevLinks() {
+    linksOffset = Math.max(0, linksOffset - PAGE_SIZE);
+    await loadLinks();
   }
 
   async function handleStartCrawl() {
@@ -97,7 +137,6 @@
       seedInput = '';
       maxPages = 0;
       maxDepth = 0;
-      // Reload sessions after a brief delay to let engine start
       setTimeout(() => loadSessions(), 500);
     } catch (e) {
       error = e.message;
@@ -334,10 +373,10 @@
 
     <!-- Tabs -->
     <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-      <button class="btn" class:btn-primary={view === 'pages'} onclick={() => view = 'pages'}>
+      <button class="btn" class:btn-primary={view === 'pages'} onclick={() => { view = 'pages'; pagesOffset = 0; loadPages(); }}>
         Pages
       </button>
-      <button class="btn" class:btn-primary={view === 'links'} onclick={() => view = 'links'}>
+      <button class="btn" class:btn-primary={view === 'links'} onclick={() => { view = 'links'; linksOffset = 0; loadLinks(); }}>
         External Links
       </button>
     </div>
@@ -372,6 +411,16 @@
             {/each}
           </tbody>
         </table>
+
+        <!-- Pagination -->
+        <div class="pagination">
+          <button class="btn btn-sm" onclick={prevPages} disabled={pagesOffset === 0}>Previous</button>
+          <span class="pagination-info">
+            {pagesOffset + 1}–{pagesOffset + pages.length}
+            {#if stats} of {formatNumber(stats.total_pages)}{/if}
+          </span>
+          <button class="btn btn-sm" onclick={nextPages} disabled={!hasMorePages}>Next</button>
+        </div>
       </div>
     {:else}
       <div class="card">
@@ -401,6 +450,16 @@
             {/each}
           </tbody>
         </table>
+
+        <!-- Pagination -->
+        <div class="pagination">
+          <button class="btn btn-sm" onclick={prevLinks} disabled={linksOffset === 0}>Previous</button>
+          <span class="pagination-info">
+            {linksOffset + 1}–{linksOffset + links.length}
+            {#if stats} of {formatNumber(stats.external_links)}{/if}
+          </span>
+          <button class="btn btn-sm" onclick={nextLinks} disabled={!hasMoreLinks}>Next</button>
+        </div>
       </div>
     {/if}
   {/if}

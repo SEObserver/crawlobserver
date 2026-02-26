@@ -187,6 +187,41 @@ func (s *Store) ExternalLinks(ctx context.Context, sessionID string) ([]LinkRow,
 	return links, nil
 }
 
+// ExternalLinksPaginated retrieves external links with pagination.
+func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int) ([]LinkRow, error) {
+	query := `
+		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
+		FROM seocrawler.links
+		WHERE is_internal = false`
+	args := []interface{}{}
+
+	if sessionID != "" {
+		query += ` AND crawl_session_id = ?`
+		args = append(args, sessionID)
+	}
+	query += ` ORDER BY source_url, target_url LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := s.conn.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("querying external links: %w", err)
+	}
+	defer rows.Close()
+
+	var links []LinkRow
+	for rows.Next() {
+		var l LinkRow
+		if err := rows.Scan(
+			&l.CrawlSessionID, &l.SourceURL, &l.TargetURL, &l.AnchorText,
+			&l.Rel, &l.IsInternal, &l.Tag, &l.CrawledAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning link: %w", err)
+		}
+		links = append(links, l)
+	}
+	return links, nil
+}
+
 // ListPages retrieves pages for a session with pagination.
 func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset int) ([]PageRow, error) {
 	rows, err := s.conn.Query(ctx, `

@@ -127,6 +127,17 @@ nav a:hover, nav a.active { color: var(--text); }
   accent-color: var(--accent);
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 0 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+.pagination-info { font-size: 13px; color: var(--text-muted); }
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;
