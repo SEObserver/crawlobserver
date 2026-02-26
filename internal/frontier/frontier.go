@@ -24,6 +24,8 @@ type Frontier struct {
 	urldb     *URLDb
 	hostQueue *HostQueue
 	hostCount map[string]int // number of URLs per host in the queue
+	minDepth  map[uint64]int // minimum depth seen per URL (keyed by hash)
+	bestFound map[uint64]string // best foundOn per URL (the one with min depth)
 	closed    bool
 }
 
@@ -33,13 +35,16 @@ func New(delay time.Duration) *Frontier {
 		urldb:     NewURLDb(),
 		hostQueue: NewHostQueue(delay),
 		hostCount: make(map[string]int),
+		minDepth:  make(map[uint64]int),
+		bestFound: make(map[uint64]string),
 	}
 	heap.Init(&f.pq)
 	return f
 }
 
 // Add adds a URL to the frontier if it hasn't been seen before.
-// Returns true if the URL was added.
+// Returns true if the URL was added. Even if already seen, updates the
+// minimum depth tracking so that dequeued URLs get their true shortest-path depth.
 func (f *Frontier) Add(crawlURL CrawlURL) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -48,10 +53,20 @@ func (f *Frontier) Add(crawlURL CrawlURL) bool {
 		return false
 	}
 
+	h := hash(crawlURL.URL)
+
 	if !f.urldb.Add(crawlURL.URL) {
+		// URL already seen — still update min depth if this path is shorter
+		if d, ok := f.minDepth[h]; ok && crawlURL.Depth < d {
+			f.minDepth[h] = crawlURL.Depth
+			f.bestFound[h] = crawlURL.FoundOn
+		}
 		return false
 	}
 
+	// New URL — record depth and add to queue
+	f.minDepth[h] = crawlURL.Depth
+	f.bestFound[h] = crawlURL.FoundOn
 	crawlURL.host = extractHost(crawlURL.URL)
 	f.hostCount[crawlURL.host]++
 	heap.Push(&f.pq, &crawlURL)
@@ -88,6 +103,14 @@ func (f *Frontier) Next() *CrawlURL {
 			f.hostCount[item.host]--
 			if f.hostCount[item.host] == 0 {
 				delete(f.hostCount, item.host)
+			}
+			// Override depth with the minimum seen across all discovery paths
+			h := hash(item.URL)
+			if d, ok := f.minDepth[h]; ok && d < item.Depth {
+				item.Depth = d
+			}
+			if fo, ok := f.bestFound[h]; ok && fo != "" {
+				item.FoundOn = fo
 			}
 			return item
 		}
