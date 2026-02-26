@@ -94,27 +94,43 @@ func (f *Frontier) Next() *CrawlURL {
 		return nil
 	}
 
-	// Find the highest-priority URL from a ready host
-	for i := 0; i < f.pq.Len(); i++ {
-		if readySet[f.pq[i].host] {
-			item := f.pq[i]
-			heap.Remove(&f.pq, i)
-			f.hostQueue.RecordFetch(item.host)
-			f.hostCount[item.host]--
-			if f.hostCount[item.host] == 0 {
-				delete(f.hostCount, item.host)
-			}
-			// Override depth with the minimum seen across all discovery paths
-			h := hash(item.URL)
-			if d, ok := f.minDepth[h]; ok && d < item.Depth {
-				item.Depth = d
-			}
-			if fo, ok := f.bestFound[h]; ok && fo != "" {
-				item.FoundOn = fo
-			}
-			return item
+	// Pop items from the heap in true priority order until we find one whose host is ready.
+	// Items with non-ready hosts are collected and pushed back after.
+	var deferred []*CrawlURL
+	var found *CrawlURL
+
+	for f.pq.Len() > 0 {
+		item := heap.Pop(&f.pq).(*CrawlURL)
+		if readySet[item.host] {
+			found = item
+			break
 		}
+		deferred = append(deferred, item)
 	}
+
+	// Push back deferred items
+	for _, d := range deferred {
+		heap.Push(&f.pq, d)
+	}
+
+	if found == nil {
+		return nil
+	}
+
+	f.hostQueue.RecordFetch(found.host)
+	f.hostCount[found.host]--
+	if f.hostCount[found.host] == 0 {
+		delete(f.hostCount, found.host)
+	}
+	// Override depth with the minimum seen across all discovery paths
+	h := hash(found.URL)
+	if d, ok := f.minDepth[h]; ok && d < found.Depth {
+		found.Depth = d
+	}
+	if fo, ok := f.bestFound[h]; ok && fo != "" {
+		found.FoundOn = fo
+	}
+	return found
 
 	return nil
 }
