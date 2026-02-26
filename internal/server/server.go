@@ -1,0 +1,153 @@
+package server
+
+import (
+	"context"
+	"crypto/subtle"
+	"embed"
+	"encoding/json"
+	"fmt"
+	"io/fs"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/SEObserver/seocrawler/internal/config"
+	"github.com/SEObserver/seocrawler/internal/storage"
+)
+
+//go:embed all:frontend/dist
+var frontendFS embed.FS
+
+// Server serves the web GUI and REST API.
+type Server struct {
+	cfg    *config.Config
+	store  *storage.Store
+	server *http.Server
+}
+
+// New creates a new Server.
+func New(cfg *config.Config, store *storage.Store) *Server {
+	return &Server{
+		cfg:   cfg,
+		store: store,
+	}
+}
+
+// Start starts the HTTP server.
+func (s *Server) Start() error {
+	mux := http.NewServeMux()
+
+	// API routes
+	mux.HandleFunc("GET /api/sessions", s.handleSessions)
+	mux.HandleFunc("GET /api/sessions/{id}/pages", s.handlePages)
+	mux.HandleFunc("GET /api/sessions/{id}/links", s.handleLinks)
+	mux.HandleFunc("GET /api/sessions/{id}/stats", s.handleStats)
+	mux.HandleFunc("GET /api/health", s.handleHealth)
+
+	// Static frontend files
+	distFS, err := fs.Sub(frontendFS, "frontend/dist")
+	if err != nil {
+		return fmt.Errorf("frontend filesystem: %w", err)
+	}
+	fileServer := http.FileServer(http.FS(distFS))
+	mux.Handle("GET /", fileServer)
+
+	// Wrap with basic auth if credentials are configured
+	var handler http.Handler = mux
+	if s.cfg.Server.Username != "" && s.cfg.Server.Password != "" {
+		handler = basicAuth(mux, s.cfg.Server.Username, s.cfg.Server.Password)
+		log.Println("Basic authentication enabled")
+	} else {
+		log.Println("WARNING: No authentication configured. Set server.username and server.password in config.")
+	}
+
+	addr := fmt.Sprintf("%s:%d", s.cfg.Server.Host, s.cfg.Server.Port)
+	s.server = &http.Server{
+		Addr:         addr,
+		Handler:      handler,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+	}
+
+	log.Printf("Web UI available at http://%s", addr)
+	return s.server.ListenAndServe()
+}
+
+// Stop gracefully shuts down the server.
+func (s *Server) Stop(ctx context.Context) error {
+	if s.server != nil {
+		return s.server.Shutdown(ctx)
+	}
+	return nil
+}
+
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
+	sessions, err := s.store.ListSessions(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, sessions)
+}
+
+func (s *Server) handlePages(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	limit := 100
+	offset := 0
+
+	pages, err := s.store.ListPages(r.Context(), sessionID, limit, offset)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, pages)
+}
+
+func (s *Server) handleLinks(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	links, err := s.store.ExternalLinks(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, links)
+}
+
+func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	stats, err := s.store.SessionStats(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, stats)
+}
+
+func basicAuth(next http.Handler, username, password string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if !ok ||
+			subtle.ConstantTimeCompare([]byte(user), []byte(username)) != 1 ||
+			subtle.ConstantTimeCompare([]byte(pass), []byte(password)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Basic realm="SEOCrawler"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func writeJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+
+func writeError(w http.ResponseWriter, code int, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}

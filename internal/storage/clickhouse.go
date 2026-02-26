@@ -187,6 +187,92 @@ func (s *Store) ExternalLinks(ctx context.Context, sessionID string) ([]LinkRow,
 	return links, nil
 }
 
+// ListPages retrieves pages for a session with pagination.
+func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset int) ([]PageRow, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT crawl_session_id, url, final_url, status_code, content_type,
+			title, canonical, meta_robots, meta_description,
+			h1, h2, h3, h4, h5, h6,
+			body_size, fetch_duration_ms, error, depth, found_on, crawled_at
+		FROM seocrawler.pages
+		WHERE crawl_session_id = ?
+		ORDER BY crawled_at DESC
+		LIMIT ? OFFSET ?
+	`, sessionID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("querying pages: %w", err)
+	}
+	defer rows.Close()
+
+	var pages []PageRow
+	for rows.Next() {
+		var p PageRow
+		if err := rows.Scan(
+			&p.CrawlSessionID, &p.URL, &p.FinalURL, &p.StatusCode, &p.ContentType,
+			&p.Title, &p.Canonical, &p.MetaRobots, &p.MetaDescription,
+			&p.H1, &p.H2, &p.H3, &p.H4, &p.H5, &p.H6,
+			&p.BodySize, &p.FetchDurationMs, &p.Error, &p.Depth, &p.FoundOn, &p.CrawledAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning page: %w", err)
+		}
+		pages = append(pages, p)
+	}
+	return pages, nil
+}
+
+// SessionStats holds aggregate stats for a crawl session.
+type SessionStats struct {
+	TotalPages     uint64  `json:"total_pages"`
+	TotalLinks     uint64  `json:"total_links"`
+	InternalLinks  uint64  `json:"internal_links"`
+	ExternalLinks  uint64  `json:"external_links"`
+	AvgFetchMs     float64 `json:"avg_fetch_ms"`
+	ErrorCount     uint64  `json:"error_count"`
+	StatusCodes    map[uint16]uint64 `json:"status_codes"`
+}
+
+// SessionStats retrieves aggregate statistics for a crawl session.
+func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionStats, error) {
+	stats := &SessionStats{
+		StatusCodes: make(map[uint16]uint64),
+	}
+
+	// Page stats
+	row := s.conn.QueryRow(ctx, `
+		SELECT count(), avg(fetch_duration_ms), countIf(error != '')
+		FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+	if err := row.Scan(&stats.TotalPages, &stats.AvgFetchMs, &stats.ErrorCount); err != nil {
+		return nil, fmt.Errorf("querying page stats: %w", err)
+	}
+
+	// Link stats
+	row = s.conn.QueryRow(ctx, `
+		SELECT count(), countIf(is_internal = true), countIf(is_internal = false)
+		FROM seocrawler.links WHERE crawl_session_id = ?`, sessionID)
+	if err := row.Scan(&stats.TotalLinks, &stats.InternalLinks, &stats.ExternalLinks); err != nil {
+		return nil, fmt.Errorf("querying link stats: %w", err)
+	}
+
+	// Status code distribution
+	rows, err := s.conn.Query(ctx, `
+		SELECT status_code, count() FROM seocrawler.pages
+		WHERE crawl_session_id = ? GROUP BY status_code ORDER BY status_code`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying status codes: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var code uint16
+		var cnt uint64
+		if err := rows.Scan(&code, &cnt); err != nil {
+			return nil, err
+		}
+		stats.StatusCodes[code] = cnt
+	}
+
+	return stats, nil
+}
+
 // Close closes the ClickHouse connection.
 func (s *Store) Close() error {
 	return s.conn.Close()
