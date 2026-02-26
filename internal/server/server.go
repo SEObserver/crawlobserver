@@ -307,7 +307,19 @@ func (s *Server) handleStopCrawl(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleResumeCrawl(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
-	_, err := s.manager.ResumeCrawl(sessionID)
+
+	// Decode optional overrides from body
+	var overrides *crawler.CrawlRequest
+	if r.Body != nil && r.ContentLength != 0 {
+		var req crawler.CrawlRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+		overrides = &req
+	}
+
+	_, err := s.manager.ResumeCrawl(sessionID, overrides)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

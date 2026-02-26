@@ -72,8 +72,13 @@ export async function stopCrawl(sessionId) {
   return fetchJSON(`/sessions/${sessionId}/stop`, { method: 'POST' });
 }
 
-export async function resumeCrawl(sessionId) {
-  return fetchJSON(`/sessions/${sessionId}/resume`, { method: 'POST' });
+export async function resumeCrawl(sessionId, options = null) {
+  const opts = { method: 'POST' };
+  if (options) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(options);
+  }
+  return fetchJSON(`/sessions/${sessionId}/resume`, opts);
 }
 
 export async function deleteSession(sessionId) {

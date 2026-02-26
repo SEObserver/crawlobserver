@@ -132,7 +132,8 @@ func (m *Manager) ActiveSessions() []string {
 }
 
 // ResumeCrawl resumes a stopped/completed session by re-crawling undiscovered links.
-func (m *Manager) ResumeCrawl(sessionID string) (string, error) {
+// If overrides is non-nil, its non-zero fields override the default config.
+func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string, error) {
 	m.mu.RLock()
 	_, running := m.engines[sessionID]
 	m.mu.RUnlock()
@@ -165,6 +166,25 @@ func (m *Manager) ResumeCrawl(sessionID string) (string, error) {
 		sessionID, len(uncrawled), len(crawled))
 
 	cfg := *m.cfg
+	if overrides != nil {
+		crawlerCfg := cfg.Crawler
+		if overrides.MaxPages > 0 {
+			crawlerCfg.MaxPages = overrides.MaxPages
+		}
+		if overrides.MaxDepth > 0 {
+			crawlerCfg.MaxDepth = overrides.MaxDepth
+		}
+		if overrides.Workers > 0 {
+			crawlerCfg.Workers = overrides.Workers
+		}
+		if overrides.Delay != "" {
+			if d, err := parseDuration(overrides.Delay); err == nil {
+				crawlerCfg.Delay = d
+			}
+		}
+		crawlerCfg.StoreHTML = overrides.StoreHTML
+		cfg.Crawler = crawlerCfg
+	}
 	engine := NewEngine(&cfg, m.store)
 
 	// Restore the original session with its seed URLs, not the uncrawled URLs

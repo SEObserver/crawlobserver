@@ -45,6 +45,16 @@
   let storeHtml = $state(false);
   let starting = $state(false);
 
+  // Resume modal
+  let showResumeModal = $state(false);
+  let resumeSessionId = $state(null);
+  let resumeMaxPages = $state(0);
+  let resumeMaxDepth = $state(0);
+  let resumeWorkers = $state(10);
+  let resumeDelay = $state('1s');
+  let resumeStoreHtml = $state(false);
+  let resuming = $state(false);
+
   // HTML modal
   let showHtmlModal = $state(false);
   let htmlModalData = $state({ url: '', body_html: '' });
@@ -321,15 +331,45 @@
     } catch (e) { error = e.message; }
   }
 
-  async function handleResume(id) {
+  function openResumeModal(id) {
+    const sess = sessions.find(s => s.ID === id);
+    let cfg = {};
+    if (sess?.Config) {
+      try { cfg = typeof sess.Config === 'string' ? JSON.parse(sess.Config) : sess.Config; } catch {}
+    }
+    resumeSessionId = id;
+    resumeMaxPages = cfg.max_pages || 0;
+    resumeMaxDepth = cfg.max_depth || 0;
+    resumeWorkers = cfg.workers || 10;
+    resumeDelay = cfg.delay || '1s';
+    resumeStoreHtml = cfg.store_html || false;
+    showResumeModal = true;
+  }
+
+  function closeResumeModal() {
+    showResumeModal = false;
+    resumeSessionId = null;
+  }
+
+  async function handleResume() {
+    resuming = true;
+    error = null;
     try {
-      await resumeCrawl(id);
+      await resumeCrawl(resumeSessionId, {
+        max_pages: resumeMaxPages,
+        max_depth: resumeMaxDepth,
+        workers: resumeWorkers,
+        delay: resumeDelay,
+        store_html: resumeStoreHtml,
+      });
+      closeResumeModal();
       await loadSessions();
-      const sess = sessions.find(s => s.ID === id);
+      const sess = sessions.find(s => s.ID === resumeSessionId);
       if (sess) {
         await selectSession(sess);
       }
     } catch (e) { error = e.message; }
+    finally { resuming = false; }
   }
 
   async function handleDelete(id) {
@@ -600,7 +640,7 @@
                   {#if s.is_running}
                     <button class="btn btn-sm btn-danger" onclick={() => handleStop(s.ID)}>Stop</button>
                   {:else}
-                    <button class="btn btn-sm" onclick={() => handleResume(s.ID)}>Resume</button>
+                    <button class="btn btn-sm" onclick={() => openResumeModal(s.ID)}>Resume</button>
                     <button class="btn btn-sm btn-danger" onclick={() => handleDelete(s.ID)}>Delete</button>
                   {/if}
                 </div>
@@ -627,7 +667,7 @@
             <button class="btn btn-sm btn-danger" onclick={() => handleStop(selectedSession.ID)}>Stop</button>
           {:else}
             <span class="badge" class:badge-success={selectedSession.Status==='completed'} class:badge-error={selectedSession.Status==='failed'} class:badge-warning={selectedSession.Status==='stopped'}>{selectedSession.Status}</span>
-            <button class="btn btn-sm" onclick={() => handleResume(selectedSession.ID)}>Resume</button>
+            <button class="btn btn-sm" onclick={() => openResumeModal(selectedSession.ID)}>Resume</button>
             <button class="btn btn-sm btn-danger" onclick={() => handleDelete(selectedSession.ID)}>Delete</button>
           {/if}
           <button class="btn btn-sm" onclick={() => selectSession(selectedSession)}>
@@ -840,6 +880,40 @@
     </div>
   </main>
 </div>
+
+{#if showResumeModal}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="html-modal-overlay" onclick={closeResumeModal}>
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="html-modal" onclick={(e) => e.stopPropagation()} style="max-width: 480px; height: auto;">
+      <div class="html-modal-header">
+        <div class="html-modal-url">Resume Crawl</div>
+        <div class="html-modal-actions">
+          <button class="btn btn-sm" title="Close" onclick={closeResumeModal}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div style="padding: 20px;">
+        <div class="form-grid">
+          <div class="form-group"><label for="r-maxpages">Max pages (0 = unlimited)</label><input id="r-maxpages" type="number" bind:value={resumeMaxPages} min="0" /></div>
+          <div class="form-group"><label for="r-maxdepth">Max depth (0 = unlimited)</label><input id="r-maxdepth" type="number" bind:value={resumeMaxDepth} min="0" /></div>
+          <div class="form-group"><label for="r-workers">Workers</label><input id="r-workers" type="number" bind:value={resumeWorkers} min="1" max="100" /></div>
+          <div class="form-group"><label for="r-delay">Delay</label><input id="r-delay" type="text" bind:value={resumeDelay} placeholder="1s" /></div>
+          <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
+            <input id="r-storehtml" type="checkbox" bind:checked={resumeStoreHtml} /><label for="r-storehtml" style="margin: 0;">Store raw HTML</label>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 20px;">
+          <button class="btn btn-primary" onclick={handleResume} disabled={resuming}>
+            {resuming ? 'Resuming...' : 'Resume'}
+          </button>
+          <button class="btn" onclick={closeResumeModal}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if showHtmlModal}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
