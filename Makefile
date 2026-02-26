@@ -1,9 +1,20 @@
-.PHONY: build run test clean migrate
+.PHONY: build run test clean migrate frontend
 
-BINARY=seocrawler
+VERSION ?= dev
+LDFLAGS = -ldflags "-X github.com/SEObserver/seocrawler/internal/updater.Version=$(VERSION)"
+BINARY = seocrawler
 
-build:
-	go build -o $(BINARY) ./cmd/seocrawler
+frontend:
+	cd frontend && npm install && npm run build
+	rm -rf internal/server/frontend/dist
+	mkdir -p internal/server/frontend
+	cp -r frontend/dist internal/server/frontend/
+
+build: frontend
+	go build $(LDFLAGS) -o $(BINARY) ./cmd/seocrawler
+
+build-go:
+	go build $(LDFLAGS) -o $(BINARY) ./cmd/seocrawler
 
 run: build
 	./$(BINARY)
@@ -17,8 +28,9 @@ test-cover:
 
 clean:
 	rm -f $(BINARY) coverage.out coverage.html
+	rm -rf internal/server/frontend/dist
 
-migrate: build
+migrate: build-go
 	./$(BINARY) migrate
 
 lint:
