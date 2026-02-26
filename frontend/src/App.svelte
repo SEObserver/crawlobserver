@@ -1,5 +1,5 @@
 <script>
-  import { getSessions, getStats, getPages, getLinks } from './lib/api.js';
+  import { getSessions, getStats, getPages, getLinks, getProgress, startCrawl, stopCrawl, resumeCrawl, deleteSession } from './lib/api.js';
 
   let sessions = $state([]);
   let selectedSession = $state(null);
@@ -10,15 +10,58 @@
   let loading = $state(true);
   let error = $state(null);
 
+  // New crawl form
+  let showNewCrawl = $state(false);
+  let seedInput = $state('');
+  let maxPages = $state(0);
+  let maxDepth = $state(0);
+  let workers = $state(10);
+  let crawlDelay = $state('1s');
+  let storeHtml = $state(false);
+  let starting = $state(false);
+
+  // Progress polling
+  let progressInterval = $state(null);
+  let liveProgress = $state({});
+
   async function loadSessions() {
     try {
       loading = true;
       sessions = await getSessions() || [];
+      // Start polling progress for running sessions
+      pollRunning();
     } catch (e) {
       error = e.message;
     } finally {
       loading = false;
     }
+  }
+
+  function pollRunning() {
+    if (progressInterval) clearInterval(progressInterval);
+    const hasRunning = sessions.some(s => s.is_running);
+    if (!hasRunning) return;
+
+    progressInterval = setInterval(async () => {
+      const running = sessions.filter(s => s.is_running);
+      if (running.length === 0) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+        loadSessions();
+        return;
+      }
+      for (const s of running) {
+        try {
+          const p = await getProgress(s.ID);
+          liveProgress[s.ID] = p;
+          if (!p.is_running) {
+            loadSessions();
+          }
+        } catch {}
+      }
+      // Force reactivity
+      liveProgress = { ...liveProgress };
+    }, 2000);
   }
 
   async function selectSession(session) {
@@ -32,6 +75,63 @@
       ]);
       pages = pages || [];
       links = links || [];
+    } catch (e) {
+      error = e.message;
+    }
+  }
+
+  async function handleStartCrawl() {
+    const seeds = seedInput.split('\n').map(s => s.trim()).filter(Boolean);
+    if (seeds.length === 0) return;
+    starting = true;
+    error = null;
+    try {
+      await startCrawl(seeds, {
+        max_pages: maxPages,
+        max_depth: maxDepth,
+        workers: workers,
+        delay: crawlDelay,
+        store_html: storeHtml,
+      });
+      showNewCrawl = false;
+      seedInput = '';
+      maxPages = 0;
+      maxDepth = 0;
+      // Reload sessions after a brief delay to let engine start
+      setTimeout(() => loadSessions(), 500);
+    } catch (e) {
+      error = e.message;
+    } finally {
+      starting = false;
+    }
+  }
+
+  async function handleStop(id) {
+    try {
+      await stopCrawl(id);
+      setTimeout(() => loadSessions(), 1000);
+    } catch (e) {
+      error = e.message;
+    }
+  }
+
+  async function handleResume(id) {
+    try {
+      await resumeCrawl(id);
+      setTimeout(() => loadSessions(), 500);
+    } catch (e) {
+      error = e.message;
+    }
+  }
+
+  async function handleDelete(id) {
+    if (!confirm('Delete this session and all its data?')) return;
+    try {
+      await deleteSession(id);
+      if (selectedSession && selectedSession.ID === id) {
+        selectedSession = null;
+      }
+      loadSessions();
     } catch (e) {
       error = e.message;
     }
@@ -55,6 +155,10 @@
     return `${(bytes / 1048576).toFixed(1)}MB`;
   }
 
+  function formatNumber(n) {
+    return new Intl.NumberFormat().format(n);
+  }
+
   loadSessions();
 </script>
 
@@ -67,15 +171,62 @@
   {:else}
     <span style="color: var(--text)">Sessions</span>
   {/if}
+  <div style="margin-left: auto;">
+    {#if !selectedSession}
+      <button class="btn btn-primary" onclick={() => showNewCrawl = !showNewCrawl}>
+        + New Crawl
+      </button>
+    {/if}
+  </div>
 </nav>
 
 <div class="container" style="padding-top: 24px; padding-bottom: 48px;">
   {#if error}
     <div class="card" style="border-color: var(--error); margin-bottom: 16px;">
       <p style="color: var(--error);">{error}</p>
-      <button class="btn" style="margin-top: 8px;" onclick={() => { error = null; loadSessions(); }}>
-        Retry
+      <button class="btn" style="margin-top: 8px;" onclick={() => { error = null; }}>
+        Dismiss
       </button>
+    </div>
+  {/if}
+
+  {#if showNewCrawl && !selectedSession}
+    <!-- New Crawl Form -->
+    <div class="card" style="margin-bottom: 24px;">
+      <h2 style="font-size: 18px; margin-bottom: 16px;">New Crawl</h2>
+      <div class="form-grid">
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <label for="seeds">Seed URLs (one per line)</label>
+          <textarea id="seeds" bind:value={seedInput} rows="3"
+            placeholder="https://example.com"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="workers">Workers</label>
+          <input id="workers" type="number" bind:value={workers} min="1" max="100" />
+        </div>
+        <div class="form-group">
+          <label for="delay">Delay</label>
+          <input id="delay" type="text" bind:value={crawlDelay} placeholder="1s" />
+        </div>
+        <div class="form-group">
+          <label for="maxpages">Max pages (0 = unlimited)</label>
+          <input id="maxpages" type="number" bind:value={maxPages} min="0" />
+        </div>
+        <div class="form-group">
+          <label for="maxdepth">Max depth (0 = unlimited)</label>
+          <input id="maxdepth" type="number" bind:value={maxDepth} min="0" />
+        </div>
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px; padding-top: 24px;">
+          <input id="storehtml" type="checkbox" bind:checked={storeHtml} />
+          <label for="storehtml" style="margin: 0;">Store raw HTML</label>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <button class="btn btn-primary" onclick={handleStartCrawl} disabled={starting || !seedInput.trim()}>
+          {starting ? 'Starting...' : 'Start Crawl'}
+        </button>
+        <button class="btn" onclick={() => showNewCrawl = false}>Cancel</button>
+      </div>
     </div>
   {/if}
 
@@ -88,7 +239,7 @@
     {:else if sessions.length === 0}
       <div class="empty-state">
         <h2>No crawl sessions yet</h2>
-        <p>Run <code>seocrawler crawl --seed https://example.com</code> to start.</p>
+        <p>Click <strong>+ New Crawl</strong> above to start your first crawl.</p>
       </div>
     {:else}
       <div class="card">
@@ -99,24 +250,44 @@
               <th>Status</th>
               <th>Pages</th>
               <th>Started</th>
-              <th></th>
+              <th style="text-align: right;">Actions</th>
             </tr>
           </thead>
           <tbody>
             {#each sessions as session}
               <tr>
-                <td>{session.SeedURLs?.[0] || '-'}</td>
-                <td>
-                  <span class="badge" class:badge-success={session.Status === 'completed'}
-                    class:badge-info={session.Status === 'running'}
-                    class:badge-error={session.Status === 'failed'}>
-                    {session.Status}
-                  </span>
+                <td style="max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  {session.SeedURLs?.[0] || '-'}
                 </td>
-                <td>{session.PagesCrawled}</td>
-                <td>{new Date(session.StartedAt).toLocaleString()}</td>
                 <td>
-                  <button class="btn" onclick={() => selectSession(session)}>View</button>
+                  {#if session.is_running}
+                    <span class="badge badge-info">
+                      running
+                      {#if liveProgress[session.ID]}
+                        ({formatNumber(liveProgress[session.ID].pages_crawled)} pages,
+                        {formatNumber(liveProgress[session.ID].queue_size)} in queue)
+                      {/if}
+                    </span>
+                  {:else}
+                    <span class="badge" class:badge-success={session.Status === 'completed'}
+                      class:badge-error={session.Status === 'failed'}
+                      class:badge-warning={session.Status === 'stopped'}>
+                      {session.Status}
+                    </span>
+                  {/if}
+                </td>
+                <td>{formatNumber(session.PagesCrawled)}</td>
+                <td>{new Date(session.StartedAt).toLocaleString()}</td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <div style="display: flex; gap: 4px; justify-content: flex-end;">
+                    <button class="btn btn-sm" onclick={() => selectSession(session)}>View</button>
+                    {#if session.is_running}
+                      <button class="btn btn-sm btn-danger" onclick={() => handleStop(session.ID)}>Stop</button>
+                    {:else}
+                      <button class="btn btn-sm" onclick={() => handleResume(session.ID)}>Resume</button>
+                      <button class="btn btn-sm btn-danger" onclick={() => handleDelete(session.ID)}>Delete</button>
+                    {/if}
+                  </div>
                 </td>
               </tr>
             {/each}
@@ -126,18 +297,28 @@
     {/if}
   {:else}
     <!-- Session Detail -->
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+      {#if selectedSession.is_running}
+        <button class="btn btn-danger" onclick={() => handleStop(selectedSession.ID)}>Stop Crawl</button>
+      {:else}
+        <button class="btn" onclick={() => handleResume(selectedSession.ID)}>Resume Crawl</button>
+        <button class="btn btn-danger" onclick={() => handleDelete(selectedSession.ID)}>Delete Session</button>
+      {/if}
+      <button class="btn" onclick={() => { selectSession(selectedSession); }}>Refresh</button>
+    </div>
+
     {#if stats}
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-value">{stats.total_pages}</div>
+          <div class="stat-value">{formatNumber(stats.total_pages)}</div>
           <div class="stat-label">Pages crawled</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">{stats.internal_links}</div>
+          <div class="stat-value">{formatNumber(stats.internal_links)}</div>
           <div class="stat-label">Internal links</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">{stats.external_links}</div>
+          <div class="stat-value">{formatNumber(stats.external_links)}</div>
           <div class="stat-label">External links</div>
         </div>
         <div class="stat-card">
@@ -145,7 +326,7 @@
           <div class="stat-label">Avg fetch time</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" style="color: var(--error)">{stats.error_count}</div>
+          <div class="stat-value" style="color: var(--error)">{formatNumber(stats.error_count)}</div>
           <div class="stat-label">Errors</div>
         </div>
       </div>

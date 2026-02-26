@@ -31,8 +31,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ClickHouse.Host != "localhost" {
 		t.Errorf("Host = %q, want localhost", cfg.ClickHouse.Host)
 	}
-	if cfg.ClickHouse.Port != 9000 {
-		t.Errorf("Port = %d, want 9000", cfg.ClickHouse.Port)
+	if cfg.ClickHouse.Port != 19000 {
+		t.Errorf("Port = %d, want 19000", cfg.ClickHouse.Port)
 	}
 	if cfg.Storage.BatchSize != 1000 {
 		t.Errorf("BatchSize = %d, want 1000", cfg.Storage.BatchSize)

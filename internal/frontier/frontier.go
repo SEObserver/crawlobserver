@@ -90,6 +90,11 @@ func (f *Frontier) SeenCount() int {
 	return f.urldb.Len()
 }
 
+// MarkSeen adds a URL to the dedup database without adding it to the queue.
+func (f *Frontier) MarkSeen(url string) {
+	f.urldb.Add(url)
+}
+
 // Close closes the frontier, preventing new URLs from being added.
 func (f *Frontier) Close() {
 	f.mu.Lock()

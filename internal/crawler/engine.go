@@ -47,9 +47,45 @@ func NewEngine(cfg *config.Config, store *storage.Store) *Engine {
 	}
 }
 
+// SessionID creates the session and returns its ID without starting the crawl.
+func (e *Engine) SessionID(seeds []string) string {
+	e.session = NewSession(seeds, e.cfg)
+	return e.session.ID
+}
+
+// SetSessionID sets a pre-existing session ID (for resume).
+func (e *Engine) SetSessionID(id string) {
+	if e.session != nil {
+		e.session.ID = id
+	}
+}
+
+// PagesCrawled returns the current number of pages crawled.
+func (e *Engine) PagesCrawled() int64 {
+	return e.pagesCrawled.Load()
+}
+
+// QueueLen returns the current frontier queue length.
+func (e *Engine) QueueLen() int {
+	return e.front.Len()
+}
+
+// PreSeedDedup adds URLs to the dedup database without adding them to the queue.
+// Used when resuming a session to avoid re-crawling already visited URLs.
+func (e *Engine) PreSeedDedup(urls []string) {
+	for _, u := range urls {
+		e.front.MarkSeen(u)
+	}
+}
+
 // Run starts the crawl with the given seed URLs.
 func (e *Engine) Run(seeds []string) error {
-	e.session = NewSession(seeds, e.cfg)
+	if e.session == nil {
+		e.session = NewSession(seeds, e.cfg)
+	} else {
+		e.session.SeedURLs = seeds
+		e.session.Status = "running"
+	}
 	e.maxPages = int64(e.cfg.Crawler.MaxPages)
 	e.buffer = storage.NewBuffer(e.store, e.cfg.Storage.BatchSize, e.cfg.Storage.FlushInterval, e.session.ID)
 

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/SEObserver/seocrawler/internal/config"
+	"github.com/SEObserver/seocrawler/internal/crawler"
 	"github.com/SEObserver/seocrawler/internal/storage"
 )
 
@@ -20,16 +21,18 @@ var frontendFS embed.FS
 
 // Server serves the web GUI and REST API.
 type Server struct {
-	cfg    *config.Config
-	store  *storage.Store
-	server *http.Server
+	cfg     *config.Config
+	store   *storage.Store
+	manager *crawler.Manager
+	server  *http.Server
 }
 
 // New creates a new Server.
 func New(cfg *config.Config, store *storage.Store) *Server {
 	return &Server{
-		cfg:   cfg,
-		store: store,
+		cfg:     cfg,
+		store:   store,
+		manager: crawler.NewManager(cfg, store),
 	}
 }
 
@@ -37,12 +40,19 @@ func New(cfg *config.Config, store *storage.Store) *Server {
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
-	// API routes
+	// API routes - read
 	mux.HandleFunc("GET /api/sessions", s.handleSessions)
 	mux.HandleFunc("GET /api/sessions/{id}/pages", s.handlePages)
 	mux.HandleFunc("GET /api/sessions/{id}/links", s.handleLinks)
 	mux.HandleFunc("GET /api/sessions/{id}/stats", s.handleStats)
+	mux.HandleFunc("GET /api/sessions/{id}/progress", s.handleProgress)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
+
+	// API routes - write
+	mux.HandleFunc("POST /api/crawl", s.handleStartCrawl)
+	mux.HandleFunc("POST /api/sessions/{id}/stop", s.handleStopCrawl)
+	mux.HandleFunc("POST /api/sessions/{id}/resume", s.handleResumeCrawl)
+	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
 
 	// Static frontend files
 	distFS, err := fs.Sub(frontendFS, "frontend/dist")
@@ -91,7 +101,23 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, sessions)
+
+	// Enrich with running status
+	var resp []map[string]interface{}
+	for _, sess := range sessions {
+		resp = append(resp, map[string]interface{}{
+			"ID":           sess.ID,
+			"StartedAt":    sess.StartedAt,
+			"FinishedAt":   sess.FinishedAt,
+			"Status":       sess.Status,
+			"SeedURLs":     sess.SeedURLs,
+			"Config":       sess.Config,
+			"PagesCrawled": sess.PagesCrawled,
+			"UserAgent":    sess.UserAgent,
+			"is_running":   s.manager.IsRunning(sess.ID),
+		})
+	}
+	writeJSON(w, resp)
 }
 
 func (s *Server) handlePages(w http.ResponseWriter, r *http.Request) {
@@ -125,6 +151,71 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, stats)
+}
+
+func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	pages, queue, running := s.manager.Progress(sessionID)
+	writeJSON(w, map[string]interface{}{
+		"pages_crawled": pages,
+		"queue_size":    queue,
+		"is_running":    running,
+	})
+}
+
+func (s *Server) handleStartCrawl(w http.ResponseWriter, r *http.Request) {
+	var req crawler.CrawlRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	sessionID, err := s.manager.StartCrawl(req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, map[string]string{
+		"session_id": sessionID,
+		"status":     "started",
+	})
+}
+
+func (s *Server) handleStopCrawl(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if err := s.manager.StopCrawl(sessionID); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{"status": "stopped"})
+}
+
+func (s *Server) handleResumeCrawl(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	_, err := s.manager.ResumeCrawl(sessionID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{"status": "resumed"})
+}
+
+func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+
+	// Don't allow deleting running sessions
+	if s.manager.IsRunning(sessionID) {
+		writeError(w, http.StatusConflict, "cannot delete a running session, stop it first")
+		return
+	}
+
+	if err := s.store.DeleteSession(r.Context(), sessionID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{"status": "deleted"})
 }
 
 func basicAuth(next http.Handler, username, password string) http.Handler {

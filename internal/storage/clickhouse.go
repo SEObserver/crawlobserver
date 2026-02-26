@@ -273,6 +273,71 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 	return stats, nil
 }
 
+// DeleteSession deletes a crawl session and all its associated data.
+func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
+	queries := []string{
+		`ALTER TABLE seocrawler.links DELETE WHERE crawl_session_id = ?`,
+		`ALTER TABLE seocrawler.pages DELETE WHERE crawl_session_id = ?`,
+		`ALTER TABLE seocrawler.crawl_sessions DELETE WHERE id = ?`,
+	}
+	for _, q := range queries {
+		if err := s.conn.Exec(ctx, q, sessionID); err != nil {
+			return fmt.Errorf("deleting session data: %w", err)
+		}
+	}
+	return nil
+}
+
+// UncrawledURLs returns internal link targets that were discovered but not crawled in a session.
+func (s *Store) UncrawledURLs(sessionID string) ([]string, error) {
+	ctx := context.Background()
+	rows, err := s.conn.Query(ctx, `
+		SELECT DISTINCT target_url
+		FROM seocrawler.links
+		WHERE crawl_session_id = ? AND is_internal = true
+		  AND target_url NOT IN (
+		    SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?
+		  )
+		LIMIT 10000
+	`, sessionID, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying uncrawled URLs: %w", err)
+	}
+	defer rows.Close()
+
+	var urls []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		urls = append(urls, u)
+	}
+	return urls, nil
+}
+
+// CrawledURLs returns all URLs already crawled in a session (for dedup on resume).
+func (s *Store) CrawledURLs(sessionID string) ([]string, error) {
+	ctx := context.Background()
+	rows, err := s.conn.Query(ctx, `
+		SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?
+	`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying crawled URLs: %w", err)
+	}
+	defer rows.Close()
+
+	var urls []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		urls = append(urls, u)
+	}
+	return urls, nil
+}
+
 // Close closes the ClickHouse connection.
 func (s *Store) Close() error {
 	return s.conn.Close()

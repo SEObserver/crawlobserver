@@ -97,6 +97,36 @@ nav .logo { font-weight: 700; font-size: 18px; color: var(--accent); }
 nav a { color: var(--text-muted); font-size: 14px; }
 nav a:hover, nav a.active { color: var(--text); }
 
+.btn-sm { padding: 4px 10px; font-size: 13px; }
+.btn-danger { border-color: var(--error); color: var(--error); }
+.btn-danger:hover { background: rgba(248,113,113,0.15); }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+.form-group input, .form-group textarea, .form-group select {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+}
+.form-group input:focus, .form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.form-group textarea { resize: vertical; }
+.form-group input[type="checkbox"] {
+  width: 18px; height: 18px; padding: 0;
+  accent-color: var(--accent);
+}
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;
