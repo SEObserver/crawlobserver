@@ -32,11 +32,13 @@ func init() {
 	crawlCmd.Flags().Int("max-pages", 0, "Maximum number of pages to crawl (0 = unlimited)")
 	crawlCmd.Flags().Int("max-depth", 0, "Maximum crawl depth (0 = unlimited)")
 	crawlCmd.Flags().Int("workers", 0, "Number of concurrent fetch workers")
+	crawlCmd.Flags().Bool("store-html", false, "Store raw HTML body (ZSTD compressed in ClickHouse)")
 
 	viper.BindPFlag("crawler.delay", crawlCmd.Flags().Lookup("delay"))
 	viper.BindPFlag("crawler.max_pages", crawlCmd.Flags().Lookup("max-pages"))
 	viper.BindPFlag("crawler.max_depth", crawlCmd.Flags().Lookup("max-depth"))
 	viper.BindPFlag("crawler.workers", crawlCmd.Flags().Lookup("workers"))
+	viper.BindPFlag("crawler.store_html", crawlCmd.Flags().Lookup("store-html"))
 }
 
 func runCrawl(cmd *cobra.Command, args []string) error {

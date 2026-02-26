@@ -40,6 +40,7 @@ type PageRow struct {
 	Error           string
 	Depth           uint16
 	FoundOn         string
+	BodyHTML        string
 	CrawledAt       time.Time
 }
 

@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS seocrawler.pages (
     error String,
     depth UInt16,
     found_on String,
+    body_html String CODEC(ZSTD(3)),
     crawled_at DateTime64(3)
 ) ENGINE = ReplacingMergeTree(crawled_at)
 PARTITION BY toYYYYMM(crawled_at)

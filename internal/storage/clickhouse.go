@@ -72,7 +72,7 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			title, canonical, meta_robots, meta_description,
 			h1, h2, h3, h4, h5, h6,
 			headers, redirect_chain, body_size, fetch_duration_ms,
-			error, depth, found_on, crawled_at
+			error, depth, found_on, body_html, crawled_at
 		)`)
 	if err != nil {
 		return fmt.Errorf("preparing pages batch: %w", err)
@@ -90,7 +90,7 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			p.Title, p.Canonical, p.MetaRobots, p.MetaDescription,
 			p.H1, p.H2, p.H3, p.H4, p.H5, p.H6,
 			p.Headers, chain, p.BodySize, p.FetchDurationMs,
-			p.Error, p.Depth, p.FoundOn, p.CrawledAt,
+			p.Error, p.Depth, p.FoundOn, p.BodyHTML, p.CrawledAt,
 		); err != nil {
 			return fmt.Errorf("appending page row: %w", err)
 		}

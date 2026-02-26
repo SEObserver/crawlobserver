@@ -18,6 +18,8 @@ crawler:
   max_body_size: 10485760  # 10MB
   # Respect robots.txt
   respect_robots: true
+  # Store raw HTML body in ClickHouse (ZSTD compressed)
+  store_html: false
 
 # ClickHouse connection
 clickhouse:

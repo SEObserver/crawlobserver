@@ -22,6 +22,7 @@ type CrawlerConfig struct {
 	UserAgent     string        `mapstructure:"user_agent"`
 	MaxBodySize   int64         `mapstructure:"max_body_size"`
 	RespectRobots bool          `mapstructure:"respect_robots"`
+	StoreHTML     bool          `mapstructure:"store_html"`
 }
 
 type ClickHouseConfig struct {
@@ -51,6 +52,7 @@ func SetDefaults() {
 	viper.SetDefault("crawler.user_agent", "SEOCrawler/1.0")
 	viper.SetDefault("crawler.max_body_size", 10*1024*1024) // 10MB
 	viper.SetDefault("crawler.respect_robots", true)
+	viper.SetDefault("crawler.store_html", false)
 
 	viper.SetDefault("clickhouse.host", "localhost")
 	viper.SetDefault("clickhouse.port", 9000)

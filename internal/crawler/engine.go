@@ -247,6 +247,11 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 			})
 		}
 
+		// Store raw HTML if enabled
+		if e.cfg.Crawler.StoreHTML && result.IsHTML() && len(result.Body) > 0 {
+			pageRow.BodyHTML = string(result.Body)
+		}
+
 		// Parse HTML if applicable
 		if result.IsHTML() && len(result.Body) > 0 && result.Error == "" {
 			pageData, err := parser.Parse(result.Body, result.FinalURL)
