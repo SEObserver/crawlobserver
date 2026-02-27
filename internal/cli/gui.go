@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -62,6 +63,15 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	}
 	defer keyStore.Close()
 
+	// In GUI mode, use a random available port to avoid conflicts
+	// (the user never sees this port — Wails proxies everything)
+	guiPort, err := findFreePort()
+	if err != nil {
+		return fmt.Errorf("finding free port: %w", err)
+	}
+	cfg.Server.Port = guiPort
+	log.Printf("GUI mode: using internal HTTP port %d", guiPort)
+
 	srv := server.New(cfg, store, keyStore)
 	srv.NoBrowserOpen = true
 
@@ -73,7 +83,7 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	}()
 
 	// Wait for server to be ready
-	serverURL := fmt.Sprintf("http://127.0.0.1:%d", cfg.Server.Port)
+	serverURL := fmt.Sprintf("http://127.0.0.1:%d", guiPort)
 	waitForServer(serverURL, 10*time.Second)
 
 	// Build reverse proxy to our localhost server
@@ -135,4 +145,15 @@ func waitForServer(url string, timeout time.Duration) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	log.Println("Warning: server may not be ready")
+}
+
+// findFreePort asks the OS for an available port.
+func findFreePort() (int, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+	return port, nil
 }
