@@ -354,7 +354,7 @@
       return { sessionId: urlMatch[1], tab: 'url-detail', detailUrl: decodeURIComponent(urlMatch[2]), filters: {}, offset: 0 };
     }
     // Session detail
-    const m = path.match(/^\/sessions\/([^/]+)(?:\/([^/]+))?/);
+    const m = path.match(/^\/sessions\/([^/]+)(?:\/([^/]+)(?:\/([^/]+))?)?/);
     if (m) {
       const sp = new URLSearchParams(search);
       const routeFilters = {};
@@ -366,7 +366,7 @@
           routeFilters[k] = v;
         }
       }
-      return { sessionId: m[1], tab: m[2] || 'overview', filters: routeFilters, offset: routeOffset };
+      return { sessionId: m[1], tab: m[2] || 'overview', subView: m[3] || null, filters: routeFilters, offset: routeOffset };
     }
     // Home
     return { page: 'home' };
@@ -431,6 +431,9 @@
       else if (['external'].includes(tab)) { extLinksOffset = off; }
       else { pagesOffset = off; }
       if (tab === 'pagerank') {
+        if (route.subView && ['top', 'directory', 'distribution', 'table'].includes(route.subView)) {
+          prSubView = route.subView;
+        }
         await loadPRSubView(prSubView);
       } else if (tab === 'robots') {
         await loadRobotsHosts();
@@ -517,7 +520,8 @@
     filters = {};
     pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
     if (selectedSession) {
-      pushURL(`/sessions/${selectedSession.ID}/${newTab}`);
+      const path = newTab === 'pagerank' ? `${newTab}/${prSubView}` : newTab;
+      pushURL(`/sessions/${selectedSession.ID}/${path}`);
     }
     if (newTab === 'pagerank') {
       loadPRSubView(prSubView);
@@ -795,6 +799,7 @@
     prSubView = view;
     if (view === 'top') { prTopOffset = 0; }
     if (view === 'table') { prTableOffset = 0; }
+    if (selectedSession) pushURL(`/sessions/${selectedSession.ID}/pagerank/${view}`);
     loadPRSubView(view);
   }
 
@@ -802,15 +807,15 @@
     prTableDir = dir;
     prTableOffset = 0;
     prSubView = 'table';
+    if (selectedSession) pushURL(`/sessions/${selectedSession.ID}/pagerank/table`);
     loadPRSubView('table');
   }
 
   function prDrillHistToTable(minPR, maxPR) {
-    // We use directory filter as a PR range indicator — but since our API uses directory prefix,
-    // we switch to table view; the user sees all pages sorted by PR which effectively shows the range
     prTableDir = '';
     prTableOffset = 0;
     prSubView = 'table';
+    if (selectedSession) pushURL(`/sessions/${selectedSession.ID}/pagerank/table`);
     loadPRSubView('table');
   }
 
