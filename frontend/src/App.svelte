@@ -230,7 +230,8 @@
     try {
       const t = await getTheme();
       theme = t;
-      darkMode = t.mode === 'dark';
+      const saved = localStorage.getItem('darkMode');
+      darkMode = saved !== null ? saved === 'true' : t.mode === 'dark';
       applyTheme();
     } catch {}
   }
@@ -254,6 +255,7 @@
 
   function toggleDarkMode() {
     darkMode = !darkMode;
+    localStorage.setItem('darkMode', darkMode ? 'true' : 'false');
     applyTheme();
   }
 
