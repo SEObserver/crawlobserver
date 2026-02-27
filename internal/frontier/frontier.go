@@ -13,6 +13,7 @@ type CrawlURL struct {
 	Priority int // lower = higher priority
 	Depth    int
 	FoundOn  string
+	Attempt  int    // retry attempt number (0 = first try)
 	index    int    // heap index
 	host     string // cached host, set by Frontier.Add
 }

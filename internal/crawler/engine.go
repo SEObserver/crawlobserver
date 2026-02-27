@@ -35,6 +35,11 @@ type Engine struct {
 	allowedHosts   map[string]bool
 	allowedDomains map[string]bool
 
+	retryQueue     *RetryQueue
+	hostHealth     *HostHealth
+	retryPolicy    *RetryPolicy
+	pendingRetries atomic.Int64
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -48,6 +53,13 @@ func NewEngine(cfg *config.Config, store *storage.Store) *Engine {
 		front:  frontier.New(cfg.Crawler.Delay),
 		fetch:  fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize),
 		robots: fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout),
+		retryQueue: NewRetryQueue(),
+		hostHealth: NewHostHealth(),
+		retryPolicy: &RetryPolicy{
+			MaxRetries: cfg.Crawler.Retry.MaxRetries,
+			BaseDelay:  cfg.Crawler.Retry.BaseDelay,
+			MaxDelay:   cfg.Crawler.Retry.MaxDelay,
+		},
 		ctx:    ctx,
 		cancel: cancel,
 	}
@@ -249,8 +261,22 @@ func (e *Engine) Run(seeds []string) error {
 		}(i)
 	}
 
+	// Retry dispatcher: polls retryQueue and sends ready items to fetchCh
+	var retryWg sync.WaitGroup
+	retryCtx, retryCancel := context.WithCancel(context.Background())
+	retryWg.Add(1)
+	go func() {
+		defer retryWg.Done()
+		e.retryDispatcher(retryCtx, fetchCh)
+	}()
+
 	// Dispatcher: feeds URLs from frontier to fetch workers
 	e.dispatcher(fetchCh)
+
+	// Dispatcher returned — cancel retry dispatcher, wait for it, then close fetchCh
+	retryCancel()
+	retryWg.Wait()
+	close(fetchCh)
 
 	// Wait for fetch workers to finish
 	wg.Wait()
@@ -292,9 +318,13 @@ func (e *Engine) Run(seeds []string) error {
 		log.Printf("WARNING: PageRank computation failed: %v", err)
 	}
 
-	// Update session status
+	// Update session status with actual page count from storage
 	e.session.Status = "completed"
-	e.session.Pages = uint64(e.pagesCrawled.Load())
+	if total, err := e.store.CountPages(context.Background(), e.session.ID); err == nil {
+		e.session.Pages = total
+	} else {
+		e.session.Pages = uint64(e.pagesCrawled.Load())
+	}
 	row := e.session.ToStorageRow()
 	row.FinishedAt = time.Now()
 	if err := e.store.InsertSession(context.Background(), row); err != nil {
@@ -315,8 +345,6 @@ func (e *Engine) Stop() {
 }
 
 func (e *Engine) dispatcher(fetchCh chan<- *frontier.CrawlURL) {
-	defer close(fetchCh)
-
 	backoff := 10 * time.Millisecond
 	maxBackoff := 500 * time.Millisecond
 	emptyCount := 0
@@ -337,8 +365,8 @@ func (e *Engine) dispatcher(fetchCh chan<- *frontier.CrawlURL) {
 		next := e.front.Next()
 		if next == nil {
 			emptyCount++
-			// If frontier is empty and all pages have been dispatched, we're done
-			if e.front.Len() == 0 && emptyCount > 50 {
+			// If frontier is empty, no pending retries, and idle long enough, we're done
+			if e.front.Len() == 0 && e.pendingRetries.Load() == 0 && emptyCount > 50 {
 				return
 			}
 			// Backoff when nothing is ready
@@ -376,11 +404,17 @@ func (e *Engine) fetchWorker(id int, in <-chan *frontier.CrawlURL, out chan<- *f
 		}
 
 		result := e.fetch.Fetch(crawlURL.URL, crawlURL.Depth, crawlURL.FoundOn)
-		e.pagesCrawled.Add(1)
+		result.Attempt = crawlURL.Attempt
+
+		// Only count first attempts for progress
+		if crawlURL.Attempt == 0 {
+			e.pagesCrawled.Add(1)
+		}
 
 		count := e.pagesCrawled.Load()
 		if count%100 == 0 {
-			log.Printf("Progress: %d pages crawled, %d in queue", count, e.front.Len())
+			log.Printf("Progress: %d pages crawled, %d in queue, %d pending retries",
+				count, e.front.Len(), e.pendingRetries.Load())
 		}
 
 		select {
@@ -397,6 +431,33 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 		case <-e.ctx.Done():
 			return
 		default:
+		}
+
+		// Retry decision
+		if e.shouldRetryResult(result) {
+			e.enqueueRetry(result)
+			continue // skip storage
+		}
+		// Decrement pending retries if this was a retry attempt (success or final failure)
+		if result.Attempt > 0 {
+			e.pendingRetries.Add(-1)
+		}
+
+		// Host health tracking
+		host := extractHost(result.URL)
+		if result.Error != "" || result.StatusCode >= 500 {
+			e.hostHealth.RecordFailure(host)
+		} else {
+			e.hostHealth.RecordSuccess(host)
+		}
+
+		// Circuit breaker: check every 100 pages
+		if pages := e.pagesCrawled.Load(); pages > 0 && pages%100 == 0 {
+			if rate := e.hostHealth.GlobalErrorRate(); rate > e.cfg.Crawler.Retry.MaxGlobalErrorRate {
+				log.Printf("STOPPING: global error rate %.2f exceeds threshold %.2f",
+					rate, e.cfg.Crawler.Retry.MaxGlobalErrorRate)
+				e.Stop()
+			}
 		}
 
 		now := time.Now()
@@ -570,6 +631,82 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 
 		e.buffer.AddPage(pageRow)
 	}
+}
+
+// retryDispatcher polls the retry queue and sends ready items to fetchCh.
+func (e *Engine) retryDispatcher(ctx context.Context, fetchCh chan<- *frontier.CrawlURL) {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			for {
+				item := e.retryQueue.PopReady()
+				if item == nil {
+					break
+				}
+				crawlURL := &frontier.CrawlURL{
+					URL:     item.URL,
+					Depth:   item.Depth,
+					FoundOn: item.FoundOn,
+					Attempt: item.Attempt,
+				}
+				select {
+				case fetchCh <- crawlURL:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}
+}
+
+// shouldRetryResult checks if a failed result should be retried.
+func (e *Engine) shouldRetryResult(result *fetcher.FetchResult) bool {
+	if !e.retryPolicy.ShouldRetry(result.StatusCode, result.Error, result.Attempt) {
+		return false
+	}
+	host := extractHost(result.URL)
+	return e.hostHealth.ShouldRetry(host, e.cfg.Crawler.Retry.MaxConsecutiveFails)
+}
+
+// enqueueRetry adds a failed result to the retry queue with computed delay.
+func (e *Engine) enqueueRetry(result *fetcher.FetchResult) {
+	nextAttempt := result.Attempt + 1
+	retryAfter := result.Headers["Retry-After"]
+	delay := e.retryPolicy.ComputeDelay(result.Attempt, retryAfter)
+
+	host := extractHost(result.URL)
+	log.Printf("Retry #%d for %s (status=%d, err=%q) in %v",
+		nextAttempt, result.URL, result.StatusCode, result.Error, delay)
+
+	// Track pending retries (first enqueue only)
+	if result.Attempt == 0 {
+		e.pendingRetries.Add(1)
+	}
+
+	e.retryQueue.Push(&RetryItem{
+		URL:      result.URL,
+		Host:     host,
+		Depth:    result.Depth,
+		FoundOn:  result.FoundOn,
+		Attempt:  nextAttempt,
+		ReadyAt:  time.Now().Add(delay),
+		LastCode: result.StatusCode,
+		LastErr:  result.Error,
+	})
+}
+
+// extractHost returns the host portion of a URL.
+func extractHost(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	return u.Host
 }
 
 // computeIndexability determines if a page is indexable and why not.

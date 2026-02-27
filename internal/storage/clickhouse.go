@@ -152,6 +152,13 @@ func (s *Store) InsertLinks(ctx context.Context, links []LinkRow) error {
 	return batch.Send()
 }
 
+// CountPages returns the total number of pages for a session.
+func (s *Store) CountPages(ctx context.Context, sessionID string) (uint64, error) {
+	var count uint64
+	err := s.conn.QueryRow(ctx, `SELECT count() FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID).Scan(&count)
+	return count, err
+}
+
 // ListSessions retrieves crawl sessions, optionally filtered by project ID.
 func (s *Store) ListSessions(ctx context.Context, projectID ...string) ([]CrawlSession, error) {
 	query := `

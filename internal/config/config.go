@@ -30,6 +30,15 @@ type CrawlerConfig struct {
 	RespectRobots bool          `mapstructure:"respect_robots"`
 	StoreHTML     bool          `mapstructure:"store_html"`
 	CrawlScope    string        `mapstructure:"crawl_scope"` // "host" (default) or "domain" (eTLD+1)
+	Retry         RetryConfig   `mapstructure:"retry"`
+}
+
+type RetryConfig struct {
+	MaxRetries          int           `mapstructure:"max_retries"`
+	BaseDelay           time.Duration `mapstructure:"base_delay"`
+	MaxDelay            time.Duration `mapstructure:"max_delay"`
+	MaxConsecutiveFails int           `mapstructure:"max_consecutive_fails"`
+	MaxGlobalErrorRate  float64       `mapstructure:"max_global_error_rate"`
 }
 
 type ClickHouseConfig struct {
@@ -84,6 +93,11 @@ func SetDefaults() {
 	viper.SetDefault("crawler.respect_robots", true)
 	viper.SetDefault("crawler.store_html", false)
 	viper.SetDefault("crawler.crawl_scope", "host")
+	viper.SetDefault("crawler.retry.max_retries", 3)
+	viper.SetDefault("crawler.retry.base_delay", "2s")
+	viper.SetDefault("crawler.retry.max_delay", "60s")
+	viper.SetDefault("crawler.retry.max_consecutive_fails", 10)
+	viper.SetDefault("crawler.retry.max_global_error_rate", 0.8)
 
 	viper.SetDefault("clickhouse.host", "localhost")
 	viper.SetDefault("clickhouse.port", 19000)
@@ -160,6 +174,17 @@ func validate(cfg *Config) error {
 		}
 		if cfg.ClickHouse.Port <= 0 || cfg.ClickHouse.Port > 65535 {
 			return fmt.Errorf("clickhouse.port must be 1-65535")
+		}
+	}
+	if cfg.Crawler.Retry.MaxRetries < 0 {
+		return fmt.Errorf("crawler.retry.max_retries must be >= 0")
+	}
+	if cfg.Crawler.Retry.MaxRetries > 0 {
+		if cfg.Crawler.Retry.BaseDelay <= 0 {
+			return fmt.Errorf("crawler.retry.base_delay must be > 0 when retries enabled")
+		}
+		if cfg.Crawler.Retry.MaxDelay < cfg.Crawler.Retry.BaseDelay {
+			return fmt.Errorf("crawler.retry.max_delay must be >= base_delay")
 		}
 	}
 	if cfg.Storage.BatchSize < 1 {

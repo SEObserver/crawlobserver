@@ -25,4 +25,5 @@ type FetchResult struct {
 	Error         string
 	Depth         int
 	FoundOn       string
+	Attempt       int // retry attempt number (0 = first try)
 }
