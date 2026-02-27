@@ -201,6 +201,14 @@ ClickHouse  (columnar storage, partitioned by month)
     |---> CLI reports
 ```
 
+### Why ClickHouse (and not a graph database)
+
+SEO crawling is an analytical workload. 95% of queries are scans, filters, and aggregations over millions of rows: "all pages in 404", "missing canonicals", "external links grouped by domain". This is what columnar databases are built for.
+
+We sometimes get asked about graph databases (Neo4j, Dgraph) since a crawl is essentially a link graph. Our take: **a crawler is an analytics pipeline, not a graph explorer.** ClickHouse handles the tabular queries better than anything else, and when we need graph algorithms (PageRank, BFS depth), we compute them in-memory in Go and write the results back. A million-page link graph fits in ~200MB of RAM and computes in seconds — no need for a second database.
+
+Adding a graph layer would mean double storage, sync complexity, and a heavier install — bad trade-offs for a free community tool. If you need graph exploration, export your crawl data and load it into the tool of your choice.
+
 ### Tech stack
 
 | Layer | Technology |
