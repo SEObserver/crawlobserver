@@ -38,3 +38,6 @@ config.yaml
 frontend/node_modules/
 frontend/dist/
 internal/server/frontend/dist/
+
+# Code signing
+.codesign/

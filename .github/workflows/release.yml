@@ -117,38 +117,126 @@ jobs:
       - name: Package .app bundle
         run: |
           APP_DIR="SEOCrawler.app/Contents/MacOS"
-          mkdir -p "$APP_DIR"
+          RESOURCES_DIR="SEOCrawler.app/Contents/Resources"
+          mkdir -p "$APP_DIR" "$RESOURCES_DIR"
           cp SEOCrawler "$APP_DIR/SEOCrawler"
           chmod +x "$APP_DIR/SEOCrawler"
 
+          # Copy icon if available
+          if [ -f build/darwin/iconfile.icns ]; then
+            cp build/darwin/iconfile.icns "$RESOURCES_DIR/iconfile.icns"
+          fi
+
           # Create Info.plist
-          cat > SEOCrawler.app/Contents/Info.plist << 'PLIST'
+          VERSION="${GITHUB_REF_NAME#v}"
+          cat > SEOCrawler.app/Contents/Info.plist <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-            <key>CFBundleExecutable</key>
-            <string>SEOCrawler</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.seobserver.seocrawler</string>
-            <key>CFBundleName</key>
-            <string>SEOCrawler</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>NSHighResolutionCapable</key>
-            <true/>
+          <key>CFBundleExecutable</key>
+          <string>SEOCrawler</string>
+          <key>CFBundleIdentifier</key>
+          <string>com.seobserver.seocrawler</string>
+          <key>CFBundleName</key>
+          <string>SEOCrawler</string>
+          <key>CFBundlePackageType</key>
+          <string>APPL</string>
+          <key>CFBundleShortVersionString</key>
+          <string>${VERSION}</string>
+          <key>CFBundleVersion</key>
+          <string>${VERSION}</string>
+          <key>CFBundleIconFile</key>
+          <string>iconfile</string>
+          <key>NSHighResolutionCapable</key>
+          <true/>
           </dict>
           </plist>
           PLIST
 
-          # Create tar.gz
+      - name: Import code signing certificate
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          # Decode certificate
+          echo "$APPLE_CERTIFICATE_P12" | base64 --decode > certificate.p12
+
+          # Create temporary keychain
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import certificate
+          security import certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          # Cleanup
+          rm certificate.p12
+
+      - name: Code sign the app
+        run: |
+          codesign --force --options runtime --deep \
+            --sign "Developer ID Application: Kevin Richard (48HGS54WHP)" \
+            SEOCrawler.app
+
+          # Verify signature
+          codesign --verify --deep --strict SEOCrawler.app
+          echo "Code signing verified successfully"
+
+      - name: Create DMG
+        run: |
+          mkdir -p dmg_staging
+          cp -R SEOCrawler.app dmg_staging/
+          ln -s /Applications dmg_staging/Applications
+
+          hdiutil create -volname "SEOCrawler" -srcfolder dmg_staging \
+            -ov -format UDZO "SEOCrawler-darwin-${{ matrix.goarch }}.dmg"
+
+          # Sign the DMG too
+          codesign --force --sign "Developer ID Application: Kevin Richard (48HGS54WHP)" \
+            "SEOCrawler-darwin-${{ matrix.goarch }}.dmg"
+
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          xcrun notarytool submit "SEOCrawler-darwin-${{ matrix.goarch }}.dmg" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait
+
+          # Staple the notarization ticket
+          xcrun stapler staple "SEOCrawler-darwin-${{ matrix.goarch }}.dmg"
+          echo "Notarization and stapling complete"
+
+      - name: Create tar.gz of signed app
+        run: |
           tar -czf SEOCrawler-darwin-${{ matrix.goarch }}.app.tar.gz SEOCrawler.app
 
-      - name: Upload desktop bundle
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          fi
+
+      - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
         with:
           name: SEOCrawler-darwin-${{ matrix.goarch }}-desktop
-          path: SEOCrawler-darwin-${{ matrix.goarch }}.app.tar.gz
+          path: |
+            SEOCrawler-darwin-${{ matrix.goarch }}.dmg
+            SEOCrawler-darwin-${{ matrix.goarch }}.app.tar.gz
 
   release:
     needs: [build, desktop-build]
