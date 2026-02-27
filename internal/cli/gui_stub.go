@@ -1,0 +1,7 @@
+//go:build !desktop
+
+package cli
+
+// gui command is not available in non-desktop builds.
+// Build with: go build -tags desktop ./cmd/seocrawler
+// Or use: wails build

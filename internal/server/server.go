@@ -30,11 +30,12 @@ var frontendFS embed.FS
 
 // Server serves the web GUI and REST API.
 type Server struct {
-	cfg      *config.Config
-	store    *storage.Store
-	keyStore *apikeys.Store
-	manager  *crawler.Manager
-	server   *http.Server
+	cfg             *config.Config
+	store           *storage.Store
+	keyStore        *apikeys.Store
+	manager         *crawler.Manager
+	server          *http.Server
+	NoBrowserOpen   bool // skip auto-opening browser (e.g. in GUI/Wails mode)
 }
 
 // New creates a new Server.
@@ -156,11 +157,13 @@ func (s *Server) Start() error {
 	url := fmt.Sprintf("http://%s", addr)
 	log.Printf("Web UI available at %s", url)
 
-	// Auto-open browser
-	go func() {
-		time.Sleep(500 * time.Millisecond)
-		openBrowser(url)
-	}()
+	// Auto-open browser (unless disabled for GUI/Wails mode)
+	if !s.NoBrowserOpen {
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			openBrowser(url)
+		}()
+	}
 
 	return s.server.ListenAndServe()
 }
