@@ -1053,6 +1053,7 @@
 </script>
 
 <div class="layout">
+  <div class="drag-bar"><span class="drag-bar-title">{theme.app_name}</span></div>
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-header">

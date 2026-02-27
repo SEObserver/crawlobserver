@@ -4,6 +4,7 @@ package cli
 
 import (
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -11,6 +12,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/SEObserver/seocrawler/internal/apikeys"
@@ -18,10 +21,14 @@ import (
 	"github.com/SEObserver/seocrawler/internal/server"
 	"github.com/spf13/cobra"
 	"github.com/wailsapp/wails/v2"
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 )
+
+//go:embed appicon.png
+var appIcon []byte
 
 var guiCmd = &cobra.Command{
 	Use:   "gui",
@@ -45,9 +52,20 @@ func init() {
 }
 
 func runGUI(cmd *cobra.Command, args []string) error {
+	// Ensure data directory exists for GUI mode (macOS launches .app with cwd=/)
+	dataDir, err := appDataDir()
+	if err != nil {
+		return fmt.Errorf("creating data directory: %w", err)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
+	}
+
+	// Resolve relative paths to the app data directory
+	if !filepath.IsAbs(cfg.Server.SQLitePath) {
+		cfg.Server.SQLitePath = filepath.Join(dataDir, cfg.Server.SQLitePath)
 	}
 
 	store, cleanup, err := setupClickHouse(cfg, cfg.ClickHouse.Database)
@@ -123,6 +141,15 @@ func runGUI(cmd *cobra.Command, args []string) error {
 		Mac: &mac.Options{
 			TitleBar:             mac.TitleBarHiddenInset(),
 			WebviewIsTransparent: false,
+			About: &mac.AboutInfo{
+				Title:   appName,
+				Message: "SEO Crawler & Analyzer",
+				Icon:    appIcon,
+			},
+		},
+		OnDomReady: func(ctx context.Context) {
+			// Add top padding for the hidden-inset title bar (macOS traffic lights)
+			wailsRuntime.WindowExecJS(ctx, `document.documentElement.style.setProperty('--topbar-height','36px')`)
 		},
 		OnShutdown: func(ctx context.Context) {
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -156,4 +183,15 @@ func findFreePort() (int, error) {
 	port := l.Addr().(*net.TCPAddr).Port
 	l.Close()
 	return port, nil
+}
+
+// appDataDir returns ~/Library/Application Support/SEOCrawler (macOS) or equivalent,
+// creating it if needed.
+func appDataDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(home, "Library", "Application Support", "SEOCrawler")
+	return dir, os.MkdirAll(dir, 0755)
 }

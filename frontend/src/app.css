@@ -81,6 +81,28 @@ a:hover { color: var(--accent-hover); }
   width: 100%;
 }
 
+.drag-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--topbar-height);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  --wails-draggable: drag;
+  -webkit-app-region: drag;
+}
+
+.drag-bar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
 .sidebar {
   width: var(--sidebar-width);
   background: var(--bg-sidebar);
@@ -88,7 +110,7 @@ a:hover { color: var(--accent-hover); }
   display: flex;
   flex-direction: column;
   position: fixed;
-  top: 0;
+  top: var(--topbar-height);
   left: 0;
   bottom: 0;
   z-index: 100;
@@ -101,6 +123,7 @@ a:hover { color: var(--accent-hover); }
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid var(--border-light);
+  --wails-draggable: drag;
 }
 
 .sidebar-logo {
@@ -260,6 +283,7 @@ a:hover { color: var(--accent-hover); }
 .main {
   flex: 1;
   margin-left: var(--sidebar-width);
+  padding-top: var(--topbar-height);
   min-height: 100vh;
 }
 
