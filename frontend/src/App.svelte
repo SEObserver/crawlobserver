@@ -9,7 +9,9 @@
     getSitemaps, getSitemapURLs,
     getProjects, createProject, renameProject, deleteProject,
     associateSession, disassociateSession,
-    getAPIKeys, createAPIKey, deleteAPIKey } from './lib/api.js';
+    getAPIKeys, createAPIKey, deleteAPIKey,
+    getUpdateStatus, applyUpdate,
+    getBackups, createBackup, restoreBackup, deleteBackup } from './lib/api.js';
 
   let sessions = $state([]);
   let selectedSession = $state(null);
@@ -54,6 +56,19 @@
   let showSettings = $state(false);
   let editTheme = $state({ app_name: '', logo_url: '', accent_color: '#7c3aed', mode: 'light' });
   let savingTheme = $state(false);
+
+  // Update
+  let updateInfo = $state(null);
+  let updateDismissed = $state(false);
+  let updatingApp = $state(false);
+  let updateMessage = $state('');
+
+  // Backups
+  let backups = $state([]);
+  let loadingBackups = $state(false);
+  let creatingBackup = $state(false);
+  let restoringBackup = $state(null);
+  let backupMessage = $state('');
 
   // New crawl form
   let showNewCrawl = $state(false);
@@ -285,6 +300,7 @@
     showAPI = false;
     showGlobalStats = false;
     pushURL('/settings');
+    loadBackups();
   }
 
   function previewTheme() {
@@ -414,7 +430,7 @@
       if (sessions.length === 0) loadSessions();
       if (route.page === 'stats') { globalStatsLoading = true; try { globalStats = await getGlobalStats(); } catch(e) { error = e.message; } globalStatsLoading = false; }
       if (route.page === 'api') await loadAPIData();
-      if (route.page === 'settings') editTheme = { ...theme };
+      if (route.page === 'settings') { editTheme = { ...theme }; loadBackups(); }
       if (route.page === 'new-crawl') getProjects().then(p => projects = p).catch(() => {});
       return;
     }
@@ -517,6 +533,107 @@
     } finally {
       loading = false;
     }
+  }
+
+  // --- Update check polling ---
+  let updatePollTimer = null;
+  function startUpdatePoll() {
+    let attempts = 0;
+    const maxAttempts = 6; // 6 * 10s = 60s
+    updatePollTimer = setInterval(async () => {
+      attempts++;
+      try {
+        const status = await getUpdateStatus();
+        if (status.available || status.checked_at || attempts >= maxAttempts) {
+          clearInterval(updatePollTimer);
+          updatePollTimer = null;
+          if (status.available) {
+            updateInfo = status;
+          }
+        }
+      } catch {
+        if (attempts >= maxAttempts) {
+          clearInterval(updatePollTimer);
+          updatePollTimer = null;
+        }
+      }
+    }, 10000);
+  }
+  startUpdatePoll();
+
+  async function doBackupAndUpdate() {
+    updatingApp = true;
+    updateMessage = '';
+    try {
+      updateMessage = 'Creating backup...';
+      await createBackup();
+      updateMessage = 'Downloading and installing update...';
+      const result = await applyUpdate();
+      updateMessage = result.message || 'Update installed. Restart to apply.';
+      updateInfo = null;
+    } catch (e) {
+      updateMessage = 'Update failed: ' + e.message;
+    } finally {
+      updatingApp = false;
+    }
+  }
+
+  async function loadBackups() {
+    loadingBackups = true;
+    try {
+      backups = await getBackups();
+    } catch (e) {
+      backupMessage = e.message;
+    } finally {
+      loadingBackups = false;
+    }
+  }
+
+  async function doCreateBackup() {
+    creatingBackup = true;
+    backupMessage = '';
+    try {
+      await createBackup();
+      backupMessage = 'Backup created successfully.';
+      await loadBackups();
+    } catch (e) {
+      backupMessage = 'Backup failed: ' + e.message;
+    } finally {
+      creatingBackup = false;
+    }
+  }
+
+  async function doRestoreBackup(filename) {
+    if (!confirm(`Restore from ${filename}? The application should be restarted after restore.`)) return;
+    restoringBackup = filename;
+    backupMessage = '';
+    try {
+      const result = await restoreBackup(filename);
+      backupMessage = result.message || 'Restore complete. Restart to apply.';
+    } catch (e) {
+      backupMessage = 'Restore failed: ' + e.message;
+    } finally {
+      restoringBackup = null;
+    }
+  }
+
+  async function doDeleteBackup(name) {
+    if (!confirm(`Delete backup ${name}?`)) return;
+    try {
+      await deleteBackup(name);
+      await loadBackups();
+    } catch (e) {
+      backupMessage = 'Delete failed: ' + e.message;
+    }
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    let val = bytes;
+    while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+    return val.toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
   }
 
   async function loadTabData() {
@@ -1060,6 +1177,7 @@
   // Cleanup on destroy
   onDestroy(() => {
     if (systemStatsInterval) clearInterval(systemStatsInterval);
+    if (updatePollTimer) clearInterval(updatePollTimer);
     for (const id of Object.keys(sseConnections)) {
       sseConnections[id].close();
       delete sseConnections[id];
@@ -1206,6 +1324,23 @@
         </div>
       {/if}
 
+      {#if updateInfo && !updateDismissed}
+        <div class="alert alert-info">
+          <span>Update available: <strong>v{updateInfo.latest_version}</strong></span>
+          <div style="display:flex;gap:8px;align-items:center">
+            {#if updatingApp}
+              <span style="font-size:13px">{updateMessage}</span>
+            {:else}
+              {#if updateMessage}
+                <span style="font-size:13px">{updateMessage}</span>
+              {/if}
+              <button class="btn btn-sm btn-primary" onclick={doBackupAndUpdate} disabled={updatingApp}>Backup & Update</button>
+              <button class="btn btn-sm btn-ghost" onclick={() => updateDismissed = true}>Dismiss</button>
+            {/if}
+          </div>
+        </div>
+      {/if}
+
       {#if showSettings}
         <!-- Settings -->
         <div class="page-header">
@@ -1248,6 +1383,56 @@
             </button>
             <button class="btn" onclick={cancelSettings}>Cancel</button>
           </div>
+        </div>
+
+        <!-- Backups -->
+        <div class="page-header" style="margin-top:32px">
+          <h1>Backups</h1>
+          <button class="btn btn-sm btn-primary" onclick={doCreateBackup} disabled={creatingBackup}>
+            {creatingBackup ? 'Creating...' : 'Create Backup'}
+          </button>
+        </div>
+        {#if backupMessage}
+          <div class="alert alert-info" style="margin-bottom:16px">
+            <span>{backupMessage}</span>
+            <button class="btn btn-sm btn-ghost" onclick={() => backupMessage = ''}>Dismiss</button>
+          </div>
+        {/if}
+        <div class="card card-flush">
+          {#if loadingBackups}
+            <div style="padding:20px;color:var(--text-muted)">Loading backups...</div>
+          {:else if backups.length === 0}
+            <div style="padding:20px;color:var(--text-muted)">No backups yet.</div>
+          {:else}
+            <table>
+              <thead>
+                <tr>
+                  <th>Filename</th>
+                  <th>Version</th>
+                  <th>Date</th>
+                  <th>Size</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each backups as b}
+                  <tr>
+                    <td class="cell-url">{b.filename}</td>
+                    <td>{b.version || '-'}</td>
+                    <td>{new Date(b.created_at).toLocaleString()}</td>
+                    <td>{formatBytes(b.size)}</td>
+                    <td style="white-space:nowrap">
+                      <button class="btn btn-sm" onclick={() => doRestoreBackup(b.filename)}
+                        disabled={restoringBackup === b.filename}>
+                        {restoringBackup === b.filename ? 'Restoring...' : 'Restore'}
+                      </button>
+                      <button class="btn btn-sm btn-danger" onclick={() => doDeleteBackup(b.filename)}>Delete</button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {/if}
         </div>
 
       {:else if showGlobalStats}

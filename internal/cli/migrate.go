@@ -23,7 +23,7 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	store, cleanup, err := setupClickHouse(cfg, "default")
+	store, cleanup, _, err := setupClickHouse(cfg, "default")
 	if err != nil {
 		return err
 	}

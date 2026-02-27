@@ -17,9 +17,13 @@ import (
 	"time"
 
 	"github.com/SEObserver/seocrawler/internal/apikeys"
+	"github.com/SEObserver/seocrawler/internal/backup"
+	chmanaged "github.com/SEObserver/seocrawler/internal/clickhouse"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/server"
+	"github.com/SEObserver/seocrawler/internal/updater"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/wailsapp/wails/v2"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -68,7 +72,7 @@ func runGUI(cmd *cobra.Command, args []string) error {
 		cfg.Server.SQLitePath = filepath.Join(dataDir, cfg.Server.SQLitePath)
 	}
 
-	store, cleanup, err := setupClickHouse(cfg, cfg.ClickHouse.Database)
+	store, cleanup, managedCH, err := setupClickHouse(cfg, cfg.ClickHouse.Database)
 	if err != nil {
 		return err
 	}
@@ -92,6 +96,52 @@ func runGUI(cmd *cobra.Command, args []string) error {
 
 	srv := server.New(cfg, store, keyStore)
 	srv.NoBrowserOpen = true
+	srv.IsDesktop = true
+
+	// Wire update status
+	srv.UpdateStatus = updater.NewUpdateStatus()
+
+	// Wire backup options
+	chDataDir := cfg.ClickHouse.DataDir
+	if chDataDir == "" {
+		chDataDir = chmanaged.DefaultDataDir()
+	}
+	backupDir := filepath.Join(dataDir, "backups")
+	configPath := viper.ConfigFileUsed()
+
+	srv.BackupOpts = &backup.BackupOptions{
+		DataDir:    chDataDir,
+		SQLitePath: cfg.Server.SQLitePath,
+		ConfigPath: configPath,
+		BackupDir:  backupDir,
+	}
+
+	// Wire ClickHouse stop/start for backup/restore
+	if managedCH != nil {
+		srv.StopClickHouse = func() {
+			managedCH.Stop()
+		}
+		srv.StartClickHouse = func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			return managedCH.Restart(ctx)
+		}
+	}
+
+	// Background update check (5s after startup)
+	go func() {
+		time.Sleep(5 * time.Second)
+		log.Println("Checking for updates...")
+		srv.UpdateStatus.Check()
+		snap := srv.UpdateStatus.Snapshot()
+		if snap.Available {
+			log.Printf("Update available: %s -> %s", snap.CurrentVersion, snap.LatestVersion)
+		} else if snap.Error != "" {
+			log.Printf("Update check error: %s", snap.Error)
+		} else {
+			log.Println("Application is up to date.")
+		}
+	}()
 
 	// Start the HTTP server in the background
 	go func() {

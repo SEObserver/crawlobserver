@@ -14,10 +14,11 @@ import (
 
 // ManagedServer manages a ClickHouse subprocess.
 type ManagedServer struct {
-	cmd      *exec.Cmd
-	tcpPort  int
-	httpPort int
-	dataDir  string
+	cmd        *exec.Cmd
+	tcpPort    int
+	httpPort   int
+	dataDir    string
+	binaryPath string
 }
 
 // NewManagedServer creates a new managed ClickHouse server configuration.
@@ -38,6 +39,8 @@ func (m *ManagedServer) Start(ctx context.Context, binaryPath string) error {
 	if err != nil {
 		return fmt.Errorf("writing config: %w", err)
 	}
+
+	m.binaryPath = binaryPath
 
 	log.Printf("Starting managed ClickHouse (tcp=%d, http=%d, data=%s)", tcpPort, httpPort, m.dataDir)
 
@@ -97,6 +100,18 @@ func (m *ManagedServer) TCPPort() int {
 // HTTPPort returns the HTTP port.
 func (m *ManagedServer) HTTPPort() int {
 	return m.httpPort
+}
+
+// Restart stops and restarts the managed ClickHouse server.
+func (m *ManagedServer) Restart(ctx context.Context) error {
+	m.Stop()
+	m.cmd = nil
+	return m.Start(ctx, m.binaryPath)
+}
+
+// DataDir returns the data directory path.
+func (m *ManagedServer) DataDir() string {
+	return m.dataDir
 }
 
 // waitReady polls the TCP port until ClickHouse accepts connections.

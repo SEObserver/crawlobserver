@@ -37,7 +37,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		cfg.Server.Port = port
 	}
 
-	store, cleanup, err := setupClickHouse(cfg, cfg.ClickHouse.Database)
+	store, cleanup, _, err := setupClickHouse(cfg, cfg.ClickHouse.Database)
 	if err != nil {
 		return err
 	}

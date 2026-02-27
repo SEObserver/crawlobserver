@@ -212,6 +212,38 @@ export async function deleteAPIKey(id) {
   return fetchJSON(`/api-keys/${id}`, { method: 'DELETE' });
 }
 
+// --- Updates ---
+
+export async function getUpdateStatus() {
+  return fetchJSON('/update/status');
+}
+
+export async function applyUpdate() {
+  return fetchJSON('/update/apply', { method: 'POST' });
+}
+
+// --- Backups ---
+
+export async function getBackups() {
+  return fetchJSON('/backups');
+}
+
+export async function createBackup() {
+  return fetchJSON('/backups', { method: 'POST' });
+}
+
+export async function restoreBackup(filename) {
+  return fetchJSON('/backups/restore', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename }),
+  });
+}
+
+export async function deleteBackup(name) {
+  return fetchJSON(`/backups/${encodeURIComponent(name)}`, { method: 'DELETE' });
+}
+
 // SSE for live progress
 export function subscribeProgress(sessionId, onMessage, onDone) {
   const source = new EventSource(`${BASE}/sessions/${sessionId}/events`);

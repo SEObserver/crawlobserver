@@ -10,17 +10,20 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
-	"os/exec"
-
 	"github.com/SEObserver/seocrawler/internal/apikeys"
+	"github.com/SEObserver/seocrawler/internal/backup"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/crawler"
 	"github.com/SEObserver/seocrawler/internal/storage"
+	"github.com/SEObserver/seocrawler/internal/updater"
 	"github.com/spf13/viper"
 	"github.com/temoto/robotstxt"
 )
@@ -36,6 +39,11 @@ type Server struct {
 	manager         *crawler.Manager
 	server          *http.Server
 	NoBrowserOpen   bool // skip auto-opening browser (e.g. in GUI/Wails mode)
+	IsDesktop       bool // true when running as .app desktop bundle
+	UpdateStatus    *updater.UpdateStatus
+	BackupOpts      *backup.BackupOptions
+	StopClickHouse  func()           // stops managed CH (nil if external)
+	StartClickHouse func() error     // restarts managed CH (nil if external)
 }
 
 // New creates a new Server.
@@ -86,6 +94,14 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /api/sessions/{id}/retry-failed", s.handleRetryFailed)
 	mux.HandleFunc("POST /api/sessions/{id}/robots-test", s.handleRobotsTest)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
+
+	// Update & backup routes (desktop mode)
+	mux.HandleFunc("GET /api/update/status", s.handleUpdateStatus)
+	mux.HandleFunc("POST /api/update/apply", s.handleUpdateApply)
+	mux.HandleFunc("GET /api/backups", s.handleListBackups)
+	mux.HandleFunc("POST /api/backups", s.handleCreateBackup)
+	mux.HandleFunc("POST /api/backups/restore", s.handleRestoreBackup)
+	mux.HandleFunc("DELETE /api/backups/{name}", s.handleDeleteBackup)
 
 	// Projects & API keys routes
 	mux.HandleFunc("GET /api/projects", s.handleListProjects)
@@ -1133,6 +1149,179 @@ func (s *Server) handleDeleteAPIKey(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := s.keyStore.DeleteAPIKey(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{"status": "deleted"})
+}
+
+// --- Update & Backup handlers ---
+
+func (s *Server) handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
+	if s.UpdateStatus == nil {
+		writeJSON(w, map[string]interface{}{"available": false, "current_version": updater.Version})
+		return
+	}
+	writeJSON(w, s.UpdateStatus.Snapshot())
+}
+
+func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	if s.UpdateStatus == nil {
+		writeError(w, http.StatusBadRequest, "update check not available")
+		return
+	}
+	release := s.UpdateStatus.Release()
+	if release == nil {
+		writeError(w, http.StatusBadRequest, "no release info available, check for updates first")
+		return
+	}
+
+	if s.IsDesktop {
+		newAppPath, err := updater.DownloadDesktopUpdate(release)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "download failed: "+err.Error())
+			return
+		}
+		if err := updater.SelfUpdateDesktop(newAppPath); err != nil {
+			writeError(w, http.StatusInternalServerError, "install failed: "+err.Error())
+			return
+		}
+	} else {
+		tmpPath, err := updater.DownloadUpdate(release)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "download failed: "+err.Error())
+			return
+		}
+		if err := updater.SelfUpdate(tmpPath); err != nil {
+			writeError(w, http.StatusInternalServerError, "install failed: "+err.Error())
+			return
+		}
+	}
+
+	writeJSON(w, map[string]string{"status": "installed", "message": "Restart the application to use the new version."})
+}
+
+func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request) {
+	if s.BackupOpts == nil {
+		writeJSON(w, []backup.BackupInfo{})
+		return
+	}
+	backups, err := backup.ListBackups(s.BackupOpts.BackupDir)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if backups == nil {
+		backups = []backup.BackupInfo{}
+	}
+	writeJSON(w, backups)
+}
+
+func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	if s.BackupOpts == nil {
+		writeError(w, http.StatusBadRequest, "backup not configured")
+		return
+	}
+
+	// Stop ClickHouse for consistency
+	if s.StopClickHouse != nil {
+		log.Println("Stopping ClickHouse for backup...")
+		s.StopClickHouse()
+	}
+
+	info, err := backup.Create(*s.BackupOpts, updater.Version)
+
+	// Restart ClickHouse regardless of backup result
+	if s.StartClickHouse != nil {
+		log.Println("Restarting ClickHouse after backup...")
+		if startErr := s.StartClickHouse(); startErr != nil {
+			log.Printf("WARNING: failed to restart ClickHouse: %v", startErr)
+		}
+	}
+
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "backup failed: "+err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, info)
+}
+
+func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	if s.BackupOpts == nil {
+		writeError(w, http.StatusBadRequest, "backup not configured")
+		return
+	}
+
+	var req struct {
+		Filename string `json:"filename"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Filename == "" {
+		writeError(w, http.StatusBadRequest, "filename is required")
+		return
+	}
+
+	// Sanitize filename
+	if strings.Contains(req.Filename, "/") || strings.Contains(req.Filename, "\\") || strings.HasPrefix(req.Filename, "..") {
+		writeError(w, http.StatusBadRequest, "invalid filename")
+		return
+	}
+
+	archivePath := filepath.Join(s.BackupOpts.BackupDir, req.Filename)
+	if _, err := os.Stat(archivePath); err != nil {
+		writeError(w, http.StatusNotFound, "backup not found")
+		return
+	}
+
+	// Stop ClickHouse for restore
+	if s.StopClickHouse != nil {
+		log.Println("Stopping ClickHouse for restore...")
+		s.StopClickHouse()
+	}
+
+	err := backup.Restore(archivePath, *s.BackupOpts)
+
+	// Restart ClickHouse regardless of restore result
+	if s.StartClickHouse != nil {
+		log.Println("Restarting ClickHouse after restore...")
+		if startErr := s.StartClickHouse(); startErr != nil {
+			log.Printf("WARNING: failed to restart ClickHouse: %v", startErr)
+		}
+	}
+
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "restore failed: "+err.Error())
+		return
+	}
+
+	writeJSON(w, map[string]string{"status": "restored", "message": "Restart the application to apply restored data."})
+}
+
+func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	if s.BackupOpts == nil {
+		writeError(w, http.StatusBadRequest, "backup not configured")
+		return
+	}
+	name := r.PathValue("name")
+	if strings.Contains(name, "/") || strings.Contains(name, "\\") || strings.HasPrefix(name, "..") {
+		writeError(w, http.StatusBadRequest, "invalid filename")
+		return
+	}
+	archivePath := filepath.Join(s.BackupOpts.BackupDir, name)
+	if err := backup.DeleteBackup(archivePath); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, map[string]string{"status": "deleted"})

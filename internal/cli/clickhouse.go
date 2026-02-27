@@ -15,8 +15,9 @@ import (
 
 // setupClickHouse connects to ClickHouse, auto-detecting or managing a subprocess as needed.
 // It auto-runs migrations and returns a store connected to the seocrawler database.
-// Returns the store, a cleanup function (stops managed CH if applicable), and any error.
-func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func(), error) {
+// Returns the store, a cleanup function (stops managed CH if applicable),
+// the ManagedServer (nil for external mode), and any error.
+func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func(), *chmanaged.ManagedServer, error) {
 	noop := func() {}
 
 	mode := cfg.ClickHouse.Mode
@@ -27,6 +28,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 	var host, username, password string
 	var port int
 	var cleanup func()
+	var managed *chmanaged.ManagedServer
 
 	switch mode {
 	case "external":
@@ -49,7 +51,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 			var err error
 			binaryPath, err = chmanaged.DownloadBinary(dataDir)
 			if err != nil {
-				return nil, noop, fmt.Errorf("downloading ClickHouse: %w", err)
+				return nil, noop, nil, fmt.Errorf("downloading ClickHouse: %w", err)
 			}
 		}
 
@@ -58,7 +60,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 		defer cancel()
 
 		if err := srv.Start(ctx, binaryPath); err != nil {
-			return nil, noop, fmt.Errorf("starting managed ClickHouse: %w", err)
+			return nil, noop, nil, fmt.Errorf("starting managed ClickHouse: %w", err)
 		}
 
 		host = "127.0.0.1"
@@ -66,9 +68,10 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 		username = "default"
 		password = ""
 		cleanup = func() { srv.Stop() }
+		managed = srv
 
 	default:
-		return nil, noop, fmt.Errorf("unknown clickhouse.mode: %q", mode)
+		return nil, noop, nil, fmt.Errorf("unknown clickhouse.mode: %q", mode)
 	}
 
 	// Auto-migrate: connect to default db, run migrations, then connect to target db
@@ -78,7 +81,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 			if cleanup != nil {
 				cleanup()
 			}
-			return nil, noop, fmt.Errorf("connecting for migrations: %w", err)
+			return nil, noop, nil, fmt.Errorf("connecting for migrations: %w", err)
 		}
 		log.Println("Running auto-migrations...")
 		if err := initStore.Migrate(context.Background()); err != nil {
@@ -86,7 +89,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 			if cleanup != nil {
 				cleanup()
 			}
-			return nil, noop, fmt.Errorf("auto-migration: %w", err)
+			return nil, noop, nil, fmt.Errorf("auto-migration: %w", err)
 		}
 		initStore.Close()
 	}
@@ -96,7 +99,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 		if cleanup != nil {
 			cleanup()
 		}
-		return nil, noop, fmt.Errorf("connecting to ClickHouse: %w", err)
+		return nil, noop, nil, fmt.Errorf("connecting to ClickHouse: %w", err)
 	}
 
 	// If connecting to default (migrate command), run migrations on this store directly
@@ -107,12 +110,12 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 			if cleanup != nil {
 				cleanup()
 			}
-			return nil, noop, fmt.Errorf("migration: %w", err)
+			return nil, noop, nil, fmt.Errorf("migration: %w", err)
 		}
 		log.Println("Migrations complete.")
 	}
 
-	return store, cleanup, nil
+	return store, cleanup, managed, nil
 }
 
 // detectMode auto-detects whether to use external or managed mode.

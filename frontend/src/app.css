@@ -614,6 +614,15 @@ tr:hover td { background: var(--bg-hover); }
   color: var(--error);
   border: 1px solid var(--error);
 }
+.alert-info {
+  background: var(--info-bg);
+  color: var(--info);
+  border: 1px solid var(--info);
+}
+.alert-info .btn { color: var(--info); border-color: var(--info); }
+.alert-info .btn:hover { background: rgba(99,102,241,0.15); }
+.alert-info .btn-primary { background: var(--info); color: #fff; border-color: var(--info); }
+.alert-info .btn-primary:hover { background: var(--accent-hover); }
 
 /* ===== Action bar ===== */
 .action-bar {

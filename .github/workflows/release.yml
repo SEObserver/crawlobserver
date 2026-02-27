@@ -73,8 +73,85 @@ jobs:
           name: seocrawler-${{ matrix.goos }}-${{ matrix.goarch }}
           path: seocrawler-${{ matrix.goos }}-${{ matrix.goarch }}*
 
+  desktop-build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            goarch: arm64
+          - os: macos-13
+            goarch: amd64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build frontend
+        run: |
+          cd frontend && npm ci && npm run build
+          mkdir -p ../internal/server/frontend
+          cp -r dist ../internal/server/frontend/
+
+      - name: Build desktop app
+        env:
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+          CGO_LDFLAGS: "-framework UniformTypeIdentifiers"
+        run: |
+          go build -tags "desktop production" \
+            -ldflags "-X github.com/SEObserver/seocrawler/internal/updater.Version=${{ github.ref_name }}" \
+            -o SEOCrawler ./cmd/seocrawler
+
+      - name: Package .app bundle
+        run: |
+          APP_DIR="SEOCrawler.app/Contents/MacOS"
+          mkdir -p "$APP_DIR"
+          cp SEOCrawler "$APP_DIR/SEOCrawler"
+          chmod +x "$APP_DIR/SEOCrawler"
+
+          # Create Info.plist
+          cat > SEOCrawler.app/Contents/Info.plist << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>SEOCrawler</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.seobserver.seocrawler</string>
+            <key>CFBundleName</key>
+            <string>SEOCrawler</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+
+          # Create tar.gz
+          tar -czf SEOCrawler-darwin-${{ matrix.goarch }}.app.tar.gz SEOCrawler.app
+
+      - name: Upload desktop bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: SEOCrawler-darwin-${{ matrix.goarch }}-desktop
+          path: SEOCrawler-darwin-${{ matrix.goarch }}.app.tar.gz
+
   release:
-    needs: build
+    needs: [build, desktop-build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

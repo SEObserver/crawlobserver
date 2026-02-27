@@ -70,7 +70,7 @@ func runCrawl(cmd *cobra.Command, args []string) error {
 	}
 
 	// Connect to ClickHouse
-	store, cleanup, err := setupClickHouse(cfg, cfg.ClickHouse.Database)
+	store, cleanup, _, err := setupClickHouse(cfg, cfg.ClickHouse.Database)
 	if err != nil {
 		return err
 	}
