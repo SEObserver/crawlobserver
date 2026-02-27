@@ -62,6 +62,10 @@ func runGUI(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("creating data directory: %w", err)
 	}
 
+	// Point viper to writable config in app data dir (cwd is / in .app bundles)
+	viper.SetConfigFile(filepath.Join(dataDir, "config.yaml"))
+	_ = viper.ReadInConfig()
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)

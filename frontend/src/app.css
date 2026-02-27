@@ -262,6 +262,21 @@ a:hover { color: var(--accent-hover); }
   border-top: 1px solid var(--border-light);
 }
 
+.sidebar-branding {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: none;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.sidebar-branding:hover {
+  opacity: 1;
+}
+
 .theme-toggle {
   display: flex;
   align-items: center;
