@@ -219,3 +219,34 @@ func TestComputeBFSDepths_ShortestPath(t *testing.T) {
 		t.Errorf("/c depth = %d, want 1 (shortest path)", result.Depths["https://example.com/c"])
 	}
 }
+
+func TestComputeBFSDepths_OrphanDepthNotInflatedByNonCrawledURLs(t *testing.T) {
+	// Regression: non-crawled link targets were included in maxDepth calculation,
+	// inflating orphan depth. E.g., if maxCrawled=2 but a non-crawled target got
+	// depth 5, orphans would be assigned depth 6 instead of 3.
+	seedURLs := []string{"https://example.com"}
+	crawledSet := map[string]bool{
+		"https://example.com":       true,
+		"https://example.com/a":     true,
+		"https://example.com/orphan": true,
+	}
+	adj := map[string][]string{
+		"https://example.com":   {"https://example.com/a"},
+		// /a links to external targets that weren't crawled
+		"https://example.com/a": {"https://external.com/x", "https://external.com/y"},
+	}
+
+	result := ComputeBFSDepths(seedURLs, crawledSet, adj)
+
+	// Max crawled depth is 1 (/a), so orphan depth should be 2
+	if result.Depths["https://example.com/orphan"] != 2 {
+		t.Errorf("orphan depth = %d, want 2 (maxCrawled=1, orphan=2)", result.Depths["https://example.com/orphan"])
+	}
+	// Non-crawled URLs should NOT appear in depths map
+	if _, ok := result.Depths["https://external.com/x"]; ok {
+		t.Error("non-crawled URL https://external.com/x should not be in depths map")
+	}
+	if _, ok := result.Depths["https://external.com/y"]; ok {
+		t.Error("non-crawled URL https://external.com/y should not be in depths map")
+	}
+}

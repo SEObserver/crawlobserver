@@ -897,6 +897,7 @@ type BFSResult struct {
 func ComputeBFSDepths(seedURLs []string, crawledSet map[string]bool, adj map[string][]string) BFSResult {
 	depths := make(map[string]uint16)
 	foundOn := make(map[string]string)
+	visited := make(map[string]bool)
 	type bfsItem struct {
 		url   string
 		depth uint16
@@ -912,12 +913,11 @@ func ComputeBFSDepths(seedURLs []string, crawledSet map[string]bool, adj map[str
 			candidates = append(candidates, seed+"/")
 		}
 		for _, c := range candidates {
-			if crawledSet[c] {
-				if _, visited := depths[c]; !visited {
-					depths[c] = 0
-					foundOn[c] = ""
-					queue = append(queue, bfsItem{url: c, depth: 0})
-				}
+			if crawledSet[c] && !visited[c] {
+				visited[c] = true
+				depths[c] = 0
+				foundOn[c] = ""
+				queue = append(queue, bfsItem{url: c, depth: 0})
 			}
 		}
 	}
@@ -927,18 +927,20 @@ func ComputeBFSDepths(seedURLs []string, crawledSet map[string]bool, adj map[str
 		queue = queue[1:]
 
 		for _, target := range adj[item.url] {
-			if _, visited := depths[target]; !visited {
+			if !visited[target] {
+				visited[target] = true
 				newDepth := item.depth + 1
-				depths[target] = newDepth
-				foundOn[target] = item.url
 				if crawledSet[target] {
+					depths[target] = newDepth
+					foundOn[target] = item.url
 					queue = append(queue, bfsItem{url: target, depth: newDepth})
 				}
 			}
 		}
 	}
 
-	// Assign max depth to unreachable URLs
+	// Assign max depth to unreachable URLs (orphans).
+	// depths only contains crawled URLs, so maxDepth is accurate.
 	var maxDepth uint16
 	for _, d := range depths {
 		if d > maxDepth {
@@ -988,12 +990,17 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 	defer linkRows.Close()
 
 	adj := make(map[string][]string)
+	seen := make(map[[2]string]bool)
 	for linkRows.Next() {
 		var src, tgt string
 		if err := linkRows.Scan(&src, &tgt); err != nil {
 			return fmt.Errorf("scanning link: %w", err)
 		}
-		adj[src] = append(adj[src], tgt)
+		key := [2]string{src, tgt}
+		if !seen[key] {
+			seen[key] = true
+			adj[src] = append(adj[src], tgt)
+		}
 	}
 
 	// 3. BFS from seed URLs
