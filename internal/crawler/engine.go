@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -15,6 +16,7 @@ import (
 	"github.com/SEObserver/seocrawler/internal/normalizer"
 	"github.com/SEObserver/seocrawler/internal/parser"
 	"github.com/SEObserver/seocrawler/internal/storage"
+	"golang.org/x/net/publicsuffix"
 )
 
 // Engine orchestrates the crawling pipeline.
@@ -29,6 +31,9 @@ type Engine struct {
 
 	pagesCrawled atomic.Int64
 	maxPages     int64
+
+	allowedHosts   map[string]bool
+	allowedDomains map[string]bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -85,6 +90,46 @@ func (e *Engine) PreSeedDedup(urls []string) {
 	}
 }
 
+// buildScope extracts allowed hostnames/domains from the session's original seed URLs.
+func (e *Engine) buildScope() {
+	e.allowedHosts = make(map[string]bool)
+	e.allowedDomains = make(map[string]bool)
+
+	seedURLs := e.session.SeedURLs
+	for _, seed := range seedURLs {
+		u, err := url.Parse(seed)
+		if err != nil {
+			continue
+		}
+		host := strings.ToLower(u.Hostname())
+		e.allowedHosts[host] = true
+		domain, err := publicsuffix.EffectiveTLDPlusOne(host)
+		if err == nil {
+			e.allowedDomains[strings.ToLower(domain)] = true
+		}
+	}
+}
+
+// isInScope checks if a URL falls within the configured crawl scope.
+func (e *Engine) isInScope(targetURL string) bool {
+	u, err := url.Parse(targetURL)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+
+	switch e.cfg.Crawler.CrawlScope {
+	case "domain":
+		domain, err := publicsuffix.EffectiveTLDPlusOne(host)
+		if err != nil {
+			return e.allowedHosts[host]
+		}
+		return e.allowedDomains[strings.ToLower(domain)]
+	default: // "host"
+		return e.allowedHosts[host]
+	}
+}
+
 // Run starts the crawl with the given seed URLs.
 func (e *Engine) Run(seeds []string) error {
 	if e.session == nil {
@@ -96,6 +141,7 @@ func (e *Engine) Run(seeds []string) error {
 		e.session.Status = "running"
 	}
 	e.maxPages = int64(e.cfg.Crawler.MaxPages)
+	e.buildScope()
 	e.buffer = storage.NewBuffer(e.store, e.cfg.Storage.BatchSize, e.cfg.Storage.FlushInterval, e.session.ID)
 
 	// Save session to ClickHouse
@@ -409,14 +455,17 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 
 					if link.IsInternal {
 						internalOut++
-						newDepth := result.Depth + 1
-						if e.cfg.Crawler.MaxDepth == 0 || newDepth <= e.cfg.Crawler.MaxDepth {
-							e.front.Add(frontier.CrawlURL{
-								URL:      link.TargetURL,
-								Priority: newDepth,
-								Depth:    newDepth,
-								FoundOn:  result.URL,
-							})
+						// Check crawl scope before adding to frontier
+						if e.isInScope(link.TargetURL) {
+							newDepth := result.Depth + 1
+							if e.cfg.Crawler.MaxDepth == 0 || newDepth <= e.cfg.Crawler.MaxDepth {
+								e.front.Add(frontier.CrawlURL{
+									URL:      link.TargetURL,
+									Priority: newDepth,
+									Depth:    newDepth,
+									FoundOn:  result.URL,
+								})
+							}
 						}
 					} else {
 						externalOut++

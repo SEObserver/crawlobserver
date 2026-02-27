@@ -57,6 +57,7 @@
   let workers = $state(10);
   let crawlDelay = $state('1s');
   let storeHtml = $state(false);
+  let crawlScope = $state('host');
   let starting = $state(false);
 
   // Resume modal
@@ -67,6 +68,7 @@
   let resumeWorkers = $state(10);
   let resumeDelay = $state('1s');
   let resumeStoreHtml = $state(false);
+  let resumeCrawlScope = $state('host');
   let resuming = $state(false);
 
   // HTML modal
@@ -417,7 +419,7 @@
     starting = true;
     error = null;
     try {
-      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml });
+      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope });
       showNewCrawl = false;
       seedInput = '';
       maxPages = 0;
@@ -455,6 +457,7 @@
     resumeWorkers = cfg.workers || 10;
     resumeDelay = cfg.delay || '1s';
     resumeStoreHtml = cfg.store_html || false;
+    resumeCrawlScope = cfg.crawl_scope || 'host';
     showResumeModal = true;
   }
 
@@ -473,6 +476,7 @@
         workers: resumeWorkers,
         delay: resumeDelay,
         store_html: resumeStoreHtml,
+        crawl_scope: resumeCrawlScope,
       });
       closeResumeModal();
       await loadSessions();
@@ -972,6 +976,13 @@
             <div class="form-group"><label for="delay">Delay</label><input id="delay" type="text" bind:value={crawlDelay} placeholder="1s" /></div>
             <div class="form-group"><label for="maxpages">Max pages (0 = unlimited)</label><input id="maxpages" type="number" bind:value={maxPages} min="0" /></div>
             <div class="form-group"><label for="maxdepth">Max depth (0 = unlimited)</label><input id="maxdepth" type="number" bind:value={maxDepth} min="0" /></div>
+            <div class="form-group">
+              <label for="scope">Crawl scope</label>
+              <select id="scope" bind:value={crawlScope}>
+                <option value="host">Same host only</option>
+                <option value="domain">Same domain (incl. subdomains)</option>
+              </select>
+            </div>
             <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
               <input id="storehtml" type="checkbox" bind:checked={storeHtml} /><label for="storehtml" style="margin: 0;">Store raw HTML</label>
             </div>
@@ -1955,6 +1966,13 @@
           <div class="form-group"><label for="r-maxdepth">Max depth (0 = unlimited)</label><input id="r-maxdepth" type="number" bind:value={resumeMaxDepth} min="0" /></div>
           <div class="form-group"><label for="r-workers">Workers</label><input id="r-workers" type="number" bind:value={resumeWorkers} min="1" max="100" /></div>
           <div class="form-group"><label for="r-delay">Delay</label><input id="r-delay" type="text" bind:value={resumeDelay} placeholder="1s" /></div>
+          <div class="form-group">
+            <label for="r-scope">Crawl scope</label>
+            <select id="r-scope" bind:value={resumeCrawlScope}>
+              <option value="host">Same host only</option>
+              <option value="domain">Same domain (incl. subdomains)</option>
+            </select>
+          </div>
           <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
             <input id="r-storehtml" type="checkbox" bind:checked={resumeStoreHtml} /><label for="r-storehtml" style="margin: 0;">Store raw HTML</label>
           </div>

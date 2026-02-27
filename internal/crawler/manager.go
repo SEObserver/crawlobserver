@@ -34,12 +34,13 @@ func NewManager(cfg *config.Config, store *storage.Store) *Manager {
 
 // CrawlRequest holds parameters for starting a new crawl.
 type CrawlRequest struct {
-	Seeds     []string `json:"seeds"`
-	MaxPages  int      `json:"max_pages"`
-	MaxDepth  int      `json:"max_depth"`
-	Workers   int      `json:"workers"`
-	Delay     string   `json:"delay"`
-	StoreHTML bool     `json:"store_html"`
+	Seeds      []string `json:"seeds"`
+	MaxPages   int      `json:"max_pages"`
+	MaxDepth   int      `json:"max_depth"`
+	Workers    int      `json:"workers"`
+	Delay      string   `json:"delay"`
+	StoreHTML  bool     `json:"store_html"`
+	CrawlScope string   `json:"crawl_scope"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -66,6 +67,9 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 		}
 	}
 	crawlerCfg.StoreHTML = req.StoreHTML
+	if req.CrawlScope != "" {
+		crawlerCfg.CrawlScope = req.CrawlScope
+	}
 	cfg.Crawler = crawlerCfg
 
 	engine := NewEngine(&cfg, m.store)
@@ -184,6 +188,9 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 			}
 		}
 		crawlerCfg.StoreHTML = overrides.StoreHTML
+		if overrides.CrawlScope != "" {
+			crawlerCfg.CrawlScope = overrides.CrawlScope
+		}
 		cfg.Crawler = crawlerCfg
 	}
 	engine := NewEngine(&cfg, m.store)
