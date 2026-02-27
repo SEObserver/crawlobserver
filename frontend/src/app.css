@@ -187,6 +187,25 @@ a:hover { color: var(--accent-hover); }
 
 .sidebar-link.active svg { opacity: 1; }
 
+.sidebar-project {
+  margin-bottom: 2px;
+}
+
+.sidebar-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.sidebar-project-header {
+  font-weight: 600 !important;
+  font-size: 13px !important;
+}
+
 .sidebar-stats {
   display: flex;
   flex-direction: column;

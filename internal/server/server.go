@@ -490,19 +490,11 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build session-to-project mapping from crawl_sessions
+	// Load sessions
 	sessions, err := s.store.ListSessions(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
-	}
-	type sessionInfo struct {
-		ProjectID *string
-		SeedURLs  []string
-	}
-	sessionMap := map[string]sessionInfo{}
-	for _, sess := range sessions {
-		sessionMap[sess.ID] = sessionInfo{ProjectID: sess.ProjectID, SeedURLs: sess.SeedURLs}
 	}
 
 	// Load projects
@@ -513,6 +505,56 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 		for _, p := range projects {
 			projectMap[p.ID] = p.Name
 		}
+	}
+
+	// Auto-assign orphan sessions: create a project per hostname and associate
+	if s.keyStore != nil {
+		// Build reverse map: project name -> id
+		nameToID := make(map[string]string, len(projectMap))
+		for id, name := range projectMap {
+			nameToID[name] = id
+		}
+
+		for i, sess := range sessions {
+			if sess.ProjectID != nil {
+				continue
+			}
+			// Extract hostname from first seed URL
+			hostname := "unknown"
+			if len(sess.SeedURLs) > 0 {
+				if u, err := url.Parse(sess.SeedURLs[0]); err == nil && u.Hostname() != "" {
+					hostname = u.Hostname()
+				}
+			}
+			// Find or create project for this hostname
+			pid, exists := nameToID[hostname]
+			if !exists {
+				p, err := s.keyStore.CreateProject(hostname)
+				if err != nil {
+					log.Printf("auto-assign: failed to create project %q: %v", hostname, err)
+					continue
+				}
+				pid = p.ID
+				nameToID[hostname] = pid
+				projectMap[pid] = hostname
+			}
+			// Associate session to project
+			if err := s.store.UpdateSessionProject(r.Context(), sess.ID, &pid); err != nil {
+				log.Printf("auto-assign: failed to associate session %s: %v", sess.ID, err)
+				continue
+			}
+			sessions[i].ProjectID = &pid
+		}
+	}
+
+	// Build session-to-project mapping
+	type sessionInfo struct {
+		ProjectID *string
+		SeedURLs  []string
+	}
+	sessionMap := map[string]sessionInfo{}
+	for _, sess := range sessions {
+		sessionMap[sess.ID] = sessionInfo{ProjectID: sess.ProjectID, SeedURLs: sess.SeedURLs}
 	}
 
 	// Compute total rows for proportional storage estimation
@@ -541,7 +583,13 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 		StorageBytes uint64  `json:"storage_bytes"`
 	}
 
-	projectAgg := map[string]*projectStats{} // key = projectID or ""
+	type fetchAcc struct {
+		sum   float64
+		count uint64
+	}
+
+	projectAgg := map[string]*projectStats{}
+	projectFetch := map[string]*fetchAcc{}
 	var globalPages, globalLinks, globalErrors uint64
 	var globalFetchSum float64
 	var globalFetchCount uint64
@@ -561,11 +609,17 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 				ps.ProjectName = "(No project)"
 			}
 			projectAgg[key] = ps
+			projectFetch[key] = &fetchAcc{}
 		}
 		ps.Sessions++
 		ps.TotalPages += gs.TotalPages
 		ps.TotalLinks += gs.TotalLinks
 		ps.ErrorCount += gs.ErrorCount
+
+		fa := projectFetch[key]
+		fa.sum += gs.AvgFetchMs * float64(gs.TotalPages)
+		fa.count += gs.TotalPages
+
 		globalFetchSum += gs.AvgFetchMs * float64(gs.TotalPages)
 		globalFetchCount += gs.TotalPages
 
@@ -584,39 +638,10 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 		globalErrors += gs.ErrorCount
 	}
 
-	// Compute weighted avg fetch for each project
-	for _, gs := range sessionStats {
-		info := sessionMap[gs.SessionID]
-		key := ""
-		if info.ProjectID != nil {
-			key = *info.ProjectID
-		}
-		// Already accumulated above, skip here
-		_ = key
-	}
-	// Recompute avg per project from session data
-	type projFetchAcc struct {
-		sum   float64
-		count uint64
-	}
-	fetchAcc := map[string]*projFetchAcc{}
-	for _, gs := range sessionStats {
-		info := sessionMap[gs.SessionID]
-		key := ""
-		if info.ProjectID != nil {
-			key = *info.ProjectID
-		}
-		acc, ok := fetchAcc[key]
-		if !ok {
-			acc = &projFetchAcc{}
-			fetchAcc[key] = acc
-		}
-		acc.sum += gs.AvgFetchMs * float64(gs.TotalPages)
-		acc.count += gs.TotalPages
-	}
+	// Compute weighted avg fetch per project
 	for key, ps := range projectAgg {
-		if acc, ok := fetchAcc[key]; ok && acc.count > 0 {
-			ps.AvgFetchMs = acc.sum / float64(acc.count)
+		if fa := projectFetch[key]; fa.count > 0 {
+			ps.AvgFetchMs = fa.sum / float64(fa.count)
 		}
 	}
 

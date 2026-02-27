@@ -147,6 +147,7 @@
     showAPI = false;
     showNewCrawl = false;
     selectedSession = null;
+    pushURL('/stats');
     globalStatsLoading = true;
     try {
       globalStats = await getGlobalStats();
@@ -161,6 +162,7 @@
     showGlobalStats = false;
     showNewCrawl = false;
     selectedSession = null;
+    pushURL('/api');
     loadAPIData();
   }
 
@@ -263,6 +265,7 @@
     showNewCrawl = false;
     showAPI = false;
     showGlobalStats = false;
+    pushURL('/settings');
   }
 
   function previewTheme() {
@@ -338,10 +341,19 @@
   function parseRoute() {
     const path = window.location.pathname;
     const search = window.location.search;
+
+    // Top-level pages
+    if (path === '/new-crawl') return { page: 'new-crawl' };
+    if (path === '/settings') return { page: 'settings' };
+    if (path === '/stats') return { page: 'stats' };
+    if (path === '/api') return { page: 'api' };
+
+    // URL detail
     const urlMatch = path.match(/^\/sessions\/([^/]+)\/url\/(.+)/);
     if (urlMatch) {
       return { sessionId: urlMatch[1], tab: 'url-detail', detailUrl: decodeURIComponent(urlMatch[2]), filters: {}, offset: 0 };
     }
+    // Session detail
     const m = path.match(/^\/sessions\/([^/]+)(?:\/([^/]+))?/);
     if (m) {
       const sp = new URLSearchParams(search);
@@ -356,7 +368,8 @@
       }
       return { sessionId: m[1], tab: m[2] || 'overview', filters: routeFilters, offset: routeOffset };
     }
-    return null;
+    // Home
+    return { page: 'home' };
   }
 
   async function navigateTo(path, queryFilters = {}) {
@@ -366,45 +379,64 @@
 
   async function applyRoute() {
     const route = parseRoute();
-    if (route) {
-      if (!selectedSession || selectedSession.ID !== route.sessionId) {
-        if (sessions.length === 0) {
-          await loadSessions();
-        }
-        const found = sessions.find(s => s.ID === route.sessionId);
-        if (found) {
-          selectedSession = found;
-          stats = await getStats(found.ID);
-          loadStorageStats();
-        }
-      }
-      if (route.tab === 'url-detail') {
-        tab = 'url-detail';
-        filters = {};
-        pageDetail = null;
-        await loadPageDetail(route.sessionId, route.detailUrl);
-      } else {
-        tab = route.tab;
-        pageDetail = null;
-        filters = route.filters || {};
-        const off = route.offset || 0;
-        if (['internal'].includes(tab)) { intLinksOffset = off; }
-        else if (['external'].includes(tab)) { extLinksOffset = off; }
-        else { pagesOffset = off; }
-        if (tab === 'pagerank') {
-          await loadPRSubView(prSubView);
-        } else if (tab === 'robots') {
-          await loadRobotsHosts();
-        } else {
-          await loadTabData();
-        }
-      }
-    } else {
+
+    // Top-level pages (home, new-crawl, settings, stats, api)
+    if (route.page) {
       selectedSession = null;
       stats = null;
       pageDetail = null;
       filters = {};
-      await loadSessions();
+      loading = false;
+      showSettings = route.page === 'settings';
+      showGlobalStats = route.page === 'stats';
+      showAPI = route.page === 'api';
+      showNewCrawl = route.page === 'new-crawl';
+
+      if (sessions.length === 0) loadSessions();
+      if (route.page === 'stats') { globalStatsLoading = true; try { globalStats = await getGlobalStats(); } catch(e) { error = e.message; } globalStatsLoading = false; }
+      if (route.page === 'api') await loadAPIData();
+      if (route.page === 'settings') editTheme = { ...theme };
+      if (route.page === 'new-crawl') getProjects().then(p => projects = p).catch(() => {});
+      return;
+    }
+
+    // Session detail routes
+    showSettings = false;
+    showGlobalStats = false;
+    showAPI = false;
+    showNewCrawl = false;
+
+    if (!selectedSession || selectedSession.ID !== route.sessionId) {
+      if (sessions.length === 0) {
+        await loadSessions();
+      }
+      const found = sessions.find(s => s.ID === route.sessionId);
+      if (found) {
+        selectedSession = found;
+        stats = await getStats(found.ID);
+        loadStorageStats();
+      }
+    }
+    if (route.tab === 'url-detail') {
+      tab = 'url-detail';
+      filters = {};
+      pageDetail = null;
+      await loadPageDetail(route.sessionId, route.detailUrl);
+    } else {
+      tab = route.tab;
+      pageDetail = null;
+      filters = route.filters || {};
+      const off = route.offset || 0;
+      if (['internal'].includes(tab)) { intLinksOffset = off; }
+      else if (['external'].includes(tab)) { extLinksOffset = off; }
+      else { pagesOffset = off; }
+      if (tab === 'pagerank') {
+        await loadPRSubView(prSubView);
+      } else if (tab === 'robots') {
+        await loadRobotsHosts();
+      } else {
+        await loadTabData();
+      }
     }
   }
 
@@ -412,6 +444,10 @@
 
   async function selectSession(session) {
     selectedSession = session;
+    showSettings = false;
+    showGlobalStats = false;
+    showAPI = false;
+    showNewCrawl = false;
     tab = 'overview';
     filters = {};
     pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
@@ -534,6 +570,7 @@
       seedInput = '';
       maxPages = 0;
       maxDepth = 0;
+      pushURL('/');
       setTimeout(() => loadSessions(), 500);
     } catch (e) {
       error = e.message;
@@ -917,6 +954,7 @@
   applyRoute();
   startSystemStatsPolling();
   getProjects().then(p => projects = p).catch(() => {});
+  if (!globalStats) getGlobalStats().then(gs => globalStats = gs).catch(() => {});
 </script>
 
 <div class="layout">
@@ -936,24 +974,45 @@
     <div class="sidebar-section">
       <div class="sidebar-section-title">Main Menu</div>
       <nav class="sidebar-nav">
-        <button class="sidebar-link" class:active={!selectedSession && !showNewCrawl} onclick={() => goHome()}>
+        <button class="sidebar-link" class:active={!selectedSession && !showNewCrawl && !showSettings && !showGlobalStats && !showAPI} onclick={() => goHome()}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
           Dashboard
         </button>
-        <button class="sidebar-link" class:active={showNewCrawl && !selectedSession} onclick={() => { goHome(); showNewCrawl = true; getProjects().then(p => projects = p).catch(() => {}); }}>
+        <button class="sidebar-link" class:active={showNewCrawl && !selectedSession} onclick={() => navigateTo('/new-crawl')}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           New Crawl
         </button>
       </nav>
     </div>
 
-    {#if sessions.length > 0}
+    {#if projects.length > 0}
       <div class="sidebar-section">
-        <div class="sidebar-section-title">Recent Sessions</div>
+        <div class="sidebar-section-title">Projects</div>
         <nav class="sidebar-nav">
-          {#each sessions.slice(0, 8) as s}
+          {#each projects as proj}
+            {@const projStats = globalStats?.projects?.find(p => p.project_id === proj.id)}
+            {@const projSessions = sessions.filter(s => s.ProjectID === proj.id)}
+            <div class="sidebar-project">
+              <button class="sidebar-link sidebar-project-header" class:active={selectedSession && projSessions.some(s => s.ID === selectedSession.ID)} onclick={() => { const s = projSessions[0]; if (s) selectSession(s); }}>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">{proj.name}</span>
+                {#if projStats}
+                  <span class="sidebar-badge">{fmtN(projStats.total_pages)}</span>
+                {/if}
+              </button>
+            </div>
+          {/each}
+        </nav>
+      </div>
+    {/if}
+
+    {#if sessions.filter(s => !s.ProjectID).length > 0}
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Unassigned Sessions</div>
+        <nav class="sidebar-nav">
+          {#each sessions.filter(s => !s.ProjectID).slice(0, 5) as s}
             <button class="sidebar-link" class:active={selectedSession?.ID === s.ID} onclick={() => selectSession(s)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
               <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 {#if s.is_running}
                   <span style="color: var(--info);">{new URL(s.SeedURLs?.[0] || 'https://unknown').hostname}</span>
@@ -1118,7 +1177,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {#each globalStats.projects.sort((a, b) => b.storage_bytes - a.storage_bytes) as p}
+                  {#each [...globalStats.projects].sort((a, b) => b.storage_bytes - a.storage_bytes) as p}
                     <tr>
                       <td><strong>{p.project_name}</strong></td>
                       <td style="text-align: right;">{fmtN(p.sessions)}</td>
@@ -1334,7 +1393,7 @@
             <button class="btn btn-primary" onclick={handleStartCrawl} disabled={starting || !seedInput.trim()}>
               {starting ? 'Starting...' : 'Start Crawl'}
             </button>
-            <button class="btn" onclick={() => showNewCrawl = false}>Cancel</button>
+            <button class="btn" onclick={() => navigateTo('/')}>Cancel</button>
           </div>
         </div>
 
@@ -1342,7 +1401,7 @@
         <!-- Sessions List -->
         <div class="page-header">
           <h1>Crawl Sessions</h1>
-          <button class="btn btn-primary" onclick={() => showNewCrawl = true}>
+          <button class="btn btn-primary" onclick={() => navigateTo('/new-crawl')}>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New Crawl
           </button>
@@ -1354,7 +1413,7 @@
           <div class="empty-state">
             <h2>No crawl sessions yet</h2>
             <p>Start your first crawl to begin analyzing your site.</p>
-            <button class="btn btn-primary" style="margin-top: 16px;" onclick={() => showNewCrawl = true}>Start a Crawl</button>
+            <button class="btn btn-primary" style="margin-top: 16px;" onclick={() => navigateTo('/new-crawl')}>Start a Crawl</button>
           </div>
         {:else}
           <div class="card card-flush">
