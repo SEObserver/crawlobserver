@@ -9,6 +9,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/google/uuid"
 )
 
 // Store manages ClickHouse connections and operations.
@@ -832,6 +833,12 @@ func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string, inLimit
 	return result, nil
 }
 
+// isValidUUID checks whether s is a valid UUID string.
+func isValidUUID(s string) bool {
+	_, err := uuid.Parse(s)
+	return err == nil
+}
+
 // ComputePageRank computes internal PageRank for all pages in a session.
 // Uses uint32 IDs for memory efficiency and iterative power method.
 func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
@@ -970,7 +977,20 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		}
 	}
 
-	// 6. Write back to ClickHouse in chunks
+	// 6. Write back to ClickHouse via temp table (avoids SQL injection from crawled URLs)
+	if !isValidUUID(sessionID) {
+		return fmt.Errorf("invalid session ID: %s", sessionID)
+	}
+
+	tmpTable := fmt.Sprintf("seocrawler.tmp_pr_%s", strings.ReplaceAll(sessionID, "-", ""))
+	if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
+		return fmt.Errorf("dropping old temp pagerank table: %w", err)
+	}
+	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (url String, pr Float64) ENGINE = Memory", tmpTable)); err != nil {
+		return fmt.Errorf("creating temp pagerank table: %w", err)
+	}
+	defer s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable))
+
 	const chunkSize = 500
 	for i := 0; i < int(n); i += chunkSize {
 		end := i + chunkSize
@@ -978,24 +998,28 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 			end = int(n)
 		}
 
-		var cases []string
-		var quotedURLs []string
+		batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (url, pr)", tmpTable))
+		if err != nil {
+			return fmt.Errorf("preparing pagerank batch: %w", err)
+		}
 		for j := i; j < end; j++ {
-			escapedURL := strings.ReplaceAll(idToURL[j], "'", "\\'")
-			cases = append(cases, fmt.Sprintf("url = '%s', %.6f", escapedURL, rank[j]))
-			quotedURLs = append(quotedURLs, fmt.Sprintf("'%s'", escapedURL))
+			if err := batch.Append(idToURL[j], rank[j]); err != nil {
+				return fmt.Errorf("appending to pagerank batch: %w", err)
+			}
 		}
-
-		query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
-			pagerank = multiIf(%s, pagerank)
-			WHERE crawl_session_id = '%s' AND url IN (%s)`,
-			strings.Join(cases, ", "),
-			strings.ReplaceAll(sessionID, "'", "\\'"),
-			strings.Join(quotedURLs, ", "))
-
-		if err := s.conn.Exec(ctx, query); err != nil {
-			return fmt.Errorf("updating pagerank chunk %d: %w", i/chunkSize, err)
+		if err := batch.Send(); err != nil {
+			return fmt.Errorf("sending pagerank batch: %w", err)
 		}
+	}
+
+	// Single mutation: update from temp table (requires ClickHouse 22.8+)
+	query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
+		pagerank = (SELECT pr FROM %s WHERE url = seocrawler.pages.url LIMIT 1)
+		WHERE crawl_session_id = '%s' AND url IN (SELECT url FROM %s)`,
+		tmpTable, sessionID, tmpTable)
+
+	if err := s.conn.Exec(ctx, query); err != nil {
+		return fmt.Errorf("updating pagerank from temp table: %w", err)
 	}
 
 	log.Printf("ComputePageRank: computed for %d pages in session %s", n, sessionID)
@@ -1126,52 +1150,55 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 	depths := result.Depths
 	foundOn := result.FoundOn
 
-	// 4. Build UPDATE mutations in chunks
+	// 4. Write back depths via temp table (avoids SQL injection from crawled URLs)
+	if !isValidUUID(sessionID) {
+		return fmt.Errorf("invalid session ID: %s", sessionID)
+	}
+
+	tmpTable := fmt.Sprintf("seocrawler.tmp_depths_%s", strings.ReplaceAll(sessionID, "-", ""))
+	if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
+		return fmt.Errorf("dropping old temp depths table: %w", err)
+	}
+	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (url String, d UInt16, found_on String) ENGINE = Memory", tmpTable)); err != nil {
+		return fmt.Errorf("creating temp depths table: %w", err)
+	}
+	defer s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable))
+
 	urls := make([]string, 0, len(depths))
 	for u := range depths {
 		urls = append(urls, u)
 	}
 
-	const chunkSize = 100
+	const chunkSize = 500
 	for i := 0; i < len(urls); i += chunkSize {
 		end := i + chunkSize
 		if end > len(urls) {
 			end = len(urls)
 		}
-		chunk := urls[i:end]
 
-		// Build multiIf for depth
-		var depthCases []string
-		var foundOnCases []string
-		for _, u := range chunk {
-			escapedURL := strings.ReplaceAll(u, "'", "\\'")
-			depthCases = append(depthCases, fmt.Sprintf("url = '%s', %d", escapedURL, depths[u]))
-			parent := foundOn[u]
-			escapedParent := strings.ReplaceAll(parent, "'", "\\'")
-			foundOnCases = append(foundOnCases, fmt.Sprintf("url = '%s', '%s'", escapedURL, escapedParent))
+		batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (url, d, found_on)", tmpTable))
+		if err != nil {
+			return fmt.Errorf("preparing depths batch: %w", err)
 		}
-
-		depthExpr := fmt.Sprintf("multiIf(%s, depth)", strings.Join(depthCases, ", "))
-		foundOnExpr := fmt.Sprintf("multiIf(%s, found_on)", strings.Join(foundOnCases, ", "))
-
-		// Build URL list for WHERE
-		var quotedURLs []string
-		for _, u := range chunk {
-			escapedURL := strings.ReplaceAll(u, "'", "\\'")
-			quotedURLs = append(quotedURLs, fmt.Sprintf("'%s'", escapedURL))
+		for _, u := range urls[i:end] {
+			if err := batch.Append(u, depths[u], foundOn[u]); err != nil {
+				return fmt.Errorf("appending to depths batch: %w", err)
+			}
 		}
-
-		query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
-			depth = %s,
-			found_on = %s
-			WHERE crawl_session_id = '%s' AND url IN (%s)`,
-			depthExpr, foundOnExpr,
-			strings.ReplaceAll(sessionID, "'", "\\'"),
-			strings.Join(quotedURLs, ", "))
-
-		if err := s.conn.Exec(ctx, query); err != nil {
-			return fmt.Errorf("updating depths chunk %d: %w", i/chunkSize, err)
+		if err := batch.Send(); err != nil {
+			return fmt.Errorf("sending depths batch: %w", err)
 		}
+	}
+
+	// Single mutation: update from temp table (requires ClickHouse 22.8+)
+	query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
+		depth = (SELECT d FROM %s WHERE url = seocrawler.pages.url LIMIT 1),
+		found_on = (SELECT found_on FROM %s WHERE url = seocrawler.pages.url LIMIT 1)
+		WHERE crawl_session_id = '%s' AND url IN (SELECT url FROM %s)`,
+		tmpTable, tmpTable, sessionID, tmpTable)
+
+	if err := s.conn.Exec(ctx, query); err != nil {
+		return fmt.Errorf("updating depths from temp table: %w", err)
 	}
 
 	log.Printf("RecomputeDepths: updated %d URLs for session %s", len(depths), sessionID)

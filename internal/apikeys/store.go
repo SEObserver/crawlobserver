@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -263,8 +264,10 @@ func (s *Store) ValidateKey(rawKey string) *KeyLookupResult {
 		return nil
 	}
 
-	// Update last_used_at (fire and forget)
-	go s.db.Exec(`UPDATE api_keys SET last_used_at = ? WHERE id = ?`, time.Now().UTC(), result.ID)
+	// Update last_used_at
+	if _, err := s.db.Exec(`UPDATE api_keys SET last_used_at = ? WHERE id = ?`, time.Now().UTC(), result.ID); err != nil {
+		log.Printf("warning: failed to update last_used_at: %v", err)
+	}
 
 	return &result
 }

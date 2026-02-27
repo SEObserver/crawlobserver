@@ -218,7 +218,7 @@ export function subscribeProgress(sessionId, onMessage, onDone) {
   source.onmessage = (e) => {
     try {
       onMessage(JSON.parse(e.data));
-    } catch {}
+    } catch (err) { console.warn('SSE parse error:', err.message) }
   };
   source.addEventListener('done', () => {
     source.close();

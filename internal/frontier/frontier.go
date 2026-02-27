@@ -131,8 +131,6 @@ func (f *Frontier) Next() *CrawlURL {
 		found.FoundOn = fo
 	}
 	return found
-
-	return nil
 }
 
 // Len returns the number of URLs in the queue.

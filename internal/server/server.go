@@ -146,6 +146,9 @@ func (s *Server) Start() error {
 		log.Println("WARNING: No authentication configured. Set server.username and server.password in config.")
 	}
 
+	// Wrap with security headers
+	handler = securityHeaders(handler)
+
 	addr := fmt.Sprintf("%s:%d", s.cfg.Server.Host, s.cfg.Server.Port)
 	s.server = &http.Server{
 		Addr:         addr,
@@ -1145,6 +1148,17 @@ func basicAuth(next http.Handler, username, password string) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-src 'self' blob:")
 		next.ServeHTTP(w, r)
 	})
 }

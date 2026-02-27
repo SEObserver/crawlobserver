@@ -1,4 +1,5 @@
 <script>
+  import { onDestroy } from 'svelte';
   import { getSessions, getStats, getPages, getExternalLinks, getInternalLinks, getProgress,
     startCrawl, stopCrawl, resumeCrawl, deleteSession, recomputeDepths, computePageRank, retryFailed,
     subscribeProgress, getTheme, updateTheme,
@@ -130,6 +131,11 @@
   // Live progress
   let liveProgress = $state({});
   let sseConnections = {};
+
+  // A11y: keyboard handler for interactive non-button elements
+  function a11yKeydown(callback) {
+    return (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); callback(e); } };
+  }
 
   // Global Stats
   let showGlobalStats = $state(false);
@@ -1050,6 +1056,15 @@
   startSystemStatsPolling();
   getProjects().then(p => projects = p).catch(() => {});
   if (!globalStats) getGlobalStats().then(gs => globalStats = gs).catch(() => {});
+
+  // Cleanup on destroy
+  onDestroy(() => {
+    if (systemStatsInterval) clearInterval(systemStatsInterval);
+    for (const id of Object.keys(sseConnections)) {
+      sseConnections[id].close();
+      delete sseConnections[id];
+    }
+  });
 </script>
 
 <div class="layout">
@@ -2113,9 +2128,9 @@
                   </div>
                   {@const maxPR = prTopData.pages[0]?.pagerank || 1}
                   {#each prTopData.pages as p, i}
-                    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-                    <div class="pr-top-row"
+                    <div class="pr-top-row" role="button" tabindex="0"
                       onclick={() => goToUrlDetail({preventDefault:()=>{}}, p.url)}
+                      onkeydown={a11yKeydown(() => goToUrlDetail({preventDefault:()=>{}}, p.url))}
                       onmouseenter={(e) => { prTooltip = { x: e.clientX, y: e.clientY, url: p.url, pr: p.pagerank, depth: p.depth, intLinks: p.internal_links_out, extLinks: p.external_links_out, words: p.word_count }; }}
                       onmouseleave={() => { prTooltip = null; }}
                       style="cursor: pointer;">
@@ -2167,10 +2182,10 @@
                   <div class="pr-treemap-container">
                     {#each treemapRects as rect}
                       {@const opacity = 0.35 + 0.65 * (rect.avg_pr / maxAvgPR)}
-                      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-                      <div class="pr-treemap-rect"
+                      <div class="pr-treemap-rect" role="button" tabindex="0"
                         style="left: {rect.x}%; top: {rect.y}%; width: {rect.w}%; height: {rect.h}%; background: var(--accent); opacity: {opacity};"
                         onclick={() => prDrillToTable(rect.path)}
+                        onkeydown={a11yKeydown(() => prDrillToTable(rect.path))}
                         onmouseenter={(e) => { prTooltip = { x: e.clientX, y: e.clientY, path: rect.path, pages: rect.page_count, totalPR: rect.total_pr, avgPR: rect.avg_pr, maxPR: rect.max_pr }; }}
                         onmouseleave={() => { prTooltip = null; }}>
                         {#if rect.w > 6 && rect.h > 5}
@@ -2223,11 +2238,11 @@
                       {@const bx = histMargin.left + i * (barW + barGap)}
                       {@const by = histMargin.top + plotH - barH}
                       {@const opacity = 0.4 + 0.6 * (bucket.count / distMaxCount)}
-                      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-                      <rect class="pr-hist-bar" x={bx} y={by} width={barW} height={barH} rx="2" fill="var(--accent)" opacity={opacity}
+                      <rect class="pr-hist-bar" role="button" tabindex="0" x={bx} y={by} width={barW} height={barH} rx="2" fill="var(--accent)" opacity={opacity}
                         onmouseenter={(e) => { prTooltip = { x: e.clientX, y: e.clientY, bucketMin: bucket.min, bucketMax: bucket.max, count: bucket.count, avgPR: bucket.avg_pr }; }}
                         onmouseleave={() => { prTooltip = null; }}
-                        onclick={() => prDrillHistToTable(bucket.min, bucket.max)} />
+                        onclick={() => prDrillHistToTable(bucket.min, bucket.max)}
+                        onkeydown={a11yKeydown(() => prDrillHistToTable(bucket.min, bucket.max))} />
                       {#if distBuckets.length <= 25 || i % Math.ceil(distBuckets.length / 10) === 0}
                         <text x={bx + barW / 2} y={histH - histMargin.bottom + 16} text-anchor="middle" style="font-size: 9px; fill: var(--text-muted);">{bucket.min.toFixed(0)}</text>
                       {/if}
@@ -2323,8 +2338,7 @@
                     </thead>
                     <tbody>
                       {#each robotsHosts as h}
-                        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-                        <tr class:robots-host-active={robotsSelectedHost === h.Host} style="cursor:pointer" onclick={() => selectRobotsHost(h.Host)}>
+                        <tr class:robots-host-active={robotsSelectedHost === h.Host} role="button" tabindex="0" style="cursor:pointer" onclick={() => selectRobotsHost(h.Host)} onkeydown={a11yKeydown(() => selectRobotsHost(h.Host))}>
                           <td style="font-weight: 500;">{h.Host}</td>
                           <td><span class="badge {h.StatusCode === 200 ? 'badge-success' : h.StatusCode >= 400 ? 'badge-error' : 'badge-warning'}">{h.StatusCode}</span></td>
                           <td style="color: var(--text-muted); font-size: 12px;">{new Date(h.FetchedAt).toLocaleString()}</td>
@@ -2390,8 +2404,7 @@
                     </thead>
                     <tbody>
                       {#each sitemaps as s}
-                        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-                        <tr class:robots-host-active={selectedSitemap === s.URL} style="cursor:pointer" onclick={() => selectSitemap(s.URL)}>
+                        <tr class:robots-host-active={selectedSitemap === s.URL} role="button" tabindex="0" style="cursor:pointer" onclick={() => selectSitemap(s.URL)} onkeydown={a11yKeydown(() => selectSitemap(s.URL))}>
                           <td style="font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={s.URL}>{s.URL.replace(/^https?:\/\/[^/]+/, '')}</td>
                           <td><span class="badge {s.Type === 'index' ? 'badge-warning' : s.Type === 'urlset' ? 'badge-success' : 'badge-muted'}">{s.Type || '?'}</span></td>
                           <td style="text-align: right;">{s.URLCount?.toLocaleString() || 0}</td>
@@ -2456,8 +2469,7 @@
                       {@const barW = depthMax > 0 ? (count / depthMax) * 440 : 0}
                       {@const y = i * (depthBarH + depthGap)}
                       {@const opacity = 0.5 + (0.5 * (1 - i / Math.max(depthEntries.length - 1, 1)))}
-                      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-                      <g class="chart-bar-clickable" style="cursor:pointer" onclick={() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {depth: String(depth)})}>
+                      <g class="chart-bar-clickable" role="button" tabindex="0" style="cursor:pointer" onclick={() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {depth: String(depth)})} onkeydown={a11yKeydown(() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {depth: String(depth)}))}>
                         <text x="30" y={y + depthBarH / 2 + 5} text-anchor="end" class="chart-label">{depth}</text>
                         <rect x="40" y={y} width={Math.max(barW, 2)} height={depthBarH} rx="4" class="chart-bar chart-bar-accent" style="opacity: {opacity}" />
                         <text x={44 + barW} y={y + depthBarH / 2 + 5} class="chart-value">{fmtN(count)}</text>
@@ -2482,8 +2494,7 @@
                       {@const barW = scMax > 0 ? (count / scMax) * 440 : 0}
                       {@const y = i * (scBarH + scGap)}
                       {@const colorClass = code >= 200 && code < 300 ? 'chart-bar-success' : code >= 300 && code < 400 ? 'chart-bar-info' : code >= 400 && code < 500 ? 'chart-bar-warning' : 'chart-bar-error'}
-                      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-                      <g class="chart-bar-clickable" style="cursor:pointer" onclick={() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {status_code: String(code)})}>
+                      <g class="chart-bar-clickable" role="button" tabindex="0" style="cursor:pointer" onclick={() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {status_code: String(code)})} onkeydown={a11yKeydown(() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {status_code: String(code)}))}>
                         <text x="30" y={y + scBarH / 2 + 5} text-anchor="end" class="chart-label">{code}</text>
                         <rect x="40" y={y} width={Math.max(barW, 2)} height={scBarH} rx="4" class={`chart-bar ${colorClass}`} />
                         <text x={44 + barW} y={y + scBarH / 2 + 5} class="chart-value">{fmtN(count)}</text>
@@ -2512,10 +2523,8 @@
 </div>
 
 {#if showResumeModal}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="html-modal-overlay" onclick={closeResumeModal}>
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="html-modal" onclick={(e) => e.stopPropagation()} style="max-width: 480px; height: auto;">
+  <div class="html-modal-overlay" role="button" tabindex="0" onclick={closeResumeModal} onkeydown={a11yKeydown(closeResumeModal)}>
+    <div class="html-modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} style="max-width: 480px; height: auto;">
       <div class="html-modal-header">
         <div class="html-modal-url">Resume Crawl</div>
         <div class="html-modal-actions">
@@ -2553,10 +2562,8 @@
 {/if}
 
 {#if showHtmlModal}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="html-modal-overlay" onclick={closeHtmlModal}>
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="html-modal" onclick={(e) => e.stopPropagation()}>
+  <div class="html-modal-overlay" role="button" tabindex="0" onclick={closeHtmlModal} onkeydown={a11yKeydown(closeHtmlModal)}>
+    <div class="html-modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
       <div class="html-modal-header">
         <div class="html-modal-url" title={htmlModalData.url}>{htmlModalData.url}</div>
         <div class="html-modal-actions">

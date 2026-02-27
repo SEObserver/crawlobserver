@@ -1,7 +1,10 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/spf13/viper"
@@ -100,7 +103,7 @@ func SetDefaults() {
 	viper.SetDefault("server.host", "127.0.0.1")
 	viper.SetDefault("server.port", 8899)
 	viper.SetDefault("server.username", "admin")
-	viper.SetDefault("server.password", "seocrawler")
+	viper.SetDefault("server.password", "")
 	viper.SetDefault("server.sqlite_path", "seocrawler.db")
 
 	viper.SetDefault("theme.app_name", "SEOCrawler")
@@ -119,6 +122,16 @@ func Load() (*Config, error) {
 
 	if err := validate(&cfg); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
+	}
+
+	// Generate random password if username is set but password is empty
+	if cfg.Server.Username != "" && cfg.Server.Password == "" {
+		b := make([]byte, 16)
+		if _, err := rand.Read(b); err != nil {
+			return nil, fmt.Errorf("generating random password: %w", err)
+		}
+		cfg.Server.Password = hex.EncodeToString(b)
+		log.Printf("No password configured. Generated random password: %s", cfg.Server.Password)
 	}
 
 	return &cfg, nil
