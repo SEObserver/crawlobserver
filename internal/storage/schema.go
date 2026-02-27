@@ -127,6 +127,11 @@ CREATE TABLE IF NOT EXISTS seocrawler.robots_txt (
 ORDER BY (crawl_session_id, host)
 `
 
+const AlterSessionsV2 = `
+ALTER TABLE seocrawler.crawl_sessions
+    ADD COLUMN IF NOT EXISTS project_id Nullable(String) DEFAULT NULL
+`
+
 // Migrations is the ordered list of DDL statements.
 var Migrations = []string{
 	CreateDatabase,
@@ -137,4 +142,5 @@ var Migrations = []string{
 	AlterPagesV3,
 	AlterPagesV4,
 	CreateRobotsTxt,
+	AlterSessionsV2,
 }

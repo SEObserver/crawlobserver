@@ -343,6 +343,8 @@ th {
 }
 tr:hover td { background: var(--bg-hover); }
 
+.table-wrap { overflow-x: auto; }
+
 .cell-url {
   max-width: 340px;
   overflow: hidden;

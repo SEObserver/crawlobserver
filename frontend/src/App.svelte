@@ -2,9 +2,12 @@
   import { getSessions, getStats, getPages, getExternalLinks, getInternalLinks, getProgress,
     startCrawl, stopCrawl, resumeCrawl, deleteSession, recomputeDepths, computePageRank, retryFailed,
     subscribeProgress, getTheme, updateTheme,
-    getPageHTML, getStorageStats, getPageDetail, getSystemStats,
+    getPageHTML, getStorageStats, getGlobalStats, getPageDetail, getSystemStats,
     getPageRankDistribution, getPageRankTreemap, getPageRankTop,
-    getRobotsHosts, getRobotsContent, testRobotsUrls } from './lib/api.js';
+    getRobotsHosts, getRobotsContent, testRobotsUrls,
+    getProjects, createProject, renameProject, deleteProject,
+    associateSession, disassociateSession,
+    getAPIKeys, createAPIKey, deleteAPIKey } from './lib/api.js';
 
   let sessions = $state([]);
   let selectedSession = $state(null);
@@ -117,6 +120,109 @@
   let liveProgress = $state({});
   let sseConnections = {};
 
+  // Global Stats
+  let showGlobalStats = $state(false);
+  let globalStats = $state(null);
+  let globalStatsLoading = $state(false);
+
+  // API page
+  let showAPI = $state(false);
+  let projects = $state([]);
+  let apiKeys = $state([]);
+  let newProjectName = $state('');
+  let newKeyName = $state('');
+  let newKeyType = $state('general');
+  let newKeyProjectId = $state('');
+  let createdKeyFull = $state(null);
+  let renamingProject = $state(null);
+  let renameValue = $state('');
+
+  // Project for new crawl
+  let crawlProjectId = $state('');
+
+  // --- Global Stats ---
+  async function openGlobalStats() {
+    showGlobalStats = true;
+    showSettings = false;
+    showAPI = false;
+    showNewCrawl = false;
+    selectedSession = null;
+    globalStatsLoading = true;
+    try {
+      globalStats = await getGlobalStats();
+    } catch (e) { error = e.message; }
+    globalStatsLoading = false;
+  }
+
+  // --- API page ---
+  function openAPI() {
+    showAPI = true;
+    showSettings = false;
+    showGlobalStats = false;
+    showNewCrawl = false;
+    selectedSession = null;
+    loadAPIData();
+  }
+
+  async function loadAPIData() {
+    try {
+      projects = await getProjects();
+      apiKeys = await getAPIKeys();
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleCreateProject() {
+    if (!newProjectName.trim()) return;
+    try {
+      await createProject(newProjectName.trim());
+      newProjectName = '';
+      await loadAPIData();
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleRenameProject(id) {
+    if (!renameValue.trim()) return;
+    try {
+      await renameProject(id, renameValue.trim());
+      renamingProject = null;
+      renameValue = '';
+      await loadAPIData();
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleDeleteProject(id) {
+    if (!confirm('Delete this project? Associated API keys will also be deleted.')) return;
+    try {
+      await deleteProject(id);
+      await loadAPIData();
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleCreateAPIKey() {
+    if (!newKeyName.trim() || !newKeyType) return;
+    try {
+      const pid = newKeyType === 'project' && newKeyProjectId ? newKeyProjectId : null;
+      const result = await createAPIKey(newKeyName.trim(), newKeyType, pid);
+      createdKeyFull = result.key;
+      newKeyName = '';
+      newKeyType = 'general';
+      newKeyProjectId = '';
+      await loadAPIData();
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleDeleteAPIKey(id) {
+    if (!confirm('Revoke this API key?')) return;
+    try {
+      await deleteAPIKey(id);
+      await loadAPIData();
+    } catch (e) { error = e.message; }
+  }
+
+  function copyToClipboard(text) {
+    navigator.clipboard.writeText(text);
+  }
+
   // --- Theme ---
   async function loadTheme() {
     try {
@@ -155,6 +261,8 @@
     showSettings = true;
     selectedSession = null;
     showNewCrawl = false;
+    showAPI = false;
+    showGlobalStats = false;
   }
 
   function previewTheme() {
@@ -322,6 +430,8 @@
     stats = null;
     showNewCrawl = false;
     showSettings = false;
+    showAPI = false;
+    showGlobalStats = false;
     pushURL('/');
   }
 
@@ -419,7 +529,7 @@
     starting = true;
     error = null;
     try {
-      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope });
+      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null });
       showNewCrawl = false;
       seedInput = '';
       maxPages = 0;
@@ -806,6 +916,7 @@
   loadTheme();
   applyRoute();
   startSystemStatsPolling();
+  getProjects().then(p => projects = p).catch(() => {});
 </script>
 
 <div class="layout">
@@ -829,7 +940,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
           Dashboard
         </button>
-        <button class="sidebar-link" class:active={showNewCrawl && !selectedSession} onclick={() => { goHome(); showNewCrawl = true; }}>
+        <button class="sidebar-link" class:active={showNewCrawl && !selectedSession} onclick={() => { goHome(); showNewCrawl = true; getProjects().then(p => projects = p).catch(() => {}); }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           New Crawl
         </button>
@@ -887,9 +998,17 @@
     <div class="sidebar-section" style="margin-top: auto;">
       <div class="sidebar-section-title">General</div>
       <nav class="sidebar-nav">
+        <button class="sidebar-link" class:active={showGlobalStats} onclick={openGlobalStats}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Stats
+        </button>
         <button class="sidebar-link" class:active={showSettings} onclick={openSettings}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           Settings
+        </button>
+        <button class="sidebar-link" class:active={showAPI} onclick={openAPI}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          API
         </button>
       </nav>
     </div>
@@ -961,6 +1080,219 @@
           </div>
         </div>
 
+      {:else if showGlobalStats}
+        <!-- Global Stats -->
+        <div class="page-header">
+          <h1>Global Stats</h1>
+          <button class="btn btn-sm" onclick={openGlobalStats} disabled={globalStatsLoading}>
+            {globalStatsLoading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+
+        {#if globalStatsLoading && !globalStats}
+          <div class="loading">Loading global stats...</div>
+        {:else if globalStats}
+          <div class="stats-grid" style="margin-bottom: 24px;">
+            <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_pages)}</div><div class="stat-label">Total Pages</div></div>
+            <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_links)}</div><div class="stat-label">Total Links</div></div>
+            <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_errors)}</div><div class="stat-label">Total Errors</div></div>
+            <div class="stat-card"><div class="stat-value">{globalStats.avg_fetch_ms?.toFixed(0) || 0}ms</div><div class="stat-label">Avg Response</div></div>
+            <div class="stat-card"><div class="stat-value">{fmtSize(globalStats.total_storage)}</div><div class="stat-label">Total Storage</div></div>
+            <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_sessions)}</div><div class="stat-label">Sessions</div></div>
+          </div>
+
+          {#if globalStats.projects?.length > 0}
+            <div class="card" style="overflow-x: auto;">
+              <h3 style="margin: 0 0 16px 0; font-size: 1rem;">Stats by Project</h3>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Project</th>
+                    <th style="text-align: right;">Sessions</th>
+                    <th style="text-align: right;">Pages</th>
+                    <th style="text-align: right;">Links</th>
+                    <th style="text-align: right;">Errors</th>
+                    <th style="text-align: right;">Avg Response</th>
+                    <th style="text-align: right;">Storage</th>
+                    <th style="min-width: 120px;">Proportion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each globalStats.projects.sort((a, b) => b.storage_bytes - a.storage_bytes) as p}
+                    <tr>
+                      <td><strong>{p.project_name}</strong></td>
+                      <td style="text-align: right;">{fmtN(p.sessions)}</td>
+                      <td style="text-align: right;">{fmtN(p.total_pages)}</td>
+                      <td style="text-align: right;">{fmtN(p.total_links)}</td>
+                      <td style="text-align: right;">{fmtN(p.error_count)}</td>
+                      <td style="text-align: right;">{p.avg_fetch_ms?.toFixed(0) || 0}ms</td>
+                      <td style="text-align: right;">{fmtSize(p.storage_bytes)}</td>
+                      <td>
+                        <div style="background: var(--bg-secondary); border-radius: 4px; height: 8px; overflow: hidden;">
+                          <div style="background: var(--accent); height: 100%; width: {globalStats.total_storage > 0 ? (p.storage_bytes / globalStats.total_storage * 100) : 0}%; border-radius: 4px; transition: width 0.3s;"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+
+          {#if globalStats.storage_tables?.length > 0}
+            <div class="card" style="margin-top: 16px;">
+              <h3 style="margin: 0 0 16px 0; font-size: 1rem;">Storage by Table</h3>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Table</th>
+                    <th style="text-align: right;">Rows</th>
+                    <th style="text-align: right;">Disk Usage</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each globalStats.storage_tables as t}
+                    <tr>
+                      <td><code>{t.name}</code></td>
+                      <td style="text-align: right;">{fmtN(t.rows)}</td>
+                      <td style="text-align: right;">{fmtSize(t.bytes_on_disk)}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+        {/if}
+
+      {:else if showAPI && !selectedSession}
+        <!-- API Management -->
+        <div class="page-header">
+          <h1>Projects</h1>
+        </div>
+
+        <!-- Create Project -->
+        <div class="card">
+          <div class="form-grid">
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <label for="new-project">New project</label>
+              <div style="display: flex; gap: 8px;">
+                <input id="new-project" type="text" bind:value={newProjectName} placeholder="Project name" onkeydown={(e) => e.key === 'Enter' && handleCreateProject()} />
+                <button class="btn btn-primary" onclick={handleCreateProject} disabled={!newProjectName.trim()}>Create</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Projects List -->
+        {#if projects.length === 0}
+          <div class="card" style="text-align: center; color: var(--text-muted); padding: 32px;">No projects yet.</div>
+        {:else}
+          <div class="card card-flush">
+            {#each projects as p}
+              <div class="session-row">
+                <div class="session-info">
+                  {#if renamingProject === p.id}
+                    <div style="display: flex; gap: 8px; align-items: center; flex: 1;">
+                      <input type="text" bind:value={renameValue} style="flex: 1;" onkeydown={(e) => e.key === 'Enter' && handleRenameProject(p.id)} />
+                      <button class="btn btn-sm btn-primary" onclick={() => handleRenameProject(p.id)}>Save</button>
+                      <button class="btn btn-sm" onclick={() => renamingProject = null}>Cancel</button>
+                    </div>
+                  {:else}
+                    <div class="session-seed">{p.name}</div>
+                    <div class="session-meta">
+                      <span>{new Date(p.created_at).toLocaleDateString()}</span>
+                    </div>
+                  {/if}
+                </div>
+                {#if renamingProject !== p.id}
+                  <div class="session-actions">
+                    <button class="btn btn-sm" onclick={() => { renamingProject = p.id; renameValue = p.name; }}>Rename</button>
+                    <button class="btn btn-sm btn-danger" onclick={() => handleDeleteProject(p.id)}>Delete</button>
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        <!-- API Keys Header -->
+        <div class="page-header" style="margin-top: 32px;">
+          <h1>API Keys</h1>
+        </div>
+
+        {#if createdKeyFull}
+          <div class="card" style="border: 1px solid var(--success); background: var(--success-bg);">
+            <div style="display: flex; align-items: flex-start; gap: 12px;">
+              <div style="flex: 1;">
+                <strong>API Key created!</strong> Copy it now — it won't be shown again:<br/>
+                <code style="font-size: 0.85rem; word-break: break-all; margin-top: 6px; display: inline-block;">{createdKeyFull}</code>
+              </div>
+              <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                <button class="btn btn-sm" onclick={() => copyToClipboard(createdKeyFull)}>Copy</button>
+                <button class="btn btn-sm" onclick={() => createdKeyFull = null}>Dismiss</button>
+              </div>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Create API Key -->
+        <div class="card">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="key-name">Key name</label>
+              <input id="key-name" type="text" bind:value={newKeyName} placeholder="My API key" />
+            </div>
+            <div class="form-group">
+              <label for="key-type">Type</label>
+              <select id="key-type" bind:value={newKeyType}>
+                <option value="general">General (full access)</option>
+                <option value="project">Project (read-only)</option>
+              </select>
+            </div>
+            {#if newKeyType === 'project'}
+              <div class="form-group">
+                <label for="key-project">Project</label>
+                <select id="key-project" bind:value={newKeyProjectId}>
+                  <option value="">Select project...</option>
+                  {#each projects as p}
+                    <option value={p.id}>{p.name}</option>
+                  {/each}
+                </select>
+              </div>
+            {/if}
+          </div>
+          <div style="margin-top: 16px;">
+            <button class="btn btn-primary" onclick={handleCreateAPIKey} disabled={!newKeyName.trim() || (newKeyType === 'project' && !newKeyProjectId)}>Create Key</button>
+          </div>
+        </div>
+
+        <!-- API Keys List -->
+        {#if apiKeys.length === 0}
+          <div class="card" style="text-align: center; color: var(--text-muted); padding: 32px;">No API keys yet.</div>
+        {:else}
+          <div class="card card-flush">
+            {#each apiKeys as k}
+              <div class="session-row">
+                <div class="session-info">
+                  <div class="session-seed">{k.name}</div>
+                  <div class="session-meta">
+                    <span class="badge" class:badge-info={k.type === 'general'} class:badge-warning={k.type === 'project'}>{k.type}</span>
+                    {#if k.project_id}
+                      <span class="badge" style="background: var(--accent-light); color: var(--accent);">{projects.find(p => p.id === k.project_id)?.name || k.project_id}</span>
+                    {/if}
+                    <code style="font-size: 0.8rem;">{k.key_prefix}</code>
+                    <span>{new Date(k.created_at).toLocaleDateString()}</span>
+                    <span>{k.last_used_at ? 'Used ' + timeAgo(k.last_used_at) : 'Never used'}</span>
+                  </div>
+                </div>
+                <div class="session-actions">
+                  <button class="btn btn-sm btn-danger" onclick={() => handleDeleteAPIKey(k.id)}>Revoke</button>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
       {:else if showNewCrawl && !selectedSession}
         <!-- New Crawl Form -->
         <div class="page-header">
@@ -986,6 +1318,17 @@
             <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
               <input id="storehtml" type="checkbox" bind:checked={storeHtml} /><label for="storehtml" style="margin: 0;">Store raw HTML</label>
             </div>
+            {#if projects.length > 0}
+              <div class="form-group">
+                <label for="crawl-project">Project (optional)</label>
+                <select id="crawl-project" bind:value={crawlProjectId}>
+                  <option value="">No project</option>
+                  {#each projects as p}
+                    <option value={p.id}>{p.name}</option>
+                  {/each}
+                </select>
+              </div>
+            {/if}
           </div>
           <div style="display: flex; gap: 8px; margin-top: 20px;">
             <button class="btn btn-primary" onclick={handleStartCrawl} disabled={starting || !seedInput.trim()}>
@@ -1029,6 +1372,9 @@
                       </span>
                     {:else}
                       <span class="badge" class:badge-success={s.Status==='completed'} class:badge-error={s.Status==='failed'} class:badge-warning={s.Status==='stopped'}>{s.Status}</span>
+                    {/if}
+                    {#if s.ProjectID}
+                      <span class="badge" style="background: var(--accent-light); color: var(--accent);">{projects.find(p => p.id === s.ProjectID)?.name || 'Project'}</span>
                     {/if}
                     <span>{fmtN(s.PagesCrawled)} pages</span>
                     <span>{timeAgo(s.StartedAt)}</span>

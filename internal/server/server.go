@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SEObserver/seocrawler/internal/apikeys"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/crawler"
 	"github.com/SEObserver/seocrawler/internal/storage"
@@ -27,18 +28,20 @@ var frontendFS embed.FS
 
 // Server serves the web GUI and REST API.
 type Server struct {
-	cfg     *config.Config
-	store   *storage.Store
-	manager *crawler.Manager
-	server  *http.Server
+	cfg      *config.Config
+	store    *storage.Store
+	keyStore *apikeys.Store
+	manager  *crawler.Manager
+	server   *http.Server
 }
 
 // New creates a new Server.
-func New(cfg *config.Config, store *storage.Store) *Server {
+func New(cfg *config.Config, store *storage.Store, keyStore *apikeys.Store) *Server {
 	return &Server{
-		cfg:     cfg,
-		store:   store,
-		manager: crawler.NewManager(cfg, store),
+		cfg:      cfg,
+		store:    store,
+		keyStore: keyStore,
+		manager:  crawler.NewManager(cfg, store),
 	}
 }
 
@@ -62,6 +65,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/sessions/{id}/robots", s.handleRobotsHosts)
 	mux.HandleFunc("GET /api/sessions/{id}/robots-content", s.handleRobotsContent)
 	mux.HandleFunc("GET /api/storage-stats", s.handleStorageStats)
+	mux.HandleFunc("GET /api/global-stats", s.handleGlobalStats)
 	mux.HandleFunc("GET /api/system-stats", s.handleSystemStats)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/theme", s.handleTheme)
@@ -76,6 +80,17 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /api/sessions/{id}/retry-failed", s.handleRetryFailed)
 	mux.HandleFunc("POST /api/sessions/{id}/robots-test", s.handleRobotsTest)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
+
+	// Projects & API keys routes
+	mux.HandleFunc("GET /api/projects", s.handleListProjects)
+	mux.HandleFunc("POST /api/projects", s.handleCreateProject)
+	mux.HandleFunc("PUT /api/projects/{id}", s.handleRenameProject)
+	mux.HandleFunc("DELETE /api/projects/{id}", s.handleDeleteProject)
+	mux.HandleFunc("POST /api/projects/{pid}/sessions/{sid}", s.handleAssociateSession)
+	mux.HandleFunc("DELETE /api/projects/{pid}/sessions/{sid}", s.handleDisassociateSession)
+	mux.HandleFunc("GET /api/api-keys", s.handleListAPIKeys)
+	mux.HandleFunc("POST /api/api-keys", s.handleCreateAPIKey)
+	mux.HandleFunc("DELETE /api/api-keys/{id}", s.handleDeleteAPIKey)
 
 	// Static frontend files with SPA fallback
 	distFS, err := fs.Sub(frontendFS, "frontend/dist")
@@ -113,9 +128,12 @@ func (s *Server) Start() error {
 		fileServer.ServeHTTP(w, r)
 	})
 
-	// Wrap with basic auth if credentials are configured
+	// Wrap with auth middleware (API key + basic auth)
 	var handler http.Handler = mux
-	if s.cfg.Server.Username != "" && s.cfg.Server.Password != "" {
+	if s.keyStore != nil {
+		handler = apikeys.Authenticate(s.keyStore, s.cfg.Server.Username, s.cfg.Server.Password)(mux)
+		log.Println("Authentication enabled (API keys + basic auth)")
+	} else if s.cfg.Server.Username != "" && s.cfg.Server.Password != "" {
 		handler = basicAuth(mux, s.cfg.Server.Username, s.cfg.Server.Password)
 		log.Println("Basic authentication enabled")
 	} else {
@@ -143,6 +161,9 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 func (s *Server) handleSystemStats(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	writeJSON(w, map[string]interface{}{
@@ -163,6 +184,9 @@ func (s *Server) handleTheme(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateTheme(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
 	var t config.ThemeConfig
 	if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -187,7 +211,16 @@ func (s *Server) handleUpdateTheme(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
-	sessions, err := s.store.ListSessions(r.Context())
+	var sessions []storage.CrawlSession
+	var err error
+
+	// If project API key, filter by project
+	auth := apikeys.FromContext(r.Context())
+	if auth != nil && auth.ProjectID != nil {
+		sessions, err = s.store.ListSessions(r.Context(), *auth.ProjectID)
+	} else {
+		sessions, err = s.store.ListSessions(r.Context())
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -205,6 +238,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 			"Config":       sess.Config,
 			"PagesCrawled": sess.PagesCrawled,
 			"UserAgent":    sess.UserAgent,
+			"ProjectID":    sess.ProjectID,
 			"is_running":   s.manager.IsRunning(sess.ID),
 		})
 	}
@@ -213,6 +247,9 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePages(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	limit := queryInt(r, "limit", 100)
 	offset := queryInt(r, "offset", 0)
 	filters := parseFilters(r, storage.PageFilters)
@@ -227,6 +264,9 @@ func (s *Server) handlePages(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleLinks(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	limit := queryInt(r, "limit", 100)
 	offset := queryInt(r, "offset", 0)
 	filters := parseFilters(r, storage.LinkFilters)
@@ -241,6 +281,9 @@ func (s *Server) handleLinks(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	stats, err := s.store.SessionStats(r.Context(), sessionID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -251,6 +294,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleInternalLinks(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	limit := queryInt(r, "limit", 100)
 	offset := queryInt(r, "offset", 0)
 	filters := parseFilters(r, storage.LinkFilters)
@@ -265,6 +311,9 @@ func (s *Server) handleInternalLinks(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -300,6 +349,9 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	pages, queue, running := s.manager.Progress(sessionID)
 	writeJSON(w, map[string]interface{}{
 		"pages_crawled": pages,
@@ -309,6 +361,9 @@ func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStartCrawl(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
 	var req crawler.CrawlRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -329,6 +384,9 @@ func (s *Server) handleStartCrawl(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStopCrawl(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
 	sessionID := r.PathValue("id")
 	if err := s.manager.StopCrawl(sessionID); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -338,6 +396,9 @@ func (s *Server) handleStopCrawl(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleResumeCrawl(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
 	sessionID := r.PathValue("id")
 
 	// Decode optional overrides from body
@@ -361,6 +422,9 @@ func (s *Server) handleResumeCrawl(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePageHTML(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	url := r.URL.Query().Get("url")
 	if url == "" {
 		writeError(w, http.StatusBadRequest, "missing url parameter")
@@ -376,6 +440,9 @@ func (s *Server) handlePageHTML(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePageDetail(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	url := r.URL.Query().Get("url")
 	if url == "" {
 		writeError(w, http.StatusBadRequest, "missing url parameter")
@@ -401,6 +468,9 @@ func (s *Server) handlePageDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStorageStats(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
 	stats, err := s.store.StorageStats(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -409,7 +479,178 @@ func (s *Server) handleStorageStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, stats)
 }
 
+func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+
+	sessionStats, storageResult, err := s.store.GlobalStats(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Build session-to-project mapping from crawl_sessions
+	sessions, err := s.store.ListSessions(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	type sessionInfo struct {
+		ProjectID *string
+		SeedURLs  []string
+	}
+	sessionMap := map[string]sessionInfo{}
+	for _, sess := range sessions {
+		sessionMap[sess.ID] = sessionInfo{ProjectID: sess.ProjectID, SeedURLs: sess.SeedURLs}
+	}
+
+	// Load projects
+	var projectMap map[string]string // id -> name
+	if s.keyStore != nil {
+		projects, _ := s.keyStore.ListProjects()
+		projectMap = make(map[string]string, len(projects))
+		for _, p := range projects {
+			projectMap[p.ID] = p.Name
+		}
+	}
+
+	// Compute total rows for proportional storage estimation
+	var totalPagesRows, totalLinksRows uint64
+	var pagesDisk, linksDisk uint64
+	for _, t := range storageResult.Tables {
+		switch t.Name {
+		case "pages":
+			totalPagesRows = t.Rows
+			pagesDisk = t.BytesOnDisk
+		case "links":
+			totalLinksRows = t.Rows
+			linksDisk = t.BytesOnDisk
+		}
+	}
+
+	// Aggregate by project
+	type projectStats struct {
+		ProjectID    *string `json:"project_id"`
+		ProjectName  string  `json:"project_name"`
+		Sessions     int     `json:"sessions"`
+		TotalPages   uint64  `json:"total_pages"`
+		TotalLinks   uint64  `json:"total_links"`
+		ErrorCount   uint64  `json:"error_count"`
+		AvgFetchMs   float64 `json:"avg_fetch_ms"`
+		StorageBytes uint64  `json:"storage_bytes"`
+	}
+
+	projectAgg := map[string]*projectStats{} // key = projectID or ""
+	var globalPages, globalLinks, globalErrors uint64
+	var globalFetchSum float64
+	var globalFetchCount uint64
+
+	for _, gs := range sessionStats {
+		info := sessionMap[gs.SessionID]
+		key := ""
+		if info.ProjectID != nil {
+			key = *info.ProjectID
+		}
+		ps, ok := projectAgg[key]
+		if !ok {
+			ps = &projectStats{ProjectID: info.ProjectID}
+			if info.ProjectID != nil && projectMap != nil {
+				ps.ProjectName = projectMap[*info.ProjectID]
+			} else {
+				ps.ProjectName = "(No project)"
+			}
+			projectAgg[key] = ps
+		}
+		ps.Sessions++
+		ps.TotalPages += gs.TotalPages
+		ps.TotalLinks += gs.TotalLinks
+		ps.ErrorCount += gs.ErrorCount
+		globalFetchSum += gs.AvgFetchMs * float64(gs.TotalPages)
+		globalFetchCount += gs.TotalPages
+
+		// Proportional storage estimate
+		var est uint64
+		if totalPagesRows > 0 {
+			est += pagesDisk * gs.TotalPages / totalPagesRows
+		}
+		if totalLinksRows > 0 {
+			est += linksDisk * gs.TotalLinks / totalLinksRows
+		}
+		ps.StorageBytes += est
+
+		globalPages += gs.TotalPages
+		globalLinks += gs.TotalLinks
+		globalErrors += gs.ErrorCount
+	}
+
+	// Compute weighted avg fetch for each project
+	for _, gs := range sessionStats {
+		info := sessionMap[gs.SessionID]
+		key := ""
+		if info.ProjectID != nil {
+			key = *info.ProjectID
+		}
+		// Already accumulated above, skip here
+		_ = key
+	}
+	// Recompute avg per project from session data
+	type projFetchAcc struct {
+		sum   float64
+		count uint64
+	}
+	fetchAcc := map[string]*projFetchAcc{}
+	for _, gs := range sessionStats {
+		info := sessionMap[gs.SessionID]
+		key := ""
+		if info.ProjectID != nil {
+			key = *info.ProjectID
+		}
+		acc, ok := fetchAcc[key]
+		if !ok {
+			acc = &projFetchAcc{}
+			fetchAcc[key] = acc
+		}
+		acc.sum += gs.AvgFetchMs * float64(gs.TotalPages)
+		acc.count += gs.TotalPages
+	}
+	for key, ps := range projectAgg {
+		if acc, ok := fetchAcc[key]; ok && acc.count > 0 {
+			ps.AvgFetchMs = acc.sum / float64(acc.count)
+		}
+	}
+
+	projectList := make([]projectStats, 0, len(projectAgg))
+	for _, ps := range projectAgg {
+		projectList = append(projectList, *ps)
+	}
+
+	var globalAvgFetch float64
+	if globalFetchCount > 0 {
+		globalAvgFetch = globalFetchSum / float64(globalFetchCount)
+	}
+
+	var totalStorage uint64
+	for _, t := range storageResult.Tables {
+		totalStorage += t.BytesOnDisk
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"total_pages":    globalPages,
+		"total_links":    globalLinks,
+		"total_errors":   globalErrors,
+		"avg_fetch_ms":   globalAvgFetch,
+		"total_storage":  totalStorage,
+		"total_sessions": len(sessions),
+		"projects":       projectList,
+		"storage_tables": storageResult.Tables,
+	})
+}
+
 func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
 	sessionID := r.PathValue("id")
 
 	// Don't allow deleting running sessions
@@ -426,6 +667,9 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRecomputeDepths(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
 	sessionID := r.PathValue("id")
 
 	sess, err := s.store.GetSession(sessionID)
@@ -446,6 +690,9 @@ func (s *Server) handleRecomputeDepths(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleComputePageRank(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
 	sessionID := r.PathValue("id")
 
 	if err := s.store.ComputePageRank(r.Context(), sessionID); err != nil {
@@ -460,6 +707,9 @@ func (s *Server) handleComputePageRank(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRetryFailed(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
 	sessionID := r.PathValue("id")
 
 	count, err := s.manager.RetryFailed(sessionID, nil)
@@ -477,6 +727,9 @@ func (s *Server) handleRetryFailed(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePageRankDistribution(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	buckets := queryInt(r, "buckets", 20)
 	result, err := s.store.PageRankDistribution(r.Context(), sessionID, buckets)
 	if err != nil {
@@ -488,6 +741,9 @@ func (s *Server) handlePageRankDistribution(w http.ResponseWriter, r *http.Reque
 
 func (s *Server) handlePageRankTreemap(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	depth := queryInt(r, "depth", 2)
 	minPages := queryInt(r, "min_pages", 1)
 	result, err := s.store.PageRankTreemap(r.Context(), sessionID, depth, minPages)
@@ -500,6 +756,9 @@ func (s *Server) handlePageRankTreemap(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePageRankTop(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	limit := queryInt(r, "limit", 50)
 	offset := queryInt(r, "offset", 0)
 	directory := r.URL.Query().Get("directory")
@@ -513,6 +772,9 @@ func (s *Server) handlePageRankTop(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRobotsHosts(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	hosts, err := s.store.GetRobotsHosts(r.Context(), sessionID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -526,6 +788,9 @@ func (s *Server) handleRobotsHosts(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRobotsContent(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
 	host := r.URL.Query().Get("host")
 	if host == "" {
 		writeError(w, http.StatusBadRequest, "missing host parameter")
@@ -540,6 +805,9 @@ func (s *Server) handleRobotsContent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRobotsTest(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
 	sessionID := r.PathValue("id")
 
 	var req struct {
@@ -596,6 +864,179 @@ func (s *Server) handleRobotsTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]interface{}{"results": results})
+}
+
+// requireFullAccess returns 403 if the caller is a project-scoped key.
+func requireFullAccess(w http.ResponseWriter, r *http.Request) bool {
+	auth := apikeys.FromContext(r.Context())
+	if auth != nil && auth.IsReadOnly() {
+		writeError(w, http.StatusForbidden, "project API keys do not have access to this endpoint")
+		return false
+	}
+	return true
+}
+
+// requireSessionAccess checks that a project key can access the given session.
+func (s *Server) requireSessionAccess(w http.ResponseWriter, r *http.Request, sessionID string) bool {
+	auth := apikeys.FromContext(r.Context())
+	if auth == nil || auth.ProjectID == nil {
+		return true
+	}
+	sess, err := s.store.GetSession(sessionID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "session not found")
+		return false
+	}
+	if sess.ProjectID == nil || *sess.ProjectID != *auth.ProjectID {
+		writeError(w, http.StatusForbidden, "session not accessible with this API key")
+		return false
+	}
+	return true
+}
+
+// --- Project handlers ---
+
+func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
+	projects, err := s.keyStore.ListProjects()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, projects)
+}
+
+func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	p, err := s.keyStore.CreateProject(req.Name)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, p)
+}
+
+func (s *Server) handleRenameProject(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	id := r.PathValue("id")
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if err := s.keyStore.RenameProject(id, req.Name); err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{"status": "renamed"})
+}
+
+func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	id := r.PathValue("id")
+	if err := s.keyStore.DeleteProject(id); err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{"status": "deleted"})
+}
+
+func (s *Server) handleAssociateSession(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	pid := r.PathValue("pid")
+	sid := r.PathValue("sid")
+
+	// Verify project exists
+	if _, err := s.keyStore.GetProject(pid); err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	if err := s.store.UpdateSessionProject(r.Context(), sid, &pid); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{"status": "associated"})
+}
+
+func (s *Server) handleDisassociateSession(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	sid := r.PathValue("sid")
+	if err := s.store.UpdateSessionProject(r.Context(), sid, nil); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{"status": "disassociated"})
+}
+
+// --- API Key handlers ---
+
+func (s *Server) handleListAPIKeys(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	keys, err := s.keyStore.ListAPIKeys()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, keys)
+}
+
+func (s *Server) handleCreateAPIKey(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	var req struct {
+		Name      string  `json:"name"`
+		Type      string  `json:"type"`
+		ProjectID *string `json:"project_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Name == "" || req.Type == "" {
+		writeError(w, http.StatusBadRequest, "name and type are required")
+		return
+	}
+	result, err := s.keyStore.CreateAPIKey(req.Name, req.Type, req.ProjectID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, result)
+}
+
+func (s *Server) handleDeleteAPIKey(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	id := r.PathValue("id")
+	if err := s.keyStore.DeleteAPIKey(id); err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{"status": "deleted"})
 }
 
 func basicAuth(next http.Handler, username, password string) http.Handler {

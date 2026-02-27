@@ -53,10 +53,11 @@ type ResourcesConfig struct {
 }
 
 type ServerConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
+	Host       string `mapstructure:"host"`
+	Port       int    `mapstructure:"port"`
+	Username   string `mapstructure:"username"`
+	Password   string `mapstructure:"password"`
+	SQLitePath string `mapstructure:"sqlite_path"`
 }
 
 type ThemeConfig struct {
@@ -94,6 +95,7 @@ func SetDefaults() {
 	viper.SetDefault("server.port", 8899)
 	viper.SetDefault("server.username", "admin")
 	viper.SetDefault("server.password", "seocrawler")
+	viper.SetDefault("server.sqlite_path", "seocrawler.db")
 
 	viper.SetDefault("theme.app_name", "SEOCrawler")
 	viper.SetDefault("theme.logo_url", "")

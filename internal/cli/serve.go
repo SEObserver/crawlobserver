@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/SEObserver/seocrawler/internal/apikeys"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/server"
 	"github.com/SEObserver/seocrawler/internal/storage"
@@ -49,7 +50,13 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 	defer store.Close()
 
-	srv := server.New(cfg, store)
+	keyStore, err := apikeys.NewStore(cfg.Server.SQLitePath)
+	if err != nil {
+		return fmt.Errorf("opening SQLite store: %w", err)
+	}
+	defer keyStore.Close()
+
+	srv := server.New(cfg, store, keyStore)
 
 	// Graceful shutdown
 	sigCh := make(chan os.Signal, 1)

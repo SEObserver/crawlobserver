@@ -14,6 +14,7 @@ type CrawlSession struct {
 	Config       string // JSON
 	PagesCrawled uint64
 	UserAgent    string
+	ProjectID    *string
 }
 
 // PageRow represents a crawled page for storage.

@@ -55,10 +55,11 @@ func (s *Store) Migrate(ctx context.Context) error {
 func (s *Store) InsertSession(ctx context.Context, session *CrawlSession) error {
 	return s.conn.Exec(ctx, `
 		INSERT INTO seocrawler.crawl_sessions
-		(id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		(id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		session.ID, session.StartedAt, session.FinishedAt, session.Status,
 		session.SeedURLs, session.Config, session.PagesCrawled, session.UserAgent,
+		session.ProjectID,
 	)
 }
 
@@ -144,13 +145,19 @@ func (s *Store) InsertLinks(ctx context.Context, links []LinkRow) error {
 	return batch.Send()
 }
 
-// ListSessions retrieves all crawl sessions.
-func (s *Store) ListSessions(ctx context.Context) ([]CrawlSession, error) {
-	rows, err := s.conn.Query(ctx, `
-		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent
-		FROM seocrawler.crawl_sessions FINAL
-		ORDER BY started_at DESC
-	`)
+// ListSessions retrieves crawl sessions, optionally filtered by project ID.
+func (s *Store) ListSessions(ctx context.Context, projectID ...string) ([]CrawlSession, error) {
+	query := `
+		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id
+		FROM seocrawler.crawl_sessions FINAL`
+	var args []interface{}
+	if len(projectID) > 0 && projectID[0] != "" {
+		query += ` WHERE project_id = ?`
+		args = append(args, projectID[0])
+	}
+	query += ` ORDER BY started_at DESC`
+
+	rows, err := s.conn.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("querying sessions: %w", err)
 	}
@@ -162,7 +169,7 @@ func (s *Store) ListSessions(ctx context.Context) ([]CrawlSession, error) {
 		if err := rows.Scan(
 			&sess.ID, &sess.StartedAt, &sess.FinishedAt,
 			&sess.Status, &sess.SeedURLs, &sess.Config,
-			&sess.PagesCrawled, &sess.UserAgent,
+			&sess.PagesCrawled, &sess.UserAgent, &sess.ProjectID,
 		); err != nil {
 			return nil, fmt.Errorf("scanning session: %w", err)
 		}
@@ -174,7 +181,7 @@ func (s *Store) ListSessions(ctx context.Context) ([]CrawlSession, error) {
 // GetSession retrieves a single crawl session by ID.
 func (s *Store) GetSession(sessionID string) (*CrawlSession, error) {
 	row := s.conn.QueryRow(context.Background(), `
-		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent
+		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id
 		FROM seocrawler.crawl_sessions FINAL
 		WHERE id = ?
 	`, sessionID)
@@ -183,11 +190,21 @@ func (s *Store) GetSession(sessionID string) (*CrawlSession, error) {
 	if err := row.Scan(
 		&sess.ID, &sess.StartedAt, &sess.FinishedAt,
 		&sess.Status, &sess.SeedURLs, &sess.Config,
-		&sess.PagesCrawled, &sess.UserAgent,
+		&sess.PagesCrawled, &sess.UserAgent, &sess.ProjectID,
 	); err != nil {
 		return nil, fmt.Errorf("querying session %s: %w", sessionID, err)
 	}
 	return &sess, nil
+}
+
+// UpdateSessionProject re-inserts a session with a new project_id (ReplacingMergeTree pattern).
+func (s *Store) UpdateSessionProject(ctx context.Context, sessionID string, projectID *string) error {
+	sess, err := s.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	sess.ProjectID = projectID
+	return s.InsertSession(ctx, sess)
 }
 
 // ExternalLinks retrieves external links for a given session (or all sessions).
@@ -587,6 +604,72 @@ func (s *Store) StorageStats(ctx context.Context) (*StorageStatsResult, error) {
 		result.Tables = append(result.Tables, t)
 	}
 	return result, nil
+}
+
+// GlobalSessionStats holds aggregated stats for a single session.
+type GlobalSessionStats struct {
+	SessionID  string  `json:"session_id"`
+	TotalPages uint64  `json:"total_pages"`
+	TotalLinks uint64  `json:"total_links"`
+	ErrorCount uint64  `json:"error_count"`
+	AvgFetchMs float64 `json:"avg_fetch_ms"`
+}
+
+// GlobalStats retrieves aggregated stats per session across all data.
+func (s *Store) GlobalStats(ctx context.Context) ([]GlobalSessionStats, *StorageStatsResult, error) {
+	// 1. Page stats per session
+	pageRows, err := s.conn.Query(ctx, `
+		SELECT crawl_session_id, count(), countIf(error != ''), avg(fetch_duration_ms)
+		FROM seocrawler.pages
+		GROUP BY crawl_session_id`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("querying global page stats: %w", err)
+	}
+	defer pageRows.Close()
+
+	statsMap := map[string]*GlobalSessionStats{}
+	for pageRows.Next() {
+		var gs GlobalSessionStats
+		if err := pageRows.Scan(&gs.SessionID, &gs.TotalPages, &gs.ErrorCount, &gs.AvgFetchMs); err != nil {
+			return nil, nil, fmt.Errorf("scanning global page stats: %w", err)
+		}
+		statsMap[gs.SessionID] = &gs
+	}
+
+	// 2. Link counts per session
+	linkRows, err := s.conn.Query(ctx, `
+		SELECT crawl_session_id, count()
+		FROM seocrawler.links
+		GROUP BY crawl_session_id`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("querying global link stats: %w", err)
+	}
+	defer linkRows.Close()
+
+	for linkRows.Next() {
+		var sid string
+		var cnt uint64
+		if err := linkRows.Scan(&sid, &cnt); err != nil {
+			return nil, nil, fmt.Errorf("scanning global link stats: %w", err)
+		}
+		if gs, ok := statsMap[sid]; ok {
+			gs.TotalLinks = cnt
+		} else {
+			statsMap[sid] = &GlobalSessionStats{SessionID: sid, TotalLinks: cnt}
+		}
+	}
+
+	// 3. Storage stats
+	storage, err := s.StorageStats(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("querying storage for global stats: %w", err)
+	}
+
+	result := make([]GlobalSessionStats, 0, len(statsMap))
+	for _, gs := range statsMap {
+		result = append(result, *gs)
+	}
+	return result, storage, nil
 }
 
 // GetPage retrieves all fields for a single page (excluding body_html).

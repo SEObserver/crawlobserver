@@ -41,6 +41,7 @@ type CrawlRequest struct {
 	Delay      string   `json:"delay"`
 	StoreHTML  bool     `json:"store_html"`
 	CrawlScope string   `json:"crawl_scope"`
+	ProjectID  *string  `json:"project_id"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -74,6 +75,7 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 
 	engine := NewEngine(&cfg, m.store)
 	sessionID := engine.SessionID(req.Seeds)
+	engine.session.ProjectID = req.ProjectID
 
 	m.mu.Lock()
 	m.engines[sessionID] = engine

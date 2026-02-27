@@ -53,6 +53,10 @@ export async function getStorageStats() {
   return fetchJSON('/storage-stats');
 }
 
+export async function getGlobalStats() {
+  return fetchJSON('/global-stats');
+}
+
 export async function getSystemStats() {
   return fetchJSON('/system-stats');
 }
@@ -142,6 +146,58 @@ export async function testRobotsUrls(sessionId, host, userAgent, urls) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ host, user_agent: userAgent, urls }),
   });
+}
+
+// --- Projects ---
+
+export async function getProjects() {
+  return fetchJSON('/projects');
+}
+
+export async function createProject(name) {
+  return fetchJSON('/projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function renameProject(id, name) {
+  return fetchJSON(`/projects/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteProject(id) {
+  return fetchJSON(`/projects/${id}`, { method: 'DELETE' });
+}
+
+export async function associateSession(projectId, sessionId) {
+  return fetchJSON(`/projects/${projectId}/sessions/${sessionId}`, { method: 'POST' });
+}
+
+export async function disassociateSession(projectId, sessionId) {
+  return fetchJSON(`/projects/${projectId}/sessions/${sessionId}`, { method: 'DELETE' });
+}
+
+// --- API Keys ---
+
+export async function getAPIKeys() {
+  return fetchJSON('/api-keys');
+}
+
+export async function createAPIKey(name, type, projectId = null) {
+  return fetchJSON('/api-keys', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, type, project_id: projectId }),
+  });
+}
+
+export async function deleteAPIKey(id) {
+  return fetchJSON(`/api-keys/${id}`, { method: 'DELETE' });
 }
 
 // SSE for live progress
