@@ -110,6 +110,24 @@ export async function computePageRank(sessionId) {
   return fetchJSON(`/sessions/${sessionId}/compute-pagerank`, { method: 'POST' });
 }
 
+export async function retryFailed(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/retry-failed`, { method: 'POST' });
+}
+
+export async function getPageRankDistribution(sessionId, buckets = 20) {
+  return fetchJSON(`/sessions/${sessionId}/pagerank-distribution?buckets=${buckets}`);
+}
+
+export async function getPageRankTreemap(sessionId, depth = 2, minPages = 1) {
+  return fetchJSON(`/sessions/${sessionId}/pagerank-treemap?depth=${depth}&min_pages=${minPages}`);
+}
+
+export async function getPageRankTop(sessionId, limit = 50, offset = 0, directory = '') {
+  let url = `/sessions/${sessionId}/pagerank-top?limit=${limit}&offset=${offset}`;
+  if (directory) url += `&directory=${encodeURIComponent(directory)}`;
+  return fetchJSON(url);
+}
+
 // SSE for live progress
 export function subscribeProgress(sessionId, onMessage, onDone) {
   const source = new EventSource(`${BASE}/sessions/${sessionId}/events`);

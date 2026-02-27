@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"sync"
@@ -207,4 +208,78 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 	}()
 
 	return sessionID, nil
+}
+
+// RetryFailed retries pages with status_code = 0 (fetch errors).
+// Deletes the failed rows, then runs a mini-crawl with those URLs.
+func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, error) {
+	m.mu.RLock()
+	_, running := m.engines[sessionID]
+	m.mu.RUnlock()
+	if running {
+		return 0, fmt.Errorf("session %s is already running", sessionID)
+	}
+
+	// Get failed URLs
+	failedURLs, err := m.store.FailedURLs(sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("fetching failed URLs: %w", err)
+	}
+	if len(failedURLs) == 0 {
+		return 0, fmt.Errorf("no failed pages (status 0) found for session %s", sessionID)
+	}
+
+	// Delete failed page rows so they can be re-inserted
+	deleted, err := m.store.DeleteFailedPages(context.Background(), sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("deleting failed pages: %w", err)
+	}
+
+	// Get already crawled URLs (minus the deleted ones) for dedup
+	crawled, err := m.store.CrawledURLs(sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("fetching crawled URLs: %w", err)
+	}
+
+	// Get original session
+	originalSession, err := m.store.GetSession(sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("fetching original session: %w", err)
+	}
+
+	log.Printf("Retrying %d failed URLs for session %s", len(failedURLs), sessionID)
+
+	cfg := *m.cfg
+	if overrides != nil {
+		crawlerCfg := cfg.Crawler
+		if overrides.Workers > 0 {
+			crawlerCfg.Workers = overrides.Workers
+		}
+		if overrides.Delay != "" {
+			if d, err := parseDuration(overrides.Delay); err == nil {
+				crawlerCfg.Delay = d
+			}
+		}
+		cfg.Crawler = crawlerCfg
+	}
+	cfg.Crawler.MaxPages = len(failedURLs)
+
+	engine := NewEngine(&cfg, m.store)
+	engine.ResumeSession(sessionID, originalSession.SeedURLs)
+	engine.PreSeedDedup(crawled)
+
+	m.mu.Lock()
+	m.engines[sessionID] = engine
+	m.mu.Unlock()
+
+	go func() {
+		if err := engine.Run(failedURLs); err != nil {
+			log.Printf("Retry crawl %s failed: %v", sessionID, err)
+		}
+		m.mu.Lock()
+		delete(m.engines, sessionID)
+		m.mu.Unlock()
+	}()
+
+	return deleted, nil
 }

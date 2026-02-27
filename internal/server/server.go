@@ -54,6 +54,9 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/sessions/{id}/events", s.handleSSE)
 	mux.HandleFunc("GET /api/sessions/{id}/page-html", s.handlePageHTML)
 	mux.HandleFunc("GET /api/sessions/{id}/page-detail", s.handlePageDetail)
+	mux.HandleFunc("GET /api/sessions/{id}/pagerank-distribution", s.handlePageRankDistribution)
+	mux.HandleFunc("GET /api/sessions/{id}/pagerank-treemap", s.handlePageRankTreemap)
+	mux.HandleFunc("GET /api/sessions/{id}/pagerank-top", s.handlePageRankTop)
 	mux.HandleFunc("GET /api/storage-stats", s.handleStorageStats)
 	mux.HandleFunc("GET /api/system-stats", s.handleSystemStats)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
@@ -66,6 +69,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /api/sessions/{id}/resume", s.handleResumeCrawl)
 	mux.HandleFunc("POST /api/sessions/{id}/recompute-depths", s.handleRecomputeDepths)
 	mux.HandleFunc("POST /api/sessions/{id}/compute-pagerank", s.handleComputePageRank)
+	mux.HandleFunc("POST /api/sessions/{id}/retry-failed", s.handleRetryFailed)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
 
 	// Static frontend files with SPA fallback
@@ -445,6 +449,58 @@ func (s *Server) handleComputePageRank(w http.ResponseWriter, r *http.Request) {
 		"status":  "ok",
 		"message": fmt.Sprintf("PageRank computed for session %s", sessionID),
 	})
+}
+
+func (s *Server) handleRetryFailed(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+
+	count, err := s.manager.RetryFailed(sessionID, nil)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"status":  "ok",
+		"message": fmt.Sprintf("Retrying %d failed pages for session %s", count, sessionID),
+		"count":   count,
+	})
+}
+
+func (s *Server) handlePageRankDistribution(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	buckets := queryInt(r, "buckets", 20)
+	result, err := s.store.PageRankDistribution(r.Context(), sessionID, buckets)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, result)
+}
+
+func (s *Server) handlePageRankTreemap(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	depth := queryInt(r, "depth", 2)
+	minPages := queryInt(r, "min_pages", 1)
+	result, err := s.store.PageRankTreemap(r.Context(), sessionID, depth, minPages)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, result)
+}
+
+func (s *Server) handlePageRankTop(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	limit := queryInt(r, "limit", 50)
+	offset := queryInt(r, "offset", 0)
+	directory := r.URL.Query().Get("directory")
+	result, err := s.store.PageRankTop(r.Context(), sessionID, limit, offset, directory)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, result)
 }
 
 func basicAuth(next http.Handler, username, password string) http.Handler {

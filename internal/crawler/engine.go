@@ -90,7 +90,9 @@ func (e *Engine) Run(seeds []string) error {
 	if e.session == nil {
 		e.session = NewSession(seeds, e.cfg)
 	} else {
-		e.session.SeedURLs = seeds
+		// Don't overwrite SeedURLs — on resume/retry, seeds param contains
+		// uncrawled/failed URLs, not the original seed URLs. Keep the originals
+		// so RecomputeDepths assigns depth 0 only to the true seeds.
 		e.session.Status = "running"
 	}
 	e.maxPages = int64(e.cfg.Crawler.MaxPages)

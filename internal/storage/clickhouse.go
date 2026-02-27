@@ -884,6 +884,77 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 }
 
 // RecomputeDepths runs a BFS from seed URLs and updates depth/found_on in the pages table.
+// BFSResult holds the output of a BFS depth computation.
+type BFSResult struct {
+	Depths  map[string]uint16
+	FoundOn map[string]string
+}
+
+// ComputeBFSDepths runs BFS from seedURLs over the link graph and returns
+// the depth and found_on for every URL in crawledSet.
+// Seeds get depth 0. Orphans (unreachable) get maxDepth+1.
+func ComputeBFSDepths(seedURLs []string, crawledSet map[string]bool, adj map[string][]string) BFSResult {
+	depths := make(map[string]uint16)
+	foundOn := make(map[string]string)
+	type bfsItem struct {
+		url   string
+		depth uint16
+	}
+	var queue []bfsItem
+
+	for _, seed := range seedURLs {
+		// Try the seed URL as-is and with/without trailing slash
+		candidates := []string{seed}
+		if strings.HasSuffix(seed, "/") {
+			candidates = append(candidates, strings.TrimRight(seed, "/"))
+		} else {
+			candidates = append(candidates, seed+"/")
+		}
+		for _, c := range candidates {
+			if crawledSet[c] {
+				if _, visited := depths[c]; !visited {
+					depths[c] = 0
+					foundOn[c] = ""
+					queue = append(queue, bfsItem{url: c, depth: 0})
+				}
+			}
+		}
+	}
+
+	for len(queue) > 0 {
+		item := queue[0]
+		queue = queue[1:]
+
+		for _, target := range adj[item.url] {
+			if _, visited := depths[target]; !visited {
+				newDepth := item.depth + 1
+				depths[target] = newDepth
+				foundOn[target] = item.url
+				if crawledSet[target] {
+					queue = append(queue, bfsItem{url: target, depth: newDepth})
+				}
+			}
+		}
+	}
+
+	// Assign max depth to unreachable URLs
+	var maxDepth uint16
+	for _, d := range depths {
+		if d > maxDepth {
+			maxDepth = d
+		}
+	}
+	orphanDepth := maxDepth + 1
+	for u := range crawledSet {
+		if _, ok := depths[u]; !ok {
+			depths[u] = orphanDepth
+			foundOn[u] = ""
+		}
+	}
+
+	return BFSResult{Depths: depths, FoundOn: foundOn}
+}
+
 func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs []string) error {
 	// 1. Get all crawled URLs
 	crawledRows, err := s.conn.Query(ctx, `
@@ -925,53 +996,9 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 	}
 
 	// 3. BFS from seed URLs
-	depths := make(map[string]uint16)
-	foundOn := make(map[string]string)
-	type bfsItem struct {
-		url   string
-		depth uint16
-	}
-	var queue []bfsItem
-
-	for _, seed := range seedURLs {
-		if crawledSet[seed] {
-			if _, visited := depths[seed]; !visited {
-				depths[seed] = 0
-				foundOn[seed] = ""
-				queue = append(queue, bfsItem{url: seed, depth: 0})
-			}
-		}
-	}
-
-	for len(queue) > 0 {
-		item := queue[0]
-		queue = queue[1:]
-
-		for _, target := range adj[item.url] {
-			if _, visited := depths[target]; !visited {
-				newDepth := item.depth + 1
-				depths[target] = newDepth
-				foundOn[target] = item.url
-				if crawledSet[target] {
-					queue = append(queue, bfsItem{url: target, depth: newDepth})
-				}
-			}
-		}
-	}
-
-	// Assign max depth to unreachable URLs
-	var maxDepth uint16
-	for _, d := range depths {
-		if d > maxDepth {
-			maxDepth = d
-		}
-	}
-	orphanDepth := maxDepth + 1
-	for u := range crawledSet {
-		if _, ok := depths[u]; !ok {
-			depths[u] = orphanDepth
-		}
-	}
+	result := ComputeBFSDepths(seedURLs, crawledSet, adj)
+	depths := result.Depths
+	foundOn := result.FoundOn
 
 	// 4. Build UPDATE mutations in chunks
 	urls := make([]string, 0, len(depths))
@@ -1023,6 +1050,238 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 
 	log.Printf("RecomputeDepths: updated %d URLs for session %s", len(depths), sessionID)
 	return nil
+}
+
+// PageRankBucket holds one histogram bucket for PageRank distribution.
+type PageRankBucket struct {
+	Min   float64 `json:"min"`
+	Max   float64 `json:"max"`
+	Count uint64  `json:"count"`
+	AvgPR float64 `json:"avg_pr"`
+}
+
+// PageRankDistributionResult holds the full distribution response.
+type PageRankDistributionResult struct {
+	Buckets     []PageRankBucket `json:"buckets"`
+	TotalWithPR uint64           `json:"total_with_pr"`
+	Avg         float64          `json:"avg"`
+	Median      float64          `json:"median"`
+	P90         float64          `json:"p90"`
+	P99         float64          `json:"p99"`
+}
+
+// PageRankDistribution returns a histogram of PageRank values for a session.
+func (s *Store) PageRankDistribution(ctx context.Context, sessionID string, buckets int) (*PageRankDistributionResult, error) {
+	if buckets <= 0 {
+		buckets = 20
+	}
+
+	result := &PageRankDistributionResult{}
+
+	// Stats + percentiles
+	row := s.conn.QueryRow(ctx, `
+		SELECT count(), avg(pagerank),
+			quantile(0.5)(pagerank), quantile(0.9)(pagerank), quantile(0.99)(pagerank)
+		FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND pagerank > 0`, sessionID)
+	if err := row.Scan(&result.TotalWithPR, &result.Avg, &result.Median, &result.P90, &result.P99); err != nil {
+		return nil, fmt.Errorf("querying pagerank stats: %w", err)
+	}
+
+	if result.TotalWithPR == 0 {
+		return result, nil
+	}
+
+	// Histogram buckets
+	width := 100.0 / float64(buckets)
+	distQuery := fmt.Sprintf(`
+		SELECT floor(pagerank / %f) * %f AS bucket_min,
+			floor(pagerank / %f) * %f + %f AS bucket_max,
+			count() AS cnt,
+			avg(pagerank) AS avg_pr
+		FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND pagerank > 0
+		GROUP BY bucket_min, bucket_max
+		ORDER BY bucket_min`, width, width, width, width, width)
+	rows, err := s.conn.Query(ctx, distQuery, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying pagerank distribution: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var b PageRankBucket
+		if err := rows.Scan(&b.Min, &b.Max, &b.Count, &b.AvgPR); err != nil {
+			return nil, fmt.Errorf("scanning bucket: %w", err)
+		}
+		result.Buckets = append(result.Buckets, b)
+	}
+	return result, nil
+}
+
+// PageRankTreemapEntry holds aggregated PageRank data for a URL directory.
+type PageRankTreemapEntry struct {
+	Path      string  `json:"path"`
+	PageCount uint64  `json:"page_count"`
+	TotalPR   float64 `json:"total_pr"`
+	AvgPR     float64 `json:"avg_pr"`
+	MaxPR     float64 `json:"max_pr"`
+}
+
+// PageRankTreemap returns PageRank aggregated by URL directory prefix.
+func (s *Store) PageRankTreemap(ctx context.Context, sessionID string, depth, minPages int) ([]PageRankTreemapEntry, error) {
+	if depth <= 0 {
+		depth = 2
+	}
+	if minPages <= 0 {
+		minPages = 1
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			arrayStringConcat(arraySlice(splitByChar('/', replaceRegexpOne(url, '^http[s]://[^/]*', '')), 1, %d), '/') AS dir_path,
+			count() AS page_count,
+			sum(pagerank) AS total_pr,
+			avg(pagerank) AS avg_pr,
+			max(pagerank) AS max_pr
+		FROM seocrawler.pages
+		WHERE crawl_session_id = '%s' AND pagerank > 0
+		GROUP BY dir_path
+		HAVING page_count >= %d
+		ORDER BY total_pr DESC
+		LIMIT 200`, depth, strings.ReplaceAll(sessionID, "'", "\\'"), minPages)
+	rows, err := s.conn.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("querying pagerank treemap: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []PageRankTreemapEntry
+	for rows.Next() {
+		var e PageRankTreemapEntry
+		if err := rows.Scan(&e.Path, &e.PageCount, &e.TotalPR, &e.AvgPR, &e.MaxPR); err != nil {
+			return nil, fmt.Errorf("scanning treemap entry: %w", err)
+		}
+		if e.Path == "" {
+			e.Path = "/"
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
+}
+
+// PageRankTopPage holds a single page entry for the top PageRank list.
+type PageRankTopPage struct {
+	URL              string  `json:"url"`
+	PageRank         float64 `json:"pagerank"`
+	Depth            uint16  `json:"depth"`
+	InternalLinksOut uint32  `json:"internal_links_out"`
+	ExternalLinksOut uint32  `json:"external_links_out"`
+	WordCount        uint32  `json:"word_count"`
+	StatusCode       uint16  `json:"status_code"`
+	Title            string  `json:"title"`
+}
+
+// PageRankTopResult holds the paginated top PageRank pages response.
+type PageRankTopResult struct {
+	Pages []PageRankTopPage `json:"pages"`
+	Total uint64            `json:"total"`
+}
+
+// PageRankTop returns the top pages by PageRank with metadata, paginated.
+func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset int, directory string) (*PageRankTopResult, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	result := &PageRankTopResult{}
+
+	// Count query
+	countQuery := `SELECT count() FROM seocrawler.pages WHERE crawl_session_id = ? AND pagerank > 0`
+	countArgs := []interface{}{sessionID}
+	if directory != "" {
+		countQuery += ` AND url LIKE ?`
+		countArgs = append(countArgs, "%"+directory+"%")
+	}
+	row := s.conn.QueryRow(ctx, countQuery, countArgs...)
+	if err := row.Scan(&result.Total); err != nil {
+		return nil, fmt.Errorf("querying pagerank count: %w", err)
+	}
+
+	// Data query
+	query := `SELECT url, pagerank, depth, internal_links_out, external_links_out, word_count, status_code, title
+		FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND pagerank > 0`
+	args := []interface{}{sessionID}
+	if directory != "" {
+		query += ` AND url LIKE ?`
+		args = append(args, "%"+directory+"%")
+	}
+	query += ` ORDER BY pagerank DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := s.conn.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("querying pagerank top: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var p PageRankTopPage
+		if err := rows.Scan(&p.URL, &p.PageRank, &p.Depth, &p.InternalLinksOut, &p.ExternalLinksOut, &p.WordCount, &p.StatusCode, &p.Title); err != nil {
+			return nil, fmt.Errorf("scanning top page: %w", err)
+		}
+		result.Pages = append(result.Pages, p)
+	}
+	return result, nil
+}
+
+// FailedURLs returns URLs with status_code = 0 (fetch errors) for a session.
+func (s *Store) FailedURLs(sessionID string) ([]string, error) {
+	ctx := context.Background()
+	rows, err := s.conn.Query(ctx, `
+		SELECT url FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND status_code = 0
+		LIMIT 10000`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying failed URLs: %w", err)
+	}
+	defer rows.Close()
+
+	var urls []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		urls = append(urls, u)
+	}
+	return urls, nil
+}
+
+// DeleteFailedPages removes pages with status_code = 0 for a session so they can be re-crawled.
+func (s *Store) DeleteFailedPages(ctx context.Context, sessionID string) (int, error) {
+	// Count first
+	var cnt uint64
+	row := s.conn.QueryRow(ctx, `
+		SELECT count() FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND status_code = 0`, sessionID)
+	if err := row.Scan(&cnt); err != nil {
+		return 0, fmt.Errorf("counting failed pages: %w", err)
+	}
+
+	if cnt == 0 {
+		return 0, nil
+	}
+
+	// Delete them
+	if err := s.conn.Exec(ctx, `
+		ALTER TABLE seocrawler.pages DELETE
+		WHERE crawl_session_id = ? AND status_code = 0`, sessionID); err != nil {
+		return 0, fmt.Errorf("deleting failed pages: %w", err)
+	}
+
+	return int(cnt), nil
 }
 
 // Close closes the ClickHouse connection.
