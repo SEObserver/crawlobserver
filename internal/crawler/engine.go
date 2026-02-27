@@ -266,8 +266,9 @@ func (e *Engine) fetchWorker(id int, in <-chan *frontier.CrawlURL, out chan<- *f
 		default:
 		}
 
-		// Check robots.txt
-		if e.cfg.Crawler.RespectRobots && !e.robots.IsAllowed(crawlURL.URL) {
+		// Always fetch robots.txt for storage; only block if configured
+		allowed := e.robots.IsAllowed(crawlURL.URL)
+		if e.cfg.Crawler.RespectRobots && !allowed {
 			log.Printf("Blocked by robots.txt: %s", crawlURL.URL)
 			continue
 		}
