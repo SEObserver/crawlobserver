@@ -111,6 +111,22 @@ ALTER TABLE seocrawler.pages
     ADD COLUMN IF NOT EXISTS pagerank Float64 DEFAULT 0 AFTER found_on
 `
 
+const AlterPagesV4 = `
+ALTER TABLE seocrawler.pages
+    ADD COLUMN IF NOT EXISTS body_truncated Bool DEFAULT false AFTER body_html
+`
+
+const CreateRobotsTxt = `
+CREATE TABLE IF NOT EXISTS seocrawler.robots_txt (
+    crawl_session_id UUID,
+    host String,
+    status_code UInt16,
+    content String CODEC(ZSTD(3)),
+    fetched_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(fetched_at)
+ORDER BY (crawl_session_id, host)
+`
+
 // Migrations is the ordered list of DDL statements.
 var Migrations = []string{
 	CreateDatabase,
@@ -119,4 +135,6 @@ var Migrations = []string{
 	CreateLinks,
 	AlterPagesV2,
 	AlterPagesV3,
+	AlterPagesV4,
+	CreateRobotsTxt,
 }

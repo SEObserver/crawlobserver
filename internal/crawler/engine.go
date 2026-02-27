@@ -160,6 +160,26 @@ func (e *Engine) Run(seeds []string) error {
 	// Final flush
 	e.buffer.Close()
 
+	// Persist robots.txt data
+	entries := e.robots.Entries()
+	if len(entries) > 0 {
+		var robotsRows []storage.RobotsRow
+		for host, entry := range entries {
+			robotsRows = append(robotsRows, storage.RobotsRow{
+				CrawlSessionID: e.session.ID,
+				Host:           host,
+				StatusCode:     uint16(entry.StatusCode),
+				Content:        entry.Content,
+				FetchedAt:      entry.FetchedAt,
+			})
+		}
+		if err := e.store.InsertRobotsData(context.Background(), robotsRows); err != nil {
+			log.Printf("WARNING: failed to persist robots.txt data: %v", err)
+		} else {
+			log.Printf("Persisted robots.txt for %d hosts", len(robotsRows))
+		}
+	}
+
 	// Recompute depths via BFS
 	if err := e.store.RecomputeDepths(context.Background(), e.session.ID, e.session.SeedURLs); err != nil {
 		log.Printf("WARNING: depth recomputation failed: %v", err)
@@ -286,6 +306,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 			StatusCode:      uint16(result.StatusCode),
 			ContentType:     result.ContentType,
 			BodySize:        uint64(result.BodySize),
+			BodyTruncated:   result.BodyTruncated,
 			FetchDurationMs: uint64(result.Duration.Milliseconds()),
 			Error:           result.Error,
 			Depth:           uint16(result.Depth),

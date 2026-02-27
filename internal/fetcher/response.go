@@ -19,6 +19,7 @@ type FetchResult struct {
 	Headers       map[string]string
 	Body          []byte
 	BodySize      int64
+	BodyTruncated bool
 	RedirectChain []RedirectHop
 	Duration      time.Duration
 	Error         string

@@ -61,6 +61,7 @@ type PageRow struct {
 	FoundOn         string
 	PageRank        float64
 	BodyHTML        string
+	BodyTruncated   bool
 	CrawledAt       time.Time
 }
 
@@ -74,6 +75,15 @@ type RedirectHopRow struct {
 type HreflangRow struct {
 	Lang string
 	URL  string
+}
+
+// RobotsRow represents a robots.txt entry for storage.
+type RobotsRow struct {
+	CrawlSessionID string
+	Host           string
+	StatusCode     uint16
+	Content        string
+	FetchedAt      time.Time
 }
 
 // LinkRow represents a link for storage.

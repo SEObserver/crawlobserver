@@ -79,7 +79,7 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			lang, og_title, og_description, og_image, schema_types,
 			headers, redirect_chain, body_size, fetch_duration_ms,
 			content_encoding, x_robots_tag,
-			error, depth, found_on, pagerank, body_html, crawled_at
+			error, depth, found_on, pagerank, body_html, body_truncated, crawled_at
 		)`)
 	if err != nil {
 		return fmt.Errorf("preparing pages batch: %w", err)
@@ -108,7 +108,7 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			p.Lang, p.OGTitle, p.OGDescription, p.OGImage, p.SchemaTypes,
 			p.Headers, chain, p.BodySize, p.FetchDurationMs,
 			p.ContentEncoding, p.XRobotsTag,
-			p.Error, p.Depth, p.FoundOn, p.PageRank, p.BodyHTML, p.CrawledAt,
+			p.Error, p.Depth, p.FoundOn, p.PageRank, p.BodyHTML, p.BodyTruncated, p.CrawledAt,
 		); err != nil {
 			return fmt.Errorf("appending page row: %w", err)
 		}
@@ -480,6 +480,7 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 	queries := []string{
 		`ALTER TABLE seocrawler.links DELETE WHERE crawl_session_id = ?`,
 		`ALTER TABLE seocrawler.pages DELETE WHERE crawl_session_id = ?`,
+		`ALTER TABLE seocrawler.robots_txt DELETE WHERE crawl_session_id = ?`,
 		`ALTER TABLE seocrawler.crawl_sessions DELETE WHERE id = ?`,
 	}
 	for _, q := range queries {
@@ -1282,6 +1283,67 @@ func (s *Store) DeleteFailedPages(ctx context.Context, sessionID string) (int, e
 	}
 
 	return int(cnt), nil
+}
+
+// InsertRobotsData batch inserts robots.txt rows.
+func (s *Store) InsertRobotsData(ctx context.Context, rows []RobotsRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO seocrawler.robots_txt (
+			crawl_session_id, host, status_code, content, fetched_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing robots batch: %w", err)
+	}
+
+	for _, r := range rows {
+		if err := batch.Append(r.CrawlSessionID, r.Host, r.StatusCode, r.Content, r.FetchedAt); err != nil {
+			return fmt.Errorf("appending robots row: %w", err)
+		}
+	}
+
+	return batch.Send()
+}
+
+// GetRobotsHosts returns all hosts with robots.txt data for a session (without content).
+func (s *Store) GetRobotsHosts(ctx context.Context, sessionID string) ([]RobotsRow, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT crawl_session_id, host, status_code, '' AS content, fetched_at
+		FROM seocrawler.robots_txt FINAL
+		WHERE crawl_session_id = ?
+		ORDER BY host`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying robots hosts: %w", err)
+	}
+	defer rows.Close()
+
+	var result []RobotsRow
+	for rows.Next() {
+		var r RobotsRow
+		if err := rows.Scan(&r.CrawlSessionID, &r.Host, &r.StatusCode, &r.Content, &r.FetchedAt); err != nil {
+			return nil, fmt.Errorf("scanning robots host: %w", err)
+		}
+		result = append(result, r)
+	}
+	return result, nil
+}
+
+// GetRobotsContent returns the full robots.txt content for a specific host in a session.
+func (s *Store) GetRobotsContent(ctx context.Context, sessionID, host string) (*RobotsRow, error) {
+	row := s.conn.QueryRow(ctx, `
+		SELECT crawl_session_id, host, status_code, content, fetched_at
+		FROM seocrawler.robots_txt FINAL
+		WHERE crawl_session_id = ? AND host = ?
+		LIMIT 1`, sessionID, host)
+
+	var r RobotsRow
+	if err := row.Scan(&r.CrawlSessionID, &r.Host, &r.StatusCode, &r.Content, &r.FetchedAt); err != nil {
+		return nil, fmt.Errorf("querying robots content: %w", err)
+	}
+	return &r, nil
 }
 
 // Close closes the ClickHouse connection.
