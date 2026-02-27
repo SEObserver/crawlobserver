@@ -140,6 +140,14 @@ export async function getRobotsContent(sessionId, host) {
   return fetchJSON(`/sessions/${sessionId}/robots-content?host=${encodeURIComponent(host)}`);
 }
 
+export async function getSitemaps(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/sitemaps`);
+}
+
+export async function getSitemapURLs(sessionId, url, limit = 100, offset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/sitemap-urls?url=${encodeURIComponent(url)}&limit=${limit}&offset=${offset}`);
+}
+
 export async function testRobotsUrls(sessionId, host, userAgent, urls) {
   return fetchJSON(`/sessions/${sessionId}/robots-test`, {
     method: 'POST',

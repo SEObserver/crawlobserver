@@ -73,6 +73,11 @@ func New(userAgent string, timeout time.Duration, maxBodySize int64) *Fetcher {
 	return f
 }
 
+// Client returns the underlying HTTP client.
+func (f *Fetcher) Client() *http.Client {
+	return f.client
+}
+
 // Fetch retrieves a URL and returns the result with redirect chain.
 func (f *Fetcher) Fetch(targetURL string, depth int, foundOn string) *FetchResult {
 	result := &FetchResult{

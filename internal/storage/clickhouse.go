@@ -1097,7 +1097,7 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 		urls = append(urls, u)
 	}
 
-	const chunkSize = 500
+	const chunkSize = 100
 	for i := 0; i < len(urls); i += chunkSize {
 		end := i + chunkSize
 		if end > len(urls) {
@@ -1434,6 +1434,99 @@ func (s *Store) GetRobotsContent(ctx context.Context, sessionID, host string) (*
 		return nil, fmt.Errorf("querying robots content: %w", err)
 	}
 	return &r, nil
+}
+
+// InsertSitemaps inserts sitemap rows.
+func (s *Store) InsertSitemaps(ctx context.Context, rows []SitemapRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO seocrawler.sitemaps (
+			crawl_session_id, url, type, url_count, parent_url, status_code, fetched_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing sitemaps batch: %w", err)
+	}
+
+	for _, r := range rows {
+		if err := batch.Append(r.CrawlSessionID, r.URL, r.Type, r.URLCount, r.ParentURL, r.StatusCode, r.FetchedAt); err != nil {
+			return fmt.Errorf("appending sitemap row: %w", err)
+		}
+	}
+
+	return batch.Send()
+}
+
+// InsertSitemapURLs inserts sitemap URL rows.
+func (s *Store) InsertSitemapURLs(ctx context.Context, rows []SitemapURLRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO seocrawler.sitemap_urls (
+			crawl_session_id, sitemap_url, loc, lastmod, changefreq, priority
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing sitemap_urls batch: %w", err)
+	}
+
+	for _, r := range rows {
+		if err := batch.Append(r.CrawlSessionID, r.SitemapURL, r.Loc, r.LastMod, r.ChangeFreq, r.Priority); err != nil {
+			return fmt.Errorf("appending sitemap_url row: %w", err)
+		}
+	}
+
+	return batch.Send()
+}
+
+// GetSitemaps returns all sitemaps for a session.
+func (s *Store) GetSitemaps(ctx context.Context, sessionID string) ([]SitemapRow, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT crawl_session_id, url, type, url_count, parent_url, status_code, fetched_at
+		FROM seocrawler.sitemaps FINAL
+		WHERE crawl_session_id = ?
+		ORDER BY url`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying sitemaps: %w", err)
+	}
+	defer rows.Close()
+
+	var result []SitemapRow
+	for rows.Next() {
+		var r SitemapRow
+		if err := rows.Scan(&r.CrawlSessionID, &r.URL, &r.Type, &r.URLCount, &r.ParentURL, &r.StatusCode, &r.FetchedAt); err != nil {
+			return nil, fmt.Errorf("scanning sitemap: %w", err)
+		}
+		result = append(result, r)
+	}
+	return result, nil
+}
+
+// GetSitemapURLs returns paginated URLs from a specific sitemap.
+func (s *Store) GetSitemapURLs(ctx context.Context, sessionID, sitemapURL string, limit, offset int) ([]SitemapURLRow, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT crawl_session_id, sitemap_url, loc, lastmod, changefreq, priority
+		FROM seocrawler.sitemap_urls FINAL
+		WHERE crawl_session_id = ? AND sitemap_url = ?
+		ORDER BY loc
+		LIMIT ? OFFSET ?`, sessionID, sitemapURL, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("querying sitemap urls: %w", err)
+	}
+	defer rows.Close()
+
+	var result []SitemapURLRow
+	for rows.Next() {
+		var r SitemapURLRow
+		if err := rows.Scan(&r.CrawlSessionID, &r.SitemapURL, &r.Loc, &r.LastMod, &r.ChangeFreq, &r.Priority); err != nil {
+			return nil, fmt.Errorf("scanning sitemap url: %w", err)
+		}
+		result = append(result, r)
+	}
+	return result, nil
 }
 
 // Close closes the ClickHouse connection.

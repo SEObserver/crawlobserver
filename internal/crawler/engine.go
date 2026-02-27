@@ -166,6 +166,62 @@ func (e *Engine) Run(seeds []string) error {
 		})
 	}
 
+	// Pre-fetch robots.txt for all seed hosts so we have sitemap directives
+	for _, seed := range e.session.SeedURLs {
+		e.robots.IsAllowed(seed) // triggers fetch + cache
+	}
+
+	// Discover and persist sitemaps (before workers start)
+	sitemapURLs := e.robots.SitemapURLs()
+	if len(sitemapURLs) > 0 {
+		now := time.Now()
+		sitemapEntries := fetcher.DiscoverSitemaps(e.fetch.Client(), e.cfg.Crawler.UserAgent, sitemapURLs)
+
+		parentMap := make(map[string]string)
+		for _, entry := range sitemapEntries {
+			if entry.Type == "index" {
+				for _, child := range entry.Sitemaps {
+					parentMap[child] = entry.URL
+				}
+			}
+		}
+
+		var sitemapRows []storage.SitemapRow
+		var sitemapURLRows []storage.SitemapURLRow
+
+		for _, entry := range sitemapEntries {
+			sitemapRows = append(sitemapRows, storage.SitemapRow{
+				CrawlSessionID: e.session.ID,
+				URL:            entry.URL,
+				Type:           entry.Type,
+				URLCount:       uint32(len(entry.URLs)),
+				ParentURL:      parentMap[entry.URL],
+				StatusCode:     uint16(entry.StatusCode),
+				FetchedAt:      now,
+			})
+			for _, u := range entry.URLs {
+				sitemapURLRows = append(sitemapURLRows, storage.SitemapURLRow{
+					CrawlSessionID: e.session.ID,
+					SitemapURL:     entry.URL,
+					Loc:            u.Loc,
+					LastMod:        u.LastMod,
+					ChangeFreq:     u.ChangeFreq,
+					Priority:       u.Priority,
+				})
+			}
+		}
+
+		if err := e.store.InsertSitemaps(context.Background(), sitemapRows); err != nil {
+			log.Printf("WARNING: failed to persist sitemaps: %v", err)
+		}
+		if err := e.store.InsertSitemapURLs(context.Background(), sitemapURLRows); err != nil {
+			log.Printf("WARNING: failed to persist sitemap URLs: %v", err)
+		}
+		if len(sitemapRows) > 0 {
+			log.Printf("Persisted %d sitemaps (%d URLs total)", len(sitemapRows), len(sitemapURLRows))
+		}
+	}
+
 	// Channels
 	fetchCh := make(chan *frontier.CrawlURL, e.cfg.Crawler.Workers)
 	parseCh := make(chan *fetcher.FetchResult, e.cfg.Crawler.Workers)

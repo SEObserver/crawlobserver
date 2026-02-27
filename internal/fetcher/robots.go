@@ -91,6 +91,37 @@ func (rc *RobotsCache) get(host string) *RobotsCacheEntry {
 	return rc.cache[host]
 }
 
+// SitemapURLs collects sitemap URLs from all cached robots.txt entries,
+// plus common fallback paths (/sitemap.xml, /sitemap_index.xml).
+func (rc *RobotsCache) SitemapURLs() []string {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+
+	seen := make(map[string]bool)
+	var urls []string
+
+	for host, entry := range rc.cache {
+		// Add sitemaps declared in robots.txt
+		if entry.parsed != nil {
+			for _, s := range entry.parsed.Sitemaps {
+				if !seen[s] {
+					seen[s] = true
+					urls = append(urls, s)
+				}
+			}
+		}
+		// Add common fallback paths
+		for _, path := range []string{"/sitemap.xml", "/sitemap_index.xml"} {
+			u := host + path
+			if !seen[u] {
+				seen[u] = true
+				urls = append(urls, u)
+			}
+		}
+	}
+	return urls
+}
+
 func (rc *RobotsCache) fetch(host string) *RobotsCacheEntry {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()

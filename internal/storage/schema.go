@@ -132,6 +132,31 @@ ALTER TABLE seocrawler.crawl_sessions
     ADD COLUMN IF NOT EXISTS project_id Nullable(String) DEFAULT NULL
 `
 
+const CreateSitemaps = `
+CREATE TABLE IF NOT EXISTS seocrawler.sitemaps (
+    crawl_session_id UUID,
+    url String,
+    type String,
+    url_count UInt32,
+    parent_url String,
+    status_code UInt16,
+    fetched_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(fetched_at)
+ORDER BY (crawl_session_id, url)
+`
+
+const CreateSitemapURLs = `
+CREATE TABLE IF NOT EXISTS seocrawler.sitemap_urls (
+    crawl_session_id UUID,
+    sitemap_url String,
+    loc String,
+    lastmod String,
+    changefreq String,
+    priority String
+) ENGINE = ReplacingMergeTree()
+ORDER BY (crawl_session_id, sitemap_url, loc)
+`
+
 // Migrations is the ordered list of DDL statements.
 var Migrations = []string{
 	CreateDatabase,
@@ -143,4 +168,6 @@ var Migrations = []string{
 	AlterPagesV4,
 	CreateRobotsTxt,
 	AlterSessionsV2,
+	CreateSitemaps,
+	CreateSitemapURLs,
 }

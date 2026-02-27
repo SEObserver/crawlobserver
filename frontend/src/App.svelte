@@ -5,6 +5,7 @@
     getPageHTML, getStorageStats, getGlobalStats, getPageDetail, getSystemStats,
     getPageRankDistribution, getPageRankTreemap, getPageRankTop,
     getRobotsHosts, getRobotsContent, testRobotsUrls,
+    getSitemaps, getSitemapURLs,
     getProjects, createProject, renameProject, deleteProject,
     associateSession, disassociateSession,
     getAPIKeys, createAPIKey, deleteAPIKey } from './lib/api.js';
@@ -115,6 +116,15 @@
   let robotsTestUA = $state('');
   let robotsTestResults = $state(null);
   let robotsTestLoading = $state(false);
+
+  // Sitemaps tab
+  let sitemaps = $state([]);
+  let selectedSitemap = $state(null);
+  let sitemapURLs = $state([]);
+  let sitemapsLoading = $state(false);
+  let sitemapURLsLoading = $state(false);
+  let sitemapURLsOffset = $state(0);
+  let hasMoreSitemapURLs = $state(false);
 
   // Live progress
   let liveProgress = $state({});
@@ -439,6 +449,8 @@
         await loadPRSubView(prSubView);
       } else if (tab === 'robots') {
         await loadRobotsHosts();
+      } else if (tab === 'sitemaps') {
+        await loadSitemaps();
       } else {
         await loadTabData();
       }
@@ -529,6 +541,8 @@
       loadPRSubView(prSubView);
     } else if (newTab === 'robots') {
       loadRobotsHosts();
+    } else if (newTab === 'sitemaps') {
+      loadSitemaps();
     } else {
       loadTabData();
     }
@@ -941,6 +955,71 @@
     }
   }
 
+  // --- Sitemaps ---
+  async function loadSitemaps() {
+    if (!selectedSession) return;
+    sitemapsLoading = true;
+    selectedSitemap = null;
+    sitemapURLs = [];
+    sitemapURLsOffset = 0;
+    hasMoreSitemapURLs = false;
+    try {
+      sitemaps = await getSitemaps(selectedSession.ID);
+    } catch (e) {
+      sitemaps = [];
+    } finally {
+      sitemapsLoading = false;
+    }
+  }
+
+  async function selectSitemap(url) {
+    if (!selectedSession) return;
+    selectedSitemap = url;
+    sitemapURLs = [];
+    sitemapURLsOffset = 0;
+    hasMoreSitemapURLs = false;
+    sitemapURLsLoading = true;
+    try {
+      const data = await getSitemapURLs(selectedSession.ID, url, PAGE_SIZE, 0);
+      sitemapURLs = data;
+      hasMoreSitemapURLs = data.length === PAGE_SIZE;
+    } catch (e) {
+      sitemapURLs = [];
+    } finally {
+      sitemapURLsLoading = false;
+    }
+  }
+
+  async function sitemapURLsNext() {
+    if (!selectedSession || !selectedSitemap) return;
+    sitemapURLsOffset += PAGE_SIZE;
+    sitemapURLsLoading = true;
+    try {
+      const data = await getSitemapURLs(selectedSession.ID, selectedSitemap, PAGE_SIZE, sitemapURLsOffset);
+      sitemapURLs = data;
+      hasMoreSitemapURLs = data.length === PAGE_SIZE;
+    } catch (e) {
+      sitemapURLs = [];
+    } finally {
+      sitemapURLsLoading = false;
+    }
+  }
+
+  async function sitemapURLsPrev() {
+    if (!selectedSession || !selectedSitemap) return;
+    sitemapURLsOffset = Math.max(0, sitemapURLsOffset - PAGE_SIZE);
+    sitemapURLsLoading = true;
+    try {
+      const data = await getSitemapURLs(selectedSession.ID, selectedSitemap, PAGE_SIZE, sitemapURLsOffset);
+      sitemapURLs = data;
+      hasMoreSitemapURLs = data.length === PAGE_SIZE;
+    } catch (e) {
+      sitemapURLs = [];
+    } finally {
+      sitemapURLsLoading = false;
+    }
+  }
+
   const TABS = [
     { id: 'overview', label: 'All Pages' },
     { id: 'titles', label: 'Titles' },
@@ -953,6 +1032,7 @@
     { id: 'external', label: 'External Links' },
     { id: 'pagerank', label: 'PageRank' },
     { id: 'robots', label: 'Robots.txt' },
+    { id: 'sitemaps', label: 'Sitemaps' },
     { id: 'stats', label: 'Stats' },
   ];
 
@@ -1743,30 +1823,27 @@
         </div>
 
         {#if stats}
+          {@const non200 = stats.status_codes ? Object.entries(stats.status_codes).filter(([k]) => k !== '200').reduce((a, [, v]) => a + v, 0) : stats.error_count}
+          {@const maxDepth = stats.depth_distribution ? Math.max(...Object.keys(stats.depth_distribution).map(Number)) : 0}
           <div class="stats-grid">
-            <div class="stat-card"><div class="stat-value">{fmtN(stats.total_pages)}</div><div class="stat-label">Pages crawled</div></div>
+            <div class="stat-card"><div class="stat-value">{fmtN(stats.total_pages)}</div><div class="stat-label">Pages</div></div>
+            <div class="stat-card"><div class="stat-value" style={non200 > 0 ? 'color: var(--error)' : ''}>{fmtN(non200)}</div><div class="stat-label">Non-200</div></div>
             <div class="stat-card"><div class="stat-value">{fmtN(stats.internal_links)}</div><div class="stat-label">Internal links</div></div>
             <div class="stat-card"><div class="stat-value">{fmtN(stats.external_links)}</div><div class="stat-label">External links</div></div>
+            <div class="stat-card"><div class="stat-value">{maxDepth}</div><div class="stat-label">Max depth</div></div>
             <div class="stat-card"><div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">Avg response</div></div>
-            <div class="stat-card"><div class="stat-value" style="color: var(--error)">{fmtN(stats.error_count)}</div><div class="stat-label">Errors</div></div>
-            {#if stats.pages_per_second > 0}
-              <div class="stat-card"><div class="stat-value">{stats.pages_per_second.toFixed(1)}</div><div class="stat-label">Pages/sec</div></div>
-            {/if}
-            {#if stats.crawl_duration_sec > 0}
-              <div class="stat-card"><div class="stat-value">{stats.crawl_duration_sec < 60 ? stats.crawl_duration_sec.toFixed(0) + 's' : (stats.crawl_duration_sec / 60).toFixed(1) + 'min'}</div><div class="stat-label">Duration</div></div>
-            {/if}
-            {#if storageStats?.tables?.length}
-              <div class="stat-card">
-                <div class="stat-value">{fmtSize(storageStats.tables.reduce((a, t) => a + t.bytes_on_disk, 0))}</div>
-                <div class="stat-label">Storage total</div>
-              </div>
-              {#each storageStats.tables as t}
-                <div class="stat-card">
-                  <div class="stat-value">{fmtSize(t.bytes_on_disk)}</div>
-                  <div class="stat-label">{t.name} ({fmtN(t.rows)} rows)</div>
-                </div>
+          </div>
+          {#if stats.status_codes && Object.keys(stats.status_codes).length > 1}
+            <div class="stats-mini" style="margin-top: 8px;">
+              {#each Object.entries(stats.status_codes).sort((a, b) => Number(a[0]) - Number(b[0])) as [code, count]}
+                <span class="stats-mini-item"><span class="badge {statusBadge(Number(code))}">{code}</span> {fmtN(count)}</span>
               {/each}
-            {/if}
+            </div>
+          {/if}
+          <div class="stats-secondary" style="margin-top: 10px;">
+            {#if stats.pages_per_second > 0}<span>{stats.pages_per_second.toFixed(1)} pages/sec</span>{/if}
+            {#if stats.crawl_duration_sec > 0}<span>{stats.crawl_duration_sec < 60 ? stats.crawl_duration_sec.toFixed(0) + 's' : (stats.crawl_duration_sec / 60).toFixed(1) + 'min'}</span>{/if}
+            {#if storageStats?.tables?.length}<span>{fmtSize(storageStats.tables.reduce((a, t) => a + t.bytes_on_disk, 0))} storage</span>{/if}
           </div>
         {/if}
 
@@ -2284,6 +2361,71 @@
                 {:else}
                   <div style="padding: 40px; text-align: center; color: var(--text-muted);">
                     <p>Select a host to view its robots.txt</p>
+                  </div>
+                {/if}
+              </div>
+            </div>
+
+          {:else if tab === 'sitemaps'}
+            <div class="robots-layout">
+              <div class="robots-hosts">
+                {#if sitemapsLoading && sitemaps.length === 0}
+                  <p style="padding: 20px; color: var(--text-muted);">Loading...</p>
+                {:else if sitemaps.length === 0}
+                  <p style="padding: 20px; color: var(--text-muted);">No sitemaps found. Run a crawl first.</p>
+                {:else}
+                  <table>
+                    <thead>
+                      <tr><th>URL</th><th>Type</th><th>URLs</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                      {#each sitemaps as s}
+                        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                        <tr class:robots-host-active={selectedSitemap === s.URL} style="cursor:pointer" onclick={() => selectSitemap(s.URL)}>
+                          <td style="font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={s.URL}>{s.URL.replace(/^https?:\/\/[^/]+/, '')}</td>
+                          <td><span class="badge {s.Type === 'index' ? 'badge-warning' : s.Type === 'urlset' ? 'badge-success' : 'badge-muted'}">{s.Type || '?'}</span></td>
+                          <td style="text-align: right;">{s.URLCount?.toLocaleString() || 0}</td>
+                          <td><span class="badge {s.StatusCode === 200 ? 'badge-success' : s.StatusCode >= 400 ? 'badge-error' : 'badge-warning'}">{s.StatusCode}</span></td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                {/if}
+              </div>
+              <div class="robots-detail">
+                {#if selectedSitemap}
+                  <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary); word-break: break-all;">{selectedSitemap}</h3>
+                  {#if sitemapURLsLoading && sitemapURLs.length === 0}
+                    <p style="color: var(--text-muted);">Loading...</p>
+                  {:else if sitemapURLs.length === 0}
+                    <p style="color: var(--text-muted);">No URLs in this sitemap.</p>
+                  {:else}
+                    <table>
+                      <thead>
+                        <tr><th>URL</th><th>Last Modified</th><th>Change Freq</th><th>Priority</th></tr>
+                      </thead>
+                      <tbody>
+                        {#each sitemapURLs as u}
+                          <tr>
+                            <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={u.Loc}>{u.Loc}</td>
+                            <td style="color: var(--text-muted); font-size: 12px; white-space: nowrap;">{u.LastMod || '-'}</td>
+                            <td style="color: var(--text-muted); font-size: 12px;">{u.ChangeFreq || '-'}</td>
+                            <td style="color: var(--text-muted); font-size: 12px;">{u.Priority || '-'}</td>
+                          </tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                    <div class="pagination" style="margin-top: 12px;">
+                      <button class="btn btn-sm" onclick={sitemapURLsPrev} disabled={sitemapURLsOffset === 0 || sitemapURLsLoading}>Prev</button>
+                      <span style="font-size: 12px; color: var(--text-muted);">
+                        {sitemapURLsOffset + 1}&ndash;{sitemapURLsOffset + sitemapURLs.length}
+                      </span>
+                      <button class="btn btn-sm" onclick={sitemapURLsNext} disabled={!hasMoreSitemapURLs || sitemapURLsLoading}>Next</button>
+                    </div>
+                  {/if}
+                {:else}
+                  <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+                    <p>Select a sitemap to view its URLs</p>
                   </div>
                 {/if}
               </div>

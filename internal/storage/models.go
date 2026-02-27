@@ -87,6 +87,27 @@ type RobotsRow struct {
 	FetchedAt      time.Time
 }
 
+// SitemapRow represents a discovered sitemap for storage.
+type SitemapRow struct {
+	CrawlSessionID string
+	URL            string
+	Type           string // "index" | "urlset"
+	URLCount       uint32
+	ParentURL      string // empty if top-level
+	StatusCode     uint16
+	FetchedAt      time.Time
+}
+
+// SitemapURLRow represents a URL entry within a sitemap.
+type SitemapURLRow struct {
+	CrawlSessionID string
+	SitemapURL     string
+	Loc            string
+	LastMod        string
+	ChangeFreq     string
+	Priority       string
+}
+
 // LinkRow represents a link for storage.
 type LinkRow struct {
 	CrawlSessionID string

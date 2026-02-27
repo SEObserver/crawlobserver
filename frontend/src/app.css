@@ -410,6 +410,29 @@ tr:hover td { background: var(--bg-hover); }
 .stat-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
 .stat-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
 
+.stats-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.stats-mini-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.stats-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* ===== Tab Bar ===== */
 .tab-bar {
   display: flex;

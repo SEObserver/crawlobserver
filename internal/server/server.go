@@ -64,6 +64,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/sessions/{id}/pagerank-top", s.handlePageRankTop)
 	mux.HandleFunc("GET /api/sessions/{id}/robots", s.handleRobotsHosts)
 	mux.HandleFunc("GET /api/sessions/{id}/robots-content", s.handleRobotsContent)
+	mux.HandleFunc("GET /api/sessions/{id}/sitemaps", s.handleSitemaps)
+	mux.HandleFunc("GET /api/sessions/{id}/sitemap-urls", s.handleSitemapURLs)
 	mux.HandleFunc("GET /api/storage-stats", s.handleStorageStats)
 	mux.HandleFunc("GET /api/global-stats", s.handleGlobalStats)
 	mux.HandleFunc("GET /api/system-stats", s.handleSystemStats)
@@ -889,6 +891,46 @@ func (s *Server) handleRobotsTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]interface{}{"results": results})
+}
+
+func (s *Server) handleSitemaps(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	sitemaps, err := s.store.GetSitemaps(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if sitemaps == nil {
+		sitemaps = []storage.SitemapRow{}
+	}
+	writeJSON(w, sitemaps)
+}
+
+func (s *Server) handleSitemapURLs(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	sitemapURL := r.URL.Query().Get("url")
+	if sitemapURL == "" {
+		writeError(w, http.StatusBadRequest, "missing url parameter")
+		return
+	}
+	limit := queryInt(r, "limit", 100)
+	offset := queryInt(r, "offset", 0)
+
+	urls, err := s.store.GetSitemapURLs(r.Context(), sessionID, sitemapURL, limit, offset)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if urls == nil {
+		urls = []storage.SitemapURLRow{}
+	}
+	writeJSON(w, urls)
 }
 
 // requireFullAccess returns 403 if the caller is a project-scoped key.
