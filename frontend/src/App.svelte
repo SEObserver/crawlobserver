@@ -1,17 +1,21 @@
 <script>
   import { onDestroy } from 'svelte';
   import { getSessions, getStats, getPages, getExternalLinks, getInternalLinks, getProgress,
-    startCrawl, stopCrawl, resumeCrawl, deleteSession, recomputeDepths, computePageRank, retryFailed,
+    stopCrawl, deleteSession, recomputeDepths, computePageRank, retryFailed,
     subscribeProgress, getTheme, updateTheme,
-    getPageHTML, getStorageStats, getGlobalStats, getSessionStorage, getPageDetail, getSystemStats,
-    getPageRankDistribution, getPageRankTreemap, getPageRankTop,
-    getRobotsHosts, getRobotsContent, testRobotsUrls,
-    getSitemaps, getSitemapURLs,
+    getStorageStats, getGlobalStats, getSessionStorage, getPageDetail, getSystemStats,
     getProjects, createProject, renameProject, deleteProject,
     associateSession, disassociateSession,
     getAPIKeys, createAPIKey, deleteAPIKey,
     getUpdateStatus, applyUpdate,
     getBackups, createBackup, restoreBackup, deleteBackup } from './lib/api.js';
+  import { statusBadge, fmt, fmtSize, fmtN, trunc, timeAgo, a11yKeydown, copyToClipboard } from './lib/utils.js';
+  import HtmlModal from './lib/components/HtmlModal.svelte';
+  import ResumeModal from './lib/components/ResumeModal.svelte';
+  import NewCrawlForm from './lib/components/NewCrawlForm.svelte';
+  import PageRankTab from './lib/components/PageRankTab.svelte';
+  import RobotsTab from './lib/components/RobotsTab.svelte';
+  import SitemapsTab from './lib/components/SitemapsTab.svelte';
 
   let sessions = $state([]);
   let selectedSession = $state(null);
@@ -72,31 +76,14 @@
 
   // New crawl form
   let showNewCrawl = $state(false);
-  let seedInput = $state('');
-  let maxPages = $state(0);
-  let maxDepth = $state(0);
-  let workers = $state(10);
-  let crawlDelay = $state('1s');
-  let storeHtml = $state(false);
-  let crawlScope = $state('host');
-  let starting = $state(false);
 
   // Resume modal
   let showResumeModal = $state(false);
   let resumeSessionId = $state(null);
-  let resumeMaxPages = $state(0);
-  let resumeMaxDepth = $state(0);
-  let resumeWorkers = $state(10);
-  let resumeDelay = $state('1s');
-  let resumeStoreHtml = $state(false);
-  let resumeCrawlScope = $state('host');
-  let resuming = $state(false);
 
   // HTML modal
   let showHtmlModal = $state(false);
-  let htmlModalData = $state({ url: '', body_html: '' });
-  let htmlModalView = $state('render'); // 'render' or 'source'
-  let htmlModalLoading = $state(false);
+  let htmlModalUrl = $state('');
 
   // Storage stats
   let storageStats = $state(null);
@@ -111,46 +98,10 @@
 
   // PageRank tab
   let prSubView = $state('top');
-  let prLoading = $state(false);
-  let prTopData = $state(null);
-  let prTopLimit = $state(50);
-  let prTopOffset = $state(0);
-  let prDistData = $state(null);
-  let prTreemapData = $state(null);
-  let prTreemapDepth = $state(2);
-  let prTreemapMinPages = $state(1);
-  let prTableData = $state(null);
-  let prTableOffset = $state(0);
-  let prTableDir = $state('');
-  let prTooltip = $state(null);
-
-  // Robots.txt tab
-  let robotsHosts = $state([]);
-  let robotsSelectedHost = $state(null);
-  let robotsContent = $state(null);
-  let robotsLoading = $state(false);
-  let robotsTestUrls = $state('');
-  let robotsTestUA = $state('');
-  let robotsTestResults = $state(null);
-  let robotsTestLoading = $state(false);
-
-  // Sitemaps tab
-  let sitemaps = $state([]);
-  let selectedSitemap = $state(null);
-  let sitemapURLs = $state([]);
-  let sitemapsLoading = $state(false);
-  let sitemapURLsLoading = $state(false);
-  let sitemapURLsOffset = $state(0);
-  let hasMoreSitemapURLs = $state(false);
 
   // Live progress
   let liveProgress = $state({});
   let sseConnections = {};
-
-  // A11y: keyboard handler for interactive non-button elements
-  function a11yKeydown(callback) {
-    return (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); callback(e); } };
-  }
 
   // Global Stats
   let showGlobalStats = $state(false);
@@ -168,9 +119,6 @@
   let createdKeyFull = $state(null);
   let renamingProject = $state(null);
   let renameValue = $state('');
-
-  // Project for new crawl
-  let crawlProjectId = $state('');
 
   // --- Global Stats ---
   async function openGlobalStats() {
@@ -253,9 +201,6 @@
     } catch (e) { error = e.message; }
   }
 
-  function copyToClipboard(text) {
-    navigator.clipboard.writeText(text);
-  }
 
   // --- Theme ---
   async function loadTheme() {
@@ -469,12 +414,7 @@
         if (route.subView && ['top', 'directory', 'distribution', 'table'].includes(route.subView)) {
           prSubView = route.subView;
         }
-        await loadPRSubView(prSubView);
-      } else if (tab === 'robots') {
-        await loadRobotsHosts();
-      } else if (tab === 'sitemaps') {
-        await loadSitemaps();
-      } else {
+      } else if (tab !== 'robots' && tab !== 'sitemaps') {
         await loadTabData();
       }
     }
@@ -666,13 +606,7 @@
       const path = newTab === 'pagerank' ? `${newTab}/${prSubView}` : newTab;
       pushURL(`/sessions/${selectedSession.ID}/${path}`);
     }
-    if (newTab === 'pagerank') {
-      loadPRSubView(prSubView);
-    } else if (newTab === 'robots') {
-      loadRobotsHosts();
-    } else if (newTab === 'sitemaps') {
-      loadSitemaps();
-    } else {
+    if (newTab !== 'pagerank' && newTab !== 'robots' && newTab !== 'sitemaps') {
       loadTabData();
     }
   }
@@ -708,24 +642,10 @@
     return hasMorePages;
   }
 
-  async function handleStartCrawl() {
-    const seeds = seedInput.split('\n').map(s => s.trim()).filter(Boolean);
-    if (seeds.length === 0) return;
-    starting = true;
-    error = null;
-    try {
-      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null });
-      showNewCrawl = false;
-      seedInput = '';
-      maxPages = 0;
-      maxDepth = 0;
-      pushURL('/');
-      setTimeout(() => loadSessions(), 500);
-    } catch (e) {
-      error = e.message;
-    } finally {
-      starting = false;
-    }
+  function onCrawlStarted() {
+    showNewCrawl = false;
+    pushURL('/');
+    setTimeout(() => loadSessions(), 500);
   }
 
   async function handleStop(id) {
@@ -742,18 +662,7 @@
   }
 
   function openResumeModal(id) {
-    const sess = sessions.find(s => s.ID === id);
-    let cfg = {};
-    if (sess?.Config) {
-      try { cfg = typeof sess.Config === 'string' ? JSON.parse(sess.Config) : sess.Config; } catch {}
-    }
     resumeSessionId = id;
-    resumeMaxPages = cfg.max_pages || 0;
-    resumeMaxDepth = cfg.max_depth || 0;
-    resumeWorkers = cfg.workers || 10;
-    resumeDelay = cfg.delay || '1s';
-    resumeStoreHtml = cfg.store_html || false;
-    resumeCrawlScope = cfg.crawl_scope || 'host';
     showResumeModal = true;
   }
 
@@ -762,26 +671,13 @@
     resumeSessionId = null;
   }
 
-  async function handleResume() {
-    resuming = true;
-    error = null;
-    try {
-      await resumeCrawl(resumeSessionId, {
-        max_pages: resumeMaxPages,
-        max_depth: resumeMaxDepth,
-        workers: resumeWorkers,
-        delay: resumeDelay,
-        store_html: resumeStoreHtml,
-        crawl_scope: resumeCrawlScope,
-      });
-      closeResumeModal();
-      await loadSessions();
-      const sess = sessions.find(s => s.ID === resumeSessionId);
-      if (sess) {
-        await selectSession(sess);
-      }
-    } catch (e) { error = e.message; }
-    finally { resuming = false; }
+  async function onResumeComplete() {
+    closeResumeModal();
+    await loadSessions();
+    const sess = sessions.find(s => s.ID === resumeSessionId);
+    if (sess) {
+      await selectSession(sess);
+    }
   }
 
   async function handleDelete(id) {
@@ -828,44 +724,14 @@
     finally { computingPR = false; }
   }
 
-  function statusBadge(code) {
-    if (code >= 200 && code < 300) return 'badge-success';
-    if (code >= 300 && code < 400) return 'badge-info';
-    if (code >= 400 && code < 500) return 'badge-warning';
-    return 'badge-error';
-  }
-
-  function fmt(ms) { return ms < 1000 ? `${ms}ms` : `${(ms/1000).toFixed(1)}s`; }
-  function fmtSize(b) { return b < 1024 ? `${b}B` : b < 1048576 ? `${(b/1024).toFixed(1)}KB` : b < 1073741824 ? `${(b/1048576).toFixed(1)}MB` : `${(b/1073741824).toFixed(2)}GB`; }
-  function fmtN(n) { return new Intl.NumberFormat().format(n); }
-  function trunc(s, n) { return s && s.length > n ? s.slice(0, n) + '...' : (s || '-'); }
-  function timeAgo(date) {
-    const d = new Date(date);
-    const now = new Date();
-    const diff = Math.floor((now - d) / 1000);
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
-    return d.toLocaleDateString();
-  }
-
-  async function openHtmlModal(url) {
-    htmlModalLoading = true;
+  function openHtmlModal(url) {
+    htmlModalUrl = url;
     showHtmlModal = true;
-    htmlModalView = 'render';
-    try {
-      htmlModalData = await getPageHTML(selectedSession.ID, url);
-    } catch (e) {
-      htmlModalData = { url, body_html: '' };
-      error = e.message;
-    } finally {
-      htmlModalLoading = false;
-    }
   }
 
   function closeHtmlModal() {
     showHtmlModal = false;
-    htmlModalData = { url: '', body_html: '' };
+    htmlModalUrl = '';
   }
 
   let inLinksPage = $state(0);
@@ -918,237 +784,6 @@
     if (systemStatsInterval) return;
     loadSystemStats();
     systemStatsInterval = setInterval(loadSystemStats, 3000);
-  }
-
-  // --- PageRank data loaders ---
-  async function loadPRSubView(view) {
-    if (!selectedSession) return;
-    prLoading = true;
-    const id = selectedSession.ID;
-    try {
-      if (view === 'top') {
-        prTopData = await getPageRankTop(id, prTopLimit, prTopOffset);
-      } else if (view === 'directory') {
-        prTreemapData = await getPageRankTreemap(id, prTreemapDepth, prTreemapMinPages);
-      } else if (view === 'distribution') {
-        prDistData = await getPageRankDistribution(id, 20);
-      } else if (view === 'table') {
-        prTableData = await getPageRankTop(id, 50, prTableOffset, prTableDir);
-      }
-    } catch (e) {
-      error = e.message;
-    } finally {
-      prLoading = false;
-    }
-  }
-
-  function switchPRSubView(view) {
-    prSubView = view;
-    if (view === 'top') { prTopOffset = 0; }
-    if (view === 'table') { prTableOffset = 0; }
-    if (selectedSession) pushURL(`/sessions/${selectedSession.ID}/pagerank/${view}`);
-    loadPRSubView(view);
-  }
-
-  function prDrillToTable(dir) {
-    prTableDir = dir;
-    prTableOffset = 0;
-    prSubView = 'table';
-    if (selectedSession) pushURL(`/sessions/${selectedSession.ID}/pagerank/table`);
-    loadPRSubView('table');
-  }
-
-  function prDrillHistToTable(minPR, maxPR) {
-    prTableDir = '';
-    prTableOffset = 0;
-    prSubView = 'table';
-    if (selectedSession) pushURL(`/sessions/${selectedSession.ID}/pagerank/table`);
-    loadPRSubView('table');
-  }
-
-  // Squarified treemap layout algorithm
-  function squarify(items, x, y, w, h) {
-    if (items.length === 0 || w <= 0 || h <= 0) return [];
-    const totalValue = items.reduce((s, it) => s + it.value, 0);
-    if (totalValue <= 0) return [];
-    const rects = [];
-    let remaining = [...items];
-    let cx = x, cy = y, cw = w, ch = h;
-
-    while (remaining.length > 0) {
-      const isWide = cw >= ch;
-      const side = isWide ? ch : cw;
-      const totalRemaining = remaining.reduce((s, it) => s + it.value, 0);
-      let row = [remaining[0]];
-      let rowValue = remaining[0].value;
-
-      const worstRatio = (rv, s) => {
-        const area = (rv / totalRemaining) * cw * ch;
-        const rowLen = area / s;
-        return Math.max(s / rowLen, rowLen / s);
-      };
-
-      for (let i = 1; i < remaining.length; i++) {
-        const newRowValue = rowValue + remaining[i].value;
-        const newArea = (newRowValue / totalRemaining) * cw * ch;
-        const oldArea = (rowValue / totalRemaining) * cw * ch;
-        const newSide = isWide ? newArea / ch : newArea / cw;
-        const oldSide = isWide ? oldArea / ch : oldArea / cw;
-
-        const oldWorst = Math.max(...row.map(it => {
-          const a = (it.value / rowValue) * oldArea;
-          const r = oldSide > 0 ? Math.max(a / (oldSide * oldSide) * oldSide, oldSide / (a / oldSide)) : Infinity;
-          return Math.max(oldSide / (a / oldSide), (a / oldSide) / oldSide);
-        }));
-        const newRow = [...row, remaining[i]];
-        const newWorst = Math.max(...newRow.map(it => {
-          const a = (it.value / newRowValue) * newArea;
-          return Math.max(newSide / (a / newSide), (a / newSide) / newSide);
-        }));
-
-        if (newWorst <= oldWorst) {
-          row.push(remaining[i]);
-          rowValue = newRowValue;
-        } else {
-          break;
-        }
-      }
-
-      // Lay out the row
-      const rowArea = (rowValue / totalRemaining) * cw * ch;
-      const rowSide = isWide ? (ch > 0 ? rowArea / ch : 0) : (cw > 0 ? rowArea / cw : 0);
-      let offset = 0;
-      for (const item of row) {
-        const fraction = rowValue > 0 ? item.value / rowValue : 0;
-        const itemLen = fraction * (isWide ? ch : cw);
-        rects.push({
-          ...item,
-          x: isWide ? cx : cx + offset,
-          y: isWide ? cy + offset : cy,
-          w: isWide ? rowSide : itemLen,
-          h: isWide ? itemLen : rowSide,
-        });
-        offset += itemLen;
-      }
-
-      // Reduce remaining area
-      if (isWide) { cx += rowSide; cw -= rowSide; }
-      else { cy += rowSide; ch -= rowSide; }
-      remaining = remaining.slice(row.length);
-    }
-    return rects;
-  }
-
-  // --- Robots.txt ---
-  async function loadRobotsHosts() {
-    if (!selectedSession) return;
-    robotsLoading = true;
-    robotsSelectedHost = null;
-    robotsContent = null;
-    robotsTestResults = null;
-    try {
-      robotsHosts = await getRobotsHosts(selectedSession.ID);
-    } catch (e) {
-      robotsHosts = [];
-    } finally {
-      robotsLoading = false;
-    }
-  }
-
-  async function selectRobotsHost(host) {
-    if (!selectedSession) return;
-    robotsSelectedHost = host;
-    robotsContent = null;
-    robotsTestResults = null;
-    robotsLoading = true;
-    try {
-      const data = await getRobotsContent(selectedSession.ID, host);
-      robotsContent = data.Content || data.content || '';
-    } catch (e) {
-      robotsContent = '(failed to load)';
-    } finally {
-      robotsLoading = false;
-    }
-  }
-
-  async function runRobotsTest() {
-    if (!selectedSession || !robotsSelectedHost) return;
-    const urls = robotsTestUrls.split('\n').map(u => u.trim()).filter(Boolean);
-    if (urls.length === 0) return;
-    robotsTestLoading = true;
-    try {
-      const data = await testRobotsUrls(selectedSession.ID, robotsSelectedHost, robotsTestUA || '*', urls);
-      robotsTestResults = data.results;
-    } catch (e) {
-      error = e.message;
-    } finally {
-      robotsTestLoading = false;
-    }
-  }
-
-  // --- Sitemaps ---
-  async function loadSitemaps() {
-    if (!selectedSession) return;
-    sitemapsLoading = true;
-    selectedSitemap = null;
-    sitemapURLs = [];
-    sitemapURLsOffset = 0;
-    hasMoreSitemapURLs = false;
-    try {
-      sitemaps = await getSitemaps(selectedSession.ID);
-    } catch (e) {
-      sitemaps = [];
-    } finally {
-      sitemapsLoading = false;
-    }
-  }
-
-  async function selectSitemap(url) {
-    if (!selectedSession) return;
-    selectedSitemap = url;
-    sitemapURLs = [];
-    sitemapURLsOffset = 0;
-    hasMoreSitemapURLs = false;
-    sitemapURLsLoading = true;
-    try {
-      const data = await getSitemapURLs(selectedSession.ID, url, PAGE_SIZE, 0);
-      sitemapURLs = data;
-      hasMoreSitemapURLs = data.length === PAGE_SIZE;
-    } catch (e) {
-      sitemapURLs = [];
-    } finally {
-      sitemapURLsLoading = false;
-    }
-  }
-
-  async function sitemapURLsNext() {
-    if (!selectedSession || !selectedSitemap) return;
-    sitemapURLsOffset += PAGE_SIZE;
-    sitemapURLsLoading = true;
-    try {
-      const data = await getSitemapURLs(selectedSession.ID, selectedSitemap, PAGE_SIZE, sitemapURLsOffset);
-      sitemapURLs = data;
-      hasMoreSitemapURLs = data.length === PAGE_SIZE;
-    } catch (e) {
-      sitemapURLs = [];
-    } finally {
-      sitemapURLsLoading = false;
-    }
-  }
-
-  async function sitemapURLsPrev() {
-    if (!selectedSession || !selectedSitemap) return;
-    sitemapURLsOffset = Math.max(0, sitemapURLsOffset - PAGE_SIZE);
-    sitemapURLsLoading = true;
-    try {
-      const data = await getSitemapURLs(selectedSession.ID, selectedSitemap, PAGE_SIZE, sitemapURLsOffset);
-      sitemapURLs = data;
-      hasMoreSitemapURLs = data.length === PAGE_SIZE;
-    } catch (e) {
-      sitemapURLs = [];
-    } finally {
-      sitemapURLsLoading = false;
-    }
   }
 
   const TABS = [
@@ -1649,49 +1284,7 @@
         {/if}
 
       {:else if showNewCrawl && !selectedSession}
-        <!-- New Crawl Form -->
-        <div class="page-header">
-          <h1>New Crawl</h1>
-        </div>
-        <div class="card">
-          <div class="form-grid">
-            <div class="form-group" style="grid-column: 1 / -1;">
-              <label for="seeds">Seed URLs (one per line)</label>
-              <textarea id="seeds" bind:value={seedInput} rows="3" placeholder="https://example.com"></textarea>
-            </div>
-            <div class="form-group"><label for="workers">Workers</label><input id="workers" type="number" bind:value={workers} min="1" max="100" /></div>
-            <div class="form-group"><label for="delay">Delay</label><input id="delay" type="text" bind:value={crawlDelay} placeholder="1s" /></div>
-            <div class="form-group"><label for="maxpages">Max pages (0 = unlimited)</label><input id="maxpages" type="number" bind:value={maxPages} min="0" /></div>
-            <div class="form-group"><label for="maxdepth">Max depth (0 = unlimited)</label><input id="maxdepth" type="number" bind:value={maxDepth} min="0" /></div>
-            <div class="form-group">
-              <label for="scope">Crawl scope</label>
-              <select id="scope" bind:value={crawlScope}>
-                <option value="host">Same host only</option>
-                <option value="domain">Same domain (incl. subdomains)</option>
-              </select>
-            </div>
-            <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
-              <input id="storehtml" type="checkbox" bind:checked={storeHtml} /><label for="storehtml" style="margin: 0;">Store raw HTML</label>
-            </div>
-            {#if projects.length > 0}
-              <div class="form-group">
-                <label for="crawl-project">Project (optional)</label>
-                <select id="crawl-project" bind:value={crawlProjectId}>
-                  <option value="">No project</option>
-                  {#each projects as p}
-                    <option value={p.id}>{p.name}</option>
-                  {/each}
-                </select>
-              </div>
-            {/if}
-          </div>
-          <div style="display: flex; gap: 8px; margin-top: 20px;">
-            <button class="btn btn-primary" onclick={handleStartCrawl} disabled={starting || !seedInput.trim()}>
-              {starting ? 'Starting...' : 'Start Crawl'}
-            </button>
-            <button class="btn" onclick={() => navigateTo('/')}>Cancel</button>
-          </div>
-        </div>
+        <NewCrawlForm {projects} onstart={onCrawlStarted} oncancel={() => navigateTo('/')} onerror={(msg) => error = msg} />
 
       {:else if !selectedSession}
         <!-- Sessions List -->
@@ -2288,357 +1881,16 @@
             </table>
 
           {:else if tab === 'pagerank'}
-            <div class="pr-container">
-              <div class="pr-subview-bar">
-                <button class="pr-subview-btn" class:pr-subview-active={prSubView === 'top'} onclick={() => switchPRSubView('top')}>Top Pages</button>
-                <button class="pr-subview-btn" class:pr-subview-active={prSubView === 'directory'} onclick={() => switchPRSubView('directory')}>By Directory</button>
-                <button class="pr-subview-btn" class:pr-subview-active={prSubView === 'distribution'} onclick={() => switchPRSubView('distribution')}>Distribution</button>
-                <button class="pr-subview-btn" class:pr-subview-active={prSubView === 'table'} onclick={() => switchPRSubView('table')}>Full Table</button>
-              </div>
-
-              {#if prLoading}
-                <p style="color: var(--text-muted); padding: 40px 0; text-align: center;">Loading...</p>
-
-              {:else if prSubView === 'top'}
-                <!-- Top Pages bar chart -->
-                {#if prTopData?.pages?.length > 0}
-                  <div class="pr-controls">
-                    <label>Show</label>
-                    <select class="pr-select" value={prTopLimit} onchange={(e) => { prTopLimit = Number(e.target.value); prTopOffset = 0; loadPRSubView('top'); }}>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                    </select>
-                    <span style="color: var(--text-muted); font-size: 12px;">of {fmtN(prTopData.total)} pages with PR</span>
-                  </div>
-                  {@const maxPR = prTopData.pages[0]?.pagerank || 1}
-                  {#each prTopData.pages as p, i}
-                    <div class="pr-top-row" role="button" tabindex="0"
-                      onclick={() => goToUrlDetail({preventDefault:()=>{}}, p.url)}
-                      onkeydown={a11yKeydown(() => goToUrlDetail({preventDefault:()=>{}}, p.url))}
-                      onmouseenter={(e) => { prTooltip = { x: e.clientX, y: e.clientY, url: p.url, pr: p.pagerank, depth: p.depth, intLinks: p.internal_links_out, extLinks: p.external_links_out, words: p.word_count }; }}
-                      onmouseleave={() => { prTooltip = null; }}
-                      style="cursor: pointer;">
-                      <span class="pr-top-rank">{prTopOffset + i + 1}</span>
-                      <span class="pr-top-url">{p.url.replace(/^https?:\/\/[^/]+/, '') || '/'}</span>
-                      <div class="pr-top-bar-wrap">
-                        <div class="pr-top-bar" style="width: {(p.pagerank / maxPR) * 100}%; opacity: {0.4 + 0.6 * (p.pagerank / maxPR)};"></div>
-                      </div>
-                      <span class="pr-top-score">{p.pagerank.toFixed(1)}</span>
-                      <div class="pr-top-badges">
-                        <span class="pr-top-badge">D{p.depth}</span>
-                        <span class="pr-top-badge">{p.internal_links_out}int</span>
-                      </div>
-                    </div>
-                  {/each}
-                  {#if prTopData.total > prTopLimit}
-                    <div class="pagination">
-                      <button class="btn btn-sm" disabled={prTopOffset === 0} onclick={() => { prTopOffset = Math.max(0, prTopOffset - prTopLimit); loadPRSubView('top'); }}>Previous</button>
-                      <span class="pagination-info">{prTopOffset + 1} - {Math.min(prTopOffset + prTopLimit, prTopData.total)} of {fmtN(prTopData.total)}</span>
-                      <button class="btn btn-sm" disabled={prTopOffset + prTopLimit >= prTopData.total} onclick={() => { prTopOffset += prTopLimit; loadPRSubView('top'); }}>Next</button>
-                    </div>
-                  {/if}
-                {:else}
-                  <p class="chart-empty">No PageRank data available. Compute PageRank first.</p>
-                {/if}
-
-              {:else if prSubView === 'directory'}
-                <!-- Treemap by directory -->
-                {#if prTreemapData?.length > 0}
-                  <div class="pr-controls">
-                    <label>Depth</label>
-                    <select class="pr-select" value={prTreemapDepth} onchange={(e) => { prTreemapDepth = Number(e.target.value); loadPRSubView('directory'); }}>
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                      <option value={3}>3</option>
-                    </select>
-                    <label>Min pages</label>
-                    <select class="pr-select" value={prTreemapMinPages} onchange={(e) => { prTreemapMinPages = Number(e.target.value); loadPRSubView('directory'); }}>
-                      <option value={1}>1</option>
-                      <option value={5}>5</option>
-                      <option value={10}>10</option>
-                      <option value={25}>25</option>
-                    </select>
-                    <span style="color: var(--text-muted); font-size: 12px;">{prTreemapData.length} directories</span>
-                  </div>
-                  {@const treemapItems = prTreemapData.map(d => ({ ...d, value: d.total_pr }))}
-                  {@const treemapRects = squarify(treemapItems, 0, 0, 100, 100)}
-                  {@const maxAvgPR = Math.max(...prTreemapData.map(d => d.avg_pr), 1)}
-                  <div class="pr-treemap-container">
-                    {#each treemapRects as rect}
-                      {@const opacity = 0.35 + 0.65 * (rect.avg_pr / maxAvgPR)}
-                      <div class="pr-treemap-rect" role="button" tabindex="0"
-                        style="left: {rect.x}%; top: {rect.y}%; width: {rect.w}%; height: {rect.h}%; background: var(--accent); opacity: {opacity};"
-                        onclick={() => prDrillToTable(rect.path)}
-                        onkeydown={a11yKeydown(() => prDrillToTable(rect.path))}
-                        onmouseenter={(e) => { prTooltip = { x: e.clientX, y: e.clientY, path: rect.path, pages: rect.page_count, totalPR: rect.total_pr, avgPR: rect.avg_pr, maxPR: rect.max_pr }; }}
-                        onmouseleave={() => { prTooltip = null; }}>
-                        {#if rect.w > 6 && rect.h > 5}
-                          <div class="pr-treemap-label">
-                            {rect.path || '/'}
-                            {#if rect.w > 10 && rect.h > 8}
-                              <small>{rect.page_count} pages &middot; avg {rect.avg_pr.toFixed(1)}</small>
-                            {/if}
-                          </div>
-                        {/if}
-                      </div>
-                    {/each}
-                  </div>
-                {:else}
-                  <p class="chart-empty">No PageRank data available. Compute PageRank first.</p>
-                {/if}
-
-              {:else if prSubView === 'distribution'}
-                <!-- Distribution histogram -->
-                {#if prDistData && prDistData.total_with_pr > 0}
-                  <div class="stats-grid" style="margin-bottom: 20px;">
-                    <div class="stat-card"><div class="stat-value">{fmtN(prDistData.total_with_pr)}</div><div class="stat-label">Pages with PR</div></div>
-                    <div class="stat-card"><div class="stat-value">{prDistData.avg.toFixed(2)}</div><div class="stat-label">Mean</div></div>
-                    <div class="stat-card"><div class="stat-value">{prDistData.median.toFixed(2)}</div><div class="stat-label">Median</div></div>
-                    <div class="stat-card"><div class="stat-value">{prDistData.p90.toFixed(2)}</div><div class="stat-label">P90</div></div>
-                    <div class="stat-card"><div class="stat-value">{prDistData.p99.toFixed(2)}</div><div class="stat-label">P99</div></div>
-                  </div>
-                  {@const distBuckets = prDistData.buckets || []}
-                  {@const distMaxCount = Math.max(...distBuckets.map(b => b.count), 1)}
-                  {@const histW = 600}
-                  {@const histH = 300}
-                  {@const histMargin = { top: 20, right: 20, bottom: 40, left: 60 }}
-                  {@const plotW = histW - histMargin.left - histMargin.right}
-                  {@const plotH = histH - histMargin.top - histMargin.bottom}
-                  {@const barGap = 1}
-                  {@const barW = distBuckets.length > 0 ? (plotW - (distBuckets.length - 1) * barGap) / distBuckets.length : 0}
-                  {@const logMax = Math.log10(distMaxCount + 1)}
-                  <svg viewBox="0 0 {histW} {histH}" style="width: 100%; max-width: 700px; height: auto;">
-                    <!-- Y axis (log scale) -->
-                    {#each [1, 10, 100, 1000, 10000, 100000] as tick}
-                      {#if tick <= distMaxCount * 1.5}
-                        {@const ty = histMargin.top + plotH - (logMax > 0 ? (Math.log10(tick + 1) / logMax) * plotH : 0)}
-                        <line x1={histMargin.left} y1={ty} x2={histW - histMargin.right} y2={ty} stroke="var(--border)" stroke-dasharray="3,3" />
-                        <text x={histMargin.left - 8} y={ty + 4} text-anchor="end" style="font-size: 10px; fill: var(--text-muted);">{tick >= 1000 ? (tick/1000) + 'k' : tick}</text>
-                      {/if}
-                    {/each}
-                    <!-- Bars -->
-                    {#each distBuckets as bucket, i}
-                      {@const barH = logMax > 0 ? (Math.log10(bucket.count + 1) / logMax) * plotH : 0}
-                      {@const bx = histMargin.left + i * (barW + barGap)}
-                      {@const by = histMargin.top + plotH - barH}
-                      {@const opacity = 0.4 + 0.6 * (bucket.count / distMaxCount)}
-                      <rect class="pr-hist-bar" role="button" tabindex="0" x={bx} y={by} width={barW} height={barH} rx="2" fill="var(--accent)" opacity={opacity}
-                        onmouseenter={(e) => { prTooltip = { x: e.clientX, y: e.clientY, bucketMin: bucket.min, bucketMax: bucket.max, count: bucket.count, avgPR: bucket.avg_pr }; }}
-                        onmouseleave={() => { prTooltip = null; }}
-                        onclick={() => prDrillHistToTable(bucket.min, bucket.max)}
-                        onkeydown={a11yKeydown(() => prDrillHistToTable(bucket.min, bucket.max))} />
-                      {#if distBuckets.length <= 25 || i % Math.ceil(distBuckets.length / 10) === 0}
-                        <text x={bx + barW / 2} y={histH - histMargin.bottom + 16} text-anchor="middle" style="font-size: 9px; fill: var(--text-muted);">{bucket.min.toFixed(0)}</text>
-                      {/if}
-                    {/each}
-                    <!-- Axis labels -->
-                    <text x={histW / 2} y={histH - 4} text-anchor="middle" style="font-size: 11px; fill: var(--text-muted);">PageRank Score</text>
-                    <text x={14} y={histH / 2} text-anchor="middle" transform="rotate(-90, 14, {histH / 2})" style="font-size: 11px; fill: var(--text-muted);">Pages (log)</text>
-                  </svg>
-                {:else}
-                  <p class="chart-empty">No PageRank data available. Compute PageRank first.</p>
-                {/if}
-
-              {:else if prSubView === 'table'}
-                <!-- Full Table -->
-                {#if prTableData}
-                  <div class="pr-controls">
-                    <label>Directory filter</label>
-                    <input class="pr-dir-filter" type="text" placeholder="e.g. /blog/" bind:value={prTableDir} onkeydown={(e) => { if (e.key === 'Enter') { prTableOffset = 0; loadPRSubView('table'); } }} />
-                    <button class="btn btn-sm" onclick={() => { prTableOffset = 0; loadPRSubView('table'); }}>Filter</button>
-                    {#if prTableDir}
-                      <button class="btn btn-sm" onclick={() => { prTableDir = ''; prTableOffset = 0; loadPRSubView('table'); }}>Clear</button>
-                    {/if}
-                    <span style="color: var(--text-muted); font-size: 12px;">{fmtN(prTableData.total)} pages</span>
-                  </div>
-                  <table>
-                    <thead>
-                      <tr><th>#</th><th>URL</th><th>PageRank</th><th>Depth</th><th>Int Links</th><th>Ext Links</th><th>Words</th><th>Status</th><th>Title</th></tr>
-                    </thead>
-                    <tbody>
-                      {#each prTableData.pages || [] as p, i}
-                        <tr>
-                          <td style="color: var(--text-muted); font-size: 12px;">{prTableOffset + i + 1}</td>
-                          <td class="cell-url"><a href={urlDetailHref(p.url)} onclick={(e) => goToUrlDetail(e, p.url)}>{p.url}</a></td>
-                          <td style="color: var(--accent); font-weight: 600;">{p.pagerank.toFixed(1)}</td>
-                          <td>{p.depth}</td>
-                          <td>{fmtN(p.internal_links_out)}</td>
-                          <td>{fmtN(p.external_links_out)}</td>
-                          <td>{fmtN(p.word_count)}</td>
-                          <td><span class="badge {statusBadge(p.status_code)}">{p.status_code}</span></td>
-                          <td class="cell-title">{trunc(p.title, 50)}</td>
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
-                  {#if prTableData.total > 50}
-                    <div class="pagination">
-                      <button class="btn btn-sm" disabled={prTableOffset === 0} onclick={() => { prTableOffset = Math.max(0, prTableOffset - 50); loadPRSubView('table'); }}>Previous</button>
-                      <span class="pagination-info">{prTableOffset + 1} - {Math.min(prTableOffset + 50, prTableData.total)} of {fmtN(prTableData.total)}</span>
-                      <button class="btn btn-sm" disabled={prTableOffset + 50 >= prTableData.total} onclick={() => { prTableOffset += 50; loadPRSubView('table'); }}>Next</button>
-                    </div>
-                  {/if}
-                {:else}
-                  <p class="chart-empty">No PageRank data available. Compute PageRank first.</p>
-                {/if}
-              {/if}
-            </div>
-
-            <!-- Tooltip -->
-            {#if prTooltip}
-              <div class="pr-tooltip" style="left: {prTooltip.x + 12}px; top: {prTooltip.y - 10}px;">
-                {#if prTooltip.url}
-                  <div class="pr-tooltip-title">{prTooltip.url}</div>
-                  <div class="pr-tooltip-row"><span>PageRank</span><span>{prTooltip.pr.toFixed(2)}</span></div>
-                  <div class="pr-tooltip-row"><span>Depth</span><span>{prTooltip.depth}</span></div>
-                  <div class="pr-tooltip-row"><span>Int links</span><span>{fmtN(prTooltip.intLinks)}</span></div>
-                  <div class="pr-tooltip-row"><span>Ext links</span><span>{fmtN(prTooltip.extLinks)}</span></div>
-                  <div class="pr-tooltip-row"><span>Words</span><span>{fmtN(prTooltip.words)}</span></div>
-                {:else if prTooltip.path !== undefined}
-                  <div class="pr-tooltip-title">{prTooltip.path || '/'}</div>
-                  <div class="pr-tooltip-row"><span>Pages</span><span>{fmtN(prTooltip.pages)}</span></div>
-                  <div class="pr-tooltip-row"><span>Total PR</span><span>{prTooltip.totalPR.toFixed(1)}</span></div>
-                  <div class="pr-tooltip-row"><span>Avg PR</span><span>{prTooltip.avgPR.toFixed(2)}</span></div>
-                  <div class="pr-tooltip-row"><span>Max PR</span><span>{prTooltip.maxPR.toFixed(2)}</span></div>
-                {:else if prTooltip.bucketMin !== undefined}
-                  <div class="pr-tooltip-title">PR {prTooltip.bucketMin.toFixed(1)} - {prTooltip.bucketMax.toFixed(1)}</div>
-                  <div class="pr-tooltip-row"><span>Pages</span><span>{fmtN(prTooltip.count)}</span></div>
-                  <div class="pr-tooltip-row"><span>Avg PR</span><span>{prTooltip.avgPR.toFixed(2)}</span></div>
-                {/if}
-              </div>
-            {/if}
+            <PageRankTab sessionId={selectedSession.ID} initialSubView={prSubView}
+              onnavigate={(url) => goToUrlDetail({preventDefault:()=>{}}, url)}
+              onpushurl={(u) => pushURL(u)}
+              onerror={(msg) => error = msg} />
 
           {:else if tab === 'robots'}
-            <div class="robots-layout">
-              <div class="robots-hosts">
-                {#if robotsLoading && robotsHosts.length === 0}
-                  <p style="padding: 20px; color: var(--text-muted);">Loading...</p>
-                {:else if robotsHosts.length === 0}
-                  <p style="padding: 20px; color: var(--text-muted);">No robots.txt data. Run a crawl first.</p>
-                {:else}
-                  <table>
-                    <thead>
-                      <tr><th>Host</th><th>Status</th><th>Fetched</th></tr>
-                    </thead>
-                    <tbody>
-                      {#each robotsHosts as h}
-                        <tr class:robots-host-active={robotsSelectedHost === h.Host} role="button" tabindex="0" style="cursor:pointer" onclick={() => selectRobotsHost(h.Host)} onkeydown={a11yKeydown(() => selectRobotsHost(h.Host))}>
-                          <td style="font-weight: 500;">{h.Host}</td>
-                          <td><span class="badge {h.StatusCode === 200 ? 'badge-success' : h.StatusCode >= 400 ? 'badge-error' : 'badge-warning'}">{h.StatusCode}</span></td>
-                          <td style="color: var(--text-muted); font-size: 12px;">{new Date(h.FetchedAt).toLocaleString()}</td>
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
-                {/if}
-              </div>
-              <div class="robots-detail">
-                {#if robotsSelectedHost}
-                  <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary);">robots.txt &mdash; {robotsSelectedHost}</h3>
-                  {#if robotsContent !== null}
-                    <pre class="robots-content-pre">{robotsContent || '(empty)'}</pre>
-                  {:else}
-                    <p style="color: var(--text-muted);">Loading...</p>
-                  {/if}
-
-                  <div class="robots-tester" style="margin-top: 20px;">
-                    <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">URL Tester</h4>
-                    <div class="form-group" style="margin-bottom: 8px;">
-                      <label>User-Agent (optional)</label>
-                      <input type="text" placeholder="* (default)" bind:value={robotsTestUA} style="max-width: 300px;" />
-                    </div>
-                    <div class="form-group" style="margin-bottom: 8px;">
-                      <label>URLs to test (one per line)</label>
-                      <textarea rows="4" bind:value={robotsTestUrls} placeholder="/path/to/page&#10;/another/path" style="font-family: 'SF Mono', monospace; font-size: 13px;"></textarea>
-                    </div>
-                    <button class="btn btn-primary btn-sm" onclick={runRobotsTest} disabled={robotsTestLoading || !robotsTestUrls.trim()}>
-                      {robotsTestLoading ? 'Testing...' : 'Test'}
-                    </button>
-
-                    {#if robotsTestResults}
-                      <div style="margin-top: 12px;">
-                        {#each robotsTestResults as r}
-                          <div class="robots-test-result">
-                            <span class="badge {r.allowed ? 'badge-success' : 'badge-error'}">{r.allowed ? 'Allowed' : 'Blocked'}</span>
-                            <span style="font-size: 13px; margin-left: 8px;">{r.url}</span>
-                          </div>
-                        {/each}
-                      </div>
-                    {/if}
-                  </div>
-                {:else}
-                  <div style="padding: 40px; text-align: center; color: var(--text-muted);">
-                    <p>Select a host to view its robots.txt</p>
-                  </div>
-                {/if}
-              </div>
-            </div>
+            <RobotsTab sessionId={selectedSession.ID} onerror={(msg) => error = msg} />
 
           {:else if tab === 'sitemaps'}
-            <div class="robots-layout">
-              <div class="robots-hosts">
-                {#if sitemapsLoading && sitemaps.length === 0}
-                  <p style="padding: 20px; color: var(--text-muted);">Loading...</p>
-                {:else if sitemaps.length === 0}
-                  <p style="padding: 20px; color: var(--text-muted);">No sitemaps found. Run a crawl first.</p>
-                {:else}
-                  <table>
-                    <thead>
-                      <tr><th>URL</th><th>Type</th><th>URLs</th><th>Status</th></tr>
-                    </thead>
-                    <tbody>
-                      {#each sitemaps as s}
-                        <tr class:robots-host-active={selectedSitemap === s.URL} role="button" tabindex="0" style="cursor:pointer" onclick={() => selectSitemap(s.URL)} onkeydown={a11yKeydown(() => selectSitemap(s.URL))}>
-                          <td style="font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={s.URL}>{s.URL.replace(/^https?:\/\/[^/]+/, '')}</td>
-                          <td><span class="badge {s.Type === 'index' ? 'badge-warning' : s.Type === 'urlset' ? 'badge-success' : 'badge-muted'}">{s.Type || '?'}</span></td>
-                          <td style="text-align: right;">{s.URLCount?.toLocaleString() || 0}</td>
-                          <td><span class="badge {s.StatusCode === 200 ? 'badge-success' : s.StatusCode >= 400 ? 'badge-error' : 'badge-warning'}">{s.StatusCode}</span></td>
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
-                {/if}
-              </div>
-              <div class="robots-detail">
-                {#if selectedSitemap}
-                  <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary); word-break: break-all;">{selectedSitemap}</h3>
-                  {#if sitemapURLsLoading && sitemapURLs.length === 0}
-                    <p style="color: var(--text-muted);">Loading...</p>
-                  {:else if sitemapURLs.length === 0}
-                    <p style="color: var(--text-muted);">No URLs in this sitemap.</p>
-                  {:else}
-                    <table>
-                      <thead>
-                        <tr><th>URL</th><th>Last Modified</th><th>Change Freq</th><th>Priority</th></tr>
-                      </thead>
-                      <tbody>
-                        {#each sitemapURLs as u}
-                          <tr>
-                            <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={u.Loc}>{u.Loc}</td>
-                            <td style="color: var(--text-muted); font-size: 12px; white-space: nowrap;">{u.LastMod || '-'}</td>
-                            <td style="color: var(--text-muted); font-size: 12px;">{u.ChangeFreq || '-'}</td>
-                            <td style="color: var(--text-muted); font-size: 12px;">{u.Priority || '-'}</td>
-                          </tr>
-                        {/each}
-                      </tbody>
-                    </table>
-                    <div class="pagination" style="margin-top: 12px;">
-                      <button class="btn btn-sm" onclick={sitemapURLsPrev} disabled={sitemapURLsOffset === 0 || sitemapURLsLoading}>Prev</button>
-                      <span style="font-size: 12px; color: var(--text-muted);">
-                        {sitemapURLsOffset + 1}&ndash;{sitemapURLsOffset + sitemapURLs.length}
-                      </span>
-                      <button class="btn btn-sm" onclick={sitemapURLsNext} disabled={!hasMoreSitemapURLs || sitemapURLsLoading}>Next</button>
-                    </div>
-                  {/if}
-                {:else}
-                  <div style="padding: 40px; text-align: center; color: var(--text-muted);">
-                    <p>Select a sitemap to view its URLs</p>
-                  </div>
-                {/if}
-              </div>
-            </div>
-
+            <SitemapsTab sessionId={selectedSession.ID} onerror={(msg) => error = msg} />
           {:else if tab === 'stats'}
             <div class="charts-container">
               {#if stats?.depth_distribution && Object.keys(stats.depth_distribution).length > 0}
@@ -2708,68 +1960,9 @@
 </div>
 
 {#if showResumeModal}
-  <div class="html-modal-overlay" role="button" tabindex="0" onclick={closeResumeModal} onkeydown={a11yKeydown(closeResumeModal)}>
-    <div class="html-modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} style="max-width: 480px; height: auto;">
-      <div class="html-modal-header">
-        <div class="html-modal-url">Resume Crawl</div>
-        <div class="html-modal-actions">
-          <button class="btn btn-sm" title="Close" onclick={closeResumeModal}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-      </div>
-      <div style="padding: 20px;">
-        <div class="form-grid">
-          <div class="form-group"><label for="r-maxpages">Max pages (0 = unlimited)</label><input id="r-maxpages" type="number" bind:value={resumeMaxPages} min="0" /></div>
-          <div class="form-group"><label for="r-maxdepth">Max depth (0 = unlimited)</label><input id="r-maxdepth" type="number" bind:value={resumeMaxDepth} min="0" /></div>
-          <div class="form-group"><label for="r-workers">Workers</label><input id="r-workers" type="number" bind:value={resumeWorkers} min="1" max="100" /></div>
-          <div class="form-group"><label for="r-delay">Delay</label><input id="r-delay" type="text" bind:value={resumeDelay} placeholder="1s" /></div>
-          <div class="form-group">
-            <label for="r-scope">Crawl scope</label>
-            <select id="r-scope" bind:value={resumeCrawlScope}>
-              <option value="host">Same host only</option>
-              <option value="domain">Same domain (incl. subdomains)</option>
-            </select>
-          </div>
-          <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
-            <input id="r-storehtml" type="checkbox" bind:checked={resumeStoreHtml} /><label for="r-storehtml" style="margin: 0;">Store raw HTML</label>
-          </div>
-        </div>
-        <div style="display: flex; gap: 8px; margin-top: 20px;">
-          <button class="btn btn-primary" onclick={handleResume} disabled={resuming}>
-            {resuming ? 'Resuming...' : 'Resume'}
-          </button>
-          <button class="btn" onclick={closeResumeModal}>Cancel</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <ResumeModal sessionId={resumeSessionId} {sessions} onresume={onResumeComplete} onclose={closeResumeModal} onerror={(msg) => error = msg} />
 {/if}
 
 {#if showHtmlModal}
-  <div class="html-modal-overlay" role="button" tabindex="0" onclick={closeHtmlModal} onkeydown={a11yKeydown(closeHtmlModal)}>
-    <div class="html-modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
-      <div class="html-modal-header">
-        <div class="html-modal-url" title={htmlModalData.url}>{htmlModalData.url}</div>
-        <div class="html-modal-actions">
-          <button class="btn btn-sm" class:btn-primary={htmlModalView === 'render'} onclick={() => htmlModalView = 'render'}>Render</button>
-          <button class="btn btn-sm" class:btn-primary={htmlModalView === 'source'} onclick={() => htmlModalView = 'source'}>Source</button>
-          <button class="btn btn-sm" title="Close" onclick={closeHtmlModal}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="html-modal-body">
-        {#if htmlModalLoading}
-          <p style="padding: 40px; color: var(--text-muted); text-align: center;">Loading...</p>
-        {:else if !htmlModalData.body_html}
-          <p style="padding: 40px; color: var(--text-muted); text-align: center;">No HTML stored for this page.</p>
-        {:else if htmlModalView === 'render'}
-          <iframe srcdoc={htmlModalData.body_html} title="Page render" class="html-modal-iframe"></iframe>
-        {:else}
-          <pre class="html-modal-source"><code>{htmlModalData.body_html}</code></pre>
-        {/if}
-      </div>
-    </div>
-  </div>
+  <HtmlModal sessionId={selectedSession.ID} url={htmlModalUrl} onclose={closeHtmlModal} onerror={(msg) => error = msg} />
 {/if}

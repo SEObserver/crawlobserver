@@ -34,9 +34,9 @@ var frontendFS embed.FS
 // Server serves the web GUI and REST API.
 type Server struct {
 	cfg             *config.Config
-	store           *storage.Store
+	store           StorageService
 	keyStore        *apikeys.Store
-	manager         *crawler.Manager
+	manager         CrawlService
 	server          *http.Server
 	NoBrowserOpen   bool // skip auto-opening browser (e.g. in GUI/Wails mode)
 	IsDesktop       bool // true when running as .app desktop bundle
@@ -56,8 +56,18 @@ func New(cfg *config.Config, store *storage.Store, keyStore *apikeys.Store) *Ser
 	}
 }
 
-// Start starts the HTTP server.
-func (s *Server) Start() error {
+// NewWithDeps creates a new Server with explicit dependencies (for testing).
+func NewWithDeps(cfg *config.Config, store StorageService, keyStore *apikeys.Store, manager CrawlService) *Server {
+	return &Server{
+		cfg:      cfg,
+		store:    store,
+		keyStore: keyStore,
+		manager:  manager,
+	}
+}
+
+// buildHandler builds the HTTP handler with all routes, auth, and security headers.
+func (s *Server) buildHandler() (http.Handler, error) {
 	mux := http.NewServeMux()
 
 	// API routes - read
@@ -117,19 +127,16 @@ func (s *Server) Start() error {
 	// Static frontend files with SPA fallback
 	distFS, err := fs.Sub(frontendFS, "frontend/dist")
 	if err != nil {
-		return fmt.Errorf("frontend filesystem: %w", err)
+		return nil, fmt.Errorf("frontend filesystem: %w", err)
 	}
 	fileServer := http.FileServer(http.FS(distFS))
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		// Try to serve static file first
 		path := r.URL.Path
 		if path == "/" {
 			fileServer.ServeHTTP(w, r)
 			return
 		}
-		// Check if static file exists (assets, etc.)
 		if f, err := distFS.(fs.ReadFileFS).ReadFile(path[1:]); err == nil {
-			// Detect content type from extension
 			switch {
 			case strings.HasSuffix(path, ".js"):
 				w.Header().Set("Content-Type", "application/javascript")
@@ -145,12 +152,11 @@ func (s *Server) Start() error {
 			w.Write(f)
 			return
 		}
-		// SPA fallback: serve index.html for all other routes
 		r.URL.Path = "/"
 		fileServer.ServeHTTP(w, r)
 	})
 
-	// Wrap with auth middleware (API key + basic auth)
+	// Wrap with auth middleware
 	var handler http.Handler = mux
 	if s.keyStore != nil {
 		handler = apikeys.Authenticate(s.keyStore, s.cfg.Server.Username, s.cfg.Server.Password)(mux)
@@ -162,8 +168,16 @@ func (s *Server) Start() error {
 		log.Println("WARNING: No authentication configured. Set server.username and server.password in config.")
 	}
 
-	// Wrap with security headers
 	handler = securityHeaders(handler)
+	return handler, nil
+}
+
+// Start starts the HTTP server.
+func (s *Server) Start() error {
+	handler, err := s.buildHandler()
+	if err != nil {
+		return err
+	}
 
 	addr := fmt.Sprintf("%s:%d", s.cfg.Server.Host, s.cfg.Server.Port)
 	s.server = &http.Server{
@@ -176,7 +190,6 @@ func (s *Server) Start() error {
 	url := fmt.Sprintf("http://%s", addr)
 	log.Printf("Web UI available at %s", url)
 
-	// Auto-open browser (unless disabled for GUI/Wails mode)
 	if !s.NoBrowserOpen {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
