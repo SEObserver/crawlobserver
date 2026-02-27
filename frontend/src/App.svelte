@@ -283,6 +283,8 @@
         else { pagesOffset = off; }
         if (tab === 'pagerank') {
           await loadPRSubView(prSubView);
+        } else if (tab === 'robots') {
+          await loadRobotsHosts();
         } else {
           await loadTabData();
         }
