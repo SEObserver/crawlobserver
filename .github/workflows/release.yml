@@ -182,6 +182,7 @@ jobs:
       - name: Code sign the app
         run: |
           codesign --force --options runtime --deep \
+            --entitlements build/darwin/entitlements.plist \
             --sign "Developer ID Application: Kevin Richard (48HGS54WHP)" \
             SEOCrawler.app
 
