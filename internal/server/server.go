@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"os/exec"
+
 	"github.com/SEObserver/seocrawler/internal/apikeys"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/crawler"
@@ -151,8 +153,32 @@ func (s *Server) Start() error {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	log.Printf("Web UI available at http://%s", addr)
+	url := fmt.Sprintf("http://%s", addr)
+	log.Printf("Web UI available at %s", url)
+
+	// Auto-open browser
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		openBrowser(url)
+	}()
+
 	return s.server.ListenAndServe()
+}
+
+// openBrowser opens the given URL in the default browser.
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Printf("Could not open browser: %v", err)
+	}
 }
 
 // Stop gracefully shuts down the server.
