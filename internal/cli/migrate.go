@@ -1,9 +1,7 @@
 package cli
 
 import (
-	"context"
 	"fmt"
-	"log"
 
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/spf13/cobra"
@@ -25,18 +23,12 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	store, cleanup, err := setupClickHouse(cfg, "default") // connect to default db first for CREATE DATABASE
+	store, cleanup, err := setupClickHouse(cfg, "default")
 	if err != nil {
 		return err
 	}
 	defer store.Close()
 	defer cleanup()
 
-	log.Println("Running migrations...")
-	if err := store.Migrate(context.Background()); err != nil {
-		return fmt.Errorf("running migrations: %w", err)
-	}
-
-	log.Println("Migrations complete.")
 	return nil
 }

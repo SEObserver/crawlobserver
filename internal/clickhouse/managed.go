@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"syscall"
 	"time"
 )
 
@@ -73,7 +74,7 @@ func (m *ManagedServer) Stop() {
 	}
 
 	// SIGTERM for graceful shutdown
-	m.cmd.Process.Signal(os.Interrupt)
+	m.cmd.Process.Signal(syscall.SIGTERM)
 
 	done := make(chan error, 1)
 	go func() { done <- m.cmd.Wait() }()
