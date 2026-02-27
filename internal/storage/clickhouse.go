@@ -43,9 +43,15 @@ func NewStore(host string, port int, database, username, password string) (*Stor
 
 // Migrate runs all DDL migrations.
 func (s *Store) Migrate(ctx context.Context) error {
-	for i, ddl := range Migrations {
-		if err := s.conn.Exec(ctx, ddl); err != nil {
-			return fmt.Errorf("migration %d: %w", i+1, err)
+	for i, m := range Migrations {
+		if m.Fn != nil {
+			if err := m.Fn(ctx, s.conn); err != nil {
+				return fmt.Errorf("migration %d (%s): %w", i+1, m.Name, err)
+			}
+		} else {
+			if err := s.conn.Exec(ctx, m.DDL); err != nil {
+				return fmt.Errorf("migration %d (%s): %w", i+1, m.Name, err)
+			}
 		}
 	}
 	return nil
@@ -493,18 +499,22 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 }
 
 // DeleteSession deletes a crawl session and all its associated data.
+// Uses DROP PARTITION for instant deletion on partitioned tables.
 func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
-	queries := []string{
-		`ALTER TABLE seocrawler.links DELETE WHERE crawl_session_id = ?`,
-		`ALTER TABLE seocrawler.pages DELETE WHERE crawl_session_id = ?`,
-		`ALTER TABLE seocrawler.robots_txt DELETE WHERE crawl_session_id = ?`,
-		`ALTER TABLE seocrawler.crawl_sessions DELETE WHERE id = ?`,
-	}
-	for _, q := range queries {
+	// Drop partition on data tables (partitioned by crawl_session_id)
+	dataTables := []string{"pages", "links", "robots_txt", "sitemaps", "sitemap_urls"}
+	for _, table := range dataTables {
+		q := fmt.Sprintf("ALTER TABLE seocrawler.%s DROP PARTITION ID ?", table)
 		if err := s.conn.Exec(ctx, q, sessionID); err != nil {
-			return fmt.Errorf("deleting session data: %w", err)
+			return fmt.Errorf("dropping partition on %s: %w", table, err)
 		}
 	}
+
+	// crawl_sessions is not partitioned by session, use regular DELETE
+	if err := s.conn.Exec(ctx, `ALTER TABLE seocrawler.crawl_sessions DELETE WHERE id = ?`, sessionID); err != nil {
+		return fmt.Errorf("deleting session row: %w", err)
+	}
+
 	return nil
 }
 
@@ -602,6 +612,31 @@ func (s *Store) StorageStats(ctx context.Context) (*StorageStatsResult, error) {
 			return nil, fmt.Errorf("scanning storage stats: %w", err)
 		}
 		result.Tables = append(result.Tables, t)
+	}
+	return result, nil
+}
+
+// SessionStorageStats returns bytes on disk per crawl session,
+// computed from system.parts partitions across all data tables.
+func (s *Store) SessionStorageStats(ctx context.Context) (map[string]uint64, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT partition AS session_id, sum(bytes_on_disk) AS bytes
+		FROM system.parts
+		WHERE database = 'seocrawler' AND active = 1 AND table != 'crawl_sessions'
+		GROUP BY partition`)
+	if err != nil {
+		return nil, fmt.Errorf("querying session storage stats: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]uint64)
+	for rows.Next() {
+		var sessionID string
+		var bytes uint64
+		if err := rows.Scan(&sessionID, &bytes); err != nil {
+			return nil, fmt.Errorf("scanning session storage stats: %w", err)
+		}
+		result[sessionID] = bytes
 	}
 	return result, nil
 }

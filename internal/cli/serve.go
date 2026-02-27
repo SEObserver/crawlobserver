@@ -12,7 +12,6 @@ import (
 	"github.com/SEObserver/seocrawler/internal/apikeys"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/server"
-	"github.com/SEObserver/seocrawler/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -38,17 +37,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 		cfg.Server.Port = port
 	}
 
-	store, err := storage.NewStore(
-		cfg.ClickHouse.Host,
-		cfg.ClickHouse.Port,
-		cfg.ClickHouse.Database,
-		cfg.ClickHouse.Username,
-		cfg.ClickHouse.Password,
-	)
+	store, cleanup, err := setupClickHouse(cfg, cfg.ClickHouse.Database)
 	if err != nil {
-		return fmt.Errorf("connecting to ClickHouse: %w", err)
+		return err
 	}
 	defer store.Close()
+	defer cleanup()
 
 	keyStore, err := apikeys.NewStore(cfg.Server.SQLitePath)
 	if err != nil {

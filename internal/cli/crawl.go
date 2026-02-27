@@ -11,7 +11,6 @@ import (
 
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/crawler"
-	"github.com/SEObserver/seocrawler/internal/storage"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -71,17 +70,12 @@ func runCrawl(cmd *cobra.Command, args []string) error {
 	}
 
 	// Connect to ClickHouse
-	store, err := storage.NewStore(
-		cfg.ClickHouse.Host,
-		cfg.ClickHouse.Port,
-		cfg.ClickHouse.Database,
-		cfg.ClickHouse.Username,
-		cfg.ClickHouse.Password,
-	)
+	store, cleanup, err := setupClickHouse(cfg, cfg.ClickHouse.Database)
 	if err != nil {
-		return fmt.Errorf("connecting to ClickHouse: %w", err)
+		return err
 	}
 	defer store.Close()
+	defer cleanup()
 
 	// Create engine
 	engine := crawler.NewEngine(cfg, store)

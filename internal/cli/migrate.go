@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/SEObserver/seocrawler/internal/config"
-	"github.com/SEObserver/seocrawler/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -26,17 +25,12 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	store, err := storage.NewStore(
-		cfg.ClickHouse.Host,
-		cfg.ClickHouse.Port,
-		"default", // connect to default db first for CREATE DATABASE
-		cfg.ClickHouse.Username,
-		cfg.ClickHouse.Password,
-	)
+	store, cleanup, err := setupClickHouse(cfg, "default") // connect to default db first for CREATE DATABASE
 	if err != nil {
-		return fmt.Errorf("connecting to ClickHouse: %w", err)
+		return err
 	}
 	defer store.Close()
+	defer cleanup()
 
 	log.Println("Running migrations...")
 	if err := store.Migrate(context.Background()); err != nil {

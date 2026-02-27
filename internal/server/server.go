@@ -67,6 +67,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/sessions/{id}/sitemaps", s.handleSitemaps)
 	mux.HandleFunc("GET /api/sessions/{id}/sitemap-urls", s.handleSitemapURLs)
 	mux.HandleFunc("GET /api/storage-stats", s.handleStorageStats)
+	mux.HandleFunc("GET /api/session-storage", s.handleSessionStorage)
 	mux.HandleFunc("GET /api/global-stats", s.handleGlobalStats)
 	mux.HandleFunc("GET /api/system-stats", s.handleSystemStats)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
@@ -481,6 +482,18 @@ func (s *Server) handleStorageStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, stats)
 }
 
+func (s *Server) handleSessionStorage(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	stats, err := s.store.SessionStorageStats(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, stats)
+}
+
 func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 	if !requireFullAccess(w, r) {
 		return
@@ -490,6 +503,14 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+
+	// Get exact per-session storage from system.parts
+	sessionStorage, err := s.store.SessionStorageStats(r.Context())
+	if err != nil {
+		// Non-fatal: fall back to proportional estimation
+		log.Printf("warning: session storage stats unavailable: %v", err)
+		sessionStorage = map[string]uint64{}
 	}
 
 	// Load sessions
@@ -559,20 +580,6 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 		sessionMap[sess.ID] = sessionInfo{ProjectID: sess.ProjectID, SeedURLs: sess.SeedURLs}
 	}
 
-	// Compute total rows for proportional storage estimation
-	var totalPagesRows, totalLinksRows uint64
-	var pagesDisk, linksDisk uint64
-	for _, t := range storageResult.Tables {
-		switch t.Name {
-		case "pages":
-			totalPagesRows = t.Rows
-			pagesDisk = t.BytesOnDisk
-		case "links":
-			totalLinksRows = t.Rows
-			linksDisk = t.BytesOnDisk
-		}
-	}
-
 	// Aggregate by project
 	type projectStats struct {
 		ProjectID    *string `json:"project_id"`
@@ -625,15 +632,8 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 		globalFetchSum += gs.AvgFetchMs * float64(gs.TotalPages)
 		globalFetchCount += gs.TotalPages
 
-		// Proportional storage estimate
-		var est uint64
-		if totalPagesRows > 0 {
-			est += pagesDisk * gs.TotalPages / totalPagesRows
-		}
-		if totalLinksRows > 0 {
-			est += linksDisk * gs.TotalLinks / totalLinksRows
-		}
-		ps.StorageBytes += est
+		// Exact storage from system.parts partitions
+		ps.StorageBytes += sessionStorage[gs.SessionID]
 
 		globalPages += gs.TotalPages
 		globalLinks += gs.TotalLinks

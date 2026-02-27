@@ -30,11 +30,14 @@ type CrawlerConfig struct {
 }
 
 type ClickHouseConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Database string `mapstructure:"database"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
+	Host       string `mapstructure:"host"`
+	Port       int    `mapstructure:"port"`
+	Database   string `mapstructure:"database"`
+	Username   string `mapstructure:"username"`
+	Password   string `mapstructure:"password"`
+	Mode       string `mapstructure:"mode"`        // "managed" | "external" | "" (auto-detect)
+	BinaryPath string `mapstructure:"binary_path"` // path to clickhouse binary, "" = auto-detect
+	DataDir    string `mapstructure:"data_dir"`    // data directory, "" = platform default
 }
 
 func (c ClickHouseConfig) DSN() string {
@@ -84,6 +87,9 @@ func SetDefaults() {
 	viper.SetDefault("clickhouse.database", "seocrawler")
 	viper.SetDefault("clickhouse.username", "default")
 	viper.SetDefault("clickhouse.password", "")
+	viper.SetDefault("clickhouse.mode", "")
+	viper.SetDefault("clickhouse.binary_path", "")
+	viper.SetDefault("clickhouse.data_dir", "")
 
 	viper.SetDefault("storage.batch_size", 1000)
 	viper.SetDefault("storage.flush_interval", "5s")
@@ -134,11 +140,14 @@ func validate(cfg *Config) error {
 	if cfg.Crawler.UserAgent == "" {
 		return fmt.Errorf("crawler.user_agent must not be empty")
 	}
-	if cfg.ClickHouse.Host == "" {
-		return fmt.Errorf("clickhouse.host must not be empty")
-	}
-	if cfg.ClickHouse.Port <= 0 || cfg.ClickHouse.Port > 65535 {
-		return fmt.Errorf("clickhouse.port must be 1-65535")
+	// Skip host/port validation when managed mode (ports assigned dynamically)
+	if cfg.ClickHouse.Mode != "managed" {
+		if cfg.ClickHouse.Host == "" {
+			return fmt.Errorf("clickhouse.host must not be empty")
+		}
+		if cfg.ClickHouse.Port <= 0 || cfg.ClickHouse.Port > 65535 {
+			return fmt.Errorf("clickhouse.port must be 1-65535")
+		}
 	}
 	if cfg.Storage.BatchSize < 1 {
 		return fmt.Errorf("storage.batch_size must be >= 1")

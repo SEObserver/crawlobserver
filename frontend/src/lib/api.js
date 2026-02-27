@@ -57,6 +57,10 @@ export async function getGlobalStats() {
   return fetchJSON('/global-stats');
 }
 
+export async function getSessionStorage() {
+  return fetchJSON('/session-storage');
+}
+
 export async function getSystemStats() {
   return fetchJSON('/system-stats');
 }

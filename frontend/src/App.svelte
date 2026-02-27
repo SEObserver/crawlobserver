@@ -2,7 +2,7 @@
   import { getSessions, getStats, getPages, getExternalLinks, getInternalLinks, getProgress,
     startCrawl, stopCrawl, resumeCrawl, deleteSession, recomputeDepths, computePageRank, retryFailed,
     subscribeProgress, getTheme, updateTheme,
-    getPageHTML, getStorageStats, getGlobalStats, getPageDetail, getSystemStats,
+    getPageHTML, getStorageStats, getGlobalStats, getSessionStorage, getPageDetail, getSystemStats,
     getPageRankDistribution, getPageRankTreemap, getPageRankTop,
     getRobotsHosts, getRobotsContent, testRobotsUrls,
     getSitemaps, getSitemapURLs,
@@ -13,6 +13,7 @@
   let sessions = $state([]);
   let selectedSession = $state(null);
   let stats = $state(null);
+  let sessionStorageMap = $state({});
   let pages = $state([]);
   let extLinks = $state([]);
   let intLinks = $state([]);
@@ -491,7 +492,12 @@
   async function loadSessions() {
     try {
       loading = true;
-      sessions = await getSessions() || [];
+      const [sessionsData, storageData] = await Promise.all([
+        getSessions(),
+        getSessionStorage().catch(() => ({})),
+      ]);
+      sessions = sessionsData || [];
+      sessionStorageMap = storageData || {};
       for (const s of sessions) {
         if (s.is_running && !sseConnections[s.ID]) {
           sseConnections[s.ID] = subscribeProgress(s.ID,
@@ -656,7 +662,9 @@
   }
 
   async function handleDelete(id) {
-    if (!confirm('Delete this session and all its data?')) return;
+    const sizeBytes = sessionStorageMap[id];
+    const sizeText = sizeBytes ? ` and free ${fmtSize(sizeBytes)}` : '';
+    if (!confirm(`Delete this session${sizeText}?`)) return;
     try {
       await deleteSession(id);
       if (selectedSession?.ID === id) { selectedSession = null; pushURL('/'); }
@@ -705,7 +713,7 @@
   }
 
   function fmt(ms) { return ms < 1000 ? `${ms}ms` : `${(ms/1000).toFixed(1)}s`; }
-  function fmtSize(b) { return b < 1024 ? `${b}B` : b < 1048576 ? `${(b/1024).toFixed(1)}KB` : `${(b/1048576).toFixed(1)}MB`; }
+  function fmtSize(b) { return b < 1024 ? `${b}B` : b < 1048576 ? `${(b/1024).toFixed(1)}KB` : b < 1073741824 ? `${(b/1048576).toFixed(1)}MB` : `${(b/1073741824).toFixed(2)}GB`; }
   function fmtN(n) { return new Intl.NumberFormat().format(n); }
   function trunc(s, n) { return s && s.length > n ? s.slice(0, n) + '...' : (s || '-'); }
   function timeAgo(date) {
@@ -1523,6 +1531,7 @@
                       <span class="badge" style="background: var(--accent-light); color: var(--accent);">{projects.find(p => p.id === s.ProjectID)?.name || 'Project'}</span>
                     {/if}
                     <span>{fmtN(s.PagesCrawled)} pages</span>
+                    {#if sessionStorageMap[s.ID]}<span>{fmtSize(sessionStorageMap[s.ID])}</span>{/if}
                     <span>{timeAgo(s.StartedAt)}</span>
                   </div>
                 </div>
