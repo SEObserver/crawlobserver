@@ -128,6 +128,22 @@ export async function getPageRankTop(sessionId, limit = 50, offset = 0, director
   return fetchJSON(url);
 }
 
+export async function getRobotsHosts(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/robots`);
+}
+
+export async function getRobotsContent(sessionId, host) {
+  return fetchJSON(`/sessions/${sessionId}/robots-content?host=${encodeURIComponent(host)}`);
+}
+
+export async function testRobotsUrls(sessionId, host, userAgent, urls) {
+  return fetchJSON(`/sessions/${sessionId}/robots-test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ host, user_agent: userAgent, urls }),
+  });
+}
+
 // SSE for live progress
 export function subscribeProgress(sessionId, onMessage, onDone) {
   const source = new EventSource(`${BASE}/sessions/${sessionId}/events`);

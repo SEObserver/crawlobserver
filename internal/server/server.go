@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/SEObserver/seocrawler/internal/crawler"
 	"github.com/SEObserver/seocrawler/internal/storage"
 	"github.com/spf13/viper"
+	"github.com/temoto/robotstxt"
 )
 
 //go:embed all:frontend/dist
@@ -57,6 +59,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /api/sessions/{id}/pagerank-distribution", s.handlePageRankDistribution)
 	mux.HandleFunc("GET /api/sessions/{id}/pagerank-treemap", s.handlePageRankTreemap)
 	mux.HandleFunc("GET /api/sessions/{id}/pagerank-top", s.handlePageRankTop)
+	mux.HandleFunc("GET /api/sessions/{id}/robots", s.handleRobotsHosts)
+	mux.HandleFunc("GET /api/sessions/{id}/robots-content", s.handleRobotsContent)
 	mux.HandleFunc("GET /api/storage-stats", s.handleStorageStats)
 	mux.HandleFunc("GET /api/system-stats", s.handleSystemStats)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
@@ -70,6 +74,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /api/sessions/{id}/recompute-depths", s.handleRecomputeDepths)
 	mux.HandleFunc("POST /api/sessions/{id}/compute-pagerank", s.handleComputePageRank)
 	mux.HandleFunc("POST /api/sessions/{id}/retry-failed", s.handleRetryFailed)
+	mux.HandleFunc("POST /api/sessions/{id}/robots-test", s.handleRobotsTest)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
 
 	// Static frontend files with SPA fallback
@@ -501,6 +506,93 @@ func (s *Server) handlePageRankTop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, result)
+}
+
+func (s *Server) handleRobotsHosts(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	hosts, err := s.store.GetRobotsHosts(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if hosts == nil {
+		hosts = []storage.RobotsRow{}
+	}
+	writeJSON(w, hosts)
+}
+
+func (s *Server) handleRobotsContent(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	host := r.URL.Query().Get("host")
+	if host == "" {
+		writeError(w, http.StatusBadRequest, "missing host parameter")
+		return
+	}
+	row, err := s.store.GetRobotsContent(r.Context(), sessionID, host)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, row)
+}
+
+func (s *Server) handleRobotsTest(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+
+	var req struct {
+		Host      string   `json:"host"`
+		UserAgent string   `json:"user_agent"`
+		URLs      []string `json:"urls"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Host == "" || len(req.URLs) == 0 {
+		writeError(w, http.StatusBadRequest, "host and urls are required")
+		return
+	}
+	if req.UserAgent == "" {
+		req.UserAgent = "*"
+	}
+
+	// Load robots.txt content from DB
+	row, err := s.store.GetRobotsContent(r.Context(), sessionID, req.Host)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Parse robots.txt
+	robots, err := robotstxt.FromBytes([]byte(row.Content))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to parse robots.txt: "+err.Error())
+		return
+	}
+
+	group := robots.FindGroup(req.UserAgent)
+
+	type testResult struct {
+		URL     string `json:"url"`
+		Allowed bool   `json:"allowed"`
+	}
+	results := make([]testResult, 0, len(req.URLs))
+	for _, u := range req.URLs {
+		// Extract path from URL
+		path := u
+		if parsed, err := url.Parse(u); err == nil {
+			path = parsed.Path
+			if path == "" {
+				path = "/"
+			}
+		}
+		results = append(results, testResult{
+			URL:     u,
+			Allowed: group.Test(path),
+		})
+	}
+
+	writeJSON(w, map[string]interface{}{"results": results})
 }
 
 func basicAuth(next http.Handler, username, password string) http.Handler {

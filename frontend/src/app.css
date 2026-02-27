@@ -935,6 +935,56 @@ tr:hover td { background: var(--bg-hover); }
   box-shadow: 0 0 0 3px var(--accent-light);
 }
 
+/* ===== Robots.txt ===== */
+.robots-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  min-height: 400px;
+}
+
+.robots-hosts {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.robots-host-active td {
+  background: var(--accent-light) !important;
+  color: var(--accent);
+}
+
+.robots-detail {
+  padding: 20px;
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.robots-content-pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow: auto;
+  max-height: 300px;
+  color: var(--text);
+}
+
+.robots-test-result {
+  display: flex;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.robots-test-result:last-child {
+  border-bottom: none;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .sidebar { display: none; }
