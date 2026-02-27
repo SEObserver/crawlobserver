@@ -175,8 +175,11 @@ func (s *Server) handleUpdateTheme(w http.ResponseWriter, r *http.Request) {
 	viper.Set("theme.mode", t.Mode)
 
 	if err := viper.WriteConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
-		return
+		// Config file doesn't exist yet — create it
+		if err := viper.SafeWriteConfig(); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
+			return
+		}
 	}
 
 	s.cfg.Theme = t
