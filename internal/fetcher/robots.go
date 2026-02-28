@@ -28,12 +28,15 @@ type RobotsCache struct {
 }
 
 // NewRobotsCache creates a new RobotsCache.
-func NewRobotsCache(userAgent string, timeout time.Duration) *RobotsCache {
+func NewRobotsCache(userAgent string, timeout time.Duration, allowPrivateIPs bool) *RobotsCache {
 	return &RobotsCache{
 		cache:     make(map[string]*RobotsCacheEntry),
 		userAgent: userAgent,
 		client: &http.Client{
 			Timeout: timeout,
+			Transport: &http.Transport{
+				DialContext: SafeDialContext(allowPrivateIPs),
+			},
 		},
 	}
 }

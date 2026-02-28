@@ -1942,9 +1942,9 @@ func TestIntegration_StorageErrorPages(t *testing.T) {
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
-	// Pages handler returns 400 for store errors
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d; body: %s", rec.Code, rec.Body.String())
+	// Pages handler returns 500 for store errors (sanitized)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d; body: %s", rec.Code, rec.Body.String())
 	}
 }
 

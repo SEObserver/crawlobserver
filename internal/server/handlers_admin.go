@@ -227,6 +227,7 @@ func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 			limit = 30
 		}
 		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+		limit, offset = clampPagination(limit, offset)
 		search := r.URL.Query().Get("search")
 
 		projects, total, err := s.keyStore.ListProjectsPaginated(limit, offset, search)
@@ -262,7 +263,7 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := s.keyStore.CreateProject(req.Name)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusBadRequest, "failed to create project")
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -282,7 +283,7 @@ func (s *Server) handleRenameProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.keyStore.RenameProject(id, req.Name); err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
+		writeError(w, http.StatusNotFound, "project not found")
 		return
 	}
 	writeJSON(w, map[string]string{"status": "renamed"})
@@ -294,7 +295,7 @@ func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	if err := s.keyStore.DeleteProject(id); err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
+		writeError(w, http.StatusNotFound, "project not found")
 		return
 	}
 	writeJSON(w, map[string]string{"status": "deleted"})
@@ -364,7 +365,7 @@ func (s *Server) handleCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := s.keyStore.CreateAPIKey(req.Name, req.Type, req.ProjectID)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusBadRequest, "failed to create API key")
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -377,7 +378,7 @@ func (s *Server) handleDeleteAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	if err := s.keyStore.DeleteAPIKey(id); err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
+		writeError(w, http.StatusNotFound, "API key not found")
 		return
 	}
 	writeJSON(w, map[string]string{"status": "deleted"})
@@ -410,21 +411,21 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	if s.IsDesktop {
 		newAppPath, err := updater.DownloadDesktopUpdate(release)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "download failed: "+err.Error())
+			internalError(w, r, err)
 			return
 		}
 		if err := updater.SelfUpdateDesktop(newAppPath); err != nil {
-			writeError(w, http.StatusInternalServerError, "install failed: "+err.Error())
+			internalError(w, r, err)
 			return
 		}
 	} else {
 		tmpPath, err := updater.DownloadUpdate(release)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "download failed: "+err.Error())
+			internalError(w, r, err)
 			return
 		}
 		if err := updater.SelfUpdate(tmpPath); err != nil {
-			writeError(w, http.StatusInternalServerError, "install failed: "+err.Error())
+			internalError(w, r, err)
 			return
 		}
 	}
@@ -474,7 +475,7 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "backup failed: "+err.Error())
+		internalError(w, r, err)
 		return
 	}
 
@@ -529,7 +530,7 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "restore failed: "+err.Error())
+		internalError(w, r, err)
 		return
 	}
 
@@ -565,6 +566,7 @@ func (s *Server) handleListLogs(w http.ResponseWriter, r *http.Request) {
 		limit = 100
 	}
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	limit, offset = clampPagination(limit, offset)
 	level := r.URL.Query().Get("level")
 	component := r.URL.Query().Get("component")
 	search := r.URL.Query().Get("search")

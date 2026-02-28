@@ -18,8 +18,7 @@ import (
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	// Paginated mode if ?limit= is present
 	if r.URL.Query().Get("limit") != "" {
-		limit := queryInt(r, "limit", 30)
-		offset := queryInt(r, "offset", 0)
+		limit, offset := clampPagination(queryInt(r, "limit", 30), queryInt(r, "offset", 0))
 		projectID := r.URL.Query().Get("project_id")
 		search := r.URL.Query().Get("search")
 
@@ -99,13 +98,12 @@ func (s *Server) handlePages(w http.ResponseWriter, r *http.Request) {
 	if !s.requireSessionAccess(w, r, sessionID) {
 		return
 	}
-	limit := queryInt(r, "limit", 100)
-	offset := queryInt(r, "offset", 0)
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	filters := parseFilters(r, storage.PageFilters)
 
 	pages, err := s.store.ListPages(r.Context(), sessionID, limit, offset, filters)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, pages)
@@ -116,13 +114,12 @@ func (s *Server) handleLinks(w http.ResponseWriter, r *http.Request) {
 	if !s.requireSessionAccess(w, r, sessionID) {
 		return
 	}
-	limit := queryInt(r, "limit", 100)
-	offset := queryInt(r, "offset", 0)
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	filters := parseFilters(r, storage.LinkFilters)
 
 	links, err := s.store.ExternalLinksPaginated(r.Context(), sessionID, limit, offset, filters)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, links)
@@ -159,13 +156,12 @@ func (s *Server) handleInternalLinks(w http.ResponseWriter, r *http.Request) {
 	if !s.requireSessionAccess(w, r, sessionID) {
 		return
 	}
-	limit := queryInt(r, "limit", 100)
-	offset := queryInt(r, "offset", 0)
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	filters := parseFilters(r, storage.LinkFilters)
 
 	links, err := s.store.InternalLinksPaginated(r.Context(), sessionID, limit, offset, filters)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, links)
@@ -343,8 +339,7 @@ func (s *Server) handlePageDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing url parameter")
 		return
 	}
-	inLimit := queryInt(r, "in_limit", 100)
-	inOffset := queryInt(r, "in_offset", 0)
+	inLimit, inOffset := clampPagination(queryInt(r, "in_limit", 100), queryInt(r, "in_offset", 0))
 
 	page, err := s.store.GetPage(r.Context(), sessionID, url)
 	if err != nil {
@@ -414,14 +409,15 @@ func (s *Server) handleImportSession(w http.ResponseWriter, r *http.Request) {
 
 	file, _, err := r.FormFile("file")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "missing file field: "+err.Error())
+		writeError(w, http.StatusBadRequest, "missing or invalid file upload")
 		return
 	}
 	defer file.Close()
 
 	sess, err := s.store.ImportSession(r.Context(), file)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "import failed: "+err.Error())
+		applog.Errorf("server", "import session: %v", err)
+		writeError(w, http.StatusBadRequest, "import failed")
 		return
 	}
 
@@ -458,7 +454,7 @@ func (s *Server) handleComputePageRank(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
 
 	if err := s.store.ComputePageRank(r.Context(), sessionID); err != nil {
-		writeError(w, http.StatusInternalServerError, "pagerank computation failed: "+err.Error())
+		internalError(w, r, err)
 		return
 	}
 
@@ -527,8 +523,7 @@ func (s *Server) handlePageRankTop(w http.ResponseWriter, r *http.Request) {
 	if !s.requireSessionAccess(w, r, sessionID) {
 		return
 	}
-	limit := queryInt(r, "limit", 50)
-	offset := queryInt(r, "offset", 0)
+	limit, offset := clampPagination(queryInt(r, "limit", 50), queryInt(r, "offset", 0))
 	directory := r.URL.Query().Get("directory")
 	result, err := s.store.PageRankTop(r.Context(), sessionID, limit, offset, directory)
 	if err != nil {
@@ -605,7 +600,7 @@ func (s *Server) handleRobotsTest(w http.ResponseWriter, r *http.Request) {
 	// Parse robots.txt
 	robots, err := robotstxt.FromBytes([]byte(row.Content))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to parse robots.txt: "+err.Error())
+		internalError(w, r, err)
 		return
 	}
 
@@ -693,12 +688,12 @@ func (s *Server) handleRobotsSimulate(w http.ResponseWriter, r *http.Request) {
 	// Parse current and new robots.txt
 	currentRobots, err := robotstxt.FromBytes([]byte(row.Content))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "failed to parse current robots.txt: "+err.Error())
+		writeError(w, http.StatusBadRequest, "failed to parse current robots.txt")
 		return
 	}
 	newRobots, err := robotstxt.FromBytes([]byte(req.NewContent))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "failed to parse new robots.txt: "+err.Error())
+		writeError(w, http.StatusBadRequest, "failed to parse new robots.txt")
 		return
 	}
 
@@ -780,8 +775,7 @@ func (s *Server) handleSitemapURLs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing url parameter")
 		return
 	}
-	limit := queryInt(r, "limit", 100)
-	offset := queryInt(r, "offset", 0)
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 
 	urls, err := s.store.GetSitemapURLs(r.Context(), sessionID, sitemapURL, limit, offset)
 	if err != nil {
@@ -799,13 +793,12 @@ func (s *Server) handleExternalLinkChecks(w http.ResponseWriter, r *http.Request
 	if !s.requireSessionAccess(w, r, sessionID) {
 		return
 	}
-	limit := queryInt(r, "limit", 100)
-	offset := queryInt(r, "offset", 0)
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	filters := parseFilters(r, storage.ExternalCheckFilters)
 
 	checks, err := s.store.GetExternalLinkChecks(r.Context(), sessionID, limit, offset, filters)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	if checks == nil {
@@ -819,13 +812,12 @@ func (s *Server) handleExternalLinkCheckDomains(w http.ResponseWriter, r *http.R
 	if !s.requireSessionAccess(w, r, sessionID) {
 		return
 	}
-	limit := queryInt(r, "limit", 100)
-	offset := queryInt(r, "offset", 0)
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	filters := parseFilters(r, storage.ExternalDomainCheckFilters)
 
 	domains, err := s.store.GetExternalLinkCheckDomains(r.Context(), sessionID, limit, offset, filters)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	if domains == nil {
@@ -839,8 +831,7 @@ func (s *Server) handleExpiredDomains(w http.ResponseWriter, r *http.Request) {
 	if !s.requireSessionAccess(w, r, sessionID) {
 		return
 	}
-	limit := queryInt(r, "limit", 100)
-	offset := queryInt(r, "offset", 0)
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 
 	result, err := s.store.GetExpiredDomains(r.Context(), sessionID, limit, offset)
 	if err != nil {
@@ -855,13 +846,12 @@ func (s *Server) handlePageResourceChecks(w http.ResponseWriter, r *http.Request
 	if !s.requireSessionAccess(w, r, sessionID) {
 		return
 	}
-	limit := queryInt(r, "limit", 100)
-	offset := queryInt(r, "offset", 0)
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	filters := parseFilters(r, storage.PageResourceCheckFilters)
 
 	checks, err := s.store.GetPageResourceChecks(r.Context(), sessionID, limit, offset, filters)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	if checks == nil {

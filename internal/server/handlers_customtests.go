@@ -70,7 +70,7 @@ func (s *Server) handleUpdateRuleset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.keyStore.UpdateRuleset(id, req.Name, req.Rules); err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
+		writeError(w, http.StatusNotFound, "ruleset not found")
 		return
 	}
 	ruleset, err := s.keyStore.GetRuleset(id)
@@ -87,7 +87,7 @@ func (s *Server) handleDeleteRuleset(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	if err := s.keyStore.DeleteRuleset(id); err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
+		writeError(w, http.StatusNotFound, "ruleset not found")
 		return
 	}
 	writeJSON(w, map[string]string{"status": "deleted"})

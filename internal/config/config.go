@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -30,8 +31,9 @@ type CrawlerConfig struct {
 	MaxBodySize   int64         `mapstructure:"max_body_size"`
 	RespectRobots bool          `mapstructure:"respect_robots"`
 	StoreHTML     bool          `mapstructure:"store_html"`
-	CrawlScope    string        `mapstructure:"crawl_scope"` // "host" (default) or "domain" (eTLD+1)
-	Retry         RetryConfig   `mapstructure:"retry"`
+	CrawlScope      string        `mapstructure:"crawl_scope"`      // "host" (default) or "domain" (eTLD+1)
+	AllowPrivateIPs bool          `mapstructure:"allow_private_ips"` // allow crawling private/reserved IPs (default: false)
+	Retry           RetryConfig   `mapstructure:"retry"`
 }
 
 type RetryConfig struct {
@@ -100,6 +102,7 @@ func SetDefaults() {
 	viper.SetDefault("crawler.respect_robots", true)
 	viper.SetDefault("crawler.store_html", false)
 	viper.SetDefault("crawler.crawl_scope", "host")
+	viper.SetDefault("crawler.allow_private_ips", false)
 	viper.SetDefault("crawler.retry.max_retries", 3)
 	viper.SetDefault("crawler.retry.base_delay", "2s")
 	viper.SetDefault("crawler.retry.max_delay", "60s")
@@ -159,7 +162,31 @@ func Load() (*Config, error) {
 		fmt.Fprintf(os.Stderr, "\n  *** No password configured. Generated random password: %s ***\n  *** Set server.password in config.yaml to silence this message. ***\n\n", cfg.Server.Password)
 	}
 
+	// Warn about weak password when exposed on all interfaces
+	if cfg.Server.Host == "0.0.0.0" && isWeakPassword(cfg.Server.Password) {
+		fmt.Fprintf(os.Stderr, "\n  *** WARNING: server is listening on 0.0.0.0 with a weak password! ***\n  *** Set a strong password (>= 8 chars) in server.password before exposing to the internet. ***\n\n")
+	}
+
 	return &cfg, nil
+}
+
+// isWeakPassword checks if a password is too simple for internet-exposed deployments.
+func isWeakPassword(password string) bool {
+	if len(password) < 8 {
+		return true
+	}
+	weak := []string{
+		"password", "12345678", "123456789", "1234567890",
+		"crawlobserver", "seocrawler", "admin123", "changeme",
+		"qwerty123", "letmein", "welcome1",
+	}
+	lower := strings.ToLower(password)
+	for _, w := range weak {
+		if lower == w {
+			return true
+		}
+	}
+	return false
 }
 
 func validate(cfg *Config) error {

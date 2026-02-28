@@ -30,16 +30,14 @@ type Fetcher struct {
 }
 
 // New creates a new Fetcher.
-func New(userAgent string, timeout time.Duration, maxBodySize int64) *Fetcher {
+func New(userAgent string, timeout time.Duration, maxBodySize int64, allowPrivateIPs bool) *Fetcher {
 	f := &Fetcher{
 		userAgent:   userAgent,
 		maxBodySize: maxBodySize,
 	}
 
 	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout: 10 * time.Second,
-		}).DialContext,
+		DialContext:            SafeDialContext(allowPrivateIPs),
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout:  15 * time.Second,
 		MaxIdleConnsPerHost:    2,
@@ -53,6 +51,12 @@ func New(userAgent string, timeout time.Duration, maxBodySize int64) *Fetcher {
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return fmt.Errorf("stopped after 10 redirects")
+			}
+			// SSRF: block redirects to private IP literals
+			if !allowPrivateIPs {
+				if ip := net.ParseIP(req.URL.Hostname()); ip != nil && IsPrivateIP(ip) {
+					return fmt.Errorf("%w: redirect to %s", ErrPrivateIP, req.URL.Hostname())
+				}
 			}
 			// Track redirect hops via context
 			if tracker, ok := req.Context().Value(redirectTrackerKey{}).(*redirectTracker); ok {
@@ -164,6 +168,11 @@ func (r *FetchResult) IsHTML() bool {
 func CategorizeError(err error) string {
 	if err == nil {
 		return ""
+	}
+
+	// Check for SSRF block
+	if errors.Is(err, ErrPrivateIP) {
+		return "ssrf_blocked"
 	}
 
 	// Check for DNS errors

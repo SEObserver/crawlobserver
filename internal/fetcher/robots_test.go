@@ -22,7 +22,7 @@ Disallow: /secret/
 	}))
 	defer server.Close()
 
-	rc := NewRobotsCache("CrawlObserver", 5*time.Second)
+	rc := NewRobotsCache("CrawlObserver", 5*time.Second, true)
 
 	tests := []struct {
 		path    string
@@ -56,7 +56,7 @@ Disallow: /private/
 	}))
 	defer server.Close()
 
-	rc := NewRobotsCache("CrawlObserver", 5*time.Second)
+	rc := NewRobotsCache("CrawlObserver", 5*time.Second, true)
 
 	delay := rc.CrawlDelay(server.URL + "/page")
 	if delay != 3*time.Second {
@@ -70,7 +70,7 @@ func TestRobotsCacheNoRobotsTxt(t *testing.T) {
 	}))
 	defer server.Close()
 
-	rc := NewRobotsCache("CrawlObserver", 5*time.Second)
+	rc := NewRobotsCache("CrawlObserver", 5*time.Second, true)
 
 	// Should allow everything when robots.txt returns 404
 	if !rc.IsAllowed(server.URL + "/anything") {

@@ -269,6 +269,7 @@ func (s *Server) handleGSCQueries(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 {
 		limit = 100
 	}
+	limit, offset = clampPagination(limit, offset)
 	rows, total, err := s.store.GSCTopQueries(r.Context(), projectID, limit, offset)
 	if err != nil {
 		internalError(w, r, err)
@@ -284,6 +285,7 @@ func (s *Server) handleGSCPages(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 {
 		limit = 100
 	}
+	limit, offset = clampPagination(limit, offset)
 	rows, total, err := s.store.GSCTopPages(r.Context(), projectID, limit, offset)
 	if err != nil {
 		internalError(w, r, err)
@@ -329,6 +331,7 @@ func (s *Server) handleGSCInspection(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 {
 		limit = 100
 	}
+	limit, offset = clampPagination(limit, offset)
 	rows, total, err := s.store.GSCInspectionResults(r.Context(), projectID, limit, offset)
 	if err != nil {
 		internalError(w, r, err)

@@ -39,8 +39,7 @@ func (s *Server) handleComparePages(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "type must be one of: added, removed, changed")
 		return
 	}
-	limit := queryInt(r, "limit", 100)
-	offset := queryInt(r, "offset", 0)
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	result, err := s.store.ComparePages(r.Context(), a, b, diffType, limit, offset)
 	if err != nil {
 		internalError(w, r, err)
@@ -66,8 +65,7 @@ func (s *Server) handleCompareLinks(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "type must be one of: added, removed")
 		return
 	}
-	limit := queryInt(r, "limit", 100)
-	offset := queryInt(r, "offset", 0)
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	result, err := s.store.CompareLinks(r.Context(), a, b, diffType, limit, offset)
 	if err != nil {
 		internalError(w, r, err)

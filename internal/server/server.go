@@ -359,9 +359,6 @@ func (s *Server) serverInfoPayload() map[string]interface{} {
 		"port":     s.cfg.Server.Port,
 		"has_auth": s.cfg.Server.Username != "" && s.cfg.Server.Password != "",
 	}
-	if s.cfg.Server.Username != "" && s.cfg.Server.Password != "" {
-		info["username"] = s.cfg.Server.Username
-	}
 	return info
 }
 
@@ -387,7 +384,7 @@ func (s *Server) handleUpdateTheme(w http.ResponseWriter, r *http.Request) {
 	if err := viper.WriteConfig(); err != nil {
 		// Config file doesn't exist yet — create it
 		if err := viper.SafeWriteConfig(); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
+			internalError(w, r, err)
 			return
 		}
 	}
@@ -455,6 +452,20 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 // --- Utilities ---
+
+// clampPagination enforces sane bounds on limit and offset values.
+func clampPagination(limit, offset int) (int, int) {
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return limit, offset
+}
 
 func queryInt(r *http.Request, key string, def int) int {
 	v := r.URL.Query().Get(key)

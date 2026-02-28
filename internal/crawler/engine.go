@@ -76,8 +76,8 @@ func NewEngine(cfg *config.Config, store *storage.Store) *Engine {
 		cfg:    cfg,
 		store:  store,
 		front:  frontier.New(cfg.Crawler.Delay),
-		fetch:  fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize),
-		robots: fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout),
+		fetch:  fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize, cfg.Crawler.AllowPrivateIPs),
+		robots: fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.AllowPrivateIPs),
 		retryQueue: NewRetryQueue(),
 		hostHealth: NewHostHealth(),
 		retryPolicy: &RetryPolicy{
@@ -889,6 +889,9 @@ func computeIndexability(statusCode uint16, metaRobots, xRobotsTag, canonical, f
 func (e *Engine) externalCheckWorker() {
 	client := &http.Client{
 		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			DialContext: fetcher.SafeDialContext(e.cfg.Crawler.AllowPrivateIPs),
+		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return http.ErrUseLastResponse
@@ -960,6 +963,9 @@ func (e *Engine) flushExternalChecks() {
 func (e *Engine) resourceCheckWorker() {
 	client := &http.Client{
 		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			DialContext: fetcher.SafeDialContext(e.cfg.Crawler.AllowPrivateIPs),
+		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return http.ErrUseLastResponse

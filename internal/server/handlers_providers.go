@@ -368,6 +368,7 @@ func (s *Server) handleProviderBacklinks(w http.ResponseWriter, r *http.Request)
 	if limit <= 0 {
 		limit = 100
 	}
+	limit, offset = clampPagination(limit, offset)
 	rows, total, err := s.store.ProviderBacklinks(r.Context(), projectID, provider, limit, offset)
 	if err != nil {
 		internalError(w, r, err)
@@ -384,6 +385,7 @@ func (s *Server) handleProviderRefDomains(w http.ResponseWriter, r *http.Request
 	if limit <= 0 {
 		limit = 100
 	}
+	limit, offset = clampPagination(limit, offset)
 	rows, total, err := s.store.ProviderRefDomains(r.Context(), projectID, provider, limit, offset)
 	if err != nil {
 		internalError(w, r, err)
@@ -400,6 +402,7 @@ func (s *Server) handleProviderRankings(w http.ResponseWriter, r *http.Request) 
 	if limit <= 0 {
 		limit = 100
 	}
+	limit, offset = clampPagination(limit, offset)
 	rows, total, err := s.store.ProviderRankings(r.Context(), projectID, provider, limit, offset)
 	if err != nil {
 		internalError(w, r, err)

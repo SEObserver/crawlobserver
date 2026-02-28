@@ -20,7 +20,7 @@ func TestFetchBasic(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024)
+	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, true)
 	result := f.Fetch(server.URL, 0, "")
 
 	if result.Error != "" {
@@ -62,7 +62,7 @@ func TestFetchRedirectChain(t *testing.T) {
 	server = httptest.NewServer(mux)
 	defer server.Close()
 
-	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024)
+	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, true)
 	result := f.Fetch(server.URL+"/start", 0, "")
 
 	if result.Error != "" {
@@ -88,7 +88,7 @@ func TestFetchBodySizeLimit(t *testing.T) {
 	defer server.Close()
 
 	// Limit to 1KB
-	f := New("TestBot/1.0", 10*time.Second, 1024)
+	f := New("TestBot/1.0", 10*time.Second, 1024, true)
 	result := f.Fetch(server.URL, 0, "")
 
 	if result.Error != "" {
@@ -106,7 +106,7 @@ func TestFetchTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := New("TestBot/1.0", 100*time.Millisecond, 10*1024*1024)
+	f := New("TestBot/1.0", 100*time.Millisecond, 10*1024*1024, true)
 	result := f.Fetch(server.URL, 0, "")
 
 	if result.Error == "" {
@@ -121,7 +121,7 @@ func TestFetch404(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024)
+	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, true)
 	result := f.Fetch(server.URL+"/missing", 0, "")
 
 	if result.StatusCode != 404 {
