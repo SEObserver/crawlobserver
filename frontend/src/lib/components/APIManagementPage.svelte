@@ -1,8 +1,15 @@
 <script>
   import { getProjects, createProject, renameProject, deleteProject, getAPIKeys, createAPIKey, deleteAPIKey, getServerInfo } from '../api.js';
   import { timeAgo, copyToClipboard } from '../utils.js';
+  import ConfirmModal from './ConfirmModal.svelte';
 
   let { onerror, onprojectschanged } = $props();
+
+  let confirmState = $state(null);
+
+  function showConfirm(message, onConfirm, opts = {}) {
+    confirmState = { message, onConfirm, ...opts };
+  }
 
   let serverInfo = $state(null);
 
@@ -43,12 +50,13 @@
     } catch (e) { onerror?.(e.message); }
   }
 
-  async function handleDeleteProject(id) {
-    if (!confirm('Delete this project? Associated API keys will also be deleted.')) return;
-    try {
-      await deleteProject(id);
-      await loadAPIData();
-    } catch (e) { onerror?.(e.message); }
+  function handleDeleteProject(id) {
+    showConfirm('Delete this project? Associated API keys will also be deleted.', async () => {
+      try {
+        await deleteProject(id);
+        await loadAPIData();
+      } catch (e) { onerror?.(e.message); }
+    }, { danger: true, confirmLabel: 'Delete' });
   }
 
   async function handleCreateAPIKey() {
@@ -64,12 +72,13 @@
     } catch (e) { onerror?.(e.message); }
   }
 
-  async function handleDeleteAPIKey(id) {
-    if (!confirm('Revoke this API key?')) return;
-    try {
-      await deleteAPIKey(id);
-      await loadAPIData();
-    } catch (e) { onerror?.(e.message); }
+  function handleDeleteAPIKey(id) {
+    showConfirm('Revoke this API key?', async () => {
+      try {
+        await deleteAPIKey(id);
+        await loadAPIData();
+      } catch (e) { onerror?.(e.message); }
+    }, { danger: true, confirmLabel: 'Delete' });
   }
 
   async function loadServerInfo() {
@@ -243,6 +252,8 @@
     {/each}
   </div>
 {/if}
+
+{#if confirmState}<ConfirmModal message={confirmState.message} danger={confirmState.danger} confirmLabel={confirmState.confirmLabel} onconfirm={() => { confirmState.onConfirm(); confirmState = null; }} oncancel={() => confirmState = null} />{/if}
 
 <style>
   .api-endpoint-card {

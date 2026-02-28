@@ -1,5 +1,6 @@
 <script>
   import { getRulesets, getRuleset, createRuleset, updateRuleset, deleteRuleset, runTests } from '../api.js';
+  import ConfirmModal from './ConfirmModal.svelte';
 
   let { sessionId, onerror } = $props();
 
@@ -44,6 +45,12 @@
 
   function isAllRule(type) {
     return type.includes('_all_') || type.endsWith('_all');
+  }
+
+  let confirmState = $state(null);
+
+  function showConfirm(message, onConfirm, opts = {}) {
+    confirmState = { message, onConfirm, ...opts };
   }
 
   // State
@@ -117,14 +124,15 @@
     }
   }
 
-  async function removeRuleset(id) {
-    if (!confirm('Delete this ruleset?')) return;
-    try {
-      await deleteRuleset(id);
-      await loadRulesets();
-    } catch (e) {
-      onerror?.(e.message);
-    }
+  function removeRuleset(id) {
+    showConfirm('Delete this ruleset?', async () => {
+      try {
+        await deleteRuleset(id);
+        await loadRulesets();
+      } catch (e) {
+        onerror?.(e.message);
+      }
+    }, { danger: true, confirmLabel: 'Delete' });
   }
 
   async function runRuleset(rulesetId) {
@@ -360,6 +368,8 @@
     {/if}
   </div>
 {/if}
+
+{#if confirmState}<ConfirmModal message={confirmState.message} danger={confirmState.danger} confirmLabel={confirmState.confirmLabel} onconfirm={() => { confirmState.onConfirm(); confirmState = null; }} oncancel={() => confirmState = null} />{/if}
 
 <style>
   .ct-card-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
