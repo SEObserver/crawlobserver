@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/SEObserver/seocrawler/internal/applog"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -136,12 +137,17 @@ func (c *Client) ListProperties(ctx context.Context) ([]Property, error) {
 	return props, nil
 }
 
-func (c *Client) FetchSearchAnalytics(ctx context.Context, propertyURL, startDate, endDate string) ([]AnalyticsRow, error) {
-	var allRows []AnalyticsRow
+// BatchCallback is called after each batch of rows is fetched from the API.
+// rows contains the current batch; totalSoFar is the running total of rows fetched.
+type BatchCallback func(rows []AnalyticsRow, totalSoFar int) error
+
+func (c *Client) FetchSearchAnalytics(ctx context.Context, propertyURL, startDate, endDate string, onBatch BatchCallback) (int, error) {
 	startRow := int64(0)
 	rowLimit := int64(25000)
+	total := 0
 
 	for {
+		applog.Infof("gsc", "querying analytics startRow=%d ...", startRow)
 		req := &searchconsole.SearchAnalyticsQueryRequest{
 			StartDate:  startDate,
 			EndDate:    endDate,
@@ -152,14 +158,15 @@ func (c *Client) FetchSearchAnalytics(ctx context.Context, propertyURL, startDat
 
 		resp, err := c.service.Searchanalytics.Query(propertyURL, req).Context(ctx).Do()
 		if err != nil {
-			return nil, fmt.Errorf("querying search analytics (startRow=%d): %w", startRow, err)
+			return total, fmt.Errorf("querying search analytics (startRow=%d): %w", startRow, err)
 		}
 
+		var batch []AnalyticsRow
 		for _, row := range resp.Rows {
 			if len(row.Keys) < 5 {
 				continue
 			}
-			allRows = append(allRows, AnalyticsRow{
+			batch = append(batch, AnalyticsRow{
 				Date:        row.Keys[0],
 				Query:       row.Keys[1],
 				Page:        row.Keys[2],
@@ -171,6 +178,14 @@ func (c *Client) FetchSearchAnalytics(ctx context.Context, propertyURL, startDat
 				Position:    row.Position,
 			})
 		}
+		total += len(batch)
+		applog.Infof("gsc", "got %d rows (total so far: %d)", len(batch), total)
+
+		if onBatch != nil {
+			if err := onBatch(batch, total); err != nil {
+				return total, fmt.Errorf("batch callback: %w", err)
+			}
+		}
 
 		if len(resp.Rows) < int(rowLimit) {
 			break
@@ -178,7 +193,7 @@ func (c *Client) FetchSearchAnalytics(ctx context.Context, propertyURL, startDat
 		startRow += rowLimit
 	}
 
-	return allRows, nil
+	return total, nil
 }
 
 func (c *Client) FetchURLInspection(ctx context.Context, propertyURL string, urls []string) ([]InspectionRow, error) {

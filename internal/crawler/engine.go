@@ -3,13 +3,14 @@ package crawler
 import (
 	"context"
 	"fmt"
-	"log"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/SEObserver/seocrawler/internal/applog"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/fetcher"
 	"github.com/SEObserver/seocrawler/internal/frontier"
@@ -39,6 +40,13 @@ type Engine struct {
 	hostHealth     *HostHealth
 	retryPolicy    *RetryPolicy
 	pendingRetries atomic.Int64
+
+	checkExternal    bool
+	externalWorkers  int
+	externalCh       chan string
+	externalChecked  sync.Map
+	externalCheckBuf []storage.ExternalLinkCheck
+	externalCheckMu  sync.Mutex
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -161,14 +169,14 @@ func (e *Engine) Run(seeds []string) error {
 		return fmt.Errorf("inserting session: %w", err)
 	}
 
-	log.Printf("Starting crawl session %s with %d seed(s), %d workers",
+	applog.Infof("crawler", "Starting crawl session %s with %d seed(s), %d workers",
 		e.session.ID, len(seeds), e.cfg.Crawler.Workers)
 
 	// Seed the frontier
 	for i, seed := range seeds {
 		normalized, err := normalizer.Normalize(seed)
 		if err != nil {
-			log.Printf("WARNING: skipping invalid seed %q: %v", seed, err)
+			applog.Warnf("crawler", "skipping invalid seed %q: %v", seed, err)
 			continue
 		}
 		e.front.Add(frontier.CrawlURL{
@@ -224,13 +232,13 @@ func (e *Engine) Run(seeds []string) error {
 		}
 
 		if err := e.store.InsertSitemaps(context.Background(), sitemapRows); err != nil {
-			log.Printf("WARNING: failed to persist sitemaps: %v", err)
+			applog.Warnf("crawler", "failed to persist sitemaps: %v", err)
 		}
 		if err := e.store.InsertSitemapURLs(context.Background(), sitemapURLRows); err != nil {
-			log.Printf("WARNING: failed to persist sitemap URLs: %v", err)
+			applog.Warnf("crawler", "failed to persist sitemap URLs: %v", err)
 		}
 		if len(sitemapRows) > 0 {
-			log.Printf("Persisted %d sitemaps (%d URLs total)", len(sitemapRows), len(sitemapURLRows))
+			applog.Infof("crawler", "Persisted %d sitemaps (%d URLs total)", len(sitemapRows), len(sitemapURLRows))
 		}
 	}
 
@@ -270,6 +278,24 @@ func (e *Engine) Run(seeds []string) error {
 		e.retryDispatcher(retryCtx, fetchCh)
 	}()
 
+	// External link check workers
+	var extWg sync.WaitGroup
+	if e.checkExternal {
+		e.externalCh = make(chan string, 1000)
+		numExtWorkers := e.externalWorkers
+		if numExtWorkers <= 0 {
+			numExtWorkers = 3
+		}
+		for i := 0; i < numExtWorkers; i++ {
+			extWg.Add(1)
+			go func() {
+				defer extWg.Done()
+				e.externalCheckWorker()
+			}()
+		}
+		applog.Infof("crawler", "Started %d external link check workers", numExtWorkers)
+	}
+
 	// Dispatcher: feeds URLs from frontier to fetch workers
 	e.dispatcher(fetchCh)
 
@@ -284,6 +310,13 @@ func (e *Engine) Run(seeds []string) error {
 
 	// Wait for parse workers to finish
 	parseWg.Wait()
+
+	// Shutdown external check workers
+	if e.checkExternal && e.externalCh != nil {
+		close(e.externalCh)
+		extWg.Wait()
+		e.flushExternalChecks()
+	}
 
 	// Final flush
 	e.buffer.Close()
@@ -302,20 +335,20 @@ func (e *Engine) Run(seeds []string) error {
 			})
 		}
 		if err := e.store.InsertRobotsData(context.Background(), robotsRows); err != nil {
-			log.Printf("WARNING: failed to persist robots.txt data: %v", err)
+			applog.Warnf("crawler", "failed to persist robots.txt data: %v", err)
 		} else {
-			log.Printf("Persisted robots.txt for %d hosts", len(robotsRows))
+			applog.Infof("crawler", "Persisted robots.txt for %d hosts", len(robotsRows))
 		}
 	}
 
 	// Recompute depths via BFS
 	if err := e.store.RecomputeDepths(context.Background(), e.session.ID, e.session.SeedURLs); err != nil {
-		log.Printf("WARNING: depth recomputation failed: %v", err)
+		applog.Warnf("crawler", "depth recomputation failed: %v", err)
 	}
 
 	// Compute internal PageRank
 	if err := e.store.ComputePageRank(context.Background(), e.session.ID); err != nil {
-		log.Printf("WARNING: PageRank computation failed: %v", err)
+		applog.Warnf("crawler", "PageRank computation failed: %v", err)
 	}
 
 	// Update session status with actual page count from storage
@@ -328,10 +361,10 @@ func (e *Engine) Run(seeds []string) error {
 	row := e.session.ToStorageRow()
 	row.FinishedAt = time.Now()
 	if err := e.store.InsertSession(context.Background(), row); err != nil {
-		log.Printf("ERROR updating session: %v", err)
+		applog.Errorf("crawler", "updating session: %v", err)
 	}
 
-	log.Printf("Crawl complete: %d pages crawled, session %s",
+	applog.Infof("crawler", "Crawl complete: %d pages crawled, session %s",
 		e.pagesCrawled.Load(), e.session.ID)
 
 	return nil
@@ -339,7 +372,7 @@ func (e *Engine) Run(seeds []string) error {
 
 // Stop gracefully stops the engine.
 func (e *Engine) Stop() {
-	log.Println("Stopping crawl engine...")
+	applog.Info("crawler", "Stopping crawl engine...")
 	e.cancel()
 	e.front.Close()
 }
@@ -358,7 +391,7 @@ func (e *Engine) dispatcher(fetchCh chan<- *frontier.CrawlURL) {
 
 		// Check max pages limit
 		if e.maxPages > 0 && e.pagesCrawled.Load() >= e.maxPages {
-			log.Printf("Reached max pages limit (%d)", e.maxPages)
+			applog.Infof("crawler", "Reached max pages limit (%d)", e.maxPages)
 			return
 		}
 
@@ -399,7 +432,7 @@ func (e *Engine) fetchWorker(id int, in <-chan *frontier.CrawlURL, out chan<- *f
 		// Always fetch robots.txt for storage; only block if configured
 		allowed := e.robots.IsAllowed(crawlURL.URL)
 		if e.cfg.Crawler.RespectRobots && !allowed {
-			log.Printf("Blocked by robots.txt: %s", crawlURL.URL)
+			applog.Infof("crawler", "Blocked by robots.txt: %s", crawlURL.URL)
 			continue
 		}
 
@@ -413,7 +446,7 @@ func (e *Engine) fetchWorker(id int, in <-chan *frontier.CrawlURL, out chan<- *f
 
 		count := e.pagesCrawled.Load()
 		if count%100 == 0 {
-			log.Printf("Progress: %d pages crawled, %d in queue, %d pending retries",
+			applog.Infof("crawler", "Progress: %d pages crawled, %d in queue, %d pending retries",
 				count, e.front.Len(), e.pendingRetries.Load())
 		}
 
@@ -454,7 +487,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 		// Circuit breaker: check every 100 pages
 		if pages := e.pagesCrawled.Load(); pages > 0 && pages%100 == 0 {
 			if rate := e.hostHealth.GlobalErrorRate(); rate > e.cfg.Crawler.Retry.MaxGlobalErrorRate {
-				log.Printf("STOPPING: global error rate %.2f exceeds threshold %.2f",
+				applog.Errorf("crawler", "STOPPING: global error rate %.2f exceeds threshold %.2f",
 					rate, e.cfg.Crawler.Retry.MaxGlobalErrorRate)
 				e.Stop()
 			}
@@ -504,7 +537,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 		if result.IsHTML() && len(result.Body) > 0 && result.Error == "" {
 			pageData, err := parser.Parse(result.Body, result.FinalURL)
 			if err != nil {
-				log.Printf("Parse error for %s: %v", result.URL, err)
+				applog.Warnf("crawler", "Parse error for %s: %v", result.URL, err)
 			} else {
 				pageRow.Title = pageData.Title
 				pageRow.TitleLength = uint16(len(pageData.Title))
@@ -586,6 +619,14 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 						}
 					} else {
 						externalOut++
+						if e.checkExternal && e.externalCh != nil {
+							if _, loaded := e.externalChecked.LoadOrStore(link.TargetURL, struct{}{}); !loaded {
+								select {
+								case e.externalCh <- link.TargetURL:
+								default:
+								}
+							}
+						}
 					}
 				}
 				pageRow.InternalLinksOut = internalOut
@@ -680,7 +721,7 @@ func (e *Engine) enqueueRetry(result *fetcher.FetchResult) {
 	delay := e.retryPolicy.ComputeDelay(result.Attempt, retryAfter)
 
 	host := extractHost(result.URL)
-	log.Printf("Retry #%d for %s (status=%d, err=%q) in %v",
+	applog.Infof("crawler", "Retry #%d for %s (status=%d, err=%q) in %v",
 		nextAttempt, result.URL, result.StatusCode, result.Error, delay)
 
 	// Track pending retries (first enqueue only)
@@ -736,4 +777,75 @@ func computeIndexability(statusCode uint16, metaRobots, xRobotsTag, canonical, f
 	}
 
 	return true, ""
+}
+
+// externalCheckWorker checks external URLs and buffers the results.
+func (e *Engine) externalCheckWorker() {
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return http.ErrUseLastResponse
+			}
+			return nil
+		},
+	}
+	for rawURL := range e.externalCh {
+		start := time.Now()
+		check := storage.ExternalLinkCheck{
+			CrawlSessionID: e.session.ID,
+			URL:            rawURL,
+			CheckedAt:      time.Now(),
+		}
+		req, err := http.NewRequestWithContext(e.ctx, "GET", rawURL, nil)
+		if err != nil {
+			check.Error = err.Error()
+			check.ResponseTimeMs = uint32(time.Since(start).Milliseconds())
+			e.bufferExternalCheck(check)
+			continue
+		}
+		req.Header.Set("User-Agent", e.cfg.Crawler.UserAgent)
+		resp, err := client.Do(req)
+		check.ResponseTimeMs = uint32(time.Since(start).Milliseconds())
+		if err != nil {
+			check.Error = err.Error()
+		} else {
+			resp.Body.Close()
+			check.StatusCode = uint16(resp.StatusCode)
+			check.ContentType = resp.Header.Get("Content-Type")
+			if resp.Request.URL.String() != rawURL {
+				check.RedirectURL = resp.Request.URL.String()
+			}
+		}
+		e.bufferExternalCheck(check)
+	}
+}
+
+func (e *Engine) bufferExternalCheck(check storage.ExternalLinkCheck) {
+	e.externalCheckMu.Lock()
+	e.externalCheckBuf = append(e.externalCheckBuf, check)
+	if len(e.externalCheckBuf) >= 50 {
+		batch := e.externalCheckBuf
+		e.externalCheckBuf = nil
+		e.externalCheckMu.Unlock()
+		if err := e.store.InsertExternalLinkChecks(context.Background(), batch); err != nil {
+			applog.Warnf("crawler", "failed to insert external link checks: %v", err)
+		}
+		return
+	}
+	e.externalCheckMu.Unlock()
+}
+
+func (e *Engine) flushExternalChecks() {
+	e.externalCheckMu.Lock()
+	batch := e.externalCheckBuf
+	e.externalCheckBuf = nil
+	e.externalCheckMu.Unlock()
+	if len(batch) > 0 {
+		if err := e.store.InsertExternalLinkChecks(context.Background(), batch); err != nil {
+			applog.Warnf("crawler", "failed to flush external link checks: %v", err)
+		} else {
+			applog.Infof("crawler", "Flushed %d external link checks", len(batch))
+		}
+	}
 }

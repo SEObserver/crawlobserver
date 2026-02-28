@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/SEObserver/seocrawler/internal/applog"
 	"github.com/SEObserver/seocrawler/internal/crawler"
 	"github.com/SEObserver/seocrawler/internal/customtests"
 	"github.com/SEObserver/seocrawler/internal/storage"
@@ -61,6 +62,28 @@ type StorageService interface {
 	// Custom Tests
 	RunCustomTestsSQL(ctx context.Context, sessionID string, rules []customtests.TestRule) (map[string]map[string]string, error)
 	StreamPagesHTML(ctx context.Context, sessionID string) (<-chan storage.PageHTMLRow, error)
+
+	// External Link Checks
+	GetExternalLinkChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.ExternalLinkCheck, error)
+	GetExternalLinkCheckDomains(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.ExternalDomainCheck, error)
+
+	// Application Logs
+	InsertLogs(ctx context.Context, logs []applog.LogRow) error
+	ListLogs(ctx context.Context, limit, offset int, level, component, search string) ([]applog.LogRow, int, error)
+	ExportLogs(ctx context.Context) ([]applog.LogRow, error)
+
+	// Provider Data
+	InsertProviderDomainMetrics(ctx context.Context, projectID string, rows []storage.ProviderDomainMetricsRow) error
+	InsertProviderBacklinks(ctx context.Context, projectID string, rows []storage.ProviderBacklinkRow) error
+	InsertProviderRefDomains(ctx context.Context, projectID string, rows []storage.ProviderRefDomainRow) error
+	InsertProviderRankings(ctx context.Context, projectID string, rows []storage.ProviderRankingRow) error
+	InsertProviderVisibility(ctx context.Context, projectID string, rows []storage.ProviderVisibilityRow) error
+	ProviderDomainMetrics(ctx context.Context, projectID, provider string) (*storage.ProviderDomainMetricsRow, error)
+	ProviderBacklinks(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderBacklinkRow, int, error)
+	ProviderRefDomains(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderRefDomainRow, int, error)
+	ProviderRankings(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderRankingRow, int, error)
+	ProviderVisibilityHistory(ctx context.Context, projectID, provider string) ([]storage.ProviderVisibilityRow, error)
+	DeleteProviderData(ctx context.Context, projectID, provider string) error
 }
 
 // CrawlService is the subset of crawler.Manager used by the HTTP server.

@@ -25,6 +25,8 @@
   import ReportsHub from './lib/components/ReportsHub.svelte';
   import ComparePage from './lib/components/ComparePage.svelte';
   import CustomTestsTab from './lib/components/CustomTestsTab.svelte';
+  import ExternalChecksTab from './lib/components/ExternalChecksTab.svelte';
+  import LogsPage from './lib/components/LogsPage.svelte';
   import UrlDetailView from './lib/components/UrlDetailView.svelte';
   import DataTable from './lib/components/DataTable.svelte';
 
@@ -105,8 +107,33 @@
 
   // Compare
   let showCompare = $state(false);
+  let showLogs = $state(false);
   let compareSessionA = $state('');
   let compareSessionB = $state('');
+
+  // Project view
+  let selectedProject = $state(null);
+  let projectTab = $state('sessions');
+  let gscSubView = $state('overview');
+
+  // --- Project view ---
+  function selectProject(proj) {
+    selectedProject = proj;
+    selectedSession = null;
+    projectTab = 'sessions';
+    showSettings = false;
+    showGlobalStats = false;
+    showAPI = false;
+    showNewCrawl = false;
+    showCompare = false;
+    showLogs = false;
+    pushURL(`/projects/${proj.id}`);
+  }
+
+  function switchProjectTab(t) {
+    projectTab = t;
+    if (selectedProject) pushURL(`/projects/${selectedProject.id}/${t}`);
+  }
 
   // --- Global Stats ---
   function openGlobalStats() {
@@ -115,7 +142,9 @@
     showAPI = false;
     showNewCrawl = false;
     showCompare = false;
+    showLogs = false;
     selectedSession = null;
+    selectedProject = null;
     pushURL('/stats');
   }
 
@@ -126,8 +155,22 @@
     showGlobalStats = false;
     showNewCrawl = false;
     showCompare = false;
+    showLogs = false;
     selectedSession = null;
+    selectedProject = null;
     pushURL('/api');
+  }
+
+  function openLogs() {
+    showLogs = true;
+    showSettings = false;
+    showGlobalStats = false;
+    showAPI = false;
+    showNewCrawl = false;
+    showCompare = false;
+    selectedSession = null;
+    selectedProject = null;
+    pushURL('/logs');
   }
 
 
@@ -169,10 +212,12 @@
   function openSettings() {
     showSettings = true;
     selectedSession = null;
+    selectedProject = null;
     showNewCrawl = false;
     showAPI = false;
     showGlobalStats = false;
     showCompare = false;
+    showLogs = false;
     pushURL('/settings');
   }
 
@@ -246,9 +291,16 @@
     if (path === '/settings') return { page: 'settings' };
     if (path === '/stats') return { page: 'stats' };
     if (path === '/api') return { page: 'api' };
+    if (path === '/logs') return { page: 'logs' };
     if (path === '/compare') {
       const sp = new URLSearchParams(search);
       return { page: 'compare', sessionA: sp.get('a') || '', sessionB: sp.get('b') || '' };
+    }
+
+    // Project view
+    const projMatch = path.match(/^\/projects\/([^/]+)(?:\/([^/]+)(?:\/([^/]+))?)?/);
+    if (projMatch) {
+      return { page: 'project', projectId: projMatch[1], projectTab: projMatch[2] || 'sessions', projectSubView: projMatch[3] || null };
     }
 
     // URL detail
@@ -283,7 +335,7 @@
   async function applyRoute() {
     const route = parseRoute();
 
-    // Top-level pages (home, new-crawl, settings, stats, api)
+    // Top-level pages (home, new-crawl, settings, stats, api, project)
     if (route.page) {
       selectedSession = null;
       stats = null;
@@ -294,25 +346,39 @@
       showAPI = route.page === 'api';
       showNewCrawl = route.page === 'new-crawl';
       showCompare = route.page === 'compare';
+      showLogs = route.page === 'logs';
+
+      if (route.page === 'project') {
+        selectedProject = projects.find(p => p.id === route.projectId) || null;
+        projectTab = route.projectTab || 'sessions';
+        gscSubView = route.projectSubView || 'overview';
+        showSettings = false; showGlobalStats = false; showAPI = false; showNewCrawl = false; showCompare = false; showLogs = false;
+        if (!selectedProject && projects.length === 0) {
+          getProjects().then(p => { projects = p; selectedProject = p.find(pr => pr.id === route.projectId) || null; }).catch(() => {});
+        }
+        if (sessions.length === 0) loadSessions();
+        return;
+      }
+
+      selectedProject = null;
       if (route.page === 'compare') {
         compareSessionA = route.sessionA || '';
         compareSessionB = route.sessionB || '';
       }
 
       if (sessions.length === 0) loadSessions();
-      // GlobalStatsPage handles its own data loading
-      // APIManagementPage handles its own data loading
-      // SettingsPage handles its own state
       if (route.page === 'new-crawl') getProjects().then(p => projects = p).catch(() => {});
       return;
     }
 
     // Session detail routes
+    selectedProject = null;
     showSettings = false;
     showGlobalStats = false;
     showAPI = false;
     showNewCrawl = false;
     showCompare = false;
+    showLogs = false;
 
     if (!selectedSession || selectedSession.ID !== route.sessionId) {
       if (sessions.length === 0) {
@@ -356,11 +422,13 @@
 
   async function selectSession(session) {
     selectedSession = session;
+    selectedProject = null;
     showSettings = false;
     showGlobalStats = false;
     showAPI = false;
     showNewCrawl = false;
     showCompare = false;
+    showLogs = false;
     tab = 'overview';
     filters = {};
     pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
@@ -376,12 +444,14 @@
 
   function goHome() {
     selectedSession = null;
+    selectedProject = null;
     stats = null;
     showNewCrawl = false;
     showSettings = false;
     showAPI = false;
     showGlobalStats = false;
     showCompare = false;
+    showLogs = false;
     pushURL('/');
   }
 
@@ -483,7 +553,7 @@
       const path = newTab === 'pagerank' ? `${newTab}/${prSubView}` : newTab === 'reports' ? `${newTab}/${reportsSubView}` : newTab;
       pushURL(`/sessions/${selectedSession.ID}/${path}`);
     }
-    if (newTab !== 'pagerank' && newTab !== 'robots' && newTab !== 'sitemaps' && newTab !== 'reports' && newTab !== 'tests') {
+    if (newTab !== 'pagerank' && newTab !== 'robots' && newTab !== 'sitemaps' && newTab !== 'reports' && newTab !== 'tests' && newTab !== 'ext-checks') {
       loadTabData();
     }
   }
@@ -620,10 +690,10 @@
 <div class="layout">
   <div class="drag-bar"><span class="drag-bar-title">{theme.app_name}</span></div>
   <Sidebar {theme} {darkMode} {sessions} {projects} {globalStats} {systemStats}
-    {selectedSession} {showNewCrawl} {showSettings} {showGlobalStats} {showAPI} {showCompare} {liveProgress}
-    ontoggledarkmmode={toggleDarkMode} onselectsession={selectSession}
+    {selectedSession} {selectedProject} {showNewCrawl} {showSettings} {showGlobalStats} {showAPI} {showCompare} {showLogs} {liveProgress}
+    ontoggledarkmmode={toggleDarkMode} onselectsession={selectSession} onselectproject={selectProject}
     onnavigate={navigateTo} onopensettings={openSettings}
-    onopenstats={openGlobalStats} onopenapi={openAPI} ongohome={goHome} />
+    onopenstats={openGlobalStats} onopenapi={openAPI} onopenlogs={openLogs} ongohome={goHome} />
 
   <!-- Main Content -->
   <main class="main">
@@ -662,11 +732,75 @@
         <ComparePage {sessions} initialA={compareSessionA} initialB={compareSessionB}
           onerror={(msg) => error = msg} onnavigate={navigateTo} />
 
+      {:else if showLogs}
+        <LogsPage onerror={(msg) => error = msg} />
+
       {:else if showAPI && !selectedSession}
         <APIManagementPage onerror={(msg) => error = msg} onprojectschanged={(p) => projects = p} />
 
       {:else if showNewCrawl && !selectedSession}
         <NewCrawlForm {projects} onstart={onCrawlStarted} oncancel={() => navigateTo('/')} onerror={(msg) => error = msg} />
+
+      {:else if selectedProject}
+        <!-- Project View -->
+        <div class="breadcrumb">
+          <a href="/" onclick={(e) => { e.preventDefault(); goHome(); }}>Dashboard</a>
+          <span>/</span>
+          <span style="color: var(--text);">{selectedProject.name}</span>
+        </div>
+
+        <div class="tab-bar">
+          <button class="tab" class:tab-active={projectTab === 'sessions'} onclick={() => switchProjectTab('sessions')}>Sessions</button>
+          <button class="tab" class:tab-active={projectTab === 'gsc'} onclick={() => switchProjectTab('gsc')}>Search Console</button>
+        </div>
+
+        <div class="card card-flush" style="border-top-left-radius: 0; border-top-right-radius: 0; border-top: none;">
+          {#if projectTab === 'sessions'}
+            {@const projSessions = sessions.filter(s => s.ProjectID === selectedProject.id)}
+            {#if projSessions.length > 0}
+              <table>
+                <thead>
+                  <tr>
+                    <th>Seed URL</th>
+                    <th>Status</th>
+                    <th>Pages</th>
+                    <th>Started</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each projSessions as s}
+                    <tr>
+                      <td class="cell-url">
+                        <a href={`/sessions/${s.ID}/overview`} onclick={(e) => { e.preventDefault(); selectSession(s); }}>
+                          {s.SeedURLs?.[0] || s.ID}
+                        </a>
+                      </td>
+                      <td>
+                        {#if s.is_running}
+                          <span class="badge badge-info">Running</span>
+                        {:else if s.Status === 'completed'}
+                          <span class="badge badge-success">Completed</span>
+                        {:else}
+                          <span class="badge">{s.Status || 'Unknown'}</span>
+                        {/if}
+                      </td>
+                      <td>{fmtN(s.PagesCrawled || 0)}</td>
+                      <td style="white-space: nowrap; color: var(--text-muted); font-size: 13px;">{s.StartedAt ? timeAgo(s.StartedAt) : '-'}</td>
+                      <td>
+                        <button class="btn btn-sm" onclick={() => selectSession(s)}>View</button>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {:else}
+              <p style="color: var(--text-muted); padding: 40px 0; text-align: center;">No crawl sessions in this project yet.</p>
+            {/if}
+          {:else if projectTab === 'gsc'}
+            <GSCTab projectId={selectedProject.id} initialSubView={gscSubView} onerror={(msg) => error = msg} onpushurl={(u) => pushURL(u)} />
+          {/if}
+        </div>
 
       {:else if !selectedSession}
         <SessionsList {sessions} {projects} {liveProgress} {sessionStorageMap} {loading}
@@ -883,6 +1017,9 @@
               {/snippet}
             </DataTable>
 
+          {:else if tab === 'ext-checks'}
+            <ExternalChecksTab sessionId={selectedSession.ID} onerror={(msg) => error = msg} />
+
           {:else if tab === 'pagerank'}
             <PageRankTab sessionId={selectedSession.ID} initialSubView={prSubView}
               onnavigate={(url) => goToUrlDetail({preventDefault:()=>{}}, url)}
@@ -894,8 +1031,6 @@
 
           {:else if tab === 'sitemaps'}
             <SitemapsTab sessionId={selectedSession.ID} onerror={(msg) => error = msg} />
-          {:else if tab === 'gsc'}
-            <GSCTab sessionId={selectedSession.ID} projectId={selectedSession.ProjectID} onerror={(msg) => error = msg} />
           {:else if tab === 'reports'}
             <ReportsHub sessionId={selectedSession.ID} {stats} initialSubView={reportsSubView}
               onnavigate={(url, f) => navigateTo(url, f)}

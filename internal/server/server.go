@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,12 +17,17 @@ import (
 	"strings"
 	"time"
 
+	"sync"
+
 	"github.com/SEObserver/seocrawler/internal/apikeys"
+	"github.com/SEObserver/seocrawler/internal/applog"
 	"github.com/SEObserver/seocrawler/internal/backup"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/crawler"
 	"github.com/SEObserver/seocrawler/internal/customtests"
 	"github.com/SEObserver/seocrawler/internal/gsc"
+	// "github.com/SEObserver/seocrawler/internal/providers"
+	// "github.com/SEObserver/seocrawler/internal/seobserver"
 	"github.com/SEObserver/seocrawler/internal/storage"
 	"github.com/SEObserver/seocrawler/internal/updater"
 	"github.com/spf13/viper"
@@ -32,6 +36,23 @@ import (
 
 //go:embed all:frontend/dist
 var frontendFS embed.FS
+
+// gscFetchStatus tracks the progress of a background GSC fetch.
+type gscFetchStatus struct {
+	Fetching  bool           `json:"fetching"`
+	RowsSoFar int            `json:"rows_so_far"`
+	Error     string         `json:"error,omitempty"`
+	cancel    context.CancelFunc
+}
+
+// providerFetchStatus tracks the progress of a background provider data fetch.
+type providerFetchStatus struct {
+	Fetching  bool   `json:"fetching"`
+	Phase     string `json:"phase"`
+	RowsSoFar int    `json:"rows_so_far"`
+	Error     string `json:"error,omitempty"`
+	cancel    context.CancelFunc
+}
 
 // Server serves the web GUI and REST API.
 type Server struct {
@@ -46,6 +67,12 @@ type Server struct {
 	BackupOpts      *backup.BackupOptions
 	StopClickHouse  func()           // stops managed CH (nil if external)
 	StartClickHouse func() error     // restarts managed CH (nil if external)
+
+	gscFetchMu      sync.Mutex
+	gscFetchStatus  map[string]*gscFetchStatus // projectID -> status
+
+	providerFetchMu     sync.Mutex
+	providerFetchStatus map[string]*providerFetchStatus // "projectID:provider" -> status
 }
 
 // New creates a new Server.
@@ -90,11 +117,14 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/sessions/{id}/robots-content", s.handleRobotsContent)
 	mux.HandleFunc("GET /api/sessions/{id}/sitemaps", s.handleSitemaps)
 	mux.HandleFunc("GET /api/sessions/{id}/sitemap-urls", s.handleSitemapURLs)
+	mux.HandleFunc("GET /api/sessions/{id}/external-checks", s.handleExternalLinkChecks)
+	mux.HandleFunc("GET /api/sessions/{id}/external-checks/domains", s.handleExternalLinkCheckDomains)
 	mux.HandleFunc("GET /api/storage-stats", s.handleStorageStats)
 	mux.HandleFunc("GET /api/session-storage", s.handleSessionStorage)
 	mux.HandleFunc("GET /api/global-stats", s.handleGlobalStats)
 	mux.HandleFunc("GET /api/system-stats", s.handleSystemStats)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
+	mux.HandleFunc("GET /api/server-info", s.handleServerInfo)
 	mux.HandleFunc("GET /api/theme", s.handleTheme)
 	mux.HandleFunc("GET /api/compare/stats", s.handleCompareStats)
 	mux.HandleFunc("GET /api/compare/pages", s.handleComparePages)
@@ -138,14 +168,32 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/gsc/callback", s.handleGSCCallback)
 	mux.HandleFunc("GET /api/projects/{id}/gsc/status", s.handleGSCStatus)
 	mux.HandleFunc("POST /api/projects/{id}/gsc/fetch", s.handleGSCFetch)
+	mux.HandleFunc("POST /api/projects/{id}/gsc/stop", s.handleGSCStopFetch)
 	mux.HandleFunc("DELETE /api/projects/{id}/gsc/disconnect", s.handleGSCDisconnect)
-	mux.HandleFunc("GET /api/sessions/{id}/gsc/overview", s.handleGSCOverview)
-	mux.HandleFunc("GET /api/sessions/{id}/gsc/queries", s.handleGSCQueries)
-	mux.HandleFunc("GET /api/sessions/{id}/gsc/pages", s.handleGSCPages)
-	mux.HandleFunc("GET /api/sessions/{id}/gsc/countries", s.handleGSCCountries)
-	mux.HandleFunc("GET /api/sessions/{id}/gsc/devices", s.handleGSCDevices)
-	mux.HandleFunc("GET /api/sessions/{id}/gsc/timeline", s.handleGSCTimeline)
-	mux.HandleFunc("GET /api/sessions/{id}/gsc/inspection", s.handleGSCInspection)
+	mux.HandleFunc("GET /api/projects/{id}/gsc/overview", s.handleGSCOverview)
+	mux.HandleFunc("GET /api/projects/{id}/gsc/queries", s.handleGSCQueries)
+	mux.HandleFunc("GET /api/projects/{id}/gsc/pages", s.handleGSCPages)
+	mux.HandleFunc("GET /api/projects/{id}/gsc/countries", s.handleGSCCountries)
+	mux.HandleFunc("GET /api/projects/{id}/gsc/devices", s.handleGSCDevices)
+	mux.HandleFunc("GET /api/projects/{id}/gsc/timeline", s.handleGSCTimeline)
+	mux.HandleFunc("GET /api/projects/{id}/gsc/inspection", s.handleGSCInspection)
+
+	// Provider (SEObserver, etc.) routes — TODO: handlers not yet implemented
+	// mux.HandleFunc("GET /api/projects/{id}/providers", s.handleListProviderConnections)
+	// mux.HandleFunc("POST /api/projects/{id}/providers/{provider}/connect", s.handleProviderConnect)
+	// mux.HandleFunc("DELETE /api/projects/{id}/providers/{provider}/disconnect", s.handleProviderDisconnect)
+	// mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/status", s.handleProviderStatus)
+	// mux.HandleFunc("POST /api/projects/{id}/providers/{provider}/fetch", s.handleProviderFetch)
+	// mux.HandleFunc("POST /api/projects/{id}/providers/{provider}/stop", s.handleProviderStopFetch)
+	// mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/metrics", s.handleProviderMetrics)
+	// mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/backlinks", s.handleProviderBacklinks)
+	// mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/refdomains", s.handleProviderRefDomains)
+	// mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/rankings", s.handleProviderRankings)
+	// mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/visibility", s.handleProviderVisibility)
+
+	// Application Logs routes
+	mux.HandleFunc("GET /api/logs", s.handleListLogs)
+	mux.HandleFunc("GET /api/logs/export", s.handleExportLogs)
 
 	// Custom Tests / Rulesets routes
 	mux.HandleFunc("GET /api/rulesets", s.handleListRulesets)
@@ -191,12 +239,12 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	var handler http.Handler = mux
 	if s.keyStore != nil {
 		handler = apikeys.Authenticate(s.keyStore, s.cfg.Server.Username, s.cfg.Server.Password)(mux)
-		log.Println("Authentication enabled (API keys + basic auth)")
+		applog.Info("server", "Authentication enabled (API keys + basic auth)")
 	} else if s.cfg.Server.Username != "" && s.cfg.Server.Password != "" {
 		handler = basicAuth(mux, s.cfg.Server.Username, s.cfg.Server.Password)
-		log.Println("Basic authentication enabled")
+		applog.Info("server", "Basic authentication enabled")
 	} else {
-		log.Println("WARNING: No authentication configured. Set server.username and server.password in config.")
+		applog.Warn("server", "No authentication configured. Set server.username and server.password in config.")
 	}
 
 	handler = securityHeaders(handler)
@@ -205,6 +253,8 @@ func (s *Server) buildHandler() (http.Handler, error) {
 
 // Start starts the HTTP server.
 func (s *Server) Start() error {
+	applog.Init(s.store)
+
 	handler, err := s.buildHandler()
 	if err != nil {
 		return err
@@ -220,7 +270,9 @@ func (s *Server) Start() error {
 	}
 
 	url := fmt.Sprintf("http://%s", addr)
-	log.Printf("Web UI available at %s", url)
+	applog.Infof("server", "Web UI available at %s", url)
+
+	// s.writeAPIDiscoveryFile() // TODO: not yet implemented
 
 	if !s.NoBrowserOpen {
 		go func() {
@@ -244,16 +296,39 @@ func openBrowser(url string) {
 		cmd = exec.Command("xdg-open", url)
 	}
 	if err := cmd.Start(); err != nil {
-		log.Printf("Could not open browser: %v", err)
+		applog.Warnf("server", "Could not open browser: %v", err)
 	}
 }
 
 // Stop gracefully shuts down the server.
 func (s *Server) Stop(ctx context.Context) error {
+	s.removeAPIDiscoveryFile()
+	applog.Close()
 	if s.server != nil {
 		return s.server.Shutdown(ctx)
 	}
 	return nil
+}
+
+const apiDiscoveryFile = ".seocrawler-api.json"
+
+func (s *Server) writeAPIDiscoveryFile() {
+	data, err := json.MarshalIndent(s.serverInfoPayload(), "", "  ")
+	if err != nil {
+		applog.Warnf("server", "Could not marshal API discovery file: %v", err)
+		return
+	}
+	if err := os.WriteFile(apiDiscoveryFile, data, 0600); err != nil {
+		applog.Warnf("server", "Could not write %s: %v", apiDiscoveryFile, err)
+		return
+	}
+	applog.Infof("server", "API discovery file written to %s", apiDiscoveryFile)
+}
+
+func (s *Server) removeAPIDiscoveryFile() {
+	if err := os.Remove(apiDiscoveryFile); err != nil && !os.IsNotExist(err) {
+		applog.Warnf("server", "Could not remove %s: %v", apiDiscoveryFile, err)
+	}
 }
 
 func (s *Server) handleSystemStats(w http.ResponseWriter, r *http.Request) {
@@ -273,6 +348,24 @@ func (s *Server) handleSystemStats(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleServerInfo(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.serverInfoPayload())
+}
+
+func (s *Server) serverInfoPayload() map[string]interface{} {
+	addr := fmt.Sprintf("http://%s:%d", s.cfg.Server.Host, s.cfg.Server.Port)
+	info := map[string]interface{}{
+		"api_url":  addr + "/api",
+		"host":     s.cfg.Server.Host,
+		"port":     s.cfg.Server.Port,
+		"has_auth": s.cfg.Server.Username != "" && s.cfg.Server.Password != "",
+	}
+	if s.cfg.Server.Username != "" && s.cfg.Server.Password != "" {
+		info["username"] = s.cfg.Server.Username
+	}
+	return info
 }
 
 func (s *Server) handleTheme(w http.ResponseWriter, r *http.Request) {
@@ -615,7 +708,7 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 	sessionStorage, err := s.store.SessionStorageStats(r.Context())
 	if err != nil {
 		// Non-fatal: fall back to proportional estimation
-		log.Printf("warning: session storage stats unavailable: %v", err)
+		applog.Warnf("server", "session storage stats unavailable: %v", err)
 		sessionStorage = map[string]uint64{}
 	}
 
@@ -660,7 +753,7 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 			if !exists {
 				p, err := s.keyStore.CreateProject(hostname)
 				if err != nil {
-					log.Printf("auto-assign: failed to create project %q: %v", hostname, err)
+					applog.Warnf("server", "auto-assign: failed to create project %q: %v", hostname, err)
 					continue
 				}
 				pid = p.ID
@@ -669,7 +762,7 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 			}
 			// Associate session to project
 			if err := s.store.UpdateSessionProject(r.Context(), sess.ID, &pid); err != nil {
-				log.Printf("auto-assign: failed to associate session %s: %v", sess.ID, err)
+				applog.Warnf("server", "auto-assign: failed to associate session %s: %v", sess.ID, err)
 				continue
 			}
 			sessions[i].ProjectID = &pid
@@ -818,7 +911,7 @@ func (s *Server) handleExportSession(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 
 	if err := s.store.ExportSession(r.Context(), sessionID, w, includeHTML); err != nil {
-		log.Printf("export session %s: %v", sessionID, err)
+		applog.Errorf("server", "export session %s: %v", sessionID, err)
 	}
 }
 
@@ -1206,6 +1299,46 @@ func (s *Server) handleSitemapURLs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, urls)
 }
 
+func (s *Server) handleExternalLinkChecks(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	limit := queryInt(r, "limit", 100)
+	offset := queryInt(r, "offset", 0)
+	filters := parseFilters(r, storage.ExternalCheckFilters)
+
+	checks, err := s.store.GetExternalLinkChecks(r.Context(), sessionID, limit, offset, filters)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if checks == nil {
+		checks = []storage.ExternalLinkCheck{}
+	}
+	writeJSON(w, checks)
+}
+
+func (s *Server) handleExternalLinkCheckDomains(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	limit := queryInt(r, "limit", 100)
+	offset := queryInt(r, "offset", 0)
+	filters := parseFilters(r, storage.ExternalDomainCheckFilters)
+
+	domains, err := s.store.GetExternalLinkCheckDomains(r.Context(), sessionID, limit, offset, filters)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if domains == nil {
+		domains = []storage.ExternalDomainCheck{}
+	}
+	writeJSON(w, domains)
+}
+
 // requireFullAccess returns 403 if the caller is a project-scoped key.
 func requireFullAccess(w http.ResponseWriter, r *http.Request) bool {
 	auth := apikeys.FromContext(r.Context())
@@ -1529,7 +1662,7 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 
 	// Stop ClickHouse for consistency
 	if s.StopClickHouse != nil {
-		log.Println("Stopping ClickHouse for backup...")
+		applog.Info("server", "Stopping ClickHouse for backup...")
 		s.StopClickHouse()
 	}
 
@@ -1537,9 +1670,9 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 
 	// Restart ClickHouse regardless of backup result
 	if s.StartClickHouse != nil {
-		log.Println("Restarting ClickHouse after backup...")
+		applog.Info("server", "Restarting ClickHouse after backup...")
 		if startErr := s.StartClickHouse(); startErr != nil {
-			log.Printf("WARNING: failed to restart ClickHouse: %v", startErr)
+			applog.Warnf("server", "failed to restart ClickHouse: %v", startErr)
 		}
 	}
 
@@ -1584,7 +1717,7 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 
 	// Stop ClickHouse for restore
 	if s.StopClickHouse != nil {
-		log.Println("Stopping ClickHouse for restore...")
+		applog.Info("server", "Stopping ClickHouse for restore...")
 		s.StopClickHouse()
 	}
 
@@ -1592,9 +1725,9 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 
 	// Restart ClickHouse regardless of restore result
 	if s.StartClickHouse != nil {
-		log.Println("Restarting ClickHouse after restore...")
+		applog.Info("server", "Restarting ClickHouse after restore...")
 		if startErr := s.StartClickHouse(); startErr != nil {
-			log.Printf("WARNING: failed to restart ClickHouse: %v", startErr)
+			applog.Warnf("server", "failed to restart ClickHouse: %v", startErr)
 		}
 	}
 
@@ -1678,7 +1811,7 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 
 // internalError logs the real error server-side and returns a generic message to the client.
 func internalError(w http.ResponseWriter, r *http.Request, err error) {
-	log.Printf("ERROR %s %s: %v", r.Method, r.URL.Path, err)
+	applog.Errorf("server", "%s %s: %v", r.Method, r.URL.Path, err)
 	writeError(w, http.StatusInternalServerError, "internal server error")
 }
 
@@ -1828,18 +1961,6 @@ func (a *customTestsStorageAdapter) StreamPagesHTML(ctx context.Context, session
 
 // --- GSC Handlers ---
 
-// resolveProjectID resolves a session ID to its project ID.
-func (s *Server) resolveProjectID(ctx context.Context, sessionID string) (string, error) {
-	sess, err := s.store.GetSession(ctx, sessionID)
-	if err != nil {
-		return "", fmt.Errorf("session not found: %w", err)
-	}
-	if sess.ProjectID == nil || *sess.ProjectID == "" {
-		return "", fmt.Errorf("session has no project")
-	}
-	return *sess.ProjectID, nil
-}
-
 func (s *Server) handleGSCAuthorize(w http.ResponseWriter, r *http.Request) {
 	projectID := r.URL.Query().Get("project_id")
 	if projectID == "" {
@@ -1864,7 +1985,7 @@ func (s *Server) handleGSCCallback(w http.ResponseWriter, r *http.Request) {
 
 	token, err := gsc.ExchangeCode(r.Context(), &s.cfg.GSC, code)
 	if err != nil {
-		log.Printf("GSC OAuth exchange error: %v", err)
+		applog.Errorf("gsc", "OAuth exchange error: %v", err)
 		writeError(w, http.StatusBadRequest, "failed to exchange code")
 		return
 	}
@@ -1877,7 +1998,7 @@ func (s *Server) handleGSCCallback(w http.ResponseWriter, r *http.Request) {
 		TokenExpiry:  token.Expiry,
 	}
 	if err := s.keyStore.SaveGSCConnection(conn); err != nil {
-		log.Printf("GSC save connection error: %v", err)
+		applog.Errorf("gsc", "save connection error: %v", err)
 		writeError(w, http.StatusInternalServerError, "failed to save connection")
 		return
 	}
@@ -1905,11 +2026,18 @@ func (s *Server) handleGSCStatus(w http.ResponseWriter, r *http.Request) {
 		"property_url": conn.PropertyURL,
 	}
 
+	// Include fetch status if available
+	s.gscFetchMu.Lock()
+	if fs, ok := s.gscFetchStatus[projectID]; ok {
+		result["fetch_status"] = fs
+	}
+	s.gscFetchMu.Unlock()
+
 	// If connected but no property selected, list available properties
 	if conn.PropertyURL == "" {
 		client, newToken, err := gsc.NewClientFromTokens(r.Context(), &s.cfg.GSC, conn.AccessToken, conn.RefreshToken, conn.TokenExpiry)
 		if err != nil {
-			log.Printf("GSC client error: %v", err)
+			applog.Errorf("gsc", "client error: %v", err)
 			writeJSON(w, result)
 			return
 		}
@@ -1922,7 +2050,7 @@ func (s *Server) handleGSCStatus(w http.ResponseWriter, r *http.Request) {
 
 		props, err := client.ListProperties(r.Context())
 		if err != nil {
-			log.Printf("GSC list properties error: %v", err)
+			applog.Errorf("gsc", "list properties error: %v", err)
 		}
 		if props == nil {
 			props = []gsc.Property{}
@@ -1986,49 +2114,81 @@ func (s *Server) handleGSCFetch(w http.ResponseWriter, r *http.Request) {
 		startDate = time.Now().AddDate(-1, -4, 0).Format("2006-01-02")
 	}
 
-	// Fetch in background
+	// Cancel any existing fetch for this project
+	s.gscFetchMu.Lock()
+	if s.gscFetchStatus == nil {
+		s.gscFetchStatus = make(map[string]*gscFetchStatus)
+	}
+	if existing := s.gscFetchStatus[projectID]; existing != nil && existing.cancel != nil {
+		existing.cancel()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.gscFetchStatus[projectID] = &gscFetchStatus{Fetching: true, cancel: cancel}
+	s.gscFetchMu.Unlock()
+
+	// Fetch in background with incremental batch insertion
 	go func() {
+		defer cancel()
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("GSC fetch PANIC: %v", r)
+				applog.Errorf("gsc", "fetch PANIC: %v", r)
+				s.gscFetchMu.Lock()
+				s.gscFetchStatus[projectID] = &gscFetchStatus{Fetching: false, Error: fmt.Sprintf("panic: %v", r)}
+				s.gscFetchMu.Unlock()
 			}
 		}()
-		ctx := context.Background()
-		log.Printf("GSC fetch started for project %s, property %s, range %s to %s", projectID, conn.PropertyURL, startDate, endDate)
+		applog.Infof("gsc", "fetch started for project %s, property %s, range %s to %s", projectID, conn.PropertyURL, startDate, endDate)
 
-		log.Printf("GSC: calling FetchSearchAnalytics...")
-		rows, err := client.FetchSearchAnalytics(ctx, conn.PropertyURL, startDate, endDate)
+		total, err := client.FetchSearchAnalytics(ctx, conn.PropertyURL, startDate, endDate,
+			func(rows []gsc.AnalyticsRow, totalSoFar int) error {
+				insertRows := make([]storage.GSCAnalyticsInsertRow, len(rows))
+				for i, r := range rows {
+					d, _ := time.Parse("2006-01-02", r.Date)
+					insertRows[i] = storage.GSCAnalyticsInsertRow{
+						Date:        d,
+						Query:       r.Query,
+						Page:        r.Page,
+						Country:     r.Country,
+						Device:      r.Device,
+						Clicks:      uint32(r.Clicks),
+						Impressions: uint32(r.Impressions),
+						CTR:         float32(r.CTR),
+						Position:    float32(r.Position),
+					}
+				}
+				if err := s.store.InsertGSCAnalytics(ctx, projectID, insertRows); err != nil {
+					return fmt.Errorf("inserting batch: %w", err)
+				}
+				s.gscFetchMu.Lock()
+				s.gscFetchStatus[projectID] = &gscFetchStatus{Fetching: true, RowsSoFar: totalSoFar}
+				s.gscFetchMu.Unlock()
+				applog.Infof("gsc", "inserted %d rows (total: %d)", len(rows), totalSoFar)
+				return nil
+			})
+		s.gscFetchMu.Lock()
 		if err != nil {
-			log.Printf("GSC fetch analytics error: %v", err)
-			return
+			applog.Errorf("gsc", "fetch error: %v", err)
+			s.gscFetchStatus[projectID] = &gscFetchStatus{Fetching: false, RowsSoFar: total, Error: err.Error()}
+		} else {
+			applog.Infof("gsc", "fetch completed for project %s: %d total rows", projectID, total)
+			delete(s.gscFetchStatus, projectID)
 		}
-		log.Printf("GSC fetched %d analytics rows", len(rows))
-
-		// Convert to storage rows
-		insertRows := make([]storage.GSCAnalyticsInsertRow, len(rows))
-		for i, r := range rows {
-			d, _ := time.Parse("2006-01-02", r.Date)
-			insertRows[i] = storage.GSCAnalyticsInsertRow{
-				Date:        d,
-				Query:       r.Query,
-				Page:        r.Page,
-				Country:     r.Country,
-				Device:      r.Device,
-				Clicks:      uint32(r.Clicks),
-				Impressions: uint32(r.Impressions),
-				CTR:         float32(r.CTR),
-				Position:    float32(r.Position),
-			}
-		}
-
-		if err := s.store.InsertGSCAnalytics(ctx, projectID, insertRows); err != nil {
-			log.Printf("GSC insert analytics error: %v", err)
-			return
-		}
-		log.Printf("GSC analytics inserted successfully for project %s", projectID)
+		s.gscFetchMu.Unlock()
 	}()
 
 	writeJSON(w, map[string]string{"status": "fetching"})
+}
+
+func (s *Server) handleGSCStopFetch(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("id")
+	s.gscFetchMu.Lock()
+	if fs, ok := s.gscFetchStatus[projectID]; ok && fs.cancel != nil {
+		fs.cancel()
+	}
+	delete(s.gscFetchStatus, projectID)
+	s.gscFetchMu.Unlock()
+	applog.Infof("gsc", "fetch stopped for project %s", projectID)
+	writeJSON(w, map[string]string{"status": "stopped"})
 }
 
 func (s *Server) handleGSCDisconnect(w http.ResponseWriter, r *http.Request) {
@@ -2039,12 +2199,7 @@ func (s *Server) handleGSCDisconnect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGSCOverview(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.PathValue("id")
-	projectID, err := s.resolveProjectID(r.Context(), sessionID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	projectID := r.PathValue("id")
 	stats, err := s.store.GSCOverview(r.Context(), projectID)
 	if err != nil {
 		internalError(w, r, err)
@@ -2054,12 +2209,7 @@ func (s *Server) handleGSCOverview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGSCQueries(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.PathValue("id")
-	projectID, err := s.resolveProjectID(r.Context(), sessionID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	projectID := r.PathValue("id")
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	if limit <= 0 {
@@ -2074,12 +2224,7 @@ func (s *Server) handleGSCQueries(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGSCPages(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.PathValue("id")
-	projectID, err := s.resolveProjectID(r.Context(), sessionID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	projectID := r.PathValue("id")
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	if limit <= 0 {
@@ -2094,12 +2239,7 @@ func (s *Server) handleGSCPages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGSCCountries(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.PathValue("id")
-	projectID, err := s.resolveProjectID(r.Context(), sessionID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	projectID := r.PathValue("id")
 	rows, err := s.store.GSCByCountry(r.Context(), projectID)
 	if err != nil {
 		internalError(w, r, err)
@@ -2109,12 +2249,7 @@ func (s *Server) handleGSCCountries(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGSCDevices(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.PathValue("id")
-	projectID, err := s.resolveProjectID(r.Context(), sessionID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	projectID := r.PathValue("id")
 	rows, err := s.store.GSCByDevice(r.Context(), projectID)
 	if err != nil {
 		internalError(w, r, err)
@@ -2124,12 +2259,7 @@ func (s *Server) handleGSCDevices(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGSCTimeline(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.PathValue("id")
-	projectID, err := s.resolveProjectID(r.Context(), sessionID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	projectID := r.PathValue("id")
 	rows, err := s.store.GSCTimeline(r.Context(), projectID)
 	if err != nil {
 		internalError(w, r, err)
@@ -2139,12 +2269,7 @@ func (s *Server) handleGSCTimeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGSCInspection(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.PathValue("id")
-	projectID, err := s.resolveProjectID(r.Context(), sessionID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	projectID := r.PathValue("id")
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	if limit <= 0 {
@@ -2175,4 +2300,39 @@ func parseFilters(r *http.Request, whitelist map[string]storage.FilterDef) []sto
 		})
 	}
 	return filters
+}
+
+func (s *Server) handleListLogs(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 {
+		limit = 100
+	}
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	level := r.URL.Query().Get("level")
+	component := r.URL.Query().Get("component")
+	search := r.URL.Query().Get("search")
+
+	logs, total, err := s.store.ListLogs(r.Context(), limit, offset, level, component, search)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]any{
+		"logs":  logs,
+		"total": total,
+	})
+}
+
+func (s *Server) handleExportLogs(w http.ResponseWriter, r *http.Request) {
+	logs, err := s.store.ExportLogs(r.Context())
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("Content-Disposition", "attachment; filename=application_logs.jsonl")
+	enc := json.NewEncoder(w)
+	for _, l := range logs {
+		enc.Encode(l)
+	}
 }

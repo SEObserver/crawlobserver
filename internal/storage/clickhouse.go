@@ -9,6 +9,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/SEObserver/seocrawler/internal/applog"
 	"github.com/SEObserver/seocrawler/internal/customtests"
 	"github.com/google/uuid"
 )
@@ -2735,6 +2736,484 @@ func (s *Store) StreamPagesHTML(ctx context.Context, sessionID string) (<-chan P
 		}
 	}()
 	return ch, nil
+}
+
+// InsertExternalLinkChecks batch-inserts external link check results.
+func (s *Store) InsertExternalLinkChecks(ctx context.Context, checks []ExternalLinkCheck) error {
+	if len(checks) == 0 {
+		return nil
+	}
+
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO seocrawler.external_link_checks (
+			crawl_session_id, url, status_code, error, content_type,
+			redirect_url, response_time_ms, checked_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing external_link_checks batch: %w", err)
+	}
+
+	for _, c := range checks {
+		if err := batch.Append(
+			c.CrawlSessionID, c.URL, c.StatusCode, c.Error, c.ContentType,
+			c.RedirectURL, c.ResponseTimeMs, c.CheckedAt,
+		); err != nil {
+			return fmt.Errorf("appending external_link_check row: %w", err)
+		}
+	}
+
+	return batch.Send()
+}
+
+// GetExternalLinkChecks returns paginated external link check results for a session.
+func (s *Store) GetExternalLinkChecks(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]ExternalLinkCheck, error) {
+	where, args, err := BuildWhereClause(filters)
+	if err != nil {
+		return nil, err
+	}
+
+	query := `SELECT crawl_session_id, url, status_code, error, content_type,
+		redirect_url, response_time_ms, checked_at
+		FROM seocrawler.external_link_checks
+		WHERE crawl_session_id = ?`
+	queryArgs := []interface{}{sessionID}
+
+	if where != "" {
+		query += " AND " + where
+		queryArgs = append(queryArgs, args...)
+	}
+
+	query += " ORDER BY status_code ASC, url ASC LIMIT ? OFFSET ?"
+	queryArgs = append(queryArgs, limit, offset)
+
+	rows, err := s.conn.Query(ctx, query, queryArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("querying external_link_checks: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ExternalLinkCheck
+	for rows.Next() {
+		var c ExternalLinkCheck
+		if err := rows.Scan(&c.CrawlSessionID, &c.URL, &c.StatusCode, &c.Error,
+			&c.ContentType, &c.RedirectURL, &c.ResponseTimeMs, &c.CheckedAt); err != nil {
+			return nil, err
+		}
+		results = append(results, c)
+	}
+	return results, nil
+}
+
+// GetExternalLinkCheckDomains returns aggregated external check stats per domain.
+func (s *Store) GetExternalLinkCheckDomains(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]ExternalDomainCheck, error) {
+	where, args, err := BuildWhereClause(filters)
+	if err != nil {
+		return nil, err
+	}
+
+	query := `SELECT domain(url) AS domain,
+		count() AS total_urls,
+		countIf(status_code >= 200 AND status_code < 300) AS ok,
+		countIf(status_code >= 300 AND status_code < 400) AS redirects,
+		countIf(status_code >= 400 AND status_code < 500) AS client_errors,
+		countIf(status_code >= 500) AS server_errors,
+		countIf(status_code = 0) AS unreachable,
+		toUInt32(avg(response_time_ms)) AS avg_response_ms
+		FROM seocrawler.external_link_checks
+		WHERE crawl_session_id = ?`
+	queryArgs := []interface{}{sessionID}
+
+	if where != "" {
+		query += " AND " + where
+		queryArgs = append(queryArgs, args...)
+	}
+
+	query += " GROUP BY domain ORDER BY total_urls DESC LIMIT ? OFFSET ?"
+	queryArgs = append(queryArgs, limit, offset)
+
+	rows, err := s.conn.Query(ctx, query, queryArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("querying external_link_check domains: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ExternalDomainCheck
+	for rows.Next() {
+		var d ExternalDomainCheck
+		if err := rows.Scan(&d.Domain, &d.TotalURLs, &d.OK, &d.Redirects,
+			&d.ClientErrors, &d.ServerErrors, &d.Unreachable, &d.AvgResponseMs); err != nil {
+			return nil, err
+		}
+		results = append(results, d)
+	}
+	return results, nil
+}
+
+// InsertLogs batch inserts application log rows.
+func (s *Store) InsertLogs(ctx context.Context, logs []applog.LogRow) error {
+	if len(logs) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `INSERT INTO seocrawler.application_logs (timestamp, level, component, message, context)`)
+	if err != nil {
+		return fmt.Errorf("preparing log batch: %w", err)
+	}
+	for _, l := range logs {
+		if err := batch.Append(l.Timestamp, l.Level, l.Component, l.Message, l.Context); err != nil {
+			return fmt.Errorf("appending log row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+// ListLogs returns paginated application logs with optional filters.
+func (s *Store) ListLogs(ctx context.Context, limit, offset int, level, component, search string) ([]applog.LogRow, int, error) {
+	where := "1=1"
+	args := []any{}
+	if level != "" {
+		where += " AND level = ?"
+		args = append(args, level)
+	}
+	if component != "" {
+		where += " AND component = ?"
+		args = append(args, component)
+	}
+	if search != "" {
+		where += " AND message ILIKE ?"
+		args = append(args, "%"+search+"%")
+	}
+
+	// Count
+	var total int
+	countArgs := make([]any, len(args))
+	copy(countArgs, args)
+	if err := s.conn.QueryRow(ctx, "SELECT count() FROM seocrawler.application_logs WHERE "+where, countArgs...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("counting logs: %w", err)
+	}
+
+	// Query
+	q := fmt.Sprintf("SELECT timestamp, level, component, message, context FROM seocrawler.application_logs WHERE %s ORDER BY timestamp DESC LIMIT %d OFFSET %d", where, limit, offset)
+	rows, err := s.conn.Query(ctx, q, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying logs: %w", err)
+	}
+	defer rows.Close()
+
+	var results []applog.LogRow
+	for rows.Next() {
+		var r applog.LogRow
+		if err := rows.Scan(&r.Timestamp, &r.Level, &r.Component, &r.Message, &r.Context); err != nil {
+			return nil, 0, err
+		}
+		results = append(results, r)
+	}
+	return results, total, nil
+}
+
+// ExportLogs returns all logs (up to 7 days per TTL) for JSONL export.
+func (s *Store) ExportLogs(ctx context.Context) ([]applog.LogRow, error) {
+	rows, err := s.conn.Query(ctx, `SELECT timestamp, level, component, message, context FROM seocrawler.application_logs ORDER BY timestamp DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("exporting logs: %w", err)
+	}
+	defer rows.Close()
+
+	var results []applog.LogRow
+	for rows.Next() {
+		var r applog.LogRow
+		if err := rows.Scan(&r.Timestamp, &r.Level, &r.Component, &r.Message, &r.Context); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, nil
+}
+
+// --- Provider Data Methods ---
+
+func (s *Store) InsertProviderDomainMetrics(ctx context.Context, projectID string, rows []ProviderDomainMetricsRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO seocrawler.provider_domain_metrics (
+			project_id, provider, domain, backlinks_total, refdomains_total, domain_rank,
+			organic_keywords, organic_traffic, organic_cost, fetched_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing provider_domain_metrics batch: %w", err)
+	}
+	now := time.Now()
+	for _, r := range rows {
+		if err := batch.Append(
+			projectID, r.Provider, r.Domain, r.BacklinksTotal, r.RefDomainsTotal, r.DomainRank,
+			r.OrganicKeywords, r.OrganicTraffic, r.OrganicCost, now,
+		); err != nil {
+			return fmt.Errorf("appending provider_domain_metrics row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+func (s *Store) InsertProviderBacklinks(ctx context.Context, projectID string, rows []ProviderBacklinkRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO seocrawler.provider_backlinks (
+			project_id, provider, domain, source_url, target_url, anchor_text,
+			source_domain, link_type, domain_rank, page_rank, nofollow,
+			first_seen, last_seen, fetched_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing provider_backlinks batch: %w", err)
+	}
+	now := time.Now()
+	for _, r := range rows {
+		if err := batch.Append(
+			projectID, r.Provider, r.Domain, r.SourceURL, r.TargetURL, r.AnchorText,
+			r.SourceDomain, r.LinkType, r.DomainRank, r.PageRank, r.Nofollow,
+			r.FirstSeen, r.LastSeen, now,
+		); err != nil {
+			return fmt.Errorf("appending provider_backlinks row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+func (s *Store) InsertProviderRefDomains(ctx context.Context, projectID string, rows []ProviderRefDomainRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO seocrawler.provider_refdomains (
+			project_id, provider, domain, ref_domain, backlink_count, domain_rank,
+			first_seen, last_seen, fetched_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing provider_refdomains batch: %w", err)
+	}
+	now := time.Now()
+	for _, r := range rows {
+		if err := batch.Append(
+			projectID, r.Provider, r.Domain, r.RefDomain, r.BacklinkCount, r.DomainRank,
+			r.FirstSeen, r.LastSeen, now,
+		); err != nil {
+			return fmt.Errorf("appending provider_refdomains row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+func (s *Store) InsertProviderRankings(ctx context.Context, projectID string, rows []ProviderRankingRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO seocrawler.provider_rankings (
+			project_id, provider, domain, keyword, url, search_base,
+			position, search_volume, cpc, traffic, traffic_pct, fetched_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing provider_rankings batch: %w", err)
+	}
+	now := time.Now()
+	for _, r := range rows {
+		if err := batch.Append(
+			projectID, r.Provider, r.Domain, r.Keyword, r.URL, r.SearchBase,
+			r.Position, r.SearchVolume, r.CPC, r.Traffic, r.TrafficPct, now,
+		); err != nil {
+			return fmt.Errorf("appending provider_rankings row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+func (s *Store) InsertProviderVisibility(ctx context.Context, projectID string, rows []ProviderVisibilityRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO seocrawler.provider_visibility (
+			project_id, provider, domain, search_base, date, visibility, keywords_count, fetched_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing provider_visibility batch: %w", err)
+	}
+	now := time.Now()
+	for _, r := range rows {
+		if err := batch.Append(
+			projectID, r.Provider, r.Domain, r.SearchBase, r.Date, r.Visibility, r.KeywordsCount, now,
+		); err != nil {
+			return fmt.Errorf("appending provider_visibility row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+func (s *Store) ProviderDomainMetrics(ctx context.Context, projectID, provider string) (*ProviderDomainMetricsRow, error) {
+	var r ProviderDomainMetricsRow
+	err := s.conn.QueryRow(ctx, `
+		SELECT provider, domain, backlinks_total, refdomains_total, domain_rank,
+			organic_keywords, organic_traffic, organic_cost, fetched_at
+		FROM seocrawler.provider_domain_metrics FINAL
+		WHERE project_id = ? AND provider = ?
+		LIMIT 1`, projectID, provider).Scan(
+		&r.Provider, &r.Domain, &r.BacklinksTotal, &r.RefDomainsTotal, &r.DomainRank,
+		&r.OrganicKeywords, &r.OrganicTraffic, &r.OrganicCost, &r.FetchedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+func (s *Store) ProviderBacklinks(ctx context.Context, projectID, provider string, limit, offset int) ([]ProviderBacklinkRow, int, error) {
+	var total uint64
+	if err := s.conn.QueryRow(ctx, `
+		SELECT count() FROM seocrawler.provider_backlinks FINAL
+		WHERE project_id = ? AND provider = ?`, projectID, provider).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("counting provider backlinks: %w", err)
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT provider, domain, source_url, target_url, anchor_text, source_domain, link_type,
+			domain_rank, page_rank, nofollow, first_seen, last_seen, fetched_at
+		FROM seocrawler.provider_backlinks FINAL
+		WHERE project_id = ? AND provider = ?
+		ORDER BY domain_rank DESC
+		LIMIT ? OFFSET ?`, projectID, provider, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying provider backlinks: %w", err)
+	}
+	defer rows.Close()
+
+	var result []ProviderBacklinkRow
+	for rows.Next() {
+		var r ProviderBacklinkRow
+		if err := rows.Scan(&r.Provider, &r.Domain, &r.SourceURL, &r.TargetURL, &r.AnchorText,
+			&r.SourceDomain, &r.LinkType, &r.DomainRank, &r.PageRank, &r.Nofollow,
+			&r.FirstSeen, &r.LastSeen, &r.FetchedAt); err != nil {
+			return nil, 0, fmt.Errorf("scanning provider backlink row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []ProviderBacklinkRow{}
+	}
+	return result, int(total), nil
+}
+
+func (s *Store) ProviderRefDomains(ctx context.Context, projectID, provider string, limit, offset int) ([]ProviderRefDomainRow, int, error) {
+	var total uint64
+	if err := s.conn.QueryRow(ctx, `
+		SELECT count() FROM seocrawler.provider_refdomains FINAL
+		WHERE project_id = ? AND provider = ?`, projectID, provider).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("counting provider refdomains: %w", err)
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT provider, domain, ref_domain, backlink_count, domain_rank, first_seen, last_seen, fetched_at
+		FROM seocrawler.provider_refdomains FINAL
+		WHERE project_id = ? AND provider = ?
+		ORDER BY backlink_count DESC
+		LIMIT ? OFFSET ?`, projectID, provider, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying provider refdomains: %w", err)
+	}
+	defer rows.Close()
+
+	var result []ProviderRefDomainRow
+	for rows.Next() {
+		var r ProviderRefDomainRow
+		if err := rows.Scan(&r.Provider, &r.Domain, &r.RefDomain, &r.BacklinkCount, &r.DomainRank,
+			&r.FirstSeen, &r.LastSeen, &r.FetchedAt); err != nil {
+			return nil, 0, fmt.Errorf("scanning provider refdomain row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []ProviderRefDomainRow{}
+	}
+	return result, int(total), nil
+}
+
+func (s *Store) ProviderRankings(ctx context.Context, projectID, provider string, limit, offset int) ([]ProviderRankingRow, int, error) {
+	var total uint64
+	if err := s.conn.QueryRow(ctx, `
+		SELECT count() FROM seocrawler.provider_rankings FINAL
+		WHERE project_id = ? AND provider = ?`, projectID, provider).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("counting provider rankings: %w", err)
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT provider, domain, keyword, url, search_base, position,
+			search_volume, cpc, traffic, traffic_pct, fetched_at
+		FROM seocrawler.provider_rankings FINAL
+		WHERE project_id = ? AND provider = ?
+		ORDER BY traffic DESC
+		LIMIT ? OFFSET ?`, projectID, provider, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying provider rankings: %w", err)
+	}
+	defer rows.Close()
+
+	var result []ProviderRankingRow
+	for rows.Next() {
+		var r ProviderRankingRow
+		if err := rows.Scan(&r.Provider, &r.Domain, &r.Keyword, &r.URL, &r.SearchBase, &r.Position,
+			&r.SearchVolume, &r.CPC, &r.Traffic, &r.TrafficPct, &r.FetchedAt); err != nil {
+			return nil, 0, fmt.Errorf("scanning provider ranking row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []ProviderRankingRow{}
+	}
+	return result, int(total), nil
+}
+
+func (s *Store) ProviderVisibilityHistory(ctx context.Context, projectID, provider string) ([]ProviderVisibilityRow, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT provider, domain, search_base, date, visibility, keywords_count, fetched_at
+		FROM seocrawler.provider_visibility FINAL
+		WHERE project_id = ? AND provider = ?
+		ORDER BY date ASC`, projectID, provider)
+	if err != nil {
+		return nil, fmt.Errorf("querying provider visibility: %w", err)
+	}
+	defer rows.Close()
+
+	var result []ProviderVisibilityRow
+	for rows.Next() {
+		var r ProviderVisibilityRow
+		if err := rows.Scan(&r.Provider, &r.Domain, &r.SearchBase, &r.Date, &r.Visibility,
+			&r.KeywordsCount, &r.FetchedAt); err != nil {
+			return nil, fmt.Errorf("scanning provider visibility row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []ProviderVisibilityRow{}
+	}
+	return result, nil
+}
+
+func (s *Store) DeleteProviderData(ctx context.Context, projectID, provider string) error {
+	tables := []string{
+		"provider_domain_metrics",
+		"provider_backlinks",
+		"provider_refdomains",
+		"provider_rankings",
+		"provider_visibility",
+	}
+	for _, table := range tables {
+		q := fmt.Sprintf("ALTER TABLE seocrawler.%s DELETE WHERE project_id = ? AND provider = ?", table)
+		if err := s.conn.Exec(ctx, q, projectID, provider); err != nil {
+			return fmt.Errorf("deleting from %s: %w", table, err)
+		}
+	}
+	return nil
 }
 
 // Close closes the ClickHouse connection.

@@ -2,10 +2,11 @@ package storage
 
 import (
 	"context"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/SEObserver/seocrawler/internal/applog"
 )
 
 // PageLinkInserter is the subset of Store used by Buffer for flushing data.
@@ -115,7 +116,7 @@ func (b *Buffer) Flush() {
 			batch.retries++
 			if batch.retries >= b.maxRetries {
 				lost := int64(len(batch.data))
-				log.Printf("ERROR [%s] dropping %d pages after %d retries: %v", b.sessionID, len(batch.data), batch.retries, err)
+				applog.Errorf("storage", "[%s] dropping %d pages after %d retries: %v", b.sessionID, len(batch.data), batch.retries, err)
 				b.mu.Lock()
 				b.lostPages += lost
 				b.lastError = err
@@ -136,7 +137,7 @@ func (b *Buffer) Flush() {
 			batch.retries++
 			if batch.retries >= b.maxRetries {
 				lost := int64(len(batch.data))
-				log.Printf("ERROR [%s] dropping %d links after %d retries: %v", b.sessionID, len(batch.data), batch.retries, err)
+				applog.Errorf("storage", "[%s] dropping %d links after %d retries: %v", b.sessionID, len(batch.data), batch.retries, err)
 				b.mu.Lock()
 				b.lostLinks += lost
 				b.lastError = err
@@ -154,7 +155,7 @@ func (b *Buffer) Flush() {
 	// Flush current pages
 	if len(pages) > 0 {
 		if err := b.store.InsertPages(ctx, pages); err != nil {
-			log.Printf("ERROR [%s] flushing %d pages (will retry): %v", b.sessionID, len(pages), err)
+			applog.Errorf("storage", "[%s] flushing %d pages (will retry): %v", b.sessionID, len(pages), err)
 			b.mu.Lock()
 			b.failedPages = append(b.failedPages, retryBatch[PageRow]{data: pages, retries: 0})
 			b.lastError = err
@@ -165,7 +166,7 @@ func (b *Buffer) Flush() {
 	// Flush current links
 	if len(links) > 0 {
 		if err := b.store.InsertLinks(ctx, links); err != nil {
-			log.Printf("ERROR [%s] flushing %d links (will retry): %v", b.sessionID, len(links), err)
+			applog.Errorf("storage", "[%s] flushing %d links (will retry): %v", b.sessionID, len(links), err)
 			b.mu.Lock()
 			b.failedLinks = append(b.failedLinks, retryBatch[LinkRow]{data: links, retries: 0})
 			b.lastError = err

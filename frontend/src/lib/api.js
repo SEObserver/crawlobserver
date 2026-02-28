@@ -77,6 +77,10 @@ export async function getHealth() {
   return fetchJSON('/health');
 }
 
+export async function getServerInfo() {
+  return fetchJSON('/server-info');
+}
+
 export async function getTheme() {
   return fetchJSON('/theme');
 }
@@ -296,36 +300,58 @@ export async function fetchGSCData(projectId, propertyUrl = '', startDate = '', 
   });
 }
 
+export async function stopGSCFetch(projectId) {
+  return fetchJSON(`/projects/${projectId}/gsc/stop`, { method: 'POST' });
+}
+
 export async function disconnectGSC(projectId) {
   return fetchJSON(`/projects/${projectId}/gsc/disconnect`, { method: 'DELETE' });
 }
 
-export async function getGSCOverview(sessionId) {
-  return fetchJSON(`/sessions/${sessionId}/gsc/overview`);
+export async function getGSCOverview(projectId) {
+  return fetchJSON(`/projects/${projectId}/gsc/overview`);
 }
 
-export async function getGSCQueries(sessionId, limit = 100, offset = 0) {
-  return fetchJSON(`/sessions/${sessionId}/gsc/queries?limit=${limit}&offset=${offset}`);
+export async function getGSCQueries(projectId, limit = 100, offset = 0) {
+  return fetchJSON(`/projects/${projectId}/gsc/queries?limit=${limit}&offset=${offset}`);
 }
 
-export async function getGSCPages(sessionId, limit = 100, offset = 0) {
-  return fetchJSON(`/sessions/${sessionId}/gsc/pages?limit=${limit}&offset=${offset}`);
+export async function getGSCPages(projectId, limit = 100, offset = 0) {
+  return fetchJSON(`/projects/${projectId}/gsc/pages?limit=${limit}&offset=${offset}`);
 }
 
-export async function getGSCCountries(sessionId) {
-  return fetchJSON(`/sessions/${sessionId}/gsc/countries`);
+export async function getGSCCountries(projectId) {
+  return fetchJSON(`/projects/${projectId}/gsc/countries`);
 }
 
-export async function getGSCDevices(sessionId) {
-  return fetchJSON(`/sessions/${sessionId}/gsc/devices`);
+export async function getGSCDevices(projectId) {
+  return fetchJSON(`/projects/${projectId}/gsc/devices`);
 }
 
-export async function getGSCTimeline(sessionId) {
-  return fetchJSON(`/sessions/${sessionId}/gsc/timeline`);
+export async function getGSCTimeline(projectId) {
+  return fetchJSON(`/projects/${projectId}/gsc/timeline`);
 }
 
-export async function getGSCInspection(sessionId, limit = 100, offset = 0) {
-  return fetchJSON(`/sessions/${sessionId}/gsc/inspection?limit=${limit}&offset=${offset}`);
+export async function getGSCInspection(projectId, limit = 100, offset = 0) {
+  return fetchJSON(`/projects/${projectId}/gsc/inspection?limit=${limit}&offset=${offset}`);
+}
+
+// --- External Link Checks ---
+
+export async function getExternalLinkChecks(sessionId, limit = 100, offset = 0, filters = {}) {
+  let url = `/sessions/${sessionId}/external-checks?limit=${limit}&offset=${offset}`;
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
+  }
+  return fetchJSON(url);
+}
+
+export async function getExternalLinkCheckDomains(sessionId, limit = 100, offset = 0, filters = {}) {
+  let url = `/sessions/${sessionId}/external-checks/domains?limit=${limit}&offset=${offset}`;
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
+  }
+  return fetchJSON(url);
 }
 
 // --- Compare ---
@@ -378,6 +404,20 @@ export async function runTests(sessionId, rulesetId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ruleset_id: rulesetId }),
   });
+}
+
+// --- Application Logs ---
+
+export async function getLogs(limit = 100, offset = 0, level = '', component = '', search = '') {
+  let url = `/logs?limit=${limit}&offset=${offset}`;
+  if (level) url += `&level=${encodeURIComponent(level)}`;
+  if (component) url += `&component=${encodeURIComponent(component)}`;
+  if (search) url += `&search=${encodeURIComponent(search)}`;
+  return fetchJSON(url);
+}
+
+export function exportLogs() {
+  window.open(`${BASE}/logs/export`, '_blank');
 }
 
 // SSE for live progress

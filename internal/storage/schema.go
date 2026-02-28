@@ -318,6 +318,122 @@ PARTITION BY project_id
 ORDER BY (project_id, url)
 `
 
+const CreateExternalLinkChecks = `
+CREATE TABLE IF NOT EXISTS seocrawler.external_link_checks (
+    crawl_session_id UUID,
+    url String,
+    status_code UInt16,
+    error String,
+    content_type String,
+    redirect_url String,
+    response_time_ms UInt32,
+    checked_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(checked_at)
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, url)
+`
+
+const CreateProviderDomainMetrics = `
+CREATE TABLE IF NOT EXISTS seocrawler.provider_domain_metrics (
+    project_id String,
+    provider String,
+    domain String,
+    backlinks_total Int64,
+    refdomains_total Int64,
+    domain_rank Float64,
+    organic_keywords Int64,
+    organic_traffic Int64,
+    organic_cost Float64,
+    fetched_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(fetched_at)
+PARTITION BY project_id
+ORDER BY (project_id, provider, domain)
+`
+
+const CreateProviderBacklinks = `
+CREATE TABLE IF NOT EXISTS seocrawler.provider_backlinks (
+    project_id String,
+    provider String,
+    domain String,
+    source_url String,
+    target_url String,
+    anchor_text String,
+    source_domain String,
+    link_type String,
+    domain_rank Float64,
+    page_rank Float64,
+    nofollow Bool,
+    first_seen Date,
+    last_seen Date,
+    fetched_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(fetched_at)
+PARTITION BY project_id
+ORDER BY (project_id, provider, domain, source_url, target_url)
+`
+
+const CreateProviderRefDomains = `
+CREATE TABLE IF NOT EXISTS seocrawler.provider_refdomains (
+    project_id String,
+    provider String,
+    domain String,
+    ref_domain String,
+    backlink_count Int64,
+    domain_rank Float64,
+    first_seen Date,
+    last_seen Date,
+    fetched_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(fetched_at)
+PARTITION BY project_id
+ORDER BY (project_id, provider, domain, ref_domain)
+`
+
+const CreateProviderRankings = `
+CREATE TABLE IF NOT EXISTS seocrawler.provider_rankings (
+    project_id String,
+    provider String,
+    domain String,
+    keyword String,
+    url String,
+    search_base String,
+    position UInt16,
+    search_volume Int64,
+    cpc Float64,
+    traffic Float64,
+    traffic_pct Float64,
+    fetched_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(fetched_at)
+PARTITION BY project_id
+ORDER BY (project_id, provider, domain, search_base, keyword)
+`
+
+const CreateProviderVisibility = `
+CREATE TABLE IF NOT EXISTS seocrawler.provider_visibility (
+    project_id String,
+    provider String,
+    domain String,
+    search_base String,
+    date Date,
+    visibility Float64,
+    keywords_count Int64,
+    fetched_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(fetched_at)
+PARTITION BY project_id
+ORDER BY (project_id, provider, domain, search_base, date)
+`
+
+const CreateApplicationLogs = `
+CREATE TABLE IF NOT EXISTS seocrawler.application_logs (
+    timestamp DateTime64(3),
+    level LowCardinality(String),
+    component LowCardinality(String),
+    message String,
+    context String DEFAULT ''
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMMDD(timestamp)
+ORDER BY (timestamp, level, component)
+TTL timestamp + INTERVAL 7 DAY DELETE
+`
+
 // repartitionTable migrates a table to use PARTITION BY crawl_session_id.
 // It checks the current partition key first and skips if already correct.
 func repartitionTable(ctx context.Context, conn driver.Conn, table, createV2DDL string) error {
@@ -410,4 +526,11 @@ var Migrations = []Migration{
 	{Name: "repartition by session_id", Fn: migrateRepartitionBySession},
 	{Name: "create gsc_analytics", DDL: CreateGSCAnalytics},
 	{Name: "create gsc_inspection", DDL: CreateGSCInspection},
+	{Name: "create external_link_checks", DDL: CreateExternalLinkChecks},
+	{Name: "create application_logs", DDL: CreateApplicationLogs},
+	{Name: "create provider_domain_metrics", DDL: CreateProviderDomainMetrics},
+	{Name: "create provider_backlinks", DDL: CreateProviderBacklinks},
+	{Name: "create provider_refdomains", DDL: CreateProviderRefDomains},
+	{Name: "create provider_rankings", DDL: CreateProviderRankings},
+	{Name: "create provider_visibility", DDL: CreateProviderVisibility},
 }
