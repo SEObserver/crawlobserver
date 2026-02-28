@@ -26,4 +26,3 @@ volumes:
   # Large crawls can fill it up. Increase via Docker Desktop > Settings > Resources > Disk.
   crawlobserver_clickhouse_data:
     name: crawlobserver_clickhouse_data
-    external: true
