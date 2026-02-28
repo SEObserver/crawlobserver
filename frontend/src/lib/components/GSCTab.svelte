@@ -399,6 +399,7 @@
         <div>
           <h4 style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">By Country</h4>
           {#if countries?.length > 0}
+            {@const totalCountryClicks = countries.reduce((s, c) => s + c.clicks, 0) || 1}
             {@const maxCountryClicks = Math.max(...countries.map(c => c.clicks), 1)}
             {#each countries as c}
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px;">
@@ -407,7 +408,7 @@
                   <div style="height: 100%; width: {(c.clicks / maxCountryClicks) * 100}%; background: var(--accent); opacity: 0.7; border-radius: 4px;"></div>
                 </div>
                 <span style="width: 60px; text-align: right; color: var(--text-muted);">{fmtN(c.clicks)}</span>
-                <span style="width: 50px; text-align: right; color: var(--text-muted); font-size: 11px;">{(c.ctr * 100).toFixed(1)}%</span>
+                <span style="width: 50px; text-align: right; color: var(--text-muted); font-size: 11px;">{(c.clicks / totalCountryClicks * 100).toFixed(1)}%</span>
               </div>
             {/each}
           {:else}
@@ -417,6 +418,7 @@
         <div>
           <h4 style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">By Device</h4>
           {#if devices?.length > 0}
+            {@const totalDeviceClicks = devices.reduce((s, d) => s + d.clicks, 0) || 1}
             {@const maxDeviceClicks = Math.max(...devices.map(d => d.clicks), 1)}
             {#each devices as d}
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px;">
@@ -425,7 +427,7 @@
                   <div style="height: 100%; width: {(d.clicks / maxDeviceClicks) * 100}%; background: var(--accent); opacity: 0.7; border-radius: 4px;"></div>
                 </div>
                 <span style="width: 60px; text-align: right; color: var(--text-muted);">{fmtN(d.clicks)}</span>
-                <span style="width: 50px; text-align: right; color: var(--text-muted); font-size: 11px;">{(d.ctr * 100).toFixed(1)}%</span>
+                <span style="width: 50px; text-align: right; color: var(--text-muted); font-size: 11px;">{(d.clicks / totalDeviceClicks * 100).toFixed(1)}%</span>
               </div>
             {/each}
           {:else}
