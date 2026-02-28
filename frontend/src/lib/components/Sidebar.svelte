@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../i18n/index.svelte.js';
   import { fmtN, fmtSize } from '../utils.js';
   import { getProjectsPaginated } from '../api.js';
 
@@ -91,37 +92,37 @@
   </div>
 
   <div class="sidebar-section">
-    <div class="sidebar-section-title">Main Menu</div>
+    <div class="sidebar-section-title">{t('sidebar.mainMenu')}</div>
     <nav class="sidebar-nav">
       <button class="sidebar-link" class:active={currentView === 'home'} onclick={() => ongohome?.()}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        Dashboard
+        {t('sidebar.dashboard')}
       </button>
       <button class="sidebar-link" class:active={currentView === 'new-crawl'} onclick={() => onnavigate?.('/new-crawl')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        New Crawl
+        {t('sidebar.newCrawl')}
       </button>
       <button class="sidebar-link" class:active={currentView === 'compare'} onclick={() => onnavigate?.('/compare')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        Compare
+        {t('sidebar.compare')}
       </button>
     </nav>
   </div>
 
   <div class="sidebar-section">
     <div class="sidebar-section-title flex-between">
-      <span>Projects</span>
-      <button class="sidebar-add-btn" onclick={startCreate} title="New project">
+      <span>{t('sidebar.projects')}</span>
+      <button class="sidebar-add-btn" onclick={startCreate} title={t('sidebar.newProject')}>
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
     </div>
     <div class="sidebar-search">
-      <input class="sidebar-search-input" type="text" placeholder="Search projects..."
+      <input class="sidebar-search-input" type="text" placeholder={t('sidebar.searchProjects')}
         value={projectSearch} oninput={onSearchInput} />
     </div>
     {#if creatingProject}
       <div class="sidebar-inline-input">
-        <input type="text" bind:value={newProjectName} placeholder="Project name..."
+        <input type="text" bind:value={newProjectName} placeholder={t('sidebar.projectName')}
           use:focusOnMount
           onkeydown={(e) => { if (e.key === 'Enter') confirmCreate(); if (e.key === 'Escape') cancelCreate(); }}
           onblur={cancelCreate} />
@@ -143,14 +144,14 @@
     </nav>
     {#if projects.length > 30 || searchResults !== null}
       <button class="sidebar-link sidebar-view-all" class:active={currentView === 'all-projects'} onclick={() => onviewallprojects?.()}>
-        View all projects &rarr;
+        {t('sidebar.viewAllProjects')} &rarr;
       </button>
     {/if}
   </div>
 
   {#if sessions.filter(s => !s.ProjectID).length > 0}
     <div class="sidebar-section">
-      <div class="sidebar-section-title">Unassigned Sessions</div>
+      <div class="sidebar-section-title">{t('sidebar.unassigned')}</div>
       <nav class="sidebar-nav">
         {#each sessions.filter(s => !s.ProjectID).slice(0, 5) as s}
           <button class="sidebar-link" class:active={selectedSession?.ID === s.ID} onclick={() => onselectsession?.(s)}>
@@ -170,26 +171,26 @@
 
   {#if systemStats}
     <div class="sidebar-section">
-      <div class="sidebar-section-title">System</div>
+      <div class="sidebar-section-title">{t('sidebar.system')}</div>
       <div class="sidebar-stats">
         <div class="sidebar-stat">
-          <span class="sidebar-stat-label">Memory</span>
+          <span class="sidebar-stat-label">{t('sidebar.memory')}</span>
           <span class="sidebar-stat-value">{fmtSize(systemStats.mem_alloc)}</span>
         </div>
         <div class="sidebar-stat">
-          <span class="sidebar-stat-label">Heap</span>
+          <span class="sidebar-stat-label">{t('sidebar.heap')}</span>
           <span class="sidebar-stat-value">{fmtSize(systemStats.mem_heap_inuse)}</span>
         </div>
         <div class="sidebar-stat">
-          <span class="sidebar-stat-label">Sys</span>
+          <span class="sidebar-stat-label">{t('sidebar.sys')}</span>
           <span class="sidebar-stat-value">{fmtSize(systemStats.mem_sys)}</span>
         </div>
         <div class="sidebar-stat">
-          <span class="sidebar-stat-label">Goroutines</span>
+          <span class="sidebar-stat-label">{t('sidebar.goroutines')}</span>
           <span class="sidebar-stat-value">{fmtN(systemStats.num_goroutines)}</span>
         </div>
         <div class="sidebar-stat">
-          <span class="sidebar-stat-label">GC cycles</span>
+          <span class="sidebar-stat-label">{t('sidebar.gcCycles')}</span>
           <span class="sidebar-stat-value">{fmtN(systemStats.num_gc)}</span>
         </div>
       </div>
@@ -197,23 +198,23 @@
   {/if}
 
   <div class="sidebar-section sidebar-section-push">
-    <div class="sidebar-section-title">General</div>
+    <div class="sidebar-section-title">{t('sidebar.general')}</div>
     <nav class="sidebar-nav">
       <button class="sidebar-link" class:active={currentView === 'stats'} onclick={() => onopenstats?.()}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        Stats
+        {t('sidebar.stats')}
       </button>
       <button class="sidebar-link" class:active={currentView === 'settings'} onclick={() => onopensettings?.()}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        Settings
+        {t('sidebar.settings')}
       </button>
       <button class="sidebar-link" class:active={currentView === 'logs'} onclick={() => onopenlogs?.()}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        Logs
+        {t('sidebar.logs')}
       </button>
       <button class="sidebar-link" class:active={currentView === 'api'} onclick={() => onopenapi?.()}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-        API
+        {t('sidebar.api')}
       </button>
     </nav>
   </div>
@@ -222,15 +223,15 @@
     <button class="theme-toggle" onclick={() => ontoggledarkmode?.()}>
       {#if darkMode}
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        Light mode
+        {t('sidebar.lightMode')}
       {:else}
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        Dark mode
+        {t('sidebar.darkMode')}
       {/if}
     </button>
     <a class="sidebar-branding" href="https://www.seobserver.com" target="_blank" rel="noopener">
       <svg viewBox="0 0 224 213" width="16" height="16"><ellipse fill="#fff" cx="97.667" cy="91.346" rx="91.333" ry="89.346"/><circle fill="#FF8F00" cx="9.167" cy="37.5" r="9.167"/><circle fill="#FF8F00" cx="13.167" cy="11.5" r="8.167"/><circle fill="#FF8F00" cx="40.75" cy="50.916" r="15.75"/><path fill="#FFA300" d="M102,23c-15.7,0-30.248,4.903-42.224,13.242C63.2,40.296,65.25,45.421,65.25,51c0,13.117-11.305,23.75-25.25,23.75c-2.856,0-5.599-.453-8.159-1.275C29.363,80.868,28,88.772,28,97c0,40.869,33.131,74,74,74s74-33.131,74-74S142.869,23,102,23z"/><path fill="#fff" d="M56,124l34-28l4,5l-35,28L56,124z"/><path fill="#fff" d="M106,99l24,28l-5,3l-22-27L106,99z"/><path fill="#fff" d="M96,82l12-39l4,2l-11,39L96,82z"/><path fill="#fff" d="M156,85l-20,44l4,2l20-45L156,85z"/><path fill="#fff" d="M153,72l-36-22l-2,4l35,22L153,72z"/><path fill="#fff" d="M90,83L56,58l-3,4l33,24L90,83z"/><path fill="#fff" d="M106,90l44-10v5l-44,10V90z"/><path fill="#fff" d="M87.72,79.005l18.681.433c2.866.066,5.135,2.438,5.067,5.298l-.438,18.64c-.066,2.859-2.444,5.124-5.311,5.058l-18.681-.434c-2.866-.066-5.135-2.438-5.067-5.298l.438-18.64C82.476,81.203,84.854,78.939,87.72,79.005z"/><circle fill="#fff" cx="53.5" cy="129.834" r="12.5"/><circle fill="#fff" cx="110.5" cy="45.834" r="12.5"/><circle fill="#fff" cx="155.833" cy="80.5" r="12.5"/><circle fill="#fff" cx="131.833" cy="132.501" r="12.5"/><path fill="#3D3D3D" d="M219.674,199.824l-42.065-42.065C190.988,141.132,199,120.003,199,97c0-53.572-43.429-97-97-97C76.821,0,53.884,9.595,36.642,25.327c1.311-.212,2.654-.327,4.025-.327,6.546,0,12.502,2.519,16.959,6.637C70.275,23.033,85.548,18,102,18c43.631,0,79,35.37,79,79c0,43.631-35.369,79-79,79s-79-35.369-79-79c0-9.056,1.543-17.746,4.349-25.847C20.996,67.145,16.572,60.36,15.792,52.5C8.897,65.828,5,80.958,5,97c0,53.572,43.429,97,97,97c19.921,0,38.438-6.009,53.842-16.309l42.982,42.982c3.905,3.904,11.516,2.625,16.999-2.857l.993-.993C222.299,211.34,223.578,203.729,219.674,199.824z"/></svg>
-      by SEObserver
+      {t('sidebar.byBrand')}
     </a>
   </div>
 </aside>
@@ -255,7 +256,6 @@
     align-items: center;
     gap: 12px;
     border-bottom: 1px solid var(--border-light);
-    --wails-draggable: drag;
   }
   .sidebar-logo {
     width: 36px;

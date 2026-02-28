@@ -124,7 +124,6 @@ a:hover { color: var(--accent-hover); }
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  --wails-draggable: drag;
   -webkit-app-region: drag;
 }
 

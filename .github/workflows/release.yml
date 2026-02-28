@@ -95,9 +95,6 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
       - name: Build frontend
         run: |
           cd frontend && npm ci && npm run build
@@ -108,9 +105,8 @@ jobs:
         env:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 1
-          CGO_LDFLAGS: "-framework UniformTypeIdentifiers"
         run: |
-          go build -tags "desktop production" \
+          go build -tags desktop \
             -ldflags "-X github.com/SEObserver/crawlobserver/internal/updater.Version=${{ github.ref_name }}" \
             -o CrawlObserver ./cmd/crawlobserver
 

@@ -5,12 +5,9 @@ package cli
 import (
 	"context"
 	_ "embed"
-	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -24,11 +21,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/updater"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/wailsapp/wails/v2"
-	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	"github.com/wailsapp/wails/v2/pkg/options/mac"
+	webview "github.com/webview/webview_go"
 )
 
 //go:embed appicon.png
@@ -76,6 +69,10 @@ func runGUI(cmd *cobra.Command, args []string) error {
 		cfg.Server.SQLitePath = filepath.Join(dataDir, cfg.Server.SQLitePath)
 	}
 
+	// In desktop mode, auth is unnecessary — server listens on 127.0.0.1 only
+	cfg.Server.Username = ""
+	cfg.Server.Password = ""
+
 	store, cleanup, managedCH, err := setupClickHouse(cfg, cfg.ClickHouse.Database)
 	if err != nil {
 		return err
@@ -90,7 +87,6 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	defer keyStore.Close()
 
 	// In GUI mode, use a random available port to avoid conflicts
-	// (the user never sees this port — Wails proxies everything)
 	guiPort, err := findFreePort()
 	if err != nil {
 		return fmt.Errorf("finding free port: %w", err)
@@ -159,61 +155,26 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	serverURL := fmt.Sprintf("http://127.0.0.1:%d", guiPort)
 	waitForServer(serverURL, 10*time.Second)
 
-	// Build reverse proxy to our localhost server
-	target, _ := url.Parse(serverURL)
-	proxy := httputil.NewSingleHostReverseProxy(target)
-
-	// If auth is configured, inject it into proxied requests
-	var authHeader string
-	if cfg.Server.Username != "" && cfg.Server.Password != "" {
-		creds := base64.StdEncoding.EncodeToString([]byte(cfg.Server.Username + ":" + cfg.Server.Password))
-		authHeader = "Basic " + creds
-	}
-
-	proxyMiddleware := assetserver.ChainMiddleware(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if authHeader != "" {
-				r.Header.Set("Authorization", authHeader)
-			}
-			proxy.ServeHTTP(w, r)
-		})
-	})
-
 	appName := "CrawlObserver"
 	if cfg.Theme.AppName != "" {
 		appName = cfg.Theme.AppName
 	}
 
-	err = wails.Run(&options.App{
-		Title:     appName,
-		Width:     1440,
-		Height:    900,
-		MinWidth:  800,
-		MinHeight: 600,
-		AssetServer: &assetserver.Options{
-			Middleware: proxyMiddleware,
-		},
-		Mac: &mac.Options{
-			TitleBar:             mac.TitleBarHiddenInset(),
-			WebviewIsTransparent: false,
-			About: &mac.AboutInfo{
-				Title:   appName,
-				Message: "SEO Crawler & Analyzer",
-				Icon:    appIcon,
-			},
-		},
-		OnDomReady: func(ctx context.Context) {
-			// Add top padding for the hidden-inset title bar (macOS traffic lights)
-			wailsRuntime.WindowExecJS(ctx, `document.documentElement.style.setProperty('--topbar-height','36px')`)
-		},
-		OnShutdown: func(ctx context.Context) {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			srv.Stop(shutdownCtx)
-		},
-	})
+	// Create native webview window
+	w := webview.New(false)
+	defer w.Destroy()
+	w.SetTitle(appName)
+	w.SetSize(1440, 900, webview.HintNone)
+	w.SetSize(800, 600, webview.HintMin)
+	w.Navigate(serverURL)
+	w.Run()
 
-	return err
+	// Clean shutdown after window is closed
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	srv.Stop(shutdownCtx)
+
+	return nil
 }
 
 func waitForServer(url string, timeout time.Duration) {

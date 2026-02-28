@@ -53,7 +53,7 @@ type Server struct {
 	keyStore        *apikeys.Store
 	manager         CrawlService
 	server          *http.Server
-	NoBrowserOpen   bool // skip auto-opening browser (e.g. in GUI/Wails mode)
+	NoBrowserOpen   bool // skip auto-opening browser (e.g. in desktop GUI mode)
 	IsDesktop       bool // true when running as .app desktop bundle
 	UpdateStatus    *updater.UpdateStatus
 	BackupOpts      *backup.BackupOptions
@@ -234,7 +234,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 
 	// Wrap with auth middleware
 	var handler http.Handler = mux
-	if s.keyStore != nil {
+	if s.keyStore != nil && (s.cfg.Server.Username != "" && s.cfg.Server.Password != "") {
 		handler = apikeys.Authenticate(s.keyStore, s.cfg.Server.Username, s.cfg.Server.Password)(mux)
 		applog.Info("server", "Authentication enabled (API keys + basic auth)")
 	} else if s.cfg.Server.Username != "" && s.cfg.Server.Password != "" {

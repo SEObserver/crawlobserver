@@ -10,7 +10,7 @@ rm -rf internal/server/frontend/dist
 cp -r frontend/dist internal/server/frontend/dist
 
 echo "==> Building binary..."
-CGO_LDFLAGS="-framework UniformTypeIdentifiers" go build -tags "desktop production" -o "${APP_NAME}" ./cmd/crawlobserver
+go build -tags desktop -o "${APP_NAME}" ./cmd/crawlobserver
 
 echo "==> Creating ${BUNDLE}..."
 rm -rf "${BUNDLE}"
