@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/SEObserver/crawlobserver/internal/applog"
 )
 
 const (
@@ -142,7 +143,7 @@ func DownloadUpdate(release *Release) (string, error) {
 		return "", fmt.Errorf("no binary found for %s/%s in release %s", runtime.GOOS, runtime.GOARCH, release.TagName)
 	}
 
-	log.Printf("Downloading %s...", assetName)
+	applog.Infof("updater", "Downloading %s...", assetName)
 
 	resp, err := http.Get(downloadURL)
 	if err != nil {
@@ -193,7 +194,7 @@ func SelfUpdate(newBinaryPath string) error {
 	// Remove backup
 	os.Remove(backupPath)
 
-	log.Println("Update installed. Restart to use the new version.")
+	applog.Info("updater", "Update installed. Restart to use the new version.")
 	return nil
 }
 
@@ -225,7 +226,7 @@ func DownloadDesktopUpdate(release *Release) (string, error) {
 		return "", fmt.Errorf("no desktop bundle found for %s/%s in release %s", runtime.GOOS, runtime.GOARCH, release.TagName)
 	}
 
-	log.Printf("Downloading %s...", assetName)
+	applog.Infof("updater", "Downloading %s...", assetName)
 
 	resp, err := http.Get(downloadURL)
 	if err != nil {
@@ -293,7 +294,7 @@ func DownloadDesktopUpdate(release *Release) (string, error) {
 		return "", fmt.Errorf("no .app bundle found in archive")
 	}
 
-	log.Printf("Desktop update extracted to %s", appPath)
+	applog.Infof("updater", "Desktop update extracted to %s", appPath)
 	return appPath, nil
 }
 
@@ -334,6 +335,6 @@ func SelfUpdateDesktop(newAppPath string) error {
 	// Remove backup
 	os.RemoveAll(backupPath)
 
-	log.Println("Desktop update installed. Restart the application to use the new version.")
+	applog.Info("updater", "Desktop update installed. Restart the application to use the new version.")
 	return nil
 }

@@ -3,13 +3,14 @@ package clickhouse
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/exec"
 	"runtime"
 	"syscall"
 	"time"
+
+	"github.com/SEObserver/crawlobserver/internal/applog"
 )
 
 // ManagedServer manages a ClickHouse subprocess.
@@ -42,7 +43,7 @@ func (m *ManagedServer) Start(ctx context.Context, binaryPath string) error {
 
 	m.binaryPath = binaryPath
 
-	log.Printf("Starting managed ClickHouse (tcp=%d, http=%d, data=%s)", tcpPort, httpPort, m.dataDir)
+	applog.Infof("clickhouse", "Starting managed ClickHouse (tcp=%d, http=%d, data=%s)", tcpPort, httpPort, m.dataDir)
 
 	m.cmd = exec.CommandContext(ctx, binaryPath, "server", "--config-file="+configPath)
 	m.cmd.Stdout = os.Stdout
@@ -58,7 +59,7 @@ func (m *ManagedServer) Start(ctx context.Context, binaryPath string) error {
 		return fmt.Errorf("ClickHouse failed to start: %w", err)
 	}
 
-	log.Printf("Managed ClickHouse ready on port %d", tcpPort)
+	applog.Infof("clickhouse", "Managed ClickHouse ready on port %d", tcpPort)
 	return nil
 }
 
@@ -68,7 +69,7 @@ func (m *ManagedServer) Stop() {
 		return
 	}
 
-	log.Println("Stopping managed ClickHouse...")
+	applog.Info("clickhouse", "Stopping managed ClickHouse...")
 
 	if runtime.GOOS == "windows" {
 		m.cmd.Process.Kill()
@@ -84,9 +85,9 @@ func (m *ManagedServer) Stop() {
 
 	select {
 	case <-done:
-		log.Println("Managed ClickHouse stopped.")
+		applog.Info("clickhouse", "Managed ClickHouse stopped.")
 	case <-time.After(10 * time.Second):
-		log.Println("ClickHouse did not stop gracefully, killing...")
+		applog.Warn("clickhouse", "ClickHouse did not stop gracefully, killing...")
 		m.cmd.Process.Kill()
 		<-done
 	}

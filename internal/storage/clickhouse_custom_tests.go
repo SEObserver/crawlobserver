@@ -3,11 +3,11 @@ package storage
 import (
 	"context"
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/customtests"
 )
 
@@ -121,7 +121,7 @@ func (s *Store) StreamPagesHTML(ctx context.Context, sessionID string) (<-chan P
 		for rows.Next() {
 			var r PageHTMLRow
 			if err := rows.Scan(&r.URL, &r.HTML); err != nil {
-				log.Printf("StreamPagesHTML scan error: %v", err)
+				applog.Errorf("storage", "StreamPagesHTML scan error: %v", err)
 				return
 			}
 			select {

@@ -444,6 +444,10 @@ func (m *mockManager) BufferState(sessionID string) storage.BufferErrorState {
 	return storage.BufferErrorState{}
 }
 
+func (m *mockManager) LastError(sessionID string) string {
+	return ""
+}
+
 // ---------------------------------------------------------------------------
 // newTestServer helper
 // ---------------------------------------------------------------------------

@@ -2,8 +2,8 @@ package cli
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/SEObserver/crawlobserver/internal/applog"
 	chmanaged "github.com/SEObserver/crawlobserver/internal/clickhouse"
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/spf13/cobra"
@@ -34,8 +34,8 @@ func runInstallClickhouse(cmd *cobra.Command, args []string) error {
 	// Check if already installed
 	existing := chmanaged.FindBinary(cfg.ClickHouse.BinaryPath, dataDir)
 	if existing != "" {
-		log.Printf("ClickHouse binary already found at: %s", existing)
-		log.Println("Re-downloading to update...")
+		applog.Infof("cli", "ClickHouse binary already found at: %s", existing)
+		applog.Info("cli", "Re-downloading to update...")
 	}
 
 	binPath, err := chmanaged.DownloadBinary(dataDir)
@@ -43,6 +43,6 @@ func runInstallClickhouse(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("installing ClickHouse: %w", err)
 	}
 
-	log.Printf("ClickHouse installed at: %s", binPath)
+	applog.Infof("cli", "ClickHouse installed at: %s", binPath)
 	return nil
 }

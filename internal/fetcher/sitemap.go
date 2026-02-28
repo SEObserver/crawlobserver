@@ -3,9 +3,10 @@ package fetcher
 import (
 	"encoding/xml"
 	"io"
-	"log"
 	"net/http"
 	"strings"
+
+	"github.com/SEObserver/crawlobserver/internal/applog"
 )
 
 const maxSitemapSize = 10 * 1024 * 1024 // 10MB
@@ -127,7 +128,7 @@ func DiscoverSitemaps(client *http.Client, userAgent string, sitemapURLs []strin
 		url := queue[0]
 		queue = queue[1:]
 
-		log.Printf("Fetching sitemap: %s", url)
+		applog.Infof("fetcher", "Fetching sitemap: %s", url)
 		entry := FetchSitemap(client, url, userAgent)
 		results = append(results, entry)
 

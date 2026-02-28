@@ -1,9 +1,10 @@
 package config
 
 import (
-	"log"
 	"runtime"
 	"runtime/debug"
+
+	"github.com/SEObserver/crawlobserver/internal/applog"
 )
 
 // ApplyResourceLimits configures GOMAXPROCS and memory soft limit based on config.
@@ -12,7 +13,7 @@ func ApplyResourceLimits(cfg *Config) {
 	// CPU limit
 	if cfg.Resources.MaxCPU > 0 {
 		prev := runtime.GOMAXPROCS(cfg.Resources.MaxCPU)
-		log.Printf("GOMAXPROCS: %d → %d", prev, cfg.Resources.MaxCPU)
+		applog.Infof("config", "GOMAXPROCS: %d → %d", prev, cfg.Resources.MaxCPU)
 	}
 
 	// Memory soft limit via GOMEMLIMIT
@@ -24,14 +25,14 @@ func ApplyResourceLimits(cfg *Config) {
 	if memLimitMB > 0 {
 		limit := int64(memLimitMB) * 1024 * 1024
 		debug.SetMemoryLimit(limit)
-		log.Printf("Memory soft limit: %d MB", memLimitMB)
+		applog.Infof("config", "Memory soft limit: %d MB", memLimitMB)
 	}
 
 	// Auto-adjust workers if memory is tight
 	if memLimitMB > 0 && memLimitMB < 512 {
 		maxWorkers := max(1, memLimitMB/50) // ~50MB per worker is a safe estimate
 		if cfg.Crawler.Workers > maxWorkers {
-			log.Printf("Reducing workers %d → %d (memory constraint: %d MB)",
+			applog.Warnf("config", "Reducing workers %d → %d (memory constraint: %d MB)",
 				cfg.Crawler.Workers, maxWorkers, memLimitMB)
 			cfg.Crawler.Workers = maxWorkers
 		}

@@ -3,10 +3,10 @@ package crawler
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
+	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
@@ -22,19 +22,28 @@ func parseDuration(s string) (time.Duration, error) {
 
 // Manager manages running crawl engines.
 type Manager struct {
-	mu      sync.RWMutex
-	engines map[string]*Engine // sessionID -> engine
-	cfg     *config.Config
-	store   *storage.Store
+	mu         sync.RWMutex
+	engines    map[string]*Engine // sessionID -> engine
+	lastErrors map[string]string  // sessionID -> error message (persists after engine cleanup)
+	cfg        *config.Config
+	store      *storage.Store
 }
 
 // NewManager creates a new crawl manager.
 func NewManager(cfg *config.Config, store *storage.Store) *Manager {
 	return &Manager{
-		engines: make(map[string]*Engine),
-		cfg:     cfg,
-		store:   store,
+		engines:    make(map[string]*Engine),
+		lastErrors: make(map[string]string),
+		cfg:        cfg,
+		store:      store,
 	}
+}
+
+// LastError returns the error message from the last run of a session, if any.
+func (m *Manager) LastError(sessionID string) string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.lastErrors[sessionID]
 }
 
 // CrawlRequest holds parameters for starting a new crawl.
@@ -117,14 +126,7 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	m.mu.Unlock()
 
 	// Run in background
-	go func() {
-		if err := engine.Run(req.Seeds); err != nil {
-			log.Printf("Crawl %s failed: %v", sessionID, err)
-		}
-		m.mu.Lock()
-		delete(m.engines, sessionID)
-		m.mu.Unlock()
-	}()
+	go m.runEngine(sessionID, engine, req.Seeds)
 
 	return sessionID, nil
 }
@@ -215,7 +217,7 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		return "", fmt.Errorf("fetching original session: %w", err)
 	}
 
-	log.Printf("Resuming session %s with %d uncrawled URLs (%d already crawled)",
+	applog.Infof("crawler", "Resuming session %s with %d uncrawled URLs (%d already crawled)",
 		sessionID, len(uncrawled), len(crawled))
 
 	cfg := *m.cfg
@@ -260,14 +262,7 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 	m.engines[sessionID] = engine
 	m.mu.Unlock()
 
-	go func() {
-		if err := engine.Run(uncrawled); err != nil {
-			log.Printf("Resumed crawl %s failed: %v", sessionID, err)
-		}
-		m.mu.Lock()
-		delete(m.engines, sessionID)
-		m.mu.Unlock()
-	}()
+	go m.runEngine(sessionID, engine, uncrawled)
 
 	return sessionID, nil
 }
@@ -331,7 +326,7 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 		return 0, fmt.Errorf("fetching original session: %w", err)
 	}
 
-	log.Printf("Retrying %d failed URLs for session %s", len(failedURLs), sessionID)
+	applog.Infof("crawler", "Retrying %d failed URLs for session %s", len(failedURLs), sessionID)
 
 	cfg := *m.cfg
 	if overrides != nil {
@@ -356,14 +351,23 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 	m.engines[sessionID] = engine
 	m.mu.Unlock()
 
-	go func() {
-		if err := engine.Run(failedURLs); err != nil {
-			log.Printf("Retry crawl %s failed: %v", sessionID, err)
-		}
-		m.mu.Lock()
-		delete(m.engines, sessionID)
-		m.mu.Unlock()
-	}()
+	go m.runEngine(sessionID, engine, failedURLs)
 
 	return deleted, nil
+}
+
+// runEngine runs the crawl engine and records the outcome.
+func (m *Manager) runEngine(sessionID string, engine *Engine, seeds []string) {
+	err := engine.Run(seeds)
+	m.mu.Lock()
+	delete(m.engines, sessionID)
+	if err != nil {
+		m.lastErrors[sessionID] = err.Error()
+	} else {
+		delete(m.lastErrors, sessionID)
+	}
+	m.mu.Unlock()
+	if err != nil {
+		applog.Errorf("crawler", "Crawl %s failed: %v", sessionID, err)
+	}
 }

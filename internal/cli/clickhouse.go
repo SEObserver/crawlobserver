@@ -3,11 +3,11 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"time"
 
+	"github.com/SEObserver/crawlobserver/internal/applog"
 	chmanaged "github.com/SEObserver/crawlobserver/internal/clickhouse"
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/storage"
@@ -32,7 +32,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 
 	switch mode {
 	case "external":
-		log.Printf("Using external ClickHouse at %s:%d", cfg.ClickHouse.Host, cfg.ClickHouse.Port)
+		applog.Infof("cli", "Using external ClickHouse at %s:%d", cfg.ClickHouse.Host, cfg.ClickHouse.Port)
 		host = cfg.ClickHouse.Host
 		port = cfg.ClickHouse.Port
 		username = cfg.ClickHouse.Username
@@ -47,7 +47,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 
 		binaryPath := chmanaged.FindBinary(cfg.ClickHouse.BinaryPath, dataDir)
 		if binaryPath == "" {
-			log.Println("No ClickHouse binary found, downloading...")
+			applog.Info("cli", "No ClickHouse binary found, downloading...")
 			var err error
 			binaryPath, err = chmanaged.DownloadBinary(dataDir)
 			if err != nil {
@@ -83,7 +83,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 			}
 			return nil, noop, nil, fmt.Errorf("connecting for migrations: %w", err)
 		}
-		log.Println("Running auto-migrations...")
+		applog.Info("cli", "Running auto-migrations...")
 		if err := initStore.Migrate(context.Background()); err != nil {
 			initStore.Close()
 			if cleanup != nil {
@@ -104,7 +104,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 
 	// If connecting to default (migrate command), run migrations on this store directly
 	if connectDB == "default" {
-		log.Println("Running migrations...")
+		applog.Info("cli", "Running migrations...")
 		if err := store.Migrate(context.Background()); err != nil {
 			store.Close()
 			if cleanup != nil {
@@ -112,7 +112,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 			}
 			return nil, noop, nil, fmt.Errorf("migration: %w", err)
 		}
-		log.Println("Migrations complete.")
+		applog.Info("cli", "Migrations complete.")
 	}
 
 	return store, cleanup, managed, nil

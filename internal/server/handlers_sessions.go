@@ -223,7 +223,12 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 
 		if !running {
-			fmt.Fprintf(w, "event: done\ndata: {}\n\n")
+			errMsg := s.manager.LastError(sessionID)
+			if errMsg != "" {
+				fmt.Fprintf(w, "event: done\ndata: {\"error\":%q}\n\n", errMsg)
+			} else {
+				fmt.Fprintf(w, "event: done\ndata: {}\n\n")
+			}
 			flusher.Flush()
 			return
 		}
@@ -247,6 +252,9 @@ func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 	}
 	if bufState.LostLinks > 0 {
 		resp["lost_links"] = bufState.LostLinks
+	}
+	if errMsg := s.manager.LastError(sessionID); errMsg != "" {
+		resp["error"] = errMsg
 	}
 	writeJSON(w, resp)
 }

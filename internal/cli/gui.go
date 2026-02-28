@@ -7,7 +7,6 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/apikeys"
+	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/backup"
 	chmanaged "github.com/SEObserver/crawlobserver/internal/clickhouse"
 	"github.com/SEObserver/crawlobserver/internal/config"
@@ -96,7 +96,7 @@ func runGUI(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("finding free port: %w", err)
 	}
 	cfg.Server.Port = guiPort
-	log.Printf("GUI mode: using internal HTTP port %d", guiPort)
+	applog.Infof("cli", "GUI mode: using internal HTTP port %d", guiPort)
 
 	srv := server.New(cfg, store, keyStore)
 	srv.NoBrowserOpen = true
@@ -135,22 +135,23 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	// Background update check (5s after startup)
 	go func() {
 		time.Sleep(5 * time.Second)
-		log.Println("Checking for updates...")
+		applog.Info("cli", "Checking for updates...")
 		srv.UpdateStatus.Check()
 		snap := srv.UpdateStatus.Snapshot()
 		if snap.Available {
-			log.Printf("Update available: %s -> %s", snap.CurrentVersion, snap.LatestVersion)
+			applog.Infof("cli", "Update available: %s -> %s", snap.CurrentVersion, snap.LatestVersion)
 		} else if snap.Error != "" {
-			log.Printf("Update check error: %s", snap.Error)
+			applog.Warnf("cli", "Update check error: %s", snap.Error)
 		} else {
-			log.Println("Application is up to date.")
+			applog.Info("cli", "Application is up to date.")
 		}
 	}()
 
 	// Start the HTTP server in the background
 	go func() {
 		if err := srv.Start(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("HTTP server error: %v", err)
+			applog.Errorf("cli", "HTTP server error: %v", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -225,7 +226,7 @@ func waitForServer(url string, timeout time.Duration) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	log.Println("Warning: server may not be ready")
+	applog.Warn("cli", "Server may not be ready")
 }
 
 // findFreePort asks the OS for an available port.

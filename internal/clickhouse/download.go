@@ -3,12 +3,13 @@ package clickhouse
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+
+	"github.com/SEObserver/crawlobserver/internal/applog"
 )
 
 // downloadURL returns the ClickHouse binary download URL for the current platform.
@@ -50,7 +51,7 @@ func DownloadBinary(dataDir string) (string, error) {
 	binPath := filepath.Join(binDir, "clickhouse")
 	tmpPath := binPath + ".tmp"
 
-	log.Printf("Downloading ClickHouse binary from %s ...", dlURL)
+	applog.Infof("clickhouse", "Downloading ClickHouse binary from %s ...", dlURL)
 
 	resp, err := http.Get(dlURL)
 	if err != nil {
@@ -77,7 +78,7 @@ func DownloadBinary(dataDir string) (string, error) {
 	}
 	f.Close()
 
-	log.Printf("Download complete (%.1f MB)", float64(reader.written)/(1024*1024))
+	applog.Infof("clickhouse", "Download complete (%.1f MB)", float64(reader.written)/(1024*1024))
 
 	// Make executable
 	if err := os.Chmod(tmpPath, 0755); err != nil {
@@ -92,7 +93,7 @@ func DownloadBinary(dataDir string) (string, error) {
 		os.Remove(tmpPath)
 		return "", fmt.Errorf("binary verification failed: %w\noutput: %s", err, string(out))
 	}
-	log.Printf("ClickHouse binary verified: %s", string(out))
+	applog.Infof("clickhouse", "ClickHouse binary verified: %s", string(out))
 
 	// Atomic rename
 	if err := os.Rename(tmpPath, binPath); err != nil {
@@ -116,7 +117,7 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 	if pr.total > 0 {
 		pct := int(pr.written * 100 / pr.total)
 		if pct/10 > pr.lastPct/10 {
-			log.Printf("  downloading... %d%%", pct)
+			applog.Infof("clickhouse", "downloading... %d%%", pct)
 			pr.lastPct = pct
 		}
 	}

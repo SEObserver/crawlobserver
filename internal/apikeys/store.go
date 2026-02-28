@@ -6,9 +6,9 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"time"
 
+	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/customtests"
 	"github.com/SEObserver/crawlobserver/internal/providers"
 	"github.com/google/uuid"
@@ -436,7 +436,7 @@ func (s *Store) ValidateKey(rawKey string) *KeyLookupResult {
 
 	// Update last_used_at
 	if _, err := s.db.Exec(`UPDATE api_keys SET last_used_at = ? WHERE id = ?`, time.Now().UTC(), result.ID); err != nil {
-		log.Printf("warning: failed to update last_used_at: %v", err)
+		applog.Warnf("apikeys", "failed to update last_used_at: %v", err)
 	}
 
 	return &result

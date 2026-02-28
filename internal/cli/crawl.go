@@ -3,12 +3,12 @@ package cli
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
+	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/crawler"
 	"github.com/spf13/cobra"
@@ -85,7 +85,7 @@ func runCrawl(cmd *cobra.Command, args []string) error {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		log.Println("Received shutdown signal, stopping gracefully...")
+		applog.Info("cli", "Received shutdown signal, stopping gracefully...")
 		engine.Stop()
 	}()
 

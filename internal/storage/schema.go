@@ -3,9 +3,9 @@ package storage
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/SEObserver/crawlobserver/internal/applog"
 )
 
 // Migration represents a schema migration step.
@@ -476,11 +476,11 @@ func repartitionTable(ctx context.Context, conn driver.Conn, table, createV2DDL 
 		return nil
 	}
 	if partitionKey == "crawl_session_id" {
-		log.Printf("  %s: already partitioned by crawl_session_id, skipping", table)
+		applog.Infof("storage", "%s: already partitioned by crawl_session_id, skipping", table)
 		return nil
 	}
 
-	log.Printf("  %s: repartitioning (current: %q) → crawl_session_id", table, partitionKey)
+	applog.Infof("storage", "%s: repartitioning (current: %q) → crawl_session_id", table, partitionKey)
 
 	// Create v2 table
 	if err := conn.Exec(ctx, createV2DDL); err != nil {
@@ -507,16 +507,16 @@ func repartitionTable(ctx context.Context, conn driver.Conn, table, createV2DDL 
 
 	// Drop old table
 	if err := conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS crawlobserver.%s_old", table)); err != nil {
-		log.Printf("  warning: failed to drop %s_old: %v", table, err)
+		applog.Warnf("storage", "failed to drop %s_old: %v", table, err)
 	}
 
-	log.Printf("  %s: repartitioned successfully", table)
+	applog.Infof("storage", "%s: repartitioned successfully", table)
 	return nil
 }
 
 // migrateRepartitionBySession repartitions all data tables by crawl_session_id.
 func migrateRepartitionBySession(ctx context.Context, conn driver.Conn) error {
-	log.Println("Running repartition migration...")
+	applog.Info("storage", "Running repartition migration...")
 
 	tables := []struct {
 		name      string
@@ -535,7 +535,7 @@ func migrateRepartitionBySession(ctx context.Context, conn driver.Conn) error {
 		}
 	}
 
-	log.Println("Repartition migration complete.")
+	applog.Info("storage", "Repartition migration complete.")
 	return nil
 }
 

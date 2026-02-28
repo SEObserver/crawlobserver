@@ -2,8 +2,8 @@ package cli
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/updater"
 	"github.com/spf13/cobra"
 )
@@ -32,8 +32,8 @@ func init() {
 func runUpdate(cmd *cobra.Command, args []string) error {
 	checkOnly, _ := cmd.Flags().GetBool("check")
 
-	log.Printf("Current version: %s", updater.Version)
-	log.Println("Checking for updates...")
+	applog.Infof("cli", "Current version: %s", updater.Version)
+	applog.Info("cli", "Checking for updates...")
 
 	release, hasUpdate, err := updater.CheckUpdate()
 	if err != nil {
@@ -41,11 +41,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	if !hasUpdate {
-		log.Println("Already up to date.")
+		applog.Info("cli", "Already up to date.")
 		return nil
 	}
 
-	log.Printf("New version available: %s", release.TagName)
+	applog.Infof("cli", "New version available: %s", release.TagName)
 
 	if checkOnly {
 		fmt.Printf("Update available: %s\nDownload: %s\n", release.TagName, release.HTMLURL)
@@ -61,6 +61,6 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("installing update: %w", err)
 	}
 
-	log.Printf("Updated to %s. Please restart crawlobserver.", release.TagName)
+	applog.Infof("cli", "Updated to %s. Please restart crawlobserver.", release.TagName)
 	return nil
 }

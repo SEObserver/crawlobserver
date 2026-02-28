@@ -3,9 +3,9 @@ package storage
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
+	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/google/uuid"
 )
 
@@ -526,7 +526,7 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		rank, newRank = newRank, rank
 
 		if diff < tolerance {
-			log.Printf("PageRank converged after %d iterations (diff=%.2e)", iter+1, diff)
+			applog.Infof("storage", "PageRank converged after %d iterations (diff=%.2e)", iter+1, diff)
 			break
 		}
 	}
@@ -587,7 +587,7 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		}
 	}
 
-	log.Printf("ComputePageRank: computed for %d pages in session %s", n, sessionID)
+	applog.Infof("storage", "ComputePageRank: computed for %d pages in session %s", n, sessionID)
 	return nil
 }
 
@@ -767,7 +767,7 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 		return fmt.Errorf("updating depths from temp table: %w", err)
 	}
 
-	log.Printf("RecomputeDepths: updated %d URLs for session %s", len(depths), sessionID)
+	applog.Infof("storage", "RecomputeDepths: updated %d URLs for session %s", len(depths), sessionID)
 	return nil
 }
 
