@@ -58,6 +58,38 @@
   --shadow-md: 0 4px 6px rgba(0,0,0,0.3);
 }
 
+/* ===== Skip Link ===== */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  text-decoration: none;
+}
+.skip-link:focus {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* ===== Inline button (a11y replacement for clickable spans) ===== */
+.inline-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: inherit;
+}
+.inline-btn:hover { text-decoration: underline; }
+
 /* ===== Reset & Base ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -184,6 +216,33 @@ a:hover { color: var(--accent-hover); }
   background: var(--bg-hover);
 }
 
+.sidebar-search {
+  padding: 0 8px 6px;
+}
+.sidebar-search-input {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  box-sizing: border-box;
+}
+.sidebar-search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.sidebar-search-input::placeholder {
+  color: var(--text-muted);
+}
+.sidebar-view-all {
+  font-size: 12px !important;
+  color: var(--accent) !important;
+  padding: 6px 12px !important;
+  justify-content: center !important;
+}
 .sidebar-inline-input {
   padding: 0 8px 6px;
 }

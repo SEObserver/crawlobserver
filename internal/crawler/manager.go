@@ -11,6 +11,11 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
+const (
+	defaultExternalWorkers = 3
+	defaultResourceWorkers = 3
+)
+
 func parseDuration(s string) (time.Duration, error) {
 	return time.ParseDuration(s)
 }
@@ -93,14 +98,14 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	engine.checkExternal = req.CheckExternalLinks == nil || *req.CheckExternalLinks
 	engine.externalWorkers = req.ExternalLinkWorkers
 	if engine.externalWorkers <= 0 {
-		engine.externalWorkers = 3
+		engine.externalWorkers = defaultExternalWorkers
 	}
 
 	// Page resource checking: default true
 	engine.checkResources = req.CheckPageResources == nil || *req.CheckPageResources
 	engine.resourceWorkers = req.ResourceWorkers
 	if engine.resourceWorkers <= 0 {
-		engine.resourceWorkers = 3
+		engine.resourceWorkers = defaultResourceWorkers
 	}
 
 	m.mu.Lock()

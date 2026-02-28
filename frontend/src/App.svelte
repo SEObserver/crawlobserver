@@ -6,7 +6,7 @@
     getStorageStats, getGlobalStats, getSessionStorage, getSystemStats,
     getProjects, createProject, renameProject, deleteProject,
     getUpdateStatus, applyUpdate,
-    createBackup } from './lib/api.js';
+    createBackup, getSessionsPaginated } from './lib/api.js';
   import { statusBadge, fmt, fmtSize, fmtN, trunc, timeAgo, a11yKeydown } from './lib/utils.js';
   import { PAGE_SIZE, TAB_FILTERS, TABS } from './lib/tabColumns.js';
   import HtmlModal from './lib/components/HtmlModal.svelte';
@@ -29,9 +29,22 @@
   import ExternalChecksTab from './lib/components/ExternalChecksTab.svelte';
   import ResourceChecksTab from './lib/components/ResourceChecksTab.svelte';
   import LogsPage from './lib/components/LogsPage.svelte';
+  import AllProjectsPage from './lib/components/AllProjectsPage.svelte';
   import UrlDetailView from './lib/components/UrlDetailView.svelte';
   import DataTable from './lib/components/DataTable.svelte';
 
+  // --- Named constants ---
+  const STATS_REFRESH_MS = 5000;
+  const UPDATE_POLL_MAX = 6;
+  const UPDATE_POLL_MS = 10000;
+  const RELOAD_DELAY_MS = 500;
+  const STOP_RELOAD_DELAY_MS = 1000;
+  const PROJ_SESSIONS_LIMIT = 30;
+
+  /** @param {HTMLElement} node */
+  function focusOnMount(node) { node.focus(); }
+
+  // --- Crawl state ---
   let sessions = $state([]);
   let selectedSession = $state(null);
   let stats = $state(null);
@@ -43,12 +56,33 @@
   let detailUrl = $state('');
   let loading = $state(true);
   let error = $state(null);
+  let filters = $state({});
 
-  // Theme
+  // --- UI state ---
   let theme = $state({ app_name: 'CrawlObserver', logo_url: '', accent_color: '#7c3aed', mode: 'light' });
   let darkMode = $state(false);
+  let showSettings = $state(false);
+  let showNewCrawl = $state(false);
+  let showResumeModal = $state(false);
+  let resumeSessionId = $state(null);
+  let showHtmlModal = $state(false);
+  let htmlModalUrl = $state('');
+  let showGlobalStats = $state(false);
+  let globalStats = $state(null);
+  let showAPI = $state(false);
+  let showCompare = $state(false);
+  let showLogs = $state(false);
+  let showAllProjects = $state(false);
+  let compareSessionA = $state('');
+  let compareSessionB = $state('');
+  let updateInfo = $state(null);
+  let updateDismissed = $state(false);
+  let updatingApp = $state(false);
+  let updateMessage = $state('');
+  let storageStats = $state(null);
+  let systemStats = $state(null);
 
-  // Pagination
+  // --- Pagination ---
   let pagesOffset = $state(0);
   let extLinksOffset = $state(0);
   let intLinksOffset = $state(0);
@@ -56,79 +90,57 @@
   let hasMoreExtLinks = $state(false);
   let hasMoreIntLinks = $state(false);
 
-  // Global filters
-  let filters = $state({});
-
-
-  // Settings
-  let showSettings = $state(false);
-
-  // Update
-  let updateInfo = $state(null);
-  let updateDismissed = $state(false);
-  let updatingApp = $state(false);
-  let updateMessage = $state('');
-
-
-  // New crawl form
-  let showNewCrawl = $state(false);
-
-  // Resume modal
-  let showResumeModal = $state(false);
-  let resumeSessionId = $state(null);
-
-  // HTML modal
-  let showHtmlModal = $state(false);
-  let htmlModalUrl = $state('');
-
-  // Storage stats
-  let storageStats = $state(null);
-
-  // System stats (CPU/memory monitoring)
-  let systemStats = $state(null);
-  let systemStatsInterval = null;
-
-
-  // PageRank tab
+  // --- Sub-views ---
   let prSubView = $state('top');
-
-  // Reports tab
   let reportsSubView = $state('overview');
-
-  // External checks tab
   let extChecksSubView = $state('domains');
-
-  // Resource checks tab
   let resourcesSubView = $state('summary');
-
-  // Live progress
-  let liveProgress = $state({});
-  let sseConnections = {};
-
-  // Global Stats
-  let showGlobalStats = $state(false);
-  let globalStats = $state(null);
-
-  // API page
-  let showAPI = $state(false);
-  let projects = $state([]);
-
-  // Compare
-  let showCompare = $state(false);
-  let showLogs = $state(false);
-  let compareSessionA = $state('');
-  let compareSessionB = $state('');
-
-  // Project view
-  let selectedProject = $state(null);
-  let projectTab = $state('sessions');
   let gscSubView = $state('overview');
   let providerSubView = $state('overview');
 
+  // --- Project state ---
+  let projects = $state([]);
+  let selectedProject = $state(null);
+  let projectTab = $state('sessions');
+  let projSessions = $state([]);
+  let projSessionsTotal = $state(0);
+  let projSessionsOffset = $state(0);
+
+  // --- Live progress ---
+  let liveProgress = $state({});
+  let sseConnections = {};
+  let statsRefreshTimer = null;
+  let updatePollTimer = null;
+  let systemStatsInterval = null;
+
+  // --- All Projects page ---
+  function openAllProjects() {
+    showAllProjects = true;
+    showSettings = false;
+    showGlobalStats = false;
+    showAPI = false;
+    showNewCrawl = false;
+    showCompare = false;
+    showLogs = false;
+    selectedSession = null;
+    selectedProject = null;
+    pushURL('/projects');
+  }
+
   // --- Project view ---
+  async function loadProjectSessions() {
+    if (!selectedProject) return;
+    try {
+      const res = await getSessionsPaginated(PROJ_SESSIONS_LIMIT, projSessionsOffset, { projectId: selectedProject.id });
+      projSessions = res.sessions || [];
+      projSessionsTotal = res.total || 0;
+    } catch (e) { error = e.message; }
+  }
+
   function selectProject(proj) {
     selectedProject = proj;
     selectedSession = null;
+    showAllProjects = false;
     projectTab = 'sessions';
     showSettings = false;
     showGlobalStats = false;
@@ -136,6 +148,8 @@
     showNewCrawl = false;
     showCompare = false;
     showLogs = false;
+    projSessionsOffset = 0;
+    loadProjectSessions();
     pushURL(`/projects/${proj.id}`);
   }
 
@@ -201,6 +215,7 @@
     showNewCrawl = false;
     showCompare = false;
     showLogs = false;
+    showAllProjects = false;
     selectedSession = null;
     selectedProject = null;
     pushURL('/stats');
@@ -214,6 +229,7 @@
     showNewCrawl = false;
     showCompare = false;
     showLogs = false;
+    showAllProjects = false;
     selectedSession = null;
     selectedProject = null;
     pushURL('/api');
@@ -226,6 +242,7 @@
     showAPI = false;
     showNewCrawl = false;
     showCompare = false;
+    showAllProjects = false;
     selectedSession = null;
     selectedProject = null;
     pushURL('/logs');
@@ -276,6 +293,7 @@
     showGlobalStats = false;
     showCompare = false;
     showLogs = false;
+    showAllProjects = false;
     pushURL('/settings');
   }
 
@@ -355,6 +373,9 @@
       return { page: 'compare', sessionA: sp.get('a') || '', sessionB: sp.get('b') || '' };
     }
 
+    // All projects page
+    if (path === '/projects') return { page: 'all-projects' };
+
     // Project view
     const projMatch = path.match(/^\/projects\/([^/]+)(?:\/([^/]+)(?:\/([^/]+))?)?/);
     if (projMatch) {
@@ -405,15 +426,19 @@
       showNewCrawl = route.page === 'new-crawl';
       showCompare = route.page === 'compare';
       showLogs = route.page === 'logs';
+      showAllProjects = route.page === 'all-projects';
 
       if (route.page === 'project') {
         selectedProject = projects.find(p => p.id === route.projectId) || null;
         projectTab = route.projectTab || 'sessions';
         gscSubView = route.projectTab === 'gsc' ? (route.projectSubView || 'overview') : 'overview';
         providerSubView = route.projectTab === 'providers' ? (route.projectSubView || 'overview') : 'overview';
-        showSettings = false; showGlobalStats = false; showAPI = false; showNewCrawl = false; showCompare = false; showLogs = false;
+        showSettings = false; showGlobalStats = false; showAPI = false; showNewCrawl = false; showCompare = false; showLogs = false; showAllProjects = false;
         if (!selectedProject && projects.length === 0) {
-          getProjects().then(p => { projects = p; selectedProject = p.find(pr => pr.id === route.projectId) || null; }).catch(() => {});
+          getProjects().then(p => { projects = p; selectedProject = p.find(pr => pr.id === route.projectId) || null; if (selectedProject) loadProjectSessions(); }).catch(() => {});
+        } else {
+          projSessionsOffset = 0;
+          loadProjectSessions();
         }
         if (sessions.length === 0) loadSessions();
         return;
@@ -500,6 +525,7 @@
     showNewCrawl = false;
     showCompare = false;
     showLogs = false;
+    showAllProjects = false;
     tab = 'overview';
     filters = {};
     pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
@@ -523,6 +549,7 @@
     showGlobalStats = false;
     showCompare = false;
     showLogs = false;
+    showAllProjects = false;
     pushURL('/');
   }
 
@@ -551,7 +578,6 @@
   }
 
   // --- Live stats refresh (throttled) ---
-  let statsRefreshTimer = null;
   function scheduleStatsRefresh(sessionId) {
     if (statsRefreshTimer) return; // already scheduled
     statsRefreshTimer = setTimeout(async () => {
@@ -561,19 +587,17 @@
           stats = await getStats(sessionId);
         } catch (_) {}
       }
-    }, 5000);
+    }, STATS_REFRESH_MS);
   }
 
   // --- Update check polling ---
-  let updatePollTimer = null;
   function startUpdatePoll() {
     let attempts = 0;
-    const maxAttempts = 6; // 6 * 10s = 60s
     updatePollTimer = setInterval(async () => {
       attempts++;
       try {
         const status = await getUpdateStatus();
-        if (status.available || status.checked_at || attempts >= maxAttempts) {
+        if (status.available || status.checked_at || attempts >= UPDATE_POLL_MAX) {
           clearInterval(updatePollTimer);
           updatePollTimer = null;
           if (status.available) {
@@ -581,12 +605,12 @@
           }
         }
       } catch {
-        if (attempts >= maxAttempts) {
+        if (attempts >= UPDATE_POLL_MAX) {
           clearInterval(updatePollTimer);
           updatePollTimer = null;
         }
       }
-    }, 10000);
+    }, UPDATE_POLL_MS);
   }
   startUpdatePoll();
 
@@ -667,7 +691,7 @@
   function onCrawlStarted() {
     showNewCrawl = false;
     pushURL('/');
-    setTimeout(() => loadSessions(), 500);
+    setTimeout(() => loadSessions(), RELOAD_DELAY_MS);
   }
 
   async function handleStop(id) {
@@ -679,7 +703,7 @@
         if (sess && selectedSession?.ID !== id) {
           selectSession(sess);
         }
-      }, 1000);
+      }, STOP_RELOAD_DELAY_MS);
     } catch (e) { error = e.message; }
   }
 
@@ -772,17 +796,18 @@
   });
 </script>
 
+<a class="skip-link" href="#main-content">Skip to content</a>
 <div class="layout">
   <div class="drag-bar"><span class="drag-bar-title">{theme.app_name}</span></div>
   <Sidebar {theme} {darkMode} {sessions} {projects} {globalStats} {systemStats}
-    {selectedSession} {selectedProject} {showNewCrawl} {showSettings} {showGlobalStats} {showAPI} {showCompare} {showLogs} {liveProgress}
+    {selectedSession} {selectedProject} {showNewCrawl} {showSettings} {showGlobalStats} {showAPI} {showCompare} {showLogs} {showAllProjects} {liveProgress}
     ontoggledarkmmode={toggleDarkMode} onselectsession={selectSession} onselectproject={selectProject}
     onnavigate={navigateTo} onopensettings={openSettings}
     onopenstats={openGlobalStats} onopenapi={openAPI} onopenlogs={openLogs} ongohome={goHome}
-    oncreateproject={handleCreateProject} />
+    oncreateproject={handleCreateProject} onviewallprojects={openAllProjects} />
 
   <!-- Main Content -->
-  <main class="main">
+  <main class="main" id="main-content">
     <div class="main-content">
       {#if error}
         <div class="alert alert-error">
@@ -821,6 +846,11 @@
       {:else if showLogs}
         <LogsPage onerror={(msg) => error = msg} />
 
+      {:else if showAllProjects}
+        <AllProjectsPage onerror={(msg) => error = msg}
+          onselectproject={selectProject}
+          oncreateproject={() => navigateTo('/new-crawl')} />
+
       {:else if showAPI && !selectedSession}
         <APIManagementPage onerror={(msg) => error = msg} onprojectschanged={(p) => projects = p} />
 
@@ -833,16 +863,14 @@
           <a href="/" onclick={(e) => { e.preventDefault(); goHome(); }}>Dashboard</a>
           <span>/</span>
           {#if renamingProject}
-            <!-- svelte-ignore a11y_autofocus -->
             <input class="project-rename-input" type="text" bind:value={renameValue}
-              autofocus
+              use:focusOnMount
               onkeydown={(e) => { if (e.key === 'Enter') confirmRenameProject(); if (e.key === 'Escape') cancelRenameProject(); }}
               onblur={confirmRenameProject} />
           {:else}
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <span style="color: var(--text); cursor: pointer;" ondblclick={startRenameProject} title="Double-click to rename">{selectedProject.name}</span>
+            <button class="inline-btn" style="color: var(--text);" ondblclick={startRenameProject} title="Double-click to rename">{selectedProject.name}</button>
           {/if}
-          <button class="project-delete-btn" onclick={() => handleDeleteProject(selectedProject.id)} title="Delete project">
+          <button class="project-delete-btn" onclick={() => handleDeleteProject(selectedProject.id)} title="Delete project" aria-label="Delete project">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           </button>
         </div>
@@ -855,7 +883,6 @@
 
         <div class="card card-flush" style="border-top-left-radius: 0; border-top-right-radius: 0; border-top: none;">
           {#if projectTab === 'sessions'}
-            {@const projSessions = sessions.filter(s => s.ProjectID === selectedProject.id)}
             {#if projSessions.length > 0}
               <table>
                 <thead>
@@ -893,6 +920,13 @@
                   {/each}
                 </tbody>
               </table>
+              {#if projSessionsTotal > PROJ_SESSIONS_LIMIT}
+                <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0;">
+                  <button class="btn btn-sm" onclick={() => { projSessionsOffset = Math.max(0, projSessionsOffset - PROJ_SESSIONS_LIMIT); loadProjectSessions(); }} disabled={projSessionsOffset === 0}>Previous</button>
+                  <span style="font-size:13px;color:var(--text-muted)">{projSessionsOffset + 1}-{Math.min(projSessionsOffset + PROJ_SESSIONS_LIMIT, projSessionsTotal)} of {projSessionsTotal}</span>
+                  <button class="btn btn-sm" onclick={() => { projSessionsOffset += PROJ_SESSIONS_LIMIT; loadProjectSessions(); }} disabled={projSessionsOffset + PROJ_SESSIONS_LIMIT >= projSessionsTotal}>Next</button>
+                </div>
+              {/if}
             {:else}
               <p style="color: var(--text-muted); padding: 40px 0; text-align: center;">No crawl sessions in this project yet.</p>
             {/if}

@@ -1,6 +1,6 @@
 <script>
   import { recomputeDepths, computePageRank, retryFailed, exportSession } from '../api.js';
-  import { fmtN } from '../utils.js';
+  import { fmtN, a11yKeydown } from '../utils.js';
 
   let { session, stats, liveProgress, onerror, onstop, onresume, ondelete, onrefresh, oncompare } = $props();
 
@@ -132,10 +132,11 @@
 </div>
 
 {#if showExportDialog}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="html-modal-overlay" onclick={() => showExportDialog = false}>
-    <div class="html-modal" style="max-width: 400px; height: auto;" onclick={(e) => e.stopPropagation()}>
+  <div class="html-modal-overlay" role="button" tabindex="0"
+    onclick={() => showExportDialog = false}
+    onkeydown={a11yKeydown(() => showExportDialog = false)}>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="html-modal" role="dialog" style="max-width: 400px; height: auto;" onclick={(e) => e.stopPropagation()}>
       <div class="html-modal-header">
         <div class="html-modal-url">Export Session</div>
         <div class="html-modal-actions">

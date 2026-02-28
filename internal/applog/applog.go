@@ -9,6 +9,12 @@ import (
 	"time"
 )
 
+const (
+	defaultBatchSize     = 200
+	defaultFlushInterval = 5 * time.Second
+	maxBufferSize        = 10000
+)
+
 // LogRow represents a single log entry.
 type LogRow struct {
 	Timestamp time.Time `json:"timestamp"`
@@ -40,8 +46,8 @@ var global *Logger
 func Init(store LogStore) {
 	l := &Logger{
 		store:     store,
-		batchSize: 200,
-		flushInt:  5 * time.Second,
+		batchSize: defaultBatchSize,
+		flushInt:  defaultFlushInterval,
 		done:      make(chan struct{}),
 	}
 	l.wg.Add(1)
@@ -84,6 +90,15 @@ func (l *Logger) flush() {
 	defer cancel()
 	if err := l.store.InsertLogs(ctx, batch); err != nil {
 		log.Printf("applog: failed to flush %d logs: %v", len(batch), err)
+		// Re-buffer the failed batch, capped to avoid OOM
+		l.mu.Lock()
+		l.buf = append(batch, l.buf...)
+		if len(l.buf) > maxBufferSize {
+			dropped := len(l.buf) - maxBufferSize
+			l.buf = l.buf[:maxBufferSize]
+			log.Printf("applog: buffer full, dropped %d oldest logs", dropped)
+		}
+		l.mu.Unlock()
 	}
 }
 

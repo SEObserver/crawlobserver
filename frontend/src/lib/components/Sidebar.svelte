@@ -1,16 +1,25 @@
 <script>
   import { fmtN, fmtSize } from '../utils.js';
+  import { getProjectsPaginated } from '../api.js';
 
   let {
     theme, darkMode, sessions, projects, globalStats, systemStats,
-    selectedSession, selectedProject, showNewCrawl, showSettings, showGlobalStats, showAPI, showCompare, showLogs,
+    selectedSession, selectedProject, showNewCrawl, showSettings, showGlobalStats, showAPI, showCompare, showLogs, showAllProjects,
     liveProgress,
     ontoggledarkmmode, onselectsession, onselectproject, onnavigate, onopensettings,
-    onopenstats, onopenapi, onopenlogs, ongohome, oncreateproject
+    onopenstats, onopenapi, onopenlogs, ongohome, oncreateproject, onviewallprojects
   } = $props();
+
+  /** @param {HTMLElement} node */
+  function focusOnMount(node) { node.focus(); }
 
   let creatingProject = $state(false);
   let newProjectName = $state('');
+
+  // Search state
+  let projectSearch = $state('');
+  let searchResults = $state(null);
+  let searchTimer = null;
 
   function startCreate() {
     creatingProject = true;
@@ -30,6 +39,26 @@
     creatingProject = false;
     newProjectName = '';
   }
+
+  function onSearchInput(e) {
+    const val = e.target.value;
+    projectSearch = val;
+    if (searchTimer) clearTimeout(searchTimer);
+    if (!val.trim()) {
+      searchResults = null;
+      return;
+    }
+    searchTimer = setTimeout(async () => {
+      try {
+        const res = await getProjectsPaginated(30, 0, val.trim());
+        searchResults = res.projects;
+      } catch { searchResults = null; }
+    }, 300);
+  }
+
+  let displayedProjects = $derived(
+    searchResults !== null ? searchResults : projects.slice(0, 30)
+  );
 </script>
 
 <aside class="sidebar">
@@ -69,17 +98,20 @@
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
     </div>
+    <div class="sidebar-search">
+      <input class="sidebar-search-input" type="text" placeholder="Search projects..."
+        value={projectSearch} oninput={onSearchInput} />
+    </div>
     {#if creatingProject}
       <div class="sidebar-inline-input">
-        <!-- svelte-ignore a11y_autofocus -->
         <input type="text" bind:value={newProjectName} placeholder="Project name..."
-          autofocus
+          use:focusOnMount
           onkeydown={(e) => { if (e.key === 'Enter') confirmCreate(); if (e.key === 'Escape') cancelCreate(); }}
           onblur={cancelCreate} />
       </div>
     {/if}
     <nav class="sidebar-nav">
-      {#each projects as proj}
+      {#each displayedProjects as proj}
         {@const projStats = globalStats?.projects?.find(p => p.project_id === proj.id)}
         <div class="sidebar-project">
           <button class="sidebar-link sidebar-project-header" class:active={selectedProject?.id === proj.id} onclick={() => onselectproject?.(proj)}>
@@ -92,6 +124,11 @@
         </div>
       {/each}
     </nav>
+    {#if projects.length > 30 || searchResults !== null}
+      <button class="sidebar-link sidebar-view-all" class:active={showAllProjects} onclick={() => onviewallprojects?.()}>
+        View all projects &rarr;
+      </button>
+    {/if}
   </div>
 
   {#if sessions.filter(s => !s.ProjectID).length > 0}
