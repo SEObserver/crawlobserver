@@ -986,19 +986,10 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		}
 	}
 
-	// 6. Write back to ClickHouse via temp table (avoids SQL injection from crawled URLs)
+	// 6. Write back to ClickHouse via batched ALTER TABLE UPDATE with multiIf
 	if !isValidUUID(sessionID) {
 		return fmt.Errorf("invalid session ID: %s", sessionID)
 	}
-
-	tmpTable := fmt.Sprintf("seocrawler.tmp_pr_%s", strings.ReplaceAll(sessionID, "-", ""))
-	if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
-		return fmt.Errorf("dropping old temp pagerank table: %w", err)
-	}
-	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (url String, pr Float64) ENGINE = Memory", tmpTable)); err != nil {
-		return fmt.Errorf("creating temp pagerank table: %w", err)
-	}
-	defer s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable))
 
 	const chunkSize = 500
 	for i := 0; i < int(n); i += chunkSize {
@@ -1007,28 +998,35 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 			end = int(n)
 		}
 
-		batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (url, pr)", tmpTable))
-		if err != nil {
-			return fmt.Errorf("preparing pagerank batch: %w", err)
-		}
+		// Build multiIf(url = ?, val, url = ?, val, ..., pagerank)
+		// Args order must match ? order in query: multiIf args, then sessionID, then IN list
+		var multiIfArgs []interface{}
+		var inArgs []interface{}
+		var conditions []string
+		var urlList []string
 		for j := i; j < end; j++ {
-			if err := batch.Append(idToURL[j], rank[j]); err != nil {
-				return fmt.Errorf("appending to pagerank batch: %w", err)
-			}
+			conditions = append(conditions, "url = ?, ?")
+			multiIfArgs = append(multiIfArgs, idToURL[j], rank[j])
+			urlList = append(urlList, "?")
+			inArgs = append(inArgs, idToURL[j])
 		}
-		if err := batch.Send(); err != nil {
-			return fmt.Errorf("sending pagerank batch: %w", err)
+
+		multiIfExpr := "multiIf(" + strings.Join(conditions, ", ") + ", pagerank)"
+		inList := strings.Join(urlList, ", ")
+
+		query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
+			pagerank = %s
+			WHERE crawl_session_id = ? AND url IN (%s)`,
+			multiIfExpr, inList)
+
+		var args []interface{}
+		args = append(args, multiIfArgs...)
+		args = append(args, sessionID)
+		args = append(args, inArgs...)
+
+		if err := s.conn.Exec(ctx, query, args...); err != nil {
+			return fmt.Errorf("updating pagerank batch at offset %d: %w", i, err)
 		}
-	}
-
-	// Single mutation: update from temp table (requires ClickHouse 22.8+)
-	query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
-		pagerank = (SELECT pr FROM %s WHERE url = seocrawler.pages.url LIMIT 1)
-		WHERE crawl_session_id = ? AND url IN (SELECT url FROM %s)`,
-		tmpTable, tmpTable)
-
-	if err := s.conn.Exec(ctx, query, sessionID); err != nil {
-		return fmt.Errorf("updating pagerank from temp table: %w", err)
 	}
 
 	log.Printf("ComputePageRank: computed for %d pages in session %s", n, sessionID)
