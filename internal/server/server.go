@@ -185,6 +185,7 @@ func (s *Server) Start() error {
 		Handler:      handler,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	url := fmt.Sprintf("http://%s", addr)
@@ -1283,13 +1284,14 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sanitize filename
-	if strings.Contains(req.Filename, "/") || strings.Contains(req.Filename, "\\") || strings.HasPrefix(req.Filename, "..") {
+	// Sanitize filename: extract base name to prevent path traversal
+	cleanName := filepath.Base(req.Filename)
+	if cleanName == "." || cleanName == "/" || cleanName == "\\" {
 		writeError(w, http.StatusBadRequest, "invalid filename")
 		return
 	}
 
-	archivePath := filepath.Join(s.BackupOpts.BackupDir, req.Filename)
+	archivePath := filepath.Join(s.BackupOpts.BackupDir, cleanName)
 	if _, err := os.Stat(archivePath); err != nil {
 		writeError(w, http.StatusNotFound, "backup not found")
 		return
@@ -1327,8 +1329,8 @@ func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "backup not configured")
 		return
 	}
-	name := r.PathValue("name")
-	if strings.Contains(name, "/") || strings.Contains(name, "\\") || strings.HasPrefix(name, "..") {
+	name := filepath.Base(r.PathValue("name"))
+	if name == "." || name == "/" || name == "\\" {
 		writeError(w, http.StatusBadRequest, "invalid filename")
 		return
 	}
