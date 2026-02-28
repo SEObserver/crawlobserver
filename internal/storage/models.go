@@ -119,3 +119,58 @@ type LinkRow struct {
 	Tag            string
 	CrawledAt      time.Time
 }
+
+// CompareStatsResult holds side-by-side stats for two sessions.
+type CompareStatsResult struct {
+	SessionA string        `json:"session_a"`
+	SessionB string        `json:"session_b"`
+	StatsA   *SessionStats `json:"stats_a"`
+	StatsB   *SessionStats `json:"stats_b"`
+}
+
+// PageDiffRow represents a single page difference between two crawls.
+type PageDiffRow struct {
+	URL              string  `json:"url"`
+	DiffType         string  `json:"diff_type"`
+	StatusCodeA      uint16  `json:"status_code_a"`
+	TitleA           string  `json:"title_a"`
+	CanonicalA       string  `json:"canonical_a"`
+	IsIndexableA     bool    `json:"is_indexable_a"`
+	WordCountA       uint32  `json:"word_count_a"`
+	DepthA           uint16  `json:"depth_a"`
+	PageRankA        float64 `json:"pagerank_a"`
+	MetaDescriptionA string  `json:"meta_description_a"`
+	H1A              string  `json:"h1_a"`
+	StatusCodeB      uint16  `json:"status_code_b"`
+	TitleB           string  `json:"title_b"`
+	CanonicalB       string  `json:"canonical_b"`
+	IsIndexableB     bool    `json:"is_indexable_b"`
+	WordCountB       uint32  `json:"word_count_b"`
+	DepthB           uint16  `json:"depth_b"`
+	PageRankB        float64 `json:"pagerank_b"`
+	MetaDescriptionB string  `json:"meta_description_b"`
+	H1B              string  `json:"h1_b"`
+}
+
+// PageDiffResult wraps paginated page diff results.
+type PageDiffResult struct {
+	Pages        []PageDiffRow `json:"pages"`
+	TotalAdded   uint64        `json:"total_added"`
+	TotalRemoved uint64        `json:"total_removed"`
+	TotalChanged uint64        `json:"total_changed"`
+}
+
+// LinkDiffRow represents a single internal link difference.
+type LinkDiffRow struct {
+	SourceURL  string `json:"source_url"`
+	TargetURL  string `json:"target_url"`
+	AnchorText string `json:"anchor_text"`
+	DiffType   string `json:"diff_type"`
+}
+
+// LinkDiffResult wraps paginated link diff results.
+type LinkDiffResult struct {
+	Links        []LinkDiffRow `json:"links"`
+	TotalAdded   uint64        `json:"total_added"`
+	TotalRemoved uint64        `json:"total_removed"`
+}

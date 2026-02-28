@@ -3,7 +3,7 @@
 
   let {
     theme, darkMode, sessions, projects, globalStats, systemStats,
-    selectedSession, showNewCrawl, showSettings, showGlobalStats, showAPI,
+    selectedSession, showNewCrawl, showSettings, showGlobalStats, showAPI, showCompare,
     liveProgress,
     ontoggledarkmmode, onselectsession, onnavigate, onopensettings,
     onopenstats, onopenapi, ongohome
@@ -32,6 +32,10 @@
       <button class="sidebar-link" class:active={showNewCrawl && !selectedSession} onclick={() => onnavigate?.('/new-crawl')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         New Crawl
+      </button>
+      <button class="sidebar-link" class:active={showCompare} onclick={() => onnavigate?.('/compare')}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Compare
       </button>
     </nav>
   </div>

@@ -2,7 +2,7 @@
   import { recomputeDepths, computePageRank, retryFailed } from '../api.js';
   import { fmtN } from '../utils.js';
 
-  let { session, stats, liveProgress, onerror, onstop, onresume, ondelete, onrefresh } = $props();
+  let { session, stats, liveProgress, onerror, onstop, onresume, ondelete, onrefresh, oncompare } = $props();
 
   let recomputing = $state(false);
   let computingPR = $state(false);
@@ -63,5 +63,9 @@
   <button class="btn btn-sm" onclick={() => onrefresh?.()}>
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
     Refresh
+  </button>
+  <button class="btn btn-sm" onclick={() => oncompare?.(session.ID)} title="Compare with another crawl">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Compare
   </button>
 </div>
