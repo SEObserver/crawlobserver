@@ -1,9 +1,9 @@
 <script>
   import { getExternalLinkChecks, getExternalLinkCheckDomains } from '../api.js';
 
-  let { sessionId, onerror } = $props();
+  let { sessionId, initialSubView = 'domains', onpushurl, onerror } = $props();
 
-  let view = $state('domains'); // 'domains' | 'urls'
+  let view = $state(initialSubView); // 'domains' | 'urls'
   let domains = $state([]);
   let checks = $state([]);
   let loading = $state(false);
@@ -46,12 +46,14 @@
     urlFilters = domain ? { url: domain } : {};
     checksOffset = 0;
     view = 'urls';
+    onpushurl?.(`/sessions/${sessionId}/ext-checks/urls`);
     loadChecks();
   }
 
   function switchToDomains() {
     domainsOffset = 0;
     view = 'domains';
+    onpushurl?.(`/sessions/${sessionId}/ext-checks/domains`);
     loadDomains();
   }
 

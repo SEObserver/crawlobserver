@@ -49,7 +49,7 @@
   {#if session.is_running}
     <span class="badge badge-info">Running
       {#if liveProgress[session.ID]}
-        &middot; {fmtN(liveProgress[session.ID].pages_crawled)} pages
+        &middot; {fmtN(liveProgress[session.ID].pages_crawled)} pages &middot; {fmtN(liveProgress[session.ID].queue_size)} in queue
       {/if}
     </span>
     <button class="btn btn-sm btn-danger" onclick={() => onstop?.(session.ID)}>Stop</button>
