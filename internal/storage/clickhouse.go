@@ -24,7 +24,10 @@ func NewStore(host string, port int, database, username, password string) (*Stor
 			Password: password,
 		},
 		Settings: clickhouse.Settings{
-			"max_execution_time": 60,
+			"max_execution_time":             60,
+			"max_memory_usage":               4000000000, // 4GB per query
+			"max_bytes_before_external_group_by": 500000000, // 500MB, then spill to disk
+			"max_bytes_before_external_sort":     500000000, // 500MB, then spill to disk
 		},
 		DialTimeout: 10 * time.Second,
 	})
