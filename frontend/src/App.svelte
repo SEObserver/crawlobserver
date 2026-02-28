@@ -670,7 +670,7 @@
       {:else if !selectedSession}
         <SessionsList {sessions} {projects} {liveProgress} {sessionStorageMap} {loading}
           onselectsession={selectSession} onstop={handleStop} onresume={openResumeModal}
-          ondelete={handleDelete} onnewcrawl={() => navigateTo('/new-crawl')} />
+          ondelete={handleDelete} onnewcrawl={() => navigateTo('/new-crawl')} onrefresh={loadSessions} />
 
       {:else if tab === 'url-detail' && selectedSession}
         <div class="breadcrumb">

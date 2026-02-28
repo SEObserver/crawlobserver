@@ -109,6 +109,8 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("POST /api/sessions/{id}/retry-failed", s.handleRetryFailed)
 	mux.HandleFunc("POST /api/sessions/{id}/robots-test", s.handleRobotsTest)
 	mux.HandleFunc("POST /api/sessions/{id}/robots-simulate", s.handleRobotsSimulate)
+	mux.HandleFunc("GET /api/sessions/{id}/export", s.handleExportSession)
+	mux.HandleFunc("POST /api/sessions/import", s.handleImportSession)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
 
 	// Update & backup routes (desktop mode)
@@ -786,6 +788,53 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]string{"status": "deleted"})
+}
+
+func (s *Server) handleExportSession(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+
+	includeHTML := r.URL.Query().Get("include_html") == "true"
+
+	sess, err := s.store.GetSession(r.Context(), sessionID)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+
+	filename := fmt.Sprintf("crawl-%s.jsonl.gz", sess.ID[:8])
+	w.Header().Set("Content-Type", "application/gzip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+
+	if err := s.store.ExportSession(r.Context(), sessionID, w, includeHTML); err != nil {
+		log.Printf("export session %s: %v", sessionID, err)
+	}
+}
+
+func (s *Server) handleImportSession(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+
+	// Limit upload to 2 GB
+	r.Body = http.MaxBytesReader(w, r.Body, 2<<30)
+
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "missing file field: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	sess, err := s.store.ImportSession(r.Context(), file)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "import failed: "+err.Error())
+		return
+	}
+
+	writeJSON(w, sess)
 }
 
 func (s *Server) handleRecomputeDepths(w http.ResponseWriter, r *http.Request) {

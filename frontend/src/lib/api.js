@@ -234,6 +234,24 @@ export async function applyUpdate() {
   return fetchJSON('/update/apply', { method: 'POST' });
 }
 
+// --- Export / Import ---
+
+export function exportSession(sessionId, includeHTML = false) {
+  const url = `${BASE}/sessions/${sessionId}/export?include_html=${includeHTML}`;
+  window.open(url, '_blank');
+}
+
+export async function importSession(file) {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${BASE}/sessions/import`, { method: 'POST', body: form });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `API error: ${res.status}`);
+  }
+  return res.json();
+}
+
 // --- Backups ---
 
 export async function getBackups() {
