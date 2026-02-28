@@ -50,6 +50,20 @@ type mockStore struct {
 	deleteCalls          []string
 	updateProjectCalls   []updateProjectCall
 	getSessionByID       map[string]*storage.CrawlSession
+	listPagesCalls       []listPagesCall
+	deleteProviderCalls  []deleteProviderCall
+}
+
+type listPagesCall struct {
+	SessionID string
+	Limit     int
+	Offset    int
+	Filters   []storage.ParsedFilter
+}
+
+type deleteProviderCall struct {
+	ProjectID string
+	Provider  string
 }
 
 type updateProjectCall struct {
@@ -100,7 +114,8 @@ func (m *mockStore) UpdateSessionProject(_ context.Context, sessionID string, pr
 	return m.err
 }
 
-func (m *mockStore) ListPages(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter) ([]storage.PageRow, error) {
+func (m *mockStore) ListPages(_ context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.PageRow, error) {
+	m.listPagesCalls = append(m.listPagesCalls, listPagesCall{sessionID, limit, offset, filters})
 	return m.pages, m.err
 }
 
@@ -335,7 +350,8 @@ func (m *mockStore) ProviderRankings(_ context.Context, _, _ string, _, _ int) (
 func (m *mockStore) ProviderVisibilityHistory(_ context.Context, _, _ string) ([]storage.ProviderVisibilityRow, error) {
 	return []storage.ProviderVisibilityRow{}, m.err
 }
-func (m *mockStore) DeleteProviderData(_ context.Context, _, _ string) error {
+func (m *mockStore) DeleteProviderData(_ context.Context, projectID, provider string) error {
+	m.deleteProviderCalls = append(m.deleteProviderCalls, deleteProviderCall{projectID, provider})
 	return m.err
 }
 
@@ -344,14 +360,22 @@ func (m *mockStore) DeleteProviderData(_ context.Context, _, _ string) error {
 // ---------------------------------------------------------------------------
 
 type mockManager struct {
-	running     map[string]bool
-	startResult string
-	startErr    error
-	stopErr     error
-	resumeErr   error
-	retryCount  int
-	retryErr    error
-	progress    map[string][2]int64 // sessionID -> [pages, queue]
+	running      map[string]bool
+	startResult  string
+	startErr     error
+	stopErr      error
+	resumeErr    error
+	retryCount   int
+	retryErr     error
+	progress     map[string][2]int64 // sessionID -> [pages, queue]
+	resumeCalls  []resumeCall
+	startCalls   []crawler.CrawlRequest
+	stopCalls    []string
+}
+
+type resumeCall struct {
+	SessionID string
+	Overrides *crawler.CrawlRequest
 }
 
 func newMockManager() *mockManager {
@@ -373,6 +397,7 @@ func (m *mockManager) Progress(sessionID string) (int64, int, bool) {
 }
 
 func (m *mockManager) StartCrawl(req crawler.CrawlRequest) (string, error) {
+	m.startCalls = append(m.startCalls, req)
 	if m.startErr != nil {
 		return "", m.startErr
 	}
@@ -380,10 +405,12 @@ func (m *mockManager) StartCrawl(req crawler.CrawlRequest) (string, error) {
 }
 
 func (m *mockManager) StopCrawl(sessionID string) error {
+	m.stopCalls = append(m.stopCalls, sessionID)
 	return m.stopErr
 }
 
 func (m *mockManager) ResumeCrawl(sessionID string, overrides *crawler.CrawlRequest) (string, error) {
+	m.resumeCalls = append(m.resumeCalls, resumeCall{SessionID: sessionID, Overrides: overrides})
 	return sessionID, m.resumeErr
 }
 
@@ -1505,6 +1532,621 @@ func TestRunTests_MissingRuleset(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", rec.Code)
+	}
+}
+
+// =========================================================================
+// 8. Integration: API key workflow (multi-step)
+// =========================================================================
+
+func TestIntegration_GeneralAPIKeyWorkflow(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	mm := srv.manager.(*mockManager)
+	mm.startResult = "crawl-sess-1"
+
+	// Step 1: Create project via basic auth
+	body := jsonBody(t, map[string]interface{}{"name": "Integration Proj"})
+	req := authRequest(httptest.NewRequest("POST", "/api/projects", body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create project: expected 201, got %d", rec.Code)
+	}
+
+	// Step 2: Create a general API key
+	body = jsonBody(t, map[string]interface{}{"name": "general-key", "type": "general"})
+	req = authRequest(httptest.NewRequest("POST", "/api/api-keys", body))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create key: expected 201, got %d", rec.Code)
+	}
+	var keyResp map[string]interface{}
+	decodeJSON(t, rec, &keyResp)
+	fullKey := keyResp["key"].(string)
+
+	// Step 3: Use that key to start a crawl
+	body = jsonBody(t, map[string]interface{}{"seeds": []string{"https://example.com"}})
+	req = httptest.NewRequest("POST", "/api/crawl", body)
+	req.Header.Set("X-API-Key", fullKey)
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("start crawl with general key: expected 201, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var crawlResp map[string]string
+	decodeJSON(t, rec, &crawlResp)
+	if crawlResp["session_id"] != "crawl-sess-1" {
+		t.Errorf("expected session_id crawl-sess-1, got %q", crawlResp["session_id"])
+	}
+}
+
+func TestIntegration_ProjectScopedAPIKeyAccess(t *testing.T) {
+	srv, handler, ks := newTestServer(t)
+
+	// Create two projects
+	proj1, _ := ks.CreateProject("proj-alpha")
+	proj2, _ := ks.CreateProject("proj-beta")
+
+	// Create project-scoped key for proj1
+	result, _ := ks.CreateAPIKey("proj1-key", "project", &proj1.ID)
+
+	ms := srv.store.(*mockStore)
+	ms.sessions = []storage.CrawlSession{
+		{ID: "sess-alpha", ProjectID: &proj1.ID, Status: "completed"},
+		{ID: "sess-beta", ProjectID: &proj2.ID, Status: "completed"},
+	}
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-alpha": {ID: "sess-alpha", ProjectID: &proj1.ID, Status: "completed"},
+		"sess-beta":  {ID: "sess-beta", ProjectID: &proj2.ID, Status: "completed"},
+	}
+
+	// Can list sessions — only sees proj1 sessions
+	req := httptest.NewRequest("GET", "/api/sessions", nil)
+	req.Header.Set("X-API-Key", result.FullKey)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list sessions: expected 200, got %d", rec.Code)
+	}
+	var sessions []map[string]interface{}
+	decodeJSON(t, rec, &sessions)
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(sessions))
+	}
+
+	// Can read pages for own session
+	req = httptest.NewRequest("GET", "/api/sessions/sess-alpha/pages", nil)
+	req.Header.Set("X-API-Key", result.FullKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("read own session pages: expected 200, got %d", rec.Code)
+	}
+
+	// Cannot read pages for other project's session
+	req = httptest.NewRequest("GET", "/api/sessions/sess-beta/pages", nil)
+	req.Header.Set("X-API-Key", result.FullKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("read other session pages: expected 403, got %d", rec.Code)
+	}
+
+	// Cannot start a crawl (write operation)
+	body := jsonBody(t, map[string]interface{}{"seeds": []string{"https://example.com"}})
+	req = httptest.NewRequest("POST", "/api/crawl", body)
+	req.Header.Set("X-API-Key", result.FullKey)
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("start crawl with project key: expected 403, got %d", rec.Code)
+	}
+
+	// Cannot delete a session
+	req = httptest.NewRequest("DELETE", "/api/sessions/sess-alpha", nil)
+	req.Header.Set("X-API-Key", result.FullKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("delete with project key: expected 403, got %d", rec.Code)
+	}
+}
+
+// =========================================================================
+// 9. Integration: Token expired / deleted
+// =========================================================================
+
+func TestIntegration_DeletedAPIKeyReturns401(t *testing.T) {
+	_, handler, ks := newTestServer(t)
+
+	// Create and then delete an API key
+	result, err := ks.CreateAPIKey("temp-key", "general", nil)
+	if err != nil {
+		t.Fatalf("creating key: %v", err)
+	}
+
+	// Key works before deletion
+	req := httptest.NewRequest("GET", "/api/sessions", nil)
+	req.Header.Set("X-API-Key", result.FullKey)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("before delete: expected 200, got %d", rec.Code)
+	}
+
+	// Delete the key
+	err = ks.DeleteAPIKey(result.ID)
+	if err != nil {
+		t.Fatalf("deleting key: %v", err)
+	}
+
+	// Key should no longer work
+	req = httptest.NewRequest("GET", "/api/sessions", nil)
+	req.Header.Set("X-API-Key", result.FullKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("after delete: expected 401, got %d", rec.Code)
+	}
+}
+
+// =========================================================================
+// 10. Integration: Session lifecycle
+// =========================================================================
+
+func TestIntegration_SessionLifecycle(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	mm := srv.manager.(*mockManager)
+	mm.startResult = "lifecycle-sess"
+
+	// Start crawl → 201
+	body := jsonBody(t, map[string]interface{}{"seeds": []string{"https://example.com"}, "max_pages": 50})
+	req := authRequest(httptest.NewRequest("POST", "/api/crawl", body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("start: expected 201, got %d", rec.Code)
+	}
+
+	// Simulate running
+	mm.running["lifecycle-sess"] = true
+	mm.progress["lifecycle-sess"] = [2]int64{25, 5}
+
+	ms := srv.store.(*mockStore)
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"lifecycle-sess": {ID: "lifecycle-sess", Status: "running"},
+	}
+
+	// Progress → 200
+	req = authRequest(httptest.NewRequest("GET", "/api/sessions/lifecycle-sess/progress", nil))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("progress: expected 200, got %d", rec.Code)
+	}
+	var prog map[string]interface{}
+	decodeJSON(t, rec, &prog)
+	if prog["pages_crawled"] != float64(25) {
+		t.Errorf("expected 25 pages, got %v", prog["pages_crawled"])
+	}
+	if prog["is_running"] != true {
+		t.Errorf("expected is_running true")
+	}
+
+	// Stop → 200
+	req = authRequest(httptest.NewRequest("POST", "/api/sessions/lifecycle-sess/stop", nil))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("stop: expected 200, got %d", rec.Code)
+	}
+
+	mm.running["lifecycle-sess"] = false
+
+	// Delete → 200
+	req = authRequest(httptest.NewRequest("DELETE", "/api/sessions/lifecycle-sess", nil))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete: expected 200, got %d", rec.Code)
+	}
+}
+
+func TestIntegration_CannotDeleteRunningThenStopAndDelete(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	mm := srv.manager.(*mockManager)
+	mm.running["sess-active"] = true
+
+	// Attempt delete running → 409
+	req := authRequest(httptest.NewRequest("DELETE", "/api/sessions/sess-active", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("delete running: expected 409, got %d", rec.Code)
+	}
+
+	// Stop it
+	req = authRequest(httptest.NewRequest("POST", "/api/sessions/sess-active/stop", nil))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("stop: expected 200, got %d", rec.Code)
+	}
+	mm.running["sess-active"] = false
+
+	// Now delete → 200
+	req = authRequest(httptest.NewRequest("DELETE", "/api/sessions/sess-active", nil))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete after stop: expected 200, got %d", rec.Code)
+	}
+}
+
+// =========================================================================
+// 11. Integration: Pagination parameters
+// =========================================================================
+
+func TestIntegration_PaginationPassedToStore(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	ms := srv.store.(*mockStore)
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-1": {ID: "sess-1", Status: "completed"},
+	}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-1/pages?limit=5&offset=10", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	if len(ms.listPagesCalls) != 1 {
+		t.Fatalf("expected 1 ListPages call, got %d", len(ms.listPagesCalls))
+	}
+	call := ms.listPagesCalls[0]
+	if call.Limit != 5 {
+		t.Errorf("expected limit 5, got %d", call.Limit)
+	}
+	if call.Offset != 10 {
+		t.Errorf("expected offset 10, got %d", call.Offset)
+	}
+}
+
+func TestIntegration_InvalidFiltersIgnored(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	ms := srv.store.(*mockStore)
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-1": {ID: "sess-1", Status: "completed"},
+	}
+
+	// "bogus_filter" is not in PageFilters whitelist — should be silently ignored
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-1/pages?limit=10&bogus_filter=bad", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	if len(ms.listPagesCalls) != 1 {
+		t.Fatalf("expected 1 ListPages call, got %d", len(ms.listPagesCalls))
+	}
+	// Unknown filters should not appear in the parsed filters
+	for _, f := range ms.listPagesCalls[0].Filters {
+		if f.Value == "bad" {
+			t.Errorf("bogus filter should not have been passed to store")
+		}
+	}
+}
+
+// =========================================================================
+// 12. Integration: Storage error propagation
+// =========================================================================
+
+func TestIntegration_StorageErrorSessions(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	ms := srv.store.(*mockStore)
+	ms.err = fmt.Errorf("clickhouse connection failed")
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rec.Code)
+	}
+
+	var body map[string]string
+	decodeJSON(t, rec, &body)
+	// Should return generic message, not the actual error
+	if body["error"] != "internal server error" {
+		t.Errorf("expected generic error message, got %q", body["error"])
+	}
+}
+
+func TestIntegration_StorageErrorStats(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	ms := srv.store.(*mockStore)
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-1": {ID: "sess-1", Status: "completed"},
+	}
+	ms.err = fmt.Errorf("disk full")
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-1/stats", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rec.Code)
+	}
+
+	var body map[string]string
+	decodeJSON(t, rec, &body)
+	if body["error"] != "internal server error" {
+		t.Errorf("expected generic error, got %q", body["error"])
+	}
+}
+
+func TestIntegration_StorageErrorPages(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	ms := srv.store.(*mockStore)
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-1": {ID: "sess-1", Status: "completed"},
+	}
+	ms.err = fmt.Errorf("timeout")
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-1/pages", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	// Pages handler returns 400 for store errors
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// =========================================================================
+// 13. Logs endpoints
+// =========================================================================
+
+func TestLogs_List(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	req := authRequest(httptest.NewRequest("GET", "/api/logs?limit=50&level=error", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp map[string]interface{}
+	decodeJSON(t, rec, &resp)
+	if resp["total"] != float64(0) {
+		t.Errorf("expected total 0, got %v", resp["total"])
+	}
+	if resp["logs"] == nil {
+		t.Error("expected logs field to be present")
+	}
+}
+
+func TestLogs_Export(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	req := authRequest(httptest.NewRequest("GET", "/api/logs/export", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	ct := rec.Header().Get("Content-Type")
+	if ct != "application/x-ndjson" {
+		t.Errorf("expected Content-Type application/x-ndjson, got %q", ct)
+	}
+
+	cd := rec.Header().Get("Content-Disposition")
+	if cd != "attachment; filename=application_logs.jsonl" {
+		t.Errorf("expected Content-Disposition attachment, got %q", cd)
+	}
+}
+
+// =========================================================================
+// 14. Backup handlers (no ClickHouse configured)
+// =========================================================================
+
+func TestBackups_ListWithoutConfig(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	// BackupOpts is nil by default in newTestServer
+	req := authRequest(httptest.NewRequest("GET", "/api/backups", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var backups []interface{}
+	decodeJSON(t, rec, &backups)
+	if len(backups) != 0 {
+		t.Errorf("expected empty list, got %d items", len(backups))
+	}
+}
+
+func TestBackups_CreateWithoutConfig(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	req := authRequest(httptest.NewRequest("POST", "/api/backups", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	var body map[string]string
+	decodeJSON(t, rec, &body)
+	if body["error"] != "backup not configured" {
+		t.Errorf("expected 'backup not configured', got %q", body["error"])
+	}
+}
+
+// =========================================================================
+// 15. Provider status/disconnect
+// =========================================================================
+
+func TestProvider_StatusNotConnected(t *testing.T) {
+	_, handler, ks := newTestServer(t)
+
+	proj, _ := ks.CreateProject("prov-proj")
+
+	req := authRequest(httptest.NewRequest("GET", "/api/projects/"+proj.ID+"/providers/seobserver/status", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp map[string]interface{}
+	decodeJSON(t, rec, &resp)
+	if resp["connected"] != false {
+		t.Errorf("expected connected=false, got %v", resp["connected"])
+	}
+}
+
+func TestProvider_Disconnect(t *testing.T) {
+	srv, handler, ks := newTestServer(t)
+
+	proj, _ := ks.CreateProject("disc-proj")
+
+	req := authRequest(httptest.NewRequest("DELETE", "/api/projects/"+proj.ID+"/providers/seobserver/disconnect", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp map[string]string
+	decodeJSON(t, rec, &resp)
+	if resp["status"] != "disconnected" {
+		t.Errorf("expected status disconnected, got %q", resp["status"])
+	}
+
+	// Verify DeleteProviderData was called on the store
+	ms := srv.store.(*mockStore)
+	if len(ms.deleteProviderCalls) != 1 {
+		t.Fatalf("expected 1 DeleteProviderData call, got %d", len(ms.deleteProviderCalls))
+	}
+	if ms.deleteProviderCalls[0].ProjectID != proj.ID {
+		t.Errorf("expected project %s, got %s", proj.ID, ms.deleteProviderCalls[0].ProjectID)
+	}
+	if ms.deleteProviderCalls[0].Provider != "seobserver" {
+		t.Errorf("expected provider seobserver, got %s", ms.deleteProviderCalls[0].Provider)
+	}
+}
+
+// =========================================================================
+// 16. Resume crawl with overrides
+// =========================================================================
+
+func TestResume_WithOverrides(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	mm := srv.manager.(*mockManager)
+
+	body := jsonBody(t, map[string]interface{}{
+		"max_pages": 200,
+		"workers":   10,
+	})
+	req := authRequest(httptest.NewRequest("POST", "/api/sessions/old-sess/resume", body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]string
+	decodeJSON(t, rec, &resp)
+	if resp["status"] != "resumed" {
+		t.Errorf("expected status resumed, got %q", resp["status"])
+	}
+
+	// Verify overrides were passed
+	if len(mm.resumeCalls) != 1 {
+		t.Fatalf("expected 1 resume call, got %d", len(mm.resumeCalls))
+	}
+	rc := mm.resumeCalls[0]
+	if rc.SessionID != "old-sess" {
+		t.Errorf("expected session old-sess, got %s", rc.SessionID)
+	}
+	if rc.Overrides == nil {
+		t.Fatal("expected overrides to be non-nil")
+	}
+	if rc.Overrides.MaxPages != 200 {
+		t.Errorf("expected max_pages 200, got %d", rc.Overrides.MaxPages)
+	}
+	if rc.Overrides.Workers != 10 {
+		t.Errorf("expected workers 10, got %d", rc.Overrides.Workers)
+	}
+}
+
+func TestResume_WithoutBody(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	mm := srv.manager.(*mockManager)
+
+	req := authRequest(httptest.NewRequest("POST", "/api/sessions/old-sess/resume", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	if len(mm.resumeCalls) != 1 {
+		t.Fatalf("expected 1 resume call, got %d", len(mm.resumeCalls))
+	}
+	if mm.resumeCalls[0].Overrides != nil {
+		t.Errorf("expected nil overrides for empty body, got %+v", mm.resumeCalls[0].Overrides)
+	}
+}
+
+func TestResume_ProjectKeyBlocked(t *testing.T) {
+	_, handler, ks := newTestServer(t)
+
+	proj, _ := ks.CreateProject("res-proj")
+	result, _ := ks.CreateAPIKey("rk", "project", &proj.ID)
+
+	req := httptest.NewRequest("POST", "/api/sessions/some-sess/resume", nil)
+	req.Header.Set("X-API-Key", result.FullKey)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for project key resume, got %d", rec.Code)
 	}
 }
 
