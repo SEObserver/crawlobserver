@@ -199,6 +199,25 @@ type ExternalDomainCheck struct {
 	AvgResponseMs uint32 `json:"avg_response_ms"`
 }
 
+// ExpiredDomain represents a registrable domain where all checked URLs had DNS failures.
+type ExpiredDomain struct {
+	RegistrableDomain string                `json:"registrable_domain"`
+	DeadURLsChecked   uint64                `json:"dead_urls_checked"`
+	Sources           []ExpiredDomainSource `json:"sources"`
+}
+
+// ExpiredDomainSource represents a source page linking to an expired domain.
+type ExpiredDomainSource struct {
+	SourceURL string `json:"source_url"`
+	TargetURL string `json:"target_url"`
+}
+
+// ExpiredDomainsResult wraps paginated expired domain results.
+type ExpiredDomainsResult struct {
+	Domains []ExpiredDomain `json:"domains"`
+	Total   uint64          `json:"total"`
+}
+
 // --- Provider Data Models ---
 
 type ProviderDomainMetricsRow struct {
@@ -262,4 +281,38 @@ type ProviderVisibilityRow struct {
 	Visibility    float64 `json:"visibility"`
 	KeywordsCount int64   `json:"keywords_count"`
 	FetchedAt     time.Time `json:"fetched_at"`
+}
+
+// PageResourceCheck represents a single page resource check result.
+type PageResourceCheck struct {
+	CrawlSessionID string    `json:"crawl_session_id"`
+	URL            string    `json:"url"`
+	ResourceType   string    `json:"resource_type"`
+	IsInternal     bool      `json:"is_internal"`
+	StatusCode     uint16    `json:"status_code"`
+	Error          string    `json:"error"`
+	ContentType    string    `json:"content_type"`
+	RedirectURL    string    `json:"redirect_url"`
+	ResponseTimeMs uint32    `json:"response_time_ms"`
+	CheckedAt      time.Time `json:"checked_at"`
+	PageCount      uint64    `json:"page_count,omitempty"`
+}
+
+// PageResourceRef links a page to a resource it uses.
+type PageResourceRef struct {
+	CrawlSessionID string `json:"crawl_session_id"`
+	PageURL        string `json:"page_url"`
+	ResourceURL    string `json:"resource_url"`
+	ResourceType   string `json:"resource_type"`
+	IsInternal     bool   `json:"is_internal"`
+}
+
+// ResourceTypeSummary holds aggregated stats for one resource type.
+type ResourceTypeSummary struct {
+	ResourceType string `json:"resource_type"`
+	Total        uint64 `json:"total"`
+	Internal     uint64 `json:"internal"`
+	External     uint64 `json:"external"`
+	OK           uint64 `json:"ok"`
+	Errors       uint64 `json:"errors"`
 }

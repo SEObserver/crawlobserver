@@ -81,6 +81,16 @@ var ExternalDomainCheckFilters = map[string]FilterDef{
 	"domain": {Column: "domain", Type: FilterLike},
 }
 
+// PageResourceCheckFilters defines the allowed filter columns for page_resource_checks.
+var PageResourceCheckFilters = map[string]FilterDef{
+	"url":           {Column: "url", Type: FilterLike},
+	"resource_type": {Column: "resource_type", Type: FilterLike},
+	"is_internal":   {Column: "is_internal", Type: FilterBool},
+	"status_code":   {Column: "status_code", Type: FilterUint},
+	"content_type":  {Column: "content_type", Type: FilterLike},
+	"error":         {Column: "error", Type: FilterLike},
+}
+
 // BuildWhereClause generates a SQL WHERE clause fragment and arguments from parsed filters.
 func BuildWhereClause(filters []ParsedFilter) (string, []interface{}, error) {
 	if len(filters) == 0 {

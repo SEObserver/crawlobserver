@@ -421,6 +421,35 @@ PARTITION BY project_id
 ORDER BY (project_id, provider, domain, search_base, date)
 `
 
+const CreatePageResourceChecks = `
+CREATE TABLE IF NOT EXISTS crawlobserver.page_resource_checks (
+    crawl_session_id UUID,
+    url String,
+    resource_type LowCardinality(String),
+    is_internal Bool,
+    status_code UInt16,
+    error String,
+    content_type String,
+    redirect_url String,
+    response_time_ms UInt32,
+    checked_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(checked_at)
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, url)
+`
+
+const CreatePageResourceRefs = `
+CREATE TABLE IF NOT EXISTS crawlobserver.page_resource_refs (
+    crawl_session_id UUID,
+    page_url String,
+    resource_url String,
+    resource_type LowCardinality(String),
+    is_internal Bool
+) ENGINE = MergeTree()
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, resource_url, page_url)
+`
+
 const CreateApplicationLogs = `
 CREATE TABLE IF NOT EXISTS crawlobserver.application_logs (
     timestamp DateTime64(3),
@@ -533,4 +562,6 @@ var Migrations = []Migration{
 	{Name: "create provider_refdomains", DDL: CreateProviderRefDomains},
 	{Name: "create provider_rankings", DDL: CreateProviderRankings},
 	{Name: "create provider_visibility", DDL: CreateProviderVisibility},
+	{Name: "create page_resource_checks", DDL: CreatePageResourceChecks},
+	{Name: "create page_resource_refs", DDL: CreatePageResourceRefs},
 }

@@ -355,6 +355,24 @@ export async function getExternalLinkCheckDomains(sessionId, limit = 100, offset
   return fetchJSON(url);
 }
 
+export async function getExpiredDomains(sessionId, limit = 100, offset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/external-checks/expired-domains?limit=${limit}&offset=${offset}`);
+}
+
+// --- Page Resource Checks ---
+
+export async function getPageResourceChecks(sessionId, limit = 100, offset = 0, filters = {}) {
+  let url = `/sessions/${sessionId}/resource-checks?limit=${limit}&offset=${offset}`;
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
+  }
+  return fetchJSON(url);
+}
+
+export async function getPageResourceChecksSummary(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/resource-checks/summary`);
+}
+
 // --- Compare ---
 
 export async function getCompareStats(a, b) {

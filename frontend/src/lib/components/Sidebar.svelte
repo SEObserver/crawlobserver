@@ -6,8 +6,30 @@
     selectedSession, selectedProject, showNewCrawl, showSettings, showGlobalStats, showAPI, showCompare, showLogs,
     liveProgress,
     ontoggledarkmmode, onselectsession, onselectproject, onnavigate, onopensettings,
-    onopenstats, onopenapi, onopenlogs, ongohome
+    onopenstats, onopenapi, onopenlogs, ongohome, oncreateproject
   } = $props();
+
+  let creatingProject = $state(false);
+  let newProjectName = $state('');
+
+  function startCreate() {
+    creatingProject = true;
+    newProjectName = '';
+  }
+
+  function confirmCreate() {
+    const name = newProjectName.trim();
+    if (name) {
+      oncreateproject?.(name);
+    }
+    creatingProject = false;
+    newProjectName = '';
+  }
+
+  function cancelCreate() {
+    creatingProject = false;
+    newProjectName = '';
+  }
 </script>
 
 <aside class="sidebar">
@@ -40,25 +62,37 @@
     </nav>
   </div>
 
-  {#if projects.length > 0}
-    <div class="sidebar-section">
-      <div class="sidebar-section-title">Projects</div>
-      <nav class="sidebar-nav">
-        {#each projects as proj}
-          {@const projStats = globalStats?.projects?.find(p => p.project_id === proj.id)}
-          <div class="sidebar-project">
-            <button class="sidebar-link sidebar-project-header" class:active={selectedProject?.id === proj.id} onclick={() => onselectproject?.(proj)}>
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">{proj.name}</span>
-              {#if projStats}
-                <span class="sidebar-badge">{fmtN(projStats.total_pages)}</span>
-              {/if}
-            </button>
-          </div>
-        {/each}
-      </nav>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Projects</span>
+      <button class="sidebar-add-btn" onclick={startCreate} title="New project">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
     </div>
-  {/if}
+    {#if creatingProject}
+      <div class="sidebar-inline-input">
+        <!-- svelte-ignore a11y_autofocus -->
+        <input type="text" bind:value={newProjectName} placeholder="Project name..."
+          autofocus
+          onkeydown={(e) => { if (e.key === 'Enter') confirmCreate(); if (e.key === 'Escape') cancelCreate(); }}
+          onblur={cancelCreate} />
+      </div>
+    {/if}
+    <nav class="sidebar-nav">
+      {#each projects as proj}
+        {@const projStats = globalStats?.projects?.find(p => p.project_id === proj.id)}
+        <div class="sidebar-project">
+          <button class="sidebar-link sidebar-project-header" class:active={selectedProject?.id === proj.id} onclick={() => onselectproject?.(proj)}>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">{proj.name}</span>
+            {#if projStats}
+              <span class="sidebar-badge">{fmtN(projStats.total_pages)}</span>
+            {/if}
+          </button>
+        </div>
+      {/each}
+    </nav>
+  </div>
 
   {#if sessions.filter(s => !s.ProjectID).length > 0}
     <div class="sidebar-section">

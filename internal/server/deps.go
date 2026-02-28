@@ -66,6 +66,11 @@ type StorageService interface {
 	// External Link Checks
 	GetExternalLinkChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.ExternalLinkCheck, error)
 	GetExternalLinkCheckDomains(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.ExternalDomainCheck, error)
+	GetExpiredDomains(ctx context.Context, sessionID string, limit, offset int) (*storage.ExpiredDomainsResult, error)
+
+	// Page Resource Checks
+	GetPageResourceChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.PageResourceCheck, error)
+	GetPageResourceTypeSummary(ctx context.Context, sessionID string) ([]storage.ResourceTypeSummary, error)
 
 	// Application Logs
 	InsertLogs(ctx context.Context, logs []applog.LogRow) error

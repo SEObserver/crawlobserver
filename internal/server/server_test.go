@@ -307,6 +307,9 @@ func (m *mockStore) GetExternalLinkChecks(_ context.Context, _ string, _, _ int,
 func (m *mockStore) GetExternalLinkCheckDomains(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter) ([]storage.ExternalDomainCheck, error) {
 	return []storage.ExternalDomainCheck{}, m.err
 }
+func (m *mockStore) GetExpiredDomains(_ context.Context, _ string, _, _ int) (*storage.ExpiredDomainsResult, error) {
+	return &storage.ExpiredDomainsResult{Domains: []storage.ExpiredDomain{}, Total: 0}, m.err
+}
 
 // Application Logs mock methods
 func (m *mockStore) InsertLogs(_ context.Context, _ []applog.LogRow) error {

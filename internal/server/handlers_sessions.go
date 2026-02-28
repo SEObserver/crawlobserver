@@ -789,3 +789,55 @@ func (s *Server) handleExternalLinkCheckDomains(w http.ResponseWriter, r *http.R
 	}
 	writeJSON(w, domains)
 }
+
+func (s *Server) handleExpiredDomains(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	limit := queryInt(r, "limit", 100)
+	offset := queryInt(r, "offset", 0)
+
+	result, err := s.store.GetExpiredDomains(r.Context(), sessionID, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
+func (s *Server) handlePageResourceChecks(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	limit := queryInt(r, "limit", 100)
+	offset := queryInt(r, "offset", 0)
+	filters := parseFilters(r, storage.PageResourceCheckFilters)
+
+	checks, err := s.store.GetPageResourceChecks(r.Context(), sessionID, limit, offset, filters)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if checks == nil {
+		checks = []storage.PageResourceCheck{}
+	}
+	writeJSON(w, checks)
+}
+
+func (s *Server) handlePageResourceChecksSummary(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	summary, err := s.store.GetPageResourceTypeSummary(r.Context(), sessionID)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	if summary == nil {
+		summary = []storage.ResourceTypeSummary{}
+	}
+	writeJSON(w, summary)
+}

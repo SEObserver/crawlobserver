@@ -31,6 +31,7 @@ type PageData struct {
 	OGImage         string
 	SchemaTypes     []string
 	WordCount       int
+	Resources       []PageResource
 }
 
 // Image represents an image found on a page.
@@ -80,6 +81,7 @@ func Parse(body []byte, pageURL string) (*PageData, error) {
 	data.OGImage = extractMetaProperty(doc, "og:image")
 	data.SchemaTypes = extractSchemaTypes(doc)
 	data.WordCount = countWords(doc)
+	data.Resources = ExtractResources(doc, baseURL)
 
 	return data, nil
 }

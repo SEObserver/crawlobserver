@@ -1152,7 +1152,7 @@ func (s *Store) CompareLinks(ctx context.Context, sessionA, sessionB, diffType s
 // Uses DROP PARTITION for instant deletion on partitioned tables.
 func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 	// Drop partition on data tables (partitioned by crawl_session_id)
-	dataTables := []string{"pages", "links", "robots_txt", "sitemaps", "sitemap_urls"}
+	dataTables := []string{"pages", "links", "robots_txt", "sitemaps", "sitemap_urls", "external_link_checks", "page_resource_checks", "page_resource_refs"}
 	for _, table := range dataTables {
 		q := fmt.Sprintf("ALTER TABLE crawlobserver.%s DROP PARTITION ID ?", table)
 		if err := s.conn.Exec(ctx, q, sessionID); err != nil {
@@ -2886,6 +2886,230 @@ func (s *Store) GetExternalLinkCheckDomains(ctx context.Context, sessionID strin
 		results = append(results, d)
 	}
 	return results, nil
+}
+
+// InsertPageResourceChecks batch inserts page resource check results.
+func (s *Store) InsertPageResourceChecks(ctx context.Context, checks []PageResourceCheck) error {
+	if len(checks) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO crawlobserver.page_resource_checks (
+			crawl_session_id, url, resource_type, is_internal,
+			status_code, error, content_type, redirect_url,
+			response_time_ms, checked_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing page_resource_checks batch: %w", err)
+	}
+	for _, c := range checks {
+		if err := batch.Append(
+			c.CrawlSessionID, c.URL, c.ResourceType, c.IsInternal,
+			c.StatusCode, c.Error, c.ContentType, c.RedirectURL,
+			c.ResponseTimeMs, c.CheckedAt,
+		); err != nil {
+			return fmt.Errorf("appending page_resource_check row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+// InsertPageResourceRefs batch inserts page-to-resource references.
+func (s *Store) InsertPageResourceRefs(ctx context.Context, refs []PageResourceRef) error {
+	if len(refs) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO crawlobserver.page_resource_refs (
+			crawl_session_id, page_url, resource_url, resource_type, is_internal
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing page_resource_refs batch: %w", err)
+	}
+	for _, r := range refs {
+		if err := batch.Append(
+			r.CrawlSessionID, r.PageURL, r.ResourceURL, r.ResourceType, r.IsInternal,
+		); err != nil {
+			return fmt.Errorf("appending page_resource_ref row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+// GetPageResourceChecks returns paginated resource checks with page_count from refs.
+func (s *Store) GetPageResourceChecks(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]PageResourceCheck, error) {
+	where, args, err := BuildWhereClause(filters)
+	if err != nil {
+		return nil, err
+	}
+
+	query := `SELECT c.crawl_session_id, c.url, c.resource_type, c.is_internal,
+		c.status_code, c.error, c.content_type, c.redirect_url,
+		c.response_time_ms, c.checked_at,
+		count(DISTINCT r.page_url) AS page_count
+		FROM crawlobserver.page_resource_checks AS c
+		LEFT JOIN crawlobserver.page_resource_refs AS r
+			ON c.crawl_session_id = r.crawl_session_id AND c.url = r.resource_url
+		WHERE c.crawl_session_id = ?`
+	queryArgs := []interface{}{sessionID}
+
+	if where != "" {
+		// Prefix unqualified columns with c.
+		prefixed := prefixColumns(where)
+		query += " AND " + prefixed
+		queryArgs = append(queryArgs, args...)
+	}
+
+	query += " GROUP BY c.crawl_session_id, c.url, c.resource_type, c.is_internal, c.status_code, c.error, c.content_type, c.redirect_url, c.response_time_ms, c.checked_at"
+	query += " ORDER BY c.status_code ASC, c.url ASC LIMIT ? OFFSET ?"
+	queryArgs = append(queryArgs, limit, offset)
+
+	rows, err := s.conn.Query(ctx, query, queryArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("querying page_resource_checks: %w", err)
+	}
+	defer rows.Close()
+
+	var results []PageResourceCheck
+	for rows.Next() {
+		var c PageResourceCheck
+		if err := rows.Scan(&c.CrawlSessionID, &c.URL, &c.ResourceType, &c.IsInternal,
+			&c.StatusCode, &c.Error, &c.ContentType, &c.RedirectURL,
+			&c.ResponseTimeMs, &c.CheckedAt, &c.PageCount); err != nil {
+			return nil, err
+		}
+		results = append(results, c)
+	}
+	return results, nil
+}
+
+// prefixColumns adds "c." prefix to known column names in a WHERE clause fragment.
+func prefixColumns(where string) string {
+	cols := []string{"url", "resource_type", "is_internal", "status_code", "content_type", "error"}
+	result := where
+	for _, col := range cols {
+		result = strings.ReplaceAll(result, col+" ", "c."+col+" ")
+	}
+	return result
+}
+
+// GetPageResourceTypeSummary returns aggregated stats per resource type.
+func (s *Store) GetPageResourceTypeSummary(ctx context.Context, sessionID string) ([]ResourceTypeSummary, error) {
+	query := `SELECT
+		resource_type,
+		count() AS total,
+		countIf(is_internal = true) AS internal,
+		countIf(is_internal = false) AS external,
+		countIf(status_code >= 200 AND status_code < 400) AS ok,
+		countIf(status_code = 0 OR status_code >= 400) AS errors
+		FROM crawlobserver.page_resource_checks
+		WHERE crawl_session_id = ?
+		GROUP BY resource_type
+		ORDER BY total DESC`
+
+	rows, err := s.conn.Query(ctx, query, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying page_resource_checks summary: %w", err)
+	}
+	defer rows.Close()
+
+	var results []ResourceTypeSummary
+	for rows.Next() {
+		var r ResourceTypeSummary
+		if err := rows.Scan(&r.ResourceType, &r.Total, &r.Internal, &r.External, &r.OK, &r.Errors); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, nil
+}
+
+// GetExpiredDomains returns registrable domains where all external checks failed with DNS errors.
+func (s *Store) GetExpiredDomains(ctx context.Context, sessionID string, limit, offset int) (*ExpiredDomainsResult, error) {
+	// Step 1: Count total expired domains
+	countQuery := `SELECT count() FROM (
+		SELECT cutToFirstSignificantSubdomain(url) AS reg_domain
+		FROM crawlobserver.external_link_checks
+		WHERE crawl_session_id = ?
+		GROUP BY reg_domain
+		HAVING countIf(NOT (error = 'dns_not_found' OR error ILIKE '%no such host%')) = 0
+	)`
+	var total uint64
+	if err := s.conn.QueryRow(ctx, countQuery, sessionID).Scan(&total); err != nil {
+		return nil, fmt.Errorf("counting expired domains: %w", err)
+	}
+
+	if total == 0 {
+		return &ExpiredDomainsResult{Domains: []ExpiredDomain{}, Total: 0}, nil
+	}
+
+	// Step 2: Get paginated expired domains
+	domainsQuery := `SELECT cutToFirstSignificantSubdomain(url) AS reg_domain,
+		count() AS dead_urls
+		FROM crawlobserver.external_link_checks
+		WHERE crawl_session_id = ?
+		GROUP BY reg_domain
+		HAVING countIf(NOT (error = 'dns_not_found' OR error ILIKE '%no such host%')) = 0
+		ORDER BY dead_urls DESC
+		LIMIT ? OFFSET ?`
+
+	rows, err := s.conn.Query(ctx, domainsQuery, sessionID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("querying expired domains: %w", err)
+	}
+	defer rows.Close()
+
+	var domains []ExpiredDomain
+	var regDomains []string
+	for rows.Next() {
+		var d ExpiredDomain
+		if err := rows.Scan(&d.RegistrableDomain, &d.DeadURLsChecked); err != nil {
+			return nil, err
+		}
+		d.Sources = []ExpiredDomainSource{}
+		domains = append(domains, d)
+		regDomains = append(regDomains, d.RegistrableDomain)
+	}
+
+	if len(domains) == 0 {
+		return &ExpiredDomainsResult{Domains: []ExpiredDomain{}, Total: total}, nil
+	}
+
+	// Step 3: Get source URLs from links table
+	sourcesQuery := `SELECT DISTINCT source_url, target_url,
+		cutToFirstSignificantSubdomain(target_url) AS reg_domain
+		FROM crawlobserver.links
+		WHERE crawl_session_id = ?
+		AND is_internal = false
+		AND cutToFirstSignificantSubdomain(target_url) IN (?)
+		ORDER BY reg_domain, source_url`
+
+	srcRows, err := s.conn.Query(ctx, sourcesQuery, sessionID, regDomains)
+	if err != nil {
+		return nil, fmt.Errorf("querying expired domain sources: %w", err)
+	}
+	defer srcRows.Close()
+
+	sourceMap := make(map[string][]ExpiredDomainSource)
+	for srcRows.Next() {
+		var sourceURL, targetURL, regDomain string
+		if err := srcRows.Scan(&sourceURL, &targetURL, &regDomain); err != nil {
+			return nil, err
+		}
+		sourceMap[regDomain] = append(sourceMap[regDomain], ExpiredDomainSource{
+			SourceURL: sourceURL,
+			TargetURL: targetURL,
+		})
+	}
+
+	// Attach sources to domains
+	for i := range domains {
+		if sources, ok := sourceMap[domains[i].RegistrableDomain]; ok {
+			domains[i].Sources = sources
+		}
+	}
+
+	return &ExpiredDomainsResult{Domains: domains, Total: total}, nil
 }
 
 // InsertLogs batch inserts application log rows.

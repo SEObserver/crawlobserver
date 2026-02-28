@@ -104,7 +104,7 @@ func (f *Fetcher) Fetch(targetURL string, depth int, foundOn string) *FetchResul
 
 	resp, err := f.client.Do(req)
 	if err != nil {
-		result.Error = categorizeError(err)
+		result.Error = CategorizeError(err)
 		result.Duration = time.Since(start)
 		return result
 	}
@@ -160,8 +160,8 @@ func (r *FetchResult) IsHTML() bool {
 	return strings.Contains(ct, "text/html") || strings.Contains(ct, "application/xhtml+xml")
 }
 
-// categorizeError classifies a fetch error into a category string.
-func categorizeError(err error) string {
+// CategorizeError classifies a fetch error into a category string.
+func CategorizeError(err error) string {
 	if err == nil {
 		return ""
 	}

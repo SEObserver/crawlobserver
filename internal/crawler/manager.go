@@ -47,6 +47,8 @@ type CrawlRequest struct {
 	RetryStatusCode     int      `json:"retry_status_code"`
 	UserAgent           string   `json:"user_agent"`
 	CrawlSitemapOnly    bool     `json:"crawl_sitemap_only"`
+	CheckPageResources  *bool    `json:"check_page_resources"`
+	ResourceWorkers     int      `json:"resource_workers"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -92,6 +94,13 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	engine.externalWorkers = req.ExternalLinkWorkers
 	if engine.externalWorkers <= 0 {
 		engine.externalWorkers = 3
+	}
+
+	// Page resource checking: default true
+	engine.checkResources = req.CheckPageResources == nil || *req.CheckPageResources
+	engine.resourceWorkers = req.ResourceWorkers
+	if engine.resourceWorkers <= 0 {
+		engine.resourceWorkers = 3
 	}
 
 	m.mu.Lock()

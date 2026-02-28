@@ -167,6 +167,40 @@ a:hover { color: var(--accent-hover); }
   padding: 0 8px 8px;
 }
 
+.sidebar-add-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+.sidebar-add-btn:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.sidebar-inline-input {
+  padding: 0 8px 6px;
+}
+.sidebar-inline-input input {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+.sidebar-inline-input input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;
@@ -332,6 +366,33 @@ a:hover { color: var(--accent-hover); }
 
 .breadcrumb a { color: var(--text-muted); }
 .breadcrumb a:hover { color: var(--accent); }
+
+.project-rename-input {
+  padding: 2px 6px;
+  font-size: 13px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.project-delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+  margin-left: auto;
+}
+.project-delete-btn:hover {
+  color: var(--danger, #e53e3e);
+}
 
 /* ===== Cards ===== */
 .card {

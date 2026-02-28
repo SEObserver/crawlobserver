@@ -4,7 +4,7 @@
     stopCrawl, deleteSession,
     subscribeProgress, getTheme,
     getStorageStats, getGlobalStats, getSessionStorage, getSystemStats,
-    getProjects,
+    getProjects, createProject, renameProject, deleteProject,
     getUpdateStatus, applyUpdate,
     createBackup } from './lib/api.js';
   import { statusBadge, fmt, fmtSize, fmtN, trunc, timeAgo, a11yKeydown } from './lib/utils.js';
@@ -133,6 +133,55 @@
     showCompare = false;
     showLogs = false;
     pushURL(`/projects/${proj.id}`);
+  }
+
+  // Project CRUD
+  async function handleCreateProject(name) {
+    try {
+      const created = await createProject(name);
+      projects = await getProjects();
+      const proj = projects.find(p => p.id === created.id) || created;
+      selectProject(proj);
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleRenameProject(id, name) {
+    try {
+      await renameProject(id, name);
+      projects = await getProjects();
+      if (selectedProject?.id === id) {
+        selectedProject = projects.find(p => p.id === id) || selectedProject;
+      }
+    } catch (e) { error = e.message; }
+  }
+
+  async function handleDeleteProject(id) {
+    if (!confirm(`Delete project "${selectedProject?.name}"? Sessions will be unassigned.`)) return;
+    try {
+      await deleteProject(id);
+      projects = await getProjects();
+      goHome();
+    } catch (e) { error = e.message; }
+  }
+
+  let renamingProject = $state(false);
+  let renameValue = $state('');
+
+  function startRenameProject() {
+    renamingProject = true;
+    renameValue = selectedProject?.name || '';
+  }
+
+  function confirmRenameProject() {
+    const name = renameValue.trim();
+    if (name && name !== selectedProject?.name) {
+      handleRenameProject(selectedProject.id, name);
+    }
+    renamingProject = false;
+  }
+
+  function cancelRenameProject() {
+    renamingProject = false;
   }
 
   function switchProjectTab(t) {
@@ -719,7 +768,8 @@
     {selectedSession} {selectedProject} {showNewCrawl} {showSettings} {showGlobalStats} {showAPI} {showCompare} {showLogs} {liveProgress}
     ontoggledarkmmode={toggleDarkMode} onselectsession={selectSession} onselectproject={selectProject}
     onnavigate={navigateTo} onopensettings={openSettings}
-    onopenstats={openGlobalStats} onopenapi={openAPI} onopenlogs={openLogs} ongohome={goHome} />
+    onopenstats={openGlobalStats} onopenapi={openAPI} onopenlogs={openLogs} ongohome={goHome}
+    oncreateproject={handleCreateProject} />
 
   <!-- Main Content -->
   <main class="main">
@@ -769,10 +819,22 @@
 
       {:else if selectedProject}
         <!-- Project View -->
-        <div class="breadcrumb">
+        <div class="breadcrumb" style="display:flex;align-items:center;gap:8px;">
           <a href="/" onclick={(e) => { e.preventDefault(); goHome(); }}>Dashboard</a>
           <span>/</span>
-          <span style="color: var(--text);">{selectedProject.name}</span>
+          {#if renamingProject}
+            <!-- svelte-ignore a11y_autofocus -->
+            <input class="project-rename-input" type="text" bind:value={renameValue}
+              autofocus
+              onkeydown={(e) => { if (e.key === 'Enter') confirmRenameProject(); if (e.key === 'Escape') cancelRenameProject(); }}
+              onblur={confirmRenameProject} />
+          {:else}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <span style="color: var(--text); cursor: pointer;" ondblclick={startRenameProject} title="Double-click to rename">{selectedProject.name}</span>
+          {/if}
+          <button class="project-delete-btn" onclick={() => handleDeleteProject(selectedProject.id)} title="Delete project">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
         </div>
 
         <div class="tab-bar">
