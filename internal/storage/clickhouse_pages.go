@@ -124,6 +124,9 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 		}
 		pages = append(pages, p)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating pages: %w", err)
+	}
 	return pages, nil
 }
 
@@ -240,6 +243,9 @@ func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string, outLimi
 		}
 		result.OutLinks = append(result.OutLinks, l)
 	}
+	if err := outRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating outbound links: %w", err)
+	}
 
 	// Inbound links (paginated)
 	inRows, err := s.conn.Query(ctx, `
@@ -259,6 +265,9 @@ func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string, outLimi
 			return nil, fmt.Errorf("scanning inbound link: %w", err)
 		}
 		result.InLinks = append(result.InLinks, l)
+	}
+	if err := inRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating inbound links: %w", err)
 	}
 
 	return result, nil
@@ -287,6 +296,9 @@ func (s *Store) UncrawledURLs(ctx context.Context, sessionID string) ([]string, 
 		}
 		urls = append(urls, u)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating uncrawled URLs: %w", err)
+	}
 	return urls, nil
 }
 
@@ -307,6 +319,9 @@ func (s *Store) CrawledURLs(ctx context.Context, sessionID string) ([]string, er
 			return nil, err
 		}
 		urls = append(urls, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating crawled URLs: %w", err)
 	}
 	return urls, nil
 }
@@ -329,6 +344,9 @@ func (s *Store) FailedURLs(ctx context.Context, sessionID string) ([]string, err
 		}
 		urls = append(urls, u)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating failed URLs: %w", err)
+	}
 	return urls, nil
 }
 
@@ -348,6 +366,9 @@ func (s *Store) URLsByStatus(ctx context.Context, sessionID string, statusCode i
 			return nil, err
 		}
 		urls = append(urls, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating URLs by status: %w", err)
 	}
 	return urls, nil
 }
@@ -431,6 +452,9 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		urlToID[u] = uint32(len(idToURL))
 		idToURL = append(idToURL, u)
 	}
+	if err := urlRows.Err(); err != nil {
+		return fmt.Errorf("iterating URLs: %w", err)
+	}
 
 	n := uint32(len(idToURL))
 	if n == 0 {
@@ -441,11 +465,17 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 
 	// 2. Build URL→ID temp table in ClickHouse for server-side ID resolution
 	idTable := fmt.Sprintf("crawlobserver.tmp_urlids_%s", strings.ReplaceAll(sessionID, "-", ""))
-	s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", idTable))
+	if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", idTable)); err != nil {
+		applog.Warnf("storage", "pre-cleanup temp table %s: %v", idTable, err)
+	}
 	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (url String, id UInt32) ENGINE = Join(ANY, LEFT, url)", idTable)); err != nil {
 		return fmt.Errorf("creating URL ID table: %w", err)
 	}
-	defer s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", idTable))
+	defer func() {
+		if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", idTable)); err != nil {
+			applog.Warnf("storage", "cleanup temp table %s: %v", idTable, err)
+		}
+	}()
 
 	// Insert URL→ID mappings
 	const idChunk = 10000
@@ -498,6 +528,9 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		}
 		outLinks[srcID] = append(outLinks[srcID], tgtID)
 		edgeCount++
+	}
+	if err := linkRows.Err(); err != nil {
+		return fmt.Errorf("iterating link IDs: %w", err)
 	}
 
 	applog.Infof("storage", "PageRank: loaded %d unique edges in %s", edgeCount, time.Since(t2))
@@ -587,7 +620,11 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (page_url String, new_pagerank Float64) ENGINE = Join(ANY, LEFT, page_url)", tmpTable)); err != nil {
 		return fmt.Errorf("creating temp pagerank table: %w", err)
 	}
-	defer s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable))
+	defer func() {
+		if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
+			applog.Warnf("storage", "cleanup temp table %s: %v", tmpTable, err)
+		}
+	}()
 
 	const chunkSize = 5000
 	for i := 0; i < int(n); i += chunkSize {
@@ -715,6 +752,9 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 		}
 		crawledSet[u] = true
 	}
+	if err := crawledRows.Err(); err != nil {
+		return fmt.Errorf("iterating crawled URLs: %w", err)
+	}
 
 	if len(crawledSet) == 0 {
 		return nil
@@ -742,6 +782,9 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 			adj[src] = append(adj[src], tgt)
 		}
 	}
+	if err := linkRows.Err(); err != nil {
+		return fmt.Errorf("iterating links: %w", err)
+	}
 
 	// 3. BFS from seed URLs
 	bfsResult := ComputeBFSDepths(seedURLs, crawledSet, adj)
@@ -760,7 +803,11 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (page_url String, new_depth UInt16, new_found_on String) ENGINE = Join(ANY, LEFT, page_url)", tmpTable)); err != nil {
 		return fmt.Errorf("creating temp depths table: %w", err)
 	}
-	defer s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable))
+	defer func() {
+		if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
+			applog.Warnf("storage", "cleanup temp table %s: %v", tmpTable, err)
+		}
+	}()
 
 	urls := make([]string, 0, len(depths))
 	for u := range depths {
@@ -869,6 +916,9 @@ func (s *Store) PageRankDistribution(ctx context.Context, sessionID string, buck
 		}
 		result.Buckets = append(result.Buckets, b)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating pagerank buckets: %w", err)
+	}
 	return result, nil
 }
 
@@ -922,6 +972,9 @@ func (s *Store) PageRankTreemap(ctx context.Context, sessionID string, depth, mi
 			e.Path = "/"
 		}
 		entries = append(entries, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating treemap entries: %w", err)
 	}
 	return entries, nil
 }
@@ -988,6 +1041,9 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 			return nil, fmt.Errorf("scanning top page: %w", err)
 		}
 		result.Pages = append(result.Pages, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating top pages: %w", err)
 	}
 	return result, nil
 }

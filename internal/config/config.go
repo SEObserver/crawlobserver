@@ -56,9 +56,14 @@ type ClickHouseConfig struct {
 	DataDir    string `mapstructure:"data_dir"`    // data directory, "" = platform default
 }
 
+// DSN returns a redacted connection string safe for logging.
 func (c ClickHouseConfig) DSN() string {
+	pw := "***"
+	if c.Password == "" {
+		pw = ""
+	}
 	return fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s",
-		c.Username, c.Password, c.Host, c.Port, c.Database)
+		c.Username, pw, c.Host, c.Port, c.Database)
 }
 
 type StorageConfig struct {

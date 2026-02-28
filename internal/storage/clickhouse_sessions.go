@@ -50,6 +50,9 @@ func (s *Store) ListSessions(ctx context.Context, projectID ...string) ([]CrawlS
 		}
 		sessions = append(sessions, sess)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating sessions: %w", err)
+	}
 	return sessions, nil
 }
 
@@ -98,6 +101,9 @@ func (s *Store) ListSessionsPaginated(ctx context.Context, limit, offset int, pr
 			return nil, 0, fmt.Errorf("scanning session: %w", err)
 		}
 		sessions = append(sessions, sess)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterating sessions: %w", err)
 	}
 	if sessions == nil {
 		sessions = []CrawlSession{}
@@ -214,6 +220,9 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 		}
 		stats.StatusCodes[code] = cnt
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating status codes: %w", err)
+	}
 
 	// Depth distribution
 	depthRows, err := s.conn.Query(ctx, `
@@ -230,6 +239,9 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 			return nil, err
 		}
 		stats.DepthDistribution[depth] = cnt
+	}
+	if err := depthRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating depth distribution: %w", err)
 	}
 
 	// Crawl duration and pages/sec
@@ -259,6 +271,9 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 			if err := prRows.Scan(&e.URL, &e.PageRank); err == nil {
 				stats.TopPageRank = append(stats.TopPageRank, e)
 			}
+		}
+		if err := prRows.Err(); err != nil {
+			applog.Warnf("audit", "iterating top pagerank: %v", err)
 		}
 	}
 
@@ -483,6 +498,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 				tech.NoindexReasons = append(tech.NoindexReasons, nr)
 			}
 		}
+		if err := niRows.Err(); err != nil {
+			applog.Warnf("audit", "iterating noindex reasons: %v", err)
+		}
 	}
 
 	// Content types
@@ -497,6 +515,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			if err := ctRows.Scan(&ct.ContentType, &ct.Count); err == nil {
 				tech.ContentTypes = append(tech.ContentTypes, ct)
 			}
+		}
+		if err := ctRows.Err(); err != nil {
+			applog.Warnf("audit", "iterating content types: %v", err)
 		}
 	}
 	result.Technical = tech
@@ -550,6 +571,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 				links.TopExternalDomains = append(links.TopExternalDomains, ed)
 			}
 		}
+		if err := edRows.Err(); err != nil {
+			applog.Warnf("audit", "iterating external domains: %v", err)
+		}
 	}
 
 	// Top anchor texts
@@ -564,6 +588,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			if err := anRows.Scan(&ac.Anchor, &ac.Count); err == nil {
 				links.TopAnchors = append(links.TopAnchors, ac)
 			}
+		}
+		if err := anRows.Err(); err != nil {
+			applog.Warnf("audit", "iterating anchors: %v", err)
 		}
 	}
 	result.Links = links
@@ -586,6 +613,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			if err := dirRows.Scan(&dc.Directory, &dc.Count); err == nil {
 				structure.Directories = append(structure.Directories, dc)
 			}
+		}
+		if err := dirRows.Err(); err != nil {
+			applog.Warnf("audit", "iterating directories: %v", err)
 		}
 	}
 
@@ -659,6 +689,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 				intl.LangDistribution = append(intl.LangDistribution, lc)
 			}
 		}
+		if err := langRows.Err(); err != nil {
+			applog.Warnf("audit", "iterating languages: %v", err)
+		}
 	}
 
 	// Schema distribution
@@ -673,6 +706,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			if err := schemaRows.Scan(&sc.SchemaType, &sc.Count); err == nil {
 				intl.SchemaDistribution = append(intl.SchemaDistribution, sc)
 			}
+		}
+		if err := schemaRows.Err(); err != nil {
+			applog.Warnf("audit", "iterating schemas: %v", err)
 		}
 	}
 	result.International = intl
@@ -713,6 +749,9 @@ func (s *Store) StorageStats(ctx context.Context) (*StorageStatsResult, error) {
 		}
 		result.Tables = append(result.Tables, t)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating storage stats: %w", err)
+	}
 	return result, nil
 }
 
@@ -737,6 +776,9 @@ func (s *Store) SessionStorageStats(ctx context.Context) (map[string]uint64, err
 			return nil, fmt.Errorf("scanning session storage stats: %w", err)
 		}
 		result[sessionID] = bytes
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating session storage stats: %w", err)
 	}
 	return result, nil
 }
@@ -770,6 +812,9 @@ func (s *Store) GlobalStats(ctx context.Context) ([]GlobalSessionStats, *Storage
 		}
 		statsMap[gs.SessionID] = &gs
 	}
+	if err := pageRows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("iterating page stats: %w", err)
+	}
 
 	// 2. Link counts per session
 	linkRows, err := s.conn.Query(ctx, `
@@ -792,6 +837,9 @@ func (s *Store) GlobalStats(ctx context.Context) ([]GlobalSessionStats, *Storage
 		} else {
 			statsMap[sid] = &GlobalSessionStats{SessionID: sid, TotalLinks: cnt}
 		}
+	}
+	if err := linkRows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("iterating link stats: %w", err)
 	}
 
 	// 3. Storage stats

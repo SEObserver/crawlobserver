@@ -75,7 +75,7 @@ func TestClickHouseDSN(t *testing.T) {
 		Username: "user",
 		Password: "pass",
 	}
-	want := "clickhouse://user:pass@db.example.com:9000/mydb"
+	want := "clickhouse://user:***@db.example.com:9000/mydb"
 	if got := cfg.DSN(); got != want {
 		t.Errorf("DSN() = %q, want %q", got, want)
 	}
