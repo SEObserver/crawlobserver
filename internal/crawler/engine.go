@@ -41,6 +41,7 @@ type Engine struct {
 	retryPolicy    *RetryPolicy
 	pendingRetries atomic.Int64
 
+	sitemapOnly      bool
 	checkExternal    bool
 	externalWorkers  int
 	externalCh       chan string
@@ -239,6 +240,21 @@ func (e *Engine) Run(seeds []string) error {
 		}
 		if len(sitemapRows) > 0 {
 			applog.Infof("crawler", "Persisted %d sitemaps (%d URLs total)", len(sitemapRows), len(sitemapURLRows))
+		}
+
+		if e.sitemapOnly && len(sitemapURLRows) > 0 {
+			added := 0
+			for _, su := range sitemapURLRows {
+				norm, err := normalizer.Normalize(su.Loc)
+				if err != nil {
+					continue
+				}
+				if e.isInScope(norm) {
+					e.front.Add(frontier.CrawlURL{URL: norm, Priority: 1, Depth: 1})
+					added++
+				}
+			}
+			applog.Infof("crawler", "Sitemap-only mode: enqueued %d URLs from sitemaps", added)
 		}
 	}
 
@@ -606,7 +622,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 					if link.IsInternal {
 						internalOut++
 						// Check crawl scope before adding to frontier
-						if e.isInScope(link.TargetURL) {
+						if !e.sitemapOnly && e.isInScope(link.TargetURL) {
 							newDepth := result.Depth + 1
 							if e.cfg.Crawler.MaxDepth == 0 || newDepth <= e.cfg.Crawler.MaxDepth {
 								e.front.Add(frontier.CrawlURL{

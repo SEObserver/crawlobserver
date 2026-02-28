@@ -46,6 +46,7 @@ type CrawlRequest struct {
 	ExternalLinkWorkers int      `json:"external_link_workers"`
 	RetryStatusCode     int      `json:"retry_status_code"`
 	UserAgent           string   `json:"user_agent"`
+	CrawlSitemapOnly    bool     `json:"crawl_sitemap_only"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -84,6 +85,7 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	engine := NewEngine(&cfg, m.store)
 	sessionID := engine.SessionID(req.Seeds)
 	engine.session.ProjectID = req.ProjectID
+	engine.sitemapOnly = req.CrawlSitemapOnly
 
 	// External link checking: default true
 	engine.checkExternal = req.CheckExternalLinks == nil || *req.CheckExternalLinks
@@ -214,6 +216,7 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		cfg.Crawler = crawlerCfg
 	}
 	engine := NewEngine(&cfg, m.store)
+	engine.sitemapOnly = overrides != nil && overrides.CrawlSitemapOnly
 
 	// Restore the original session with its seed URLs, not the uncrawled URLs
 	engine.ResumeSession(sessionID, originalSession.SeedURLs)

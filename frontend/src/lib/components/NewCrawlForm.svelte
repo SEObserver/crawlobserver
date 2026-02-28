@@ -15,6 +15,7 @@
   let externalLinkWorkers = $state(3);
   let userAgentPreset = $state('');
   let userAgentCustom = $state('');
+  let crawlSitemapOnly = $state(false);
   let starting = $state(false);
 
   const userAgentPresets = [
@@ -32,7 +33,7 @@
     starting = true;
     const ua = userAgentPreset === 'custom' ? userAgentCustom : userAgentPreset;
     try {
-      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null, check_external_links: checkExternalLinks, external_link_workers: externalLinkWorkers, user_agent: ua || undefined });
+      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null, check_external_links: checkExternalLinks, external_link_workers: externalLinkWorkers, user_agent: ua || undefined, crawl_sitemap_only: crawlSitemapOnly });
       onstart?.();
     } catch (e) {
       onerror?.(e.message);
@@ -81,6 +82,9 @@
     </div>
     <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
       <input id="checkext" type="checkbox" bind:checked={checkExternalLinks} /><label for="checkext" style="margin: 0;">Check external links</label>
+    </div>
+    <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
+      <input id="sitemaponly" type="checkbox" bind:checked={crawlSitemapOnly} /><label for="sitemaponly" style="margin: 0;">Sitemap only (crawl only URLs found in sitemaps)</label>
     </div>
     {#if checkExternalLinks}
       <div class="form-group"><label for="extworkers">External link workers</label><input id="extworkers" type="number" bind:value={externalLinkWorkers} min="1" max="20" /></div>
