@@ -9,9 +9,9 @@ export function applyTheme(theme, darkMode) {
   if (theme.accent_color) {
     document.documentElement.style.setProperty('--accent', theme.accent_color);
     const hex = theme.accent_color.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
     const alpha = darkMode ? 0.15 : 0.08;
     document.documentElement.style.setProperty('--accent-light', `rgba(${r},${g},${b},${alpha})`);
   }
