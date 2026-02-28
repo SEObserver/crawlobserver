@@ -14,7 +14,7 @@ func TestRobotsCacheEntries(t *testing.T) {
 	}))
 	defer server.Close()
 
-	rc := NewRobotsCache("TestBot", 5*time.Second, true)
+	rc := NewRobotsCache("TestBot", 5*time.Second, true, "")
 
 	// Trigger fetch by calling IsAllowed
 	rc.IsAllowed(server.URL + "/page")
@@ -55,7 +55,7 @@ func TestRobotsCacheEntriesMultipleHosts(t *testing.T) {
 	}))
 	defer s2.Close()
 
-	rc := NewRobotsCache("TestBot", 5*time.Second, true)
+	rc := NewRobotsCache("TestBot", 5*time.Second, true, "")
 
 	rc.IsAllowed(s1.URL + "/page")
 	rc.IsAllowed(s2.URL + "/page")
@@ -83,7 +83,7 @@ func TestRobotsCacheEntriesMultipleHosts(t *testing.T) {
 }
 
 func TestRobotsCacheEntriesEmpty(t *testing.T) {
-	rc := NewRobotsCache("TestBot", 5*time.Second, true)
+	rc := NewRobotsCache("TestBot", 5*time.Second, true, "")
 	entries := rc.Entries()
 	if len(entries) != 0 {
 		t.Errorf("expected 0 entries, got %d", len(entries))
@@ -97,7 +97,7 @@ func TestRobotsCacheEntries404Status(t *testing.T) {
 	}))
 	defer server.Close()
 
-	rc := NewRobotsCache("TestBot", 5*time.Second, true)
+	rc := NewRobotsCache("TestBot", 5*time.Second, true, "")
 	rc.IsAllowed(server.URL + "/page")
 
 	entries := rc.Entries()
@@ -117,7 +117,7 @@ func TestRobotsCacheEntries404Status(t *testing.T) {
 }
 
 func TestRobotsCacheEntriesIsCopy(t *testing.T) {
-	rc := NewRobotsCache("TestBot", 5*time.Second, true)
+	rc := NewRobotsCache("TestBot", 5*time.Second, true, "")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "User-agent: *\nAllow: /\n")
@@ -150,7 +150,7 @@ Disallow: /secret/
 	}))
 	defer server.Close()
 
-	rc := NewRobotsCache("TestBot", 5*time.Second, true)
+	rc := NewRobotsCache("TestBot", 5*time.Second, true, "")
 
 	// TestBot-specific rules
 	if rc.IsAllowed(server.URL + "/admin/panel") {

@@ -54,6 +54,7 @@ type CrawlRequest struct {
 	CrawlSitemapOnly    bool     `json:"crawl_sitemap_only"`
 	CheckPageResources  *bool    `json:"check_page_resources"`
 	ResourceWorkers     int      `json:"resource_workers"`
+	TLSProfile          string   `json:"tls_profile"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -87,6 +88,9 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 
 	if req.UserAgent != "" {
 		cfg.Crawler.UserAgent = req.UserAgent
+	}
+	if req.TLSProfile != "" {
+		cfg.Crawler.TLSProfile = req.TLSProfile
 	}
 
 	engine := NewEngine(&cfg, m.store)
@@ -237,6 +241,9 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		}
 		if overrides.UserAgent != "" {
 			crawlerCfg.UserAgent = overrides.UserAgent
+		}
+		if overrides.TLSProfile != "" {
+			crawlerCfg.TLSProfile = overrides.TLSProfile
 		}
 		cfg.Crawler = crawlerCfg
 	}

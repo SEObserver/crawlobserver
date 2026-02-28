@@ -76,8 +76,8 @@ func NewEngine(cfg *config.Config, store *storage.Store) *Engine {
 		cfg:    cfg,
 		store:  store,
 		front:  frontier.New(cfg.Crawler.Delay),
-		fetch:  fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize, cfg.Crawler.AllowPrivateIPs),
-		robots: fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.AllowPrivateIPs),
+		fetch:  fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize, cfg.Crawler.AllowPrivateIPs, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
+		robots: fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.AllowPrivateIPs, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
 		retryQueue: NewRetryQueue(),
 		hostHealth: NewHostHealth(),
 		retryPolicy: &RetryPolicy{

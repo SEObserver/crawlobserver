@@ -29,20 +29,25 @@ type Fetcher struct {
 	maxBodySize int64
 }
 
-// New creates a new Fetcher.
-func New(userAgent string, timeout time.Duration, maxBodySize int64, allowPrivateIPs bool) *Fetcher {
+// New creates a new Fetcher. When tlsProfile is non-empty, the transport uses
+// utls to mimic the chosen browser's TLS fingerprint.
+func New(userAgent string, timeout time.Duration, maxBodySize int64, allowPrivateIPs bool, tlsProfile TLSProfile) *Fetcher {
 	f := &Fetcher{
 		userAgent:   userAgent,
 		maxBodySize: maxBodySize,
 	}
 
 	transport := &http.Transport{
-		DialContext:            SafeDialContext(allowPrivateIPs),
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout:  15 * time.Second,
 		MaxIdleConnsPerHost:    2,
 		MaxResponseHeaderBytes: 1 << 20, // 1MB
 		IdleConnTimeout:        90 * time.Second,
+	}
+	if tlsProfile != "" {
+		transport.DialTLSContext = utlsDialTLSContext(tlsProfile, SafeDialContext(allowPrivateIPs))
+	} else {
+		transport.DialContext = SafeDialContext(allowPrivateIPs)
 	}
 
 	f.client = &http.Client{

@@ -16,16 +16,22 @@
   let userAgentPreset = $state('');
   let userAgentCustom = $state('');
   let crawlSitemapOnly = $state(false);
+  let tlsProfile = $state('');
   let starting = $state(false);
 
   const userAgentPresets = [
-    { label: 'Default (CrawlObserver)', value: '' },
-    { label: 'Googlebot Desktop', value: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' },
-    { label: 'Googlebot Mobile', value: 'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.69 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' },
-    { label: 'Bingbot', value: 'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)' },
-    { label: 'Chrome Desktop', value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
-    { label: 'Custom', value: 'custom' },
+    { label: 'Default (CrawlObserver)', value: '', tls: '' },
+    { label: 'Googlebot Desktop', value: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', tls: '' },
+    { label: 'Googlebot Mobile', value: 'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.69 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', tls: '' },
+    { label: 'Bingbot', value: 'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)', tls: '' },
+    { label: 'Chrome Desktop', value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', tls: 'chrome' },
+    { label: 'Custom', value: 'custom', tls: '' },
   ];
+
+  function onUserAgentChange() {
+    const preset = userAgentPresets.find(p => p.value === userAgentPreset);
+    if (preset) tlsProfile = preset.tls;
+  }
 
   async function handleStartCrawl() {
     const seeds = seedInput.split('\n').map(s => s.trim()).filter(Boolean);
@@ -33,7 +39,7 @@
     starting = true;
     const ua = userAgentPreset === 'custom' ? userAgentCustom : userAgentPreset;
     try {
-      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null, check_external_links: checkExternalLinks, external_link_workers: externalLinkWorkers, user_agent: ua || undefined, crawl_sitemap_only: crawlSitemapOnly });
+      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null, check_external_links: checkExternalLinks, external_link_workers: externalLinkWorkers, user_agent: ua || undefined, crawl_sitemap_only: crawlSitemapOnly, tls_profile: tlsProfile || undefined });
       onstart?.();
     } catch (e) {
       onerror?.(e.message);
@@ -65,7 +71,7 @@
     </div>
     <div class="form-group">
       <label for="useragent">User-Agent</label>
-      <select id="useragent" bind:value={userAgentPreset}>
+      <select id="useragent" bind:value={userAgentPreset} onchange={onUserAgentChange}>
         {#each userAgentPresets as preset}
           <option value={preset.value}>{preset.label}</option>
         {/each}
@@ -75,6 +81,17 @@
       <div class="form-group">
         <label for="useragent-custom">Custom User-Agent</label>
         <input id="useragent-custom" type="text" bind:value={userAgentCustom} placeholder="Mozilla/5.0 ..." />
+      </div>
+    {/if}
+    {#if userAgentPreset !== ''}
+      <div class="form-group">
+        <label for="tlsprofile">TLS Fingerprint</label>
+        <select id="tlsprofile" bind:value={tlsProfile}>
+          <option value="">Off (Go default)</option>
+          <option value="chrome">Chrome</option>
+          <option value="firefox">Firefox</option>
+          <option value="edge">Edge</option>
+        </select>
       </div>
     {/if}
     <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">

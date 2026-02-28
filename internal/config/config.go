@@ -33,6 +33,7 @@ type CrawlerConfig struct {
 	StoreHTML     bool          `mapstructure:"store_html"`
 	CrawlScope      string        `mapstructure:"crawl_scope"`      // "host" (default) or "domain" (eTLD+1)
 	AllowPrivateIPs bool          `mapstructure:"allow_private_ips"` // allow crawling private/reserved IPs (default: false)
+	TLSProfile      string        `mapstructure:"tls_profile"`      // "", "chrome", "firefox", "edge"
 	Retry           RetryConfig   `mapstructure:"retry"`
 }
 
