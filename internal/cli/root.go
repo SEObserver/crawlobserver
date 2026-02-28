@@ -34,7 +34,7 @@ func initConfig() {
 		viper.AddConfigPath(".")
 	}
 
-	viper.SetEnvPrefix("SEOCRAWLER")
+	viper.SetEnvPrefix("CRAWLOBSERVER")
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {

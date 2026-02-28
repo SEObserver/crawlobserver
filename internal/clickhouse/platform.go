@@ -14,14 +14,14 @@ func DefaultDataDir() string {
 	switch runtime.GOOS {
 	case "darwin":
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, "Library", "Application Support", "SeoCrawler")
+		return filepath.Join(home, "Library", "Application Support", "CrawlObserver")
 	case "windows":
 		appdata := os.Getenv("APPDATA")
 		if appdata == "" {
 			home, _ := os.UserHomeDir()
 			appdata = filepath.Join(home, "AppData", "Roaming")
 		}
-		return filepath.Join(appdata, "SeoCrawler")
+		return filepath.Join(appdata, "CrawlObserver")
 	default: // linux and others
 		home, _ := os.UserHomeDir()
 		return filepath.Join(home, ".local", "share", "crawlobserver")

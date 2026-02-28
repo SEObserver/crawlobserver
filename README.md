@@ -148,7 +148,7 @@ Copy `config.example.yaml` to `config.yaml`:
 cp config.example.yaml config.yaml
 ```
 
-All settings can be overridden via **environment variables** with the `SEOCRAWLER_` prefix (e.g. `SEOCRAWLER_CRAWLER_WORKERS=20`) or via **CLI flags**.
+All settings can be overridden via **environment variables** with the `CRAWLOBSERVER_` prefix (e.g. `CRAWLOBSERVER_CRAWLER_WORKERS=20`) or via **CLI flags**.
 
 ### Key settings
 
