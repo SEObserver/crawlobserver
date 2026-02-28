@@ -1,5 +1,6 @@
 # Binaries
 crawlobserver
+seocrawler
 /cmd/crawlobserver/crawlobserver
 *.exe
 *.dll
@@ -29,10 +30,13 @@ config.yaml
 # Vendor (optional)
 /vendor/
 
-# SQLite
+# SQLite / DB backups
 *.db
 *.db-shm
 *.db-wal
+*.db.bak
+*.db.bak-shm
+*.db.bak-wal
 
 # Frontend
 frontend/node_modules/
