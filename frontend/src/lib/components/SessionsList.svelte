@@ -92,3 +92,45 @@
     {/each}
   </div>
 {/if}
+
+<style>
+  .session-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-light);
+    transition: background 0.1s;
+    gap: 16px;
+  }
+  .session-row:last-child { border-bottom: none; }
+  .session-row:hover { background: var(--bg-hover); }
+  .session-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+  }
+  .session-seed {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .session-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .session-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+</style>

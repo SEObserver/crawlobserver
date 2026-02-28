@@ -162,7 +162,47 @@
 <style>
   .action-bar-meta {
     font-size: 12px;
-    color: var(--fg-muted);
+    color: var(--text-muted);
     white-space: nowrap;
+  }
+  .html-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .html-modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .html-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .html-modal-url {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .html-modal-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
   }
 </style>

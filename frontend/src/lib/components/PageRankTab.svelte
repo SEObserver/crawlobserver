@@ -282,3 +282,166 @@
     {/if}
   </div>
 {/if}
+
+<style>
+  .pr-select {
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .pr-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .pr-controls label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .pr-top-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 200px 50px 90px;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-light);
+    transition: background 0.1s;
+    font-size: 13px;
+  }
+  .pr-top-row:hover { background: var(--bg-hover); }
+  .pr-top-rank {
+    text-align: right;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .pr-top-url {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .pr-top-url:hover { color: var(--accent-hover); }
+  .pr-top-bar {
+    height: 22px;
+    border-radius: 4px;
+    background: var(--accent);
+    transition: width 0.3s ease;
+  }
+  .pr-top-score {
+    text-align: right;
+    font-weight: 600;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .pr-top-badges {
+    display: flex;
+    gap: 4px;
+  }
+  .pr-top-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .pr-treemap-container {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .pr-treemap-rect {
+    position: absolute;
+    border: 1px solid var(--bg-card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .pr-treemap-rect:hover { opacity: 0.85; }
+  .pr-treemap-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    text-align: center;
+    padding: 4px;
+    line-height: 1.2;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .pr-treemap-label small {
+    display: block;
+    font-size: 10px;
+    font-weight: 400;
+    opacity: 0.85;
+  }
+  .pr-tooltip {
+    position: fixed;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 12px;
+    box-shadow: var(--shadow-md);
+    z-index: 2000;
+    pointer-events: none;
+    max-width: 360px;
+  }
+  .pr-tooltip-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .pr-tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    color: var(--text-secondary);
+  }
+  .pr-tooltip-row span:last-child {
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .pr-hist-bar {
+    transition: opacity 0.15s;
+    cursor: pointer;
+  }
+  .pr-hist-bar:hover { opacity: 0.75; }
+  .pr-dir-filter {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    width: 300px;
+    max-width: 100%;
+  }
+  .pr-dir-filter:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+</style>

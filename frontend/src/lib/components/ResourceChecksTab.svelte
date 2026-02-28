@@ -260,7 +260,7 @@
     padding: 8px 10px;
     border-bottom: 2px solid var(--border);
     font-weight: 600;
-    color: var(--fg-muted);
+    color: var(--text-muted);
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -305,13 +305,13 @@
   .badge-dead { background: #f3f4f6; color: #6b7280; }
   .badge-internal { background: #dcfce7; color: #166534; }
   .badge-hotlink { background: #ffedd5; color: #9a3412; }
-  :global(.dark) .badge-type { background: #3730a3; color: #e0e7ff; }
-  :global(.dark) .badge-success { background: #166534; color: #dcfce7; }
-  :global(.dark) .badge-redirect { background: #854d0e; color: #fef9c3; }
-  :global(.dark) .badge-error { background: #991b1b; color: #fee2e2; }
-  :global(.dark) .badge-dead { background: #374151; color: #9ca3af; }
-  :global(.dark) .badge-internal { background: #166534; color: #dcfce7; }
-  :global(.dark) .badge-hotlink { background: #9a3412; color: #ffedd5; }
+  :global([data-theme="dark"]) .badge-type { background: #3730a3; color: #e0e7ff; }
+  :global([data-theme="dark"]) .badge-success { background: #166534; color: #dcfce7; }
+  :global([data-theme="dark"]) .badge-redirect { background: #854d0e; color: #fef9c3; }
+  :global([data-theme="dark"]) .badge-error { background: #991b1b; color: #fee2e2; }
+  :global([data-theme="dark"]) .badge-dead { background: #374151; color: #9ca3af; }
+  :global([data-theme="dark"]) .badge-internal { background: #166534; color: #dcfce7; }
+  :global([data-theme="dark"]) .badge-hotlink { background: #9a3412; color: #ffedd5; }
   .status-bar {
     display: flex;
     height: 14px;
@@ -342,6 +342,6 @@
   .res-loading, .res-empty {
     text-align: center;
     padding: 32px;
-    color: var(--fg-muted);
+    color: var(--text-muted);
   }
 </style>

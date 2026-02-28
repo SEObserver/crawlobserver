@@ -260,7 +260,7 @@
     padding: 8px 10px;
     border-bottom: 2px solid var(--border);
     font-weight: 600;
-    color: var(--fg-muted);
+    color: var(--text-muted);
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -284,7 +284,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--fg-muted);
+    color: var(--text-muted);
     font-size: 12px;
   }
   .cell-bar { min-width: 120px; }
@@ -310,10 +310,10 @@
   .badge-redirect { background: #fef9c3; color: #854d0e; }
   .badge-error { background: #fee2e2; color: #991b1b; }
   .badge-dead { background: #f3f4f6; color: #6b7280; }
-  :global(.dark) .badge-success { background: #166534; color: #dcfce7; }
-  :global(.dark) .badge-redirect { background: #854d0e; color: #fef9c3; }
-  :global(.dark) .badge-error { background: #991b1b; color: #fee2e2; }
-  :global(.dark) .badge-dead { background: #374151; color: #9ca3af; }
+  :global([data-theme="dark"]) .badge-success { background: #166534; color: #dcfce7; }
+  :global([data-theme="dark"]) .badge-redirect { background: #854d0e; color: #fef9c3; }
+  :global([data-theme="dark"]) .badge-error { background: #991b1b; color: #fee2e2; }
+  :global([data-theme="dark"]) .badge-dead { background: #374151; color: #9ca3af; }
   .status-bar {
     display: flex;
     height: 14px;
@@ -347,6 +347,6 @@
   .ext-loading, .ext-empty {
     text-align: center;
     padding: 32px;
-    color: var(--fg-muted);
+    color: var(--text-muted);
   }
 </style>

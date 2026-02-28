@@ -259,3 +259,139 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .robots-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    min-height: 400px;
+  }
+  .robots-hosts {
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    max-height: 70vh;
+  }
+  .robots-host-active td {
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+  .robots-detail {
+    padding: 20px;
+    overflow-y: auto;
+    max-height: 70vh;
+  }
+  .robots-content-pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow: auto;
+    color: var(--text);
+  }
+  .robots-test-result {
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .robots-test-result:last-child {
+    border-bottom: none;
+  }
+  .sim-compare {
+    margin-top: 16px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .sim-compare-header {
+    display: grid;
+    grid-template-columns: 80px 1fr 28px 1fr 80px;
+    gap: 0;
+    padding: 8px 16px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    text-align: right;
+  }
+  .sim-compare-header span:first-child { text-align: left; }
+  .sim-compare-header span:nth-child(3) { text-align: center; }
+  .sim-compare-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 28px 1fr 80px;
+    gap: 0;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-light);
+    align-items: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .sim-compare-row:last-child { border-bottom: none; }
+  .sim-compare-total { border-top: 1px solid var(--border); background: var(--bg); }
+  .sim-compare-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .sim-compare-val {
+    font-size: 18px;
+    font-weight: 700;
+    text-align: right;
+    letter-spacing: -0.02em;
+  }
+  .sim-compare-arrow {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .sim-compare-delta {
+    font-size: 13px;
+    font-weight: 600;
+    text-align: right;
+  }
+  .sim-change-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+    transition: background 0.15s;
+    font-family: inherit;
+  }
+  .sim-change-header:hover { background: var(--bg-hover); }
+  .sim-url-blocked { border-left: 3px solid var(--error); }
+  .sim-url-allowed { border-left: 3px solid var(--success); }
+  .sim-url-list {
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+  }
+  .sim-url-item {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    word-break: break-all;
+  }
+  .sim-url-item:last-child { border-bottom: none; }
+</style>

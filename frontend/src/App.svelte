@@ -61,18 +61,13 @@
   // --- UI state ---
   let theme = $state({ app_name: 'CrawlObserver', logo_url: '', accent_color: '#7c3aed', mode: 'light' });
   let darkMode = $state(false);
-  let showSettings = $state(false);
-  let showNewCrawl = $state(false);
+  /** @type {'home'|'settings'|'stats'|'compare'|'logs'|'all-projects'|'api'|'new-crawl'|'project'|'session'} */
+  let currentView = $state('home');
   let showResumeModal = $state(false);
   let resumeSessionId = $state(null);
   let showHtmlModal = $state(false);
   let htmlModalUrl = $state('');
-  let showGlobalStats = $state(false);
   let globalStats = $state(null);
-  let showAPI = $state(false);
-  let showCompare = $state(false);
-  let showLogs = $state(false);
-  let showAllProjects = $state(false);
   let compareSessionA = $state('');
   let compareSessionB = $state('');
   let updateInfo = $state(null);
@@ -115,13 +110,7 @@
 
   // --- All Projects page ---
   function openAllProjects() {
-    showAllProjects = true;
-    showSettings = false;
-    showGlobalStats = false;
-    showAPI = false;
-    showNewCrawl = false;
-    showCompare = false;
-    showLogs = false;
+    currentView = 'all-projects';
     selectedSession = null;
     selectedProject = null;
     pushURL('/projects');
@@ -138,16 +127,10 @@
   }
 
   function selectProject(proj) {
+    currentView = 'project';
     selectedProject = proj;
     selectedSession = null;
-    showAllProjects = false;
     projectTab = 'sessions';
-    showSettings = false;
-    showGlobalStats = false;
-    showAPI = false;
-    showNewCrawl = false;
-    showCompare = false;
-    showLogs = false;
     projSessionsOffset = 0;
     loadProjectSessions();
     pushURL(`/projects/${proj.id}`);
@@ -209,13 +192,7 @@
 
   // --- Global Stats ---
   function openGlobalStats() {
-    showGlobalStats = true;
-    showSettings = false;
-    showAPI = false;
-    showNewCrawl = false;
-    showCompare = false;
-    showLogs = false;
-    showAllProjects = false;
+    currentView = 'stats';
     selectedSession = null;
     selectedProject = null;
     pushURL('/stats');
@@ -223,26 +200,14 @@
 
   // --- API page ---
   function openAPI() {
-    showAPI = true;
-    showSettings = false;
-    showGlobalStats = false;
-    showNewCrawl = false;
-    showCompare = false;
-    showLogs = false;
-    showAllProjects = false;
+    currentView = 'api';
     selectedSession = null;
     selectedProject = null;
     pushURL('/api');
   }
 
   function openLogs() {
-    showLogs = true;
-    showSettings = false;
-    showGlobalStats = false;
-    showAPI = false;
-    showNewCrawl = false;
-    showCompare = false;
-    showAllProjects = false;
+    currentView = 'logs';
     selectedSession = null;
     selectedProject = null;
     pushURL('/logs');
@@ -285,15 +250,9 @@
 
   // --- Settings ---
   function openSettings() {
-    showSettings = true;
+    currentView = 'settings';
     selectedSession = null;
     selectedProject = null;
-    showNewCrawl = false;
-    showAPI = false;
-    showGlobalStats = false;
-    showCompare = false;
-    showLogs = false;
-    showAllProjects = false;
     pushURL('/settings');
   }
 
@@ -308,13 +267,13 @@
       theme = saved;
       darkMode = saved.mode === 'dark';
       applyTheme();
-      showSettings = false;
+      currentView = 'home';
     }
   }
 
   function handleSettingsCancel() {
     loadTheme();
-    showSettings = false;
+    currentView = 'home';
   }
 
   // --- Filter helpers ---
@@ -420,20 +379,16 @@
       stats = null;
       filters = {};
       loading = false;
-      showSettings = route.page === 'settings';
-      showGlobalStats = route.page === 'stats';
-      showAPI = route.page === 'api';
-      showNewCrawl = route.page === 'new-crawl';
-      showCompare = route.page === 'compare';
-      showLogs = route.page === 'logs';
-      showAllProjects = route.page === 'all-projects';
+      currentView = route.page === 'all-projects' ? 'all-projects'
+        : route.page === 'new-crawl' ? 'new-crawl'
+        : route.page;
 
       if (route.page === 'project') {
+        currentView = 'project';
         selectedProject = projects.find(p => p.id === route.projectId) || null;
         projectTab = route.projectTab || 'sessions';
         gscSubView = route.projectTab === 'gsc' ? (route.projectSubView || 'overview') : 'overview';
         providerSubView = route.projectTab === 'providers' ? (route.projectSubView || 'overview') : 'overview';
-        showSettings = false; showGlobalStats = false; showAPI = false; showNewCrawl = false; showCompare = false; showLogs = false; showAllProjects = false;
         if (!selectedProject && projects.length === 0) {
           getProjects().then(p => { projects = p; selectedProject = p.find(pr => pr.id === route.projectId) || null; if (selectedProject) loadProjectSessions(); }).catch(() => {});
         } else {
@@ -456,13 +411,8 @@
     }
 
     // Session detail routes
+    currentView = 'session';
     selectedProject = null;
-    showSettings = false;
-    showGlobalStats = false;
-    showAPI = false;
-    showNewCrawl = false;
-    showCompare = false;
-    showLogs = false;
 
     if (!selectedSession || selectedSession.ID !== route.sessionId) {
       if (sessions.length === 0) {
@@ -517,15 +467,9 @@
   window.addEventListener('popstate', () => applyRoute());
 
   async function selectSession(session) {
+    currentView = 'session';
     selectedSession = session;
     selectedProject = null;
-    showSettings = false;
-    showGlobalStats = false;
-    showAPI = false;
-    showNewCrawl = false;
-    showCompare = false;
-    showLogs = false;
-    showAllProjects = false;
     tab = 'overview';
     filters = {};
     pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
@@ -540,16 +484,10 @@
   }
 
   function goHome() {
+    currentView = 'home';
     selectedSession = null;
     selectedProject = null;
     stats = null;
-    showNewCrawl = false;
-    showSettings = false;
-    showAPI = false;
-    showGlobalStats = false;
-    showCompare = false;
-    showLogs = false;
-    showAllProjects = false;
     pushURL('/');
   }
 
@@ -689,7 +627,7 @@
   }
 
   function onCrawlStarted() {
-    showNewCrawl = false;
+    currentView = 'home';
     pushURL('/');
     setTimeout(() => loadSessions(), RELOAD_DELAY_MS);
   }
@@ -800,8 +738,8 @@
 <div class="layout">
   <div class="drag-bar"><span class="drag-bar-title">{theme.app_name}</span></div>
   <Sidebar {theme} {darkMode} {sessions} {projects} {globalStats} {systemStats}
-    {selectedSession} {selectedProject} {showNewCrawl} {showSettings} {showGlobalStats} {showAPI} {showCompare} {showLogs} {showAllProjects} {liveProgress}
-    ontoggledarkmmode={toggleDarkMode} onselectsession={selectSession} onselectproject={selectProject}
+    {selectedSession} {selectedProject} {currentView} {liveProgress}
+    ontoggledarkmode={toggleDarkMode} onselectsession={selectSession} onselectproject={selectProject}
     onnavigate={navigateTo} onopensettings={openSettings}
     onopenstats={openGlobalStats} onopenapi={openAPI} onopenlogs={openLogs} ongohome={goHome}
     oncreateproject={handleCreateProject} onviewallprojects={openAllProjects} />
@@ -833,31 +771,31 @@
         </div>
       {/if}
 
-      {#if showSettings}
+      {#if currentView === 'settings'}
         <SettingsPage initialTheme={theme} onerror={(msg) => error = msg} onsave={handleSettingsSave} oncancel={handleSettingsCancel} />
 
-      {:else if showGlobalStats}
+      {:else if currentView === 'stats'}
         <GlobalStatsPage onerror={(msg) => error = msg} />
 
-      {:else if showCompare}
+      {:else if currentView === 'compare'}
         <ComparePage {sessions} initialA={compareSessionA} initialB={compareSessionB}
           onerror={(msg) => error = msg} onnavigate={navigateTo} />
 
-      {:else if showLogs}
+      {:else if currentView === 'logs'}
         <LogsPage onerror={(msg) => error = msg} />
 
-      {:else if showAllProjects}
+      {:else if currentView === 'all-projects'}
         <AllProjectsPage onerror={(msg) => error = msg}
           onselectproject={selectProject}
           oncreateproject={() => navigateTo('/new-crawl')} />
 
-      {:else if showAPI && !selectedSession}
+      {:else if currentView === 'api'}
         <APIManagementPage onerror={(msg) => error = msg} onprojectschanged={(p) => projects = p} />
 
-      {:else if showNewCrawl && !selectedSession}
+      {:else if currentView === 'new-crawl'}
         <NewCrawlForm {projects} onstart={onCrawlStarted} oncancel={() => navigateTo('/')} onerror={(msg) => error = msg} />
 
-      {:else if selectedProject}
+      {:else if currentView === 'project' && selectedProject}
         <!-- Project View -->
         <div class="breadcrumb" style="display:flex;align-items:center;gap:8px;">
           <a href="/" onclick={(e) => { e.preventDefault(); goHome(); }}>Dashboard</a>
@@ -937,12 +875,12 @@
           {/if}
         </div>
 
-      {:else if !selectedSession}
+      {:else if currentView === 'home'}
         <SessionsList {sessions} {projects} {liveProgress} {sessionStorageMap} {loading}
           onselectsession={selectSession} onstop={handleStop} onresume={openResumeModal}
           ondelete={handleDelete} onnewcrawl={() => navigateTo('/new-crawl')} onrefresh={loadSessions} />
 
-      {:else if tab === 'url-detail' && selectedSession}
+      {:else if currentView === 'session' && tab === 'url-detail' && selectedSession}
         <div class="breadcrumb">
           <a href="/" onclick={(e) => { e.preventDefault(); goHome(); }}>Sessions</a>
           <span>/</span>
