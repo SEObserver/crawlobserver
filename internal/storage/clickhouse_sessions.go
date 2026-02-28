@@ -435,8 +435,11 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			WHERE crawl_session_id = ? AND title != ''
 			GROUP BY title HAVING cnt > 1
 		)`, sessionID)
-	if err := dupRow.Scan(&content.TitleDuplicates); err != nil {
+	var titleDups int64
+	if err := dupRow.Scan(&titleDups); err != nil {
 		applog.Warnf("audit", "scan title duplicates: %v", err)
+	} else if titleDups > 0 {
+		content.TitleDuplicates = uint64(titleDups)
 	}
 	result.Content = content
 
@@ -604,7 +607,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	// --- Sitemaps audit ---
 	sitemaps := &AuditSitemaps{}
 	smRow := s.conn.QueryRow(ctx, `
-		SELECT count(DISTINCT url) FROM crawlobserver.sitemap_urls
+		SELECT count(DISTINCT loc) FROM crawlobserver.sitemap_urls
 		WHERE crawl_session_id = ?`, sessionID)
 	if err := smRow.Scan(&sitemaps.TotalSitemapURLs); err != nil {
 		applog.Warnf("audit", "scan sitemap URL count: %v", err)
@@ -614,8 +617,8 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 		var inBoth uint64
 		ibRow := s.conn.QueryRow(ctx, `
 			SELECT count() FROM (
-				SELECT DISTINCT url FROM crawlobserver.sitemap_urls WHERE crawl_session_id = ?
-			) AS sm WHERE sm.url IN (
+				SELECT DISTINCT loc FROM crawlobserver.sitemap_urls WHERE crawl_session_id = ?
+			) AS sm WHERE sm.loc IN (
 				SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?
 			)`, sessionID, sessionID)
 		if ibRow.Scan(&inBoth) == nil {
