@@ -1,8 +1,10 @@
 <script>
-  import { fmtN } from '../../utils.js';
+  import { fmtN, a11yKeydown } from '../../utils.js';
   import HBarChart from '../charts/HBarChart.svelte';
 
   let { stats, audit, sessionId, onnavigate } = $props();
+
+  function nav(tab, filters = {}) { onnavigate?.(`/sessions/${sessionId}/${tab}`, filters); }
 
   const intl = $derived(audit?.international);
 
@@ -12,6 +14,7 @@
       label: l.lang || '(none)',
       value: l.count,
       color: 'chart-bar-accent',
+      onclick: () => nav('overview'),
     }));
   }
 
@@ -21,6 +24,7 @@
       label: s.schema_type,
       value: s.count,
       color: 'chart-bar-info',
+      onclick: () => nav('overview'),
     }));
   }
 
@@ -37,7 +41,10 @@
       <p class="chart-empty">No schema types detected.</p>
     {/if}
     <div class="stats-grid" style="margin-top: 16px;">
-      <div class="stat-card"><div class="stat-value">{fmtN(intl.pages_with_schema || 0)}</div><div class="stat-label">Pages with Schema</div></div>
+      <div class="stat-card stat-card-link" role="button" tabindex="0"
+        onclick={() => nav('overview')} onkeydown={a11yKeydown(() => nav('overview'))}>
+        <div class="stat-value">{fmtN(intl.pages_with_schema || 0)}</div><div class="stat-label">Pages with Schema</div>
+      </div>
     </div>
   </div>
 
@@ -53,8 +60,14 @@
   <div class="report-section">
     <h3 class="chart-title">Hreflang</h3>
     <div class="stats-grid">
-      <div class="stat-card"><div class="stat-value">{fmtN(intl.pages_with_hreflang || 0)}</div><div class="stat-label">Pages with Hreflang</div></div>
-      <div class="stat-card"><div class="stat-value">{fmtN(intl.pages_with_lang || 0)}</div><div class="stat-label">Pages with Lang</div></div>
+      <div class="stat-card stat-card-link" role="button" tabindex="0"
+        onclick={() => nav('overview')} onkeydown={a11yKeydown(() => nav('overview'))}>
+        <div class="stat-value">{fmtN(intl.pages_with_hreflang || 0)}</div><div class="stat-label">Pages with Hreflang</div>
+      </div>
+      <div class="stat-card stat-card-link" role="button" tabindex="0"
+        onclick={() => nav('overview')} onkeydown={a11yKeydown(() => nav('overview'))}>
+        <div class="stat-value">{fmtN(intl.pages_with_lang || 0)}</div><div class="stat-label">Pages with Lang</div>
+      </div>
     </div>
   </div>
 {:else}

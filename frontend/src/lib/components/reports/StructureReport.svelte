@@ -1,8 +1,10 @@
 <script>
-  import { fmtN } from '../../utils.js';
+  import { fmtN, a11yKeydown } from '../../utils.js';
   import HBarChart from '../charts/HBarChart.svelte';
 
   let { stats, audit, sessionId, onnavigate } = $props();
+
+  function nav(tab, filters = {}) { onnavigate?.(`/sessions/${sessionId}/${tab}`, filters); }
 
   const structure = $derived(audit?.structure);
 
@@ -12,6 +14,7 @@
       label: d.directory || '/',
       value: d.count,
       color: 'chart-bar-accent',
+      onclick: () => nav('overview', { url: d.directory }),
     }));
   }
 
@@ -24,7 +27,7 @@
         label: `Depth ${d}`,
         value: count,
         color: 'chart-bar-accent',
-        onclick: () => onnavigate?.(`/sessions/${sessionId}/overview`, { depth: String(d) }),
+        onclick: () => nav('overview', { depth: String(d) }),
       }));
   }
 
@@ -46,7 +49,10 @@
   <div class="report-section">
     <h3 class="chart-title">Orphan Pages</h3>
     <div class="stats-grid">
-      <div class="stat-card"><div class="stat-value" style="color: var(--warning)">{fmtN(structure.orphan_pages || 0)}</div><div class="stat-label">Orphan Pages</div></div>
+      <div class="stat-card stat-card-link" role="button" tabindex="0"
+        onclick={() => nav('overview')} onkeydown={a11yKeydown(() => nav('overview'))}>
+        <div class="stat-value" style="color: var(--warning)">{fmtN(structure.orphan_pages || 0)}</div><div class="stat-label">Orphan Pages</div>
+      </div>
     </div>
   </div>
 {:else}

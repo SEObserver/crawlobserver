@@ -449,6 +449,23 @@ tr:hover td { background: var(--bg-hover); }
 .stat-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
 .stat-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
 
+.stat-card-link {
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.stat-card-link:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+.stat-card-link .stat-label::after {
+  content: ' \2192';
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.stat-card-link:hover .stat-label::after {
+  opacity: 1;
+}
+
 .stats-mini {
   display: flex;
   flex-wrap: wrap;
