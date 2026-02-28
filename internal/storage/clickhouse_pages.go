@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/google/uuid"
@@ -405,6 +406,7 @@ func isValidUUID(s string) bool {
 // ComputePageRank computes internal PageRank for all pages in a session.
 // Uses uint32 IDs for memory efficiency and iterative power method.
 func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
+	start := time.Now()
 	if !isValidUUID(sessionID) {
 		return fmt.Errorf("invalid session ID: %s", sessionID)
 	}
@@ -587,7 +589,7 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		}
 	}
 
-	applog.Infof("storage", "ComputePageRank: computed for %d pages in session %s", n, sessionID)
+	applog.Infof("storage", "ComputePageRank: computed for %d pages in session %s in %s", n, sessionID, time.Since(start))
 	return nil
 }
 
