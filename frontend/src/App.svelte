@@ -27,6 +27,7 @@
   import ComparePage from './lib/components/ComparePage.svelte';
   import CustomTestsTab from './lib/components/CustomTestsTab.svelte';
   import ExternalChecksTab from './lib/components/ExternalChecksTab.svelte';
+  import ResourceChecksTab from './lib/components/ResourceChecksTab.svelte';
   import LogsPage from './lib/components/LogsPage.svelte';
   import UrlDetailView from './lib/components/UrlDetailView.svelte';
   import DataTable from './lib/components/DataTable.svelte';
@@ -96,6 +97,9 @@
 
   // External checks tab
   let extChecksSubView = $state('domains');
+
+  // Resource checks tab
+  let resourcesSubView = $state('summary');
 
   // Live progress
   let liveProgress = $state({});
@@ -473,6 +477,12 @@
         } else {
           extChecksSubView = 'domains';
         }
+      } else if (tab === 'resources') {
+        if (route.subView && ['summary', 'urls'].includes(route.subView)) {
+          resourcesSubView = route.subView;
+        } else {
+          resourcesSubView = 'summary';
+        }
       } else if (tab !== 'robots' && tab !== 'sitemaps') {
         await loadTabData();
       }
@@ -628,7 +638,7 @@
       const path = newTab === 'pagerank' ? `${newTab}/${prSubView}` : newTab === 'reports' ? `${newTab}/${reportsSubView}` : newTab;
       pushURL(`/sessions/${selectedSession.ID}/${path}`);
     }
-    if (newTab !== 'pagerank' && newTab !== 'robots' && newTab !== 'sitemaps' && newTab !== 'reports' && newTab !== 'tests' && newTab !== 'ext-checks') {
+    if (newTab !== 'pagerank' && newTab !== 'robots' && newTab !== 'sitemaps' && newTab !== 'reports' && newTab !== 'tests' && newTab !== 'ext-checks' && newTab !== 'resources') {
       loadTabData();
     }
   }
@@ -1112,6 +1122,11 @@
             <ExternalChecksTab sessionId={selectedSession.ID} initialSubView={extChecksSubView} initialFilters={filters}
               onpushurl={(u) => pushURL(u)}
               onnavigate={(t, f) => navigateTo(`/sessions/${selectedSession.ID}/${t}`, f)}
+              onerror={(msg) => error = msg} />
+
+          {:else if tab === 'resources'}
+            <ResourceChecksTab sessionId={selectedSession.ID} initialSubView={resourcesSubView} initialFilters={filters}
+              onpushurl={(u) => pushURL(u)}
               onerror={(msg) => error = msg} />
 
           {:else if tab === 'pagerank'}

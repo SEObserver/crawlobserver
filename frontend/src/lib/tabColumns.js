@@ -23,6 +23,7 @@ export const TABS = [
   { id: 'internal', label: 'Internal Links' },
   { id: 'external', label: 'External Links' },
   { id: 'ext-checks', label: 'Ext. Checks' },
+  { id: 'resources', label: 'Resources' },
   { id: 'pagerank', label: 'PageRank' },
   { id: 'robots', label: 'Robots.txt' },
   { id: 'sitemaps', label: 'Sitemaps' },
