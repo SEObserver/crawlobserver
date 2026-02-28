@@ -50,7 +50,8 @@ func (s *Store) ListLogs(ctx context.Context, limit, offset int, level, componen
 	}
 
 	// Query
-	q := fmt.Sprintf("SELECT timestamp, level, component, message, context FROM crawlobserver.application_logs WHERE %s ORDER BY timestamp DESC LIMIT %d OFFSET %d", where, limit, offset)
+	q := "SELECT timestamp, level, component, message, context FROM crawlobserver.application_logs WHERE " + where + " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
 	rows, err := s.conn.Query(ctx, q, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("querying logs: %w", err)
