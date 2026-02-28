@@ -1,6 +1,7 @@
 <script>
   import { getPageHTML } from '../api.js';
   import { a11yKeydown } from '../utils.js';
+  import { t } from '../i18n/index.svelte.js';
 
   let { sessionId, url: initialUrl, onclose, onerror } = $props();
 
@@ -29,20 +30,20 @@
     <div class="html-modal-header">
       <div class="html-modal-url" title={htmlModalData.url}>{htmlModalData.url}</div>
       <div class="html-modal-actions">
-        <button class="btn btn-sm" class:btn-primary={htmlModalView === 'render'} onclick={() => htmlModalView = 'render'}>Render</button>
-        <button class="btn btn-sm" class:btn-primary={htmlModalView === 'source'} onclick={() => htmlModalView = 'source'}>Source</button>
-        <button class="btn btn-sm" title="Close" onclick={onclose}>
+        <button class="btn btn-sm" class:btn-primary={htmlModalView === 'render'} onclick={() => htmlModalView = 'render'}>{t('htmlModal.render')}</button>
+        <button class="btn btn-sm" class:btn-primary={htmlModalView === 'source'} onclick={() => htmlModalView = 'source'}>{t('htmlModal.source')}</button>
+        <button class="btn btn-sm" title={t('common.close')} onclick={onclose}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
     </div>
     <div class="html-modal-body">
       {#if loading}
-        <p class="modal-placeholder">Loading...</p>
+        <p class="modal-placeholder">{t('common.loading')}</p>
       {:else if !htmlModalData.body_html}
-        <p class="modal-placeholder">No HTML stored for this page.</p>
+        <p class="modal-placeholder">{t('htmlModal.noHtml')}</p>
       {:else if htmlModalView === 'render'}
-        <iframe srcdoc={htmlModalData.body_html} title="Page render" class="html-modal-iframe" sandbox></iframe>
+        <iframe srcdoc={htmlModalData.body_html} title={t('htmlModal.pageRender')} class="html-modal-iframe" sandbox></iframe>
       {:else}
         <pre class="html-modal-source"><code>{htmlModalData.body_html}</code></pre>
       {/if}

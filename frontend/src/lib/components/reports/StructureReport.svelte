@@ -1,5 +1,6 @@
 <script>
   import { fmtN, a11yKeydown } from '../../utils.js';
+  import { t } from '../../i18n/index.svelte.js';
   import HBarChart from '../charts/HBarChart.svelte';
 
   let { stats, audit, sessionId, onnavigate } = $props();
@@ -37,24 +38,24 @@
 
 {#if structure}
   <div class="report-section">
-    <h3 class="chart-title">Directories</h3>
+    <h3 class="chart-title">{t('report.structure.directories')}</h3>
     <HBarChart bars={dirBars} />
   </div>
 
   <div class="report-section">
-    <h3 class="chart-title">Depth Distribution</h3>
+    <h3 class="chart-title">{t('report.structure.depthDist')}</h3>
     <HBarChart bars={dBars} />
   </div>
 
   <div class="report-section">
-    <h3 class="chart-title">Orphan Pages</h3>
+    <h3 class="chart-title">{t('report.structure.orphanPages')}</h3>
     <div class="stats-grid">
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('overview')} onkeydown={a11yKeydown(() => nav('overview'))}>
-        <div class="stat-value text-warning">{fmtN(structure.orphan_pages || 0)}</div><div class="stat-label">Orphan Pages</div>
+        <div class="stat-value text-warning">{fmtN(structure.orphan_pages || 0)}</div><div class="stat-label">{t('report.structure.orphanPages')}</div>
       </div>
     </div>
   </div>
 {:else}
-  <p class="chart-empty">No structure audit data available.</p>
+  <p class="chart-empty">{t('report.structure.noData')}</p>
 {/if}

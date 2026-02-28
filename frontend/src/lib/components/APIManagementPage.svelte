@@ -1,6 +1,7 @@
 <script>
   import { getProjects, createProject, renameProject, deleteProject, getAPIKeys, createAPIKey, deleteAPIKey, getServerInfo } from '../api.js';
   import { timeAgo, copyToClipboard } from '../utils.js';
+  import { t } from '../i18n/index.svelte.js';
   import ConfirmModal from './ConfirmModal.svelte';
 
   let { onerror, onprojectschanged } = $props();
@@ -51,12 +52,12 @@
   }
 
   function handleDeleteProject(id) {
-    showConfirm('Delete this project? Associated API keys will also be deleted.', async () => {
+    showConfirm(t('api.confirmDeleteProject'), async () => {
       try {
         await deleteProject(id);
         await loadAPIData();
       } catch (e) { onerror?.(e.message); }
-    }, { danger: true, confirmLabel: 'Delete' });
+    }, { danger: true, confirmLabel: t('common.delete') });
   }
 
   async function handleCreateAPIKey() {
@@ -73,12 +74,12 @@
   }
 
   function handleDeleteAPIKey(id) {
-    showConfirm('Revoke this API key?', async () => {
+    showConfirm(t('api.confirmRevokeKey'), async () => {
       try {
         await deleteAPIKey(id);
         await loadAPIData();
       } catch (e) { onerror?.(e.message); }
-    }, { danger: true, confirmLabel: 'Delete' });
+    }, { danger: true, confirmLabel: t('common.delete') });
   }
 
   async function loadServerInfo() {
@@ -93,31 +94,31 @@
 {#if serverInfo}
   <div class="card mb-lg api-endpoint-card">
     <div class="flex-center-gap api-endpoint-header">
-      <h3 class="api-endpoint-title">API Endpoint</h3>
-      <span class="badge badge-success badge-xs">Running</span>
+      <h3 class="api-endpoint-title">{t('api.endpoint')}</h3>
+      <span class="badge badge-success badge-xs">{t('common.running')}</span>
     </div>
     <div class="flex-center-gap api-url-row">
       <code class="text-sm word-break api-url-code">{serverInfo.api_url}</code>
-      <button class="btn btn-sm" onclick={() => copyToClipboard(serverInfo.api_url)}>Copy</button>
+      <button class="btn btn-sm" onclick={() => copyToClipboard(serverInfo.api_url)}>{t('common.copy')}</button>
     </div>
     {#if serverInfo.has_auth}
       <div class="text-xs text-muted mb-sm">
-        Auth: Basic (<code>{serverInfo.username}</code>) or API key via <code>X-API-Key</code> header
+        {t('api.authInfo', { user: serverInfo.username, header: 'X-API-Key' })}
       </div>
     {/if}
     <details class="text-xs text-muted">
-      <summary class="usage-summary">Usage examples</summary>
+      <summary class="usage-summary">{t('api.usageExamples')}</summary>
       <div class="mt-sm flex-col gap-sm">
         <div>
-          <strong>curl:</strong>
+          <strong>{t('api.curl')}</strong>
           <code class="code-example code-example-wrap">curl {serverInfo.has_auth ? `-u ${serverInfo.username}:PASSWORD ` : ''}{serverInfo.api_url}/sessions</code>
         </div>
         <div>
-          <strong>API key:</strong>
+          <strong>{t('api.apiKeyLabel')}</strong>
           <code class="code-example code-example-wrap">curl -H "X-API-Key: YOUR_KEY" {serverInfo.api_url}/sessions</code>
         </div>
         <div>
-          <strong>Discovery file:</strong>
+          <strong>{t('api.discoveryFile')}</strong>
           <code class="code-example">cat .crawlobserver-api.json</code>
         </div>
       </div>
@@ -127,17 +128,17 @@
 
 <!-- Projects -->
 <div class="page-header">
-  <h1>Projects</h1>
+  <h1>{t('api.projects')}</h1>
 </div>
 
 <!-- Create Project -->
 <div class="card">
   <div class="form-grid">
     <div class="form-group form-group-full">
-      <label for="new-project">New project</label>
+      <label for="new-project">{t('api.newProject')}</label>
       <div class="flex-center-gap">
-        <input id="new-project" type="text" bind:value={newProjectName} placeholder="Project name" onkeydown={(e) => e.key === 'Enter' && handleCreateProject()} />
-        <button class="btn btn-primary" onclick={handleCreateProject} disabled={!newProjectName.trim()}>Create</button>
+        <input id="new-project" type="text" bind:value={newProjectName} placeholder={t('api.projectName')} onkeydown={(e) => e.key === 'Enter' && handleCreateProject()} />
+        <button class="btn btn-primary" onclick={handleCreateProject} disabled={!newProjectName.trim()}>{t('common.create')}</button>
       </div>
     </div>
   </div>
@@ -145,7 +146,7 @@
 
 <!-- Projects List -->
 {#if projects.length === 0}
-  <div class="card text-center text-muted empty-state">No projects yet.</div>
+  <div class="card text-center text-muted empty-state">{t('api.noProjects')}</div>
 {:else}
   <div class="card card-flush">
     {#each projects as p}
@@ -154,8 +155,8 @@
           {#if renamingProject === p.id}
             <div class="flex-center-gap rename-row">
               <input type="text" bind:value={renameValue} class="flex-1" onkeydown={(e) => e.key === 'Enter' && handleRenameProject(p.id)} />
-              <button class="btn btn-sm btn-primary" onclick={() => handleRenameProject(p.id)}>Save</button>
-              <button class="btn btn-sm" onclick={() => renamingProject = null}>Cancel</button>
+              <button class="btn btn-sm btn-primary" onclick={() => handleRenameProject(p.id)}>{t('common.save')}</button>
+              <button class="btn btn-sm" onclick={() => renamingProject = null}>{t('common.cancel')}</button>
             </div>
           {:else}
             <div class="session-seed">{p.name}</div>
@@ -166,8 +167,8 @@
         </div>
         {#if renamingProject !== p.id}
           <div class="session-actions">
-            <button class="btn btn-sm" onclick={() => { renamingProject = p.id; renameValue = p.name; }}>Rename</button>
-            <button class="btn btn-sm btn-danger" onclick={() => handleDeleteProject(p.id)}>Delete</button>
+            <button class="btn btn-sm" onclick={() => { renamingProject = p.id; renameValue = p.name; }}>{t('common.rename')}</button>
+            <button class="btn btn-sm btn-danger" onclick={() => handleDeleteProject(p.id)}>{t('common.delete')}</button>
           </div>
         {/if}
       </div>
@@ -177,19 +178,19 @@
 
 <!-- API Keys Header -->
 <div class="page-header api-keys-header">
-  <h1>API Keys</h1>
+  <h1>{t('api.apiKeys')}</h1>
 </div>
 
 {#if createdKeyFull}
   <div class="card key-created-card">
     <div class="key-created-inner">
       <div class="flex-1">
-        <strong>API Key created!</strong> Copy it now — it won't be shown again:<br/>
+        <strong>{t('api.keyCreated')}</strong> {t('api.copyKeyNow')}<br/>
         <code class="word-break key-created-code">{createdKeyFull}</code>
       </div>
       <div class="key-created-actions">
-        <button class="btn btn-sm" onclick={() => copyToClipboard(createdKeyFull)}>Copy</button>
-        <button class="btn btn-sm" onclick={() => createdKeyFull = null}>Dismiss</button>
+        <button class="btn btn-sm" onclick={() => copyToClipboard(createdKeyFull)}>{t('common.copy')}</button>
+        <button class="btn btn-sm" onclick={() => createdKeyFull = null}>{t('common.dismiss')}</button>
       </div>
     </div>
   </div>
@@ -199,21 +200,21 @@
 <div class="card">
   <div class="form-grid">
     <div class="form-group">
-      <label for="key-name">Key name</label>
-      <input id="key-name" type="text" bind:value={newKeyName} placeholder="My API key" />
+      <label for="key-name">{t('api.keyName')}</label>
+      <input id="key-name" type="text" bind:value={newKeyName} placeholder={t('api.keyNamePlaceholder')} />
     </div>
     <div class="form-group">
-      <label for="key-type">Type</label>
+      <label for="key-type">{t('api.keyType')}</label>
       <select id="key-type" bind:value={newKeyType}>
-        <option value="general">General (full access)</option>
-        <option value="project">Project (read-only)</option>
+        <option value="general">{t('api.generalAccess')}</option>
+        <option value="project">{t('api.projectReadOnly')}</option>
       </select>
     </div>
     {#if newKeyType === 'project'}
       <div class="form-group">
-        <label for="key-project">Project</label>
+        <label for="key-project">{t('stats.project')}</label>
         <select id="key-project" bind:value={newKeyProjectId}>
-          <option value="">Select project...</option>
+          <option value="">{t('api.selectProject')}</option>
           {#each projects as p}
             <option value={p.id}>{p.name}</option>
           {/each}
@@ -222,13 +223,13 @@
     {/if}
   </div>
   <div class="mt-md">
-    <button class="btn btn-primary" onclick={handleCreateAPIKey} disabled={!newKeyName.trim() || (newKeyType === 'project' && !newKeyProjectId)}>Create Key</button>
+    <button class="btn btn-primary" onclick={handleCreateAPIKey} disabled={!newKeyName.trim() || (newKeyType === 'project' && !newKeyProjectId)}>{t('api.createKey')}</button>
   </div>
 </div>
 
 <!-- API Keys List -->
 {#if apiKeys.length === 0}
-  <div class="card text-center text-muted empty-state">No API keys yet.</div>
+  <div class="card text-center text-muted empty-state">{t('api.noKeys')}</div>
 {:else}
   <div class="card card-flush">
     {#each apiKeys as k}
@@ -242,11 +243,11 @@
             {/if}
             <code class="key-prefix-code">{k.key_prefix}</code>
             <span>{new Date(k.created_at).toLocaleDateString()}</span>
-            <span>{k.last_used_at ? 'Used ' + timeAgo(k.last_used_at) : 'Never used'}</span>
+            <span>{k.last_used_at ? t('api.used') + ' ' + timeAgo(k.last_used_at) : t('api.neverUsed')}</span>
           </div>
         </div>
         <div class="session-actions">
-          <button class="btn btn-sm btn-danger" onclick={() => handleDeleteAPIKey(k.id)}>Revoke</button>
+          <button class="btn btn-sm btn-danger" onclick={() => handleDeleteAPIKey(k.id)}>{t('api.revoke')}</button>
         </div>
       </div>
     {/each}

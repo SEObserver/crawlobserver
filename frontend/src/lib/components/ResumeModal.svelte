@@ -1,6 +1,7 @@
 <script>
   import { resumeCrawl } from '../api.js';
   import { a11yKeydown } from '../utils.js';
+  import { t } from '../i18n/index.svelte.js';
 
   let { sessionId, sessions, onresume, onclose, onerror } = $props();
 
@@ -42,35 +43,35 @@
 <div class="html-modal-overlay" role="button" tabindex="0" onclick={onclose} onkeydown={a11yKeydown(onclose)}>
   <div class="html-modal resume-modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
     <div class="html-modal-header">
-      <div class="html-modal-url">Resume Crawl</div>
+      <div class="html-modal-url">{t('resumeModal.title')}</div>
       <div class="html-modal-actions">
-        <button class="btn btn-sm" title="Close" onclick={onclose}>
+        <button class="btn btn-sm" title={t('common.close')} onclick={onclose}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="form-group"><label for="r-maxpages">Max pages (0 = unlimited)</label><input id="r-maxpages" type="number" bind:value={resumeMaxPages} min="0" /></div>
-        <div class="form-group"><label for="r-maxdepth">Max depth (0 = unlimited)</label><input id="r-maxdepth" type="number" bind:value={resumeMaxDepth} min="0" /></div>
-        <div class="form-group"><label for="r-workers">Workers</label><input id="r-workers" type="number" bind:value={resumeWorkers} min="1" max="100" /></div>
-        <div class="form-group"><label for="r-delay">Delay</label><input id="r-delay" type="text" bind:value={resumeDelay} placeholder="1s" /></div>
+        <div class="form-group"><label for="r-maxpages">{t('resumeModal.maxPages')}</label><input id="r-maxpages" type="number" bind:value={resumeMaxPages} min="0" /></div>
+        <div class="form-group"><label for="r-maxdepth">{t('resumeModal.maxDepth')}</label><input id="r-maxdepth" type="number" bind:value={resumeMaxDepth} min="0" /></div>
+        <div class="form-group"><label for="r-workers">{t('resumeModal.workers')}</label><input id="r-workers" type="number" bind:value={resumeWorkers} min="1" max="100" /></div>
+        <div class="form-group"><label for="r-delay">{t('resumeModal.delay')}</label><input id="r-delay" type="text" bind:value={resumeDelay} placeholder="1s" /></div>
         <div class="form-group">
-          <label for="r-scope">Crawl scope</label>
+          <label for="r-scope">{t('resumeModal.crawlScope')}</label>
           <select id="r-scope" bind:value={resumeCrawlScope}>
-            <option value="host">Same host only</option>
-            <option value="domain">Same domain (incl. subdomains)</option>
+            <option value="host">{t('resumeModal.sameHost')}</option>
+            <option value="domain">{t('resumeModal.sameDomain')}</option>
           </select>
         </div>
         <div class="form-group checkbox-row">
-          <input id="r-storehtml" type="checkbox" bind:checked={resumeStoreHtml} /><label for="r-storehtml" class="mb-0">Store raw HTML</label>
+          <input id="r-storehtml" type="checkbox" bind:checked={resumeStoreHtml} /><label for="r-storehtml" class="mb-0">{t('resumeModal.storeHtml')}</label>
         </div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-primary" onclick={handleResume} disabled={resuming}>
-          {resuming ? 'Resuming...' : 'Resume'}
+          {resuming ? t('resumeModal.resuming') : t('resumeModal.resume')}
         </button>
-        <button class="btn" onclick={onclose}>Cancel</button>
+        <button class="btn" onclick={onclose}>{t('common.cancel')}</button>
       </div>
     </div>
   </div>

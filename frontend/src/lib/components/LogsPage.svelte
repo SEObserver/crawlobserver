@@ -1,6 +1,7 @@
 <script>
   import { getLogs, exportLogs } from '../api.js';
   import { onDestroy } from 'svelte';
+  import { t, getLocale } from '../i18n/index.svelte.js';
 
   let { onerror } = $props();
 
@@ -55,7 +56,7 @@
   function fmtTime(ts) {
     if (!ts) return '';
     const d = new Date(ts);
-    return d.toLocaleString('en-GB', { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+    return d.toLocaleString(getLocale(), { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
   }
 
   // Auto-refresh every 5s
@@ -66,49 +67,49 @@
 </script>
 
 <div class="page-header">
-  <h1>Application Logs</h1>
+  <h1>{t('logs.title')}</h1>
   <div class="flex-center-gap">
     <button class="btn btn-sm" onclick={loadLogs} disabled={loading}>
-      {loading ? 'Loading...' : 'Refresh'}
+      {loading ? t('common.loading') : t('common.refresh')}
     </button>
-    <button class="btn btn-sm" onclick={exportLogs}>Export JSONL</button>
+    <button class="btn btn-sm" onclick={exportLogs}>{t('logs.exportJsonl')}</button>
   </div>
 </div>
 
 <div class="logs-filters">
   <select class="logs-select" onchange={changeLevel} value={level}>
-    <option value="">All Levels</option>
-    <option value="debug">Debug</option>
-    <option value="info">Info</option>
-    <option value="warn">Warn</option>
-    <option value="error">Error</option>
+    <option value="">{t('logs.allLevels')}</option>
+    <option value="debug">{t('logs.debug')}</option>
+    <option value="info">{t('logs.info')}</option>
+    <option value="warn">{t('logs.warn')}</option>
+    <option value="error">{t('logs.error')}</option>
   </select>
 
   <select class="logs-select" onchange={changeComponent} value={component}>
-    <option value="">All Components</option>
-    <option value="server">Server</option>
-    <option value="crawler">Crawler</option>
-    <option value="gsc">GSC</option>
-    <option value="storage">Storage</option>
+    <option value="">{t('logs.allComponents')}</option>
+    <option value="server">{t('logs.server')}</option>
+    <option value="crawler">{t('logs.crawler')}</option>
+    <option value="gsc">{t('logs.gsc')}</option>
+    <option value="storage">{t('logs.storage')}</option>
   </select>
 
   <form class="logs-search-form" onsubmit={(e) => { e.preventDefault(); applySearch(); }}>
-    <input class="logs-search" type="text" placeholder="Search messages..." bind:value={searchInput} />
-    <button class="btn btn-sm" type="submit">Search</button>
+    <input class="logs-search" type="text" placeholder={t('logs.searchMessages')} bind:value={searchInput} />
+    <button class="btn btn-sm" type="submit">{t('common.search')}</button>
   </form>
 </div>
 
 {#if loading && logs.length === 0}
-  <div class="loading">Loading logs...</div>
+  <div class="loading">{t('common.loading')}</div>
 {:else}
   <div class="card card-flush">
     <table>
       <thead>
         <tr>
-          <th class="col-timestamp">Timestamp</th>
-          <th class="col-level">Level</th>
-          <th class="col-component">Component</th>
-          <th>Message</th>
+          <th class="col-timestamp">{t('logs.timestamp')}</th>
+          <th class="col-level">{t('logs.level')}</th>
+          <th class="col-component">{t('logs.component')}</th>
+          <th>{t('logs.message')}</th>
         </tr>
       </thead>
       <tbody>
@@ -122,7 +123,7 @@
             <td class="td-mono td-msg">{log.message}</td>
           </tr>
         {:else}
-          <tr><td colspan="4" class="logs-empty">No logs found</td></tr>
+          <tr><td colspan="4" class="logs-empty">{t('logs.noLogs')}</td></tr>
         {/each}
       </tbody>
     </table>
@@ -130,9 +131,9 @@
 
   {#if total > limit}
     <div class="pagination">
-      <button class="btn btn-sm" onclick={prevPage} disabled={offset === 0}>Previous</button>
-      <span class="pagination-info">{offset + 1}-{Math.min(offset + limit, total)} of {total}</span>
-      <button class="btn btn-sm" onclick={nextPage} disabled={offset + limit >= total}>Next</button>
+      <button class="btn btn-sm" onclick={prevPage} disabled={offset === 0}>{t('common.previous')}</button>
+      <span class="pagination-info">{offset + 1}-{Math.min(offset + limit, total)} {t('common.of')} {total}</span>
+      <button class="btn btn-sm" onclick={nextPage} disabled={offset + limit >= total}>{t('common.next')}</button>
     </div>
   {/if}
 {/if}

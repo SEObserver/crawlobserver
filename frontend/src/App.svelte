@@ -15,6 +15,7 @@
   //   - Backend: add tests for engine shutdown/cancellation, buffer overflow, rate limiting
   //   - Backend: add tests for SSRF protection edge cases, auth middleware
 
+  import { t } from './lib/i18n/index.svelte.js';
   import { onDestroy } from 'svelte';
   import { getSessions, getStats,  getProgress,
     stopCrawl, deleteSession,
@@ -369,14 +370,14 @@
     updatingApp = true;
     updateMessage = '';
     try {
-      updateMessage = 'Creating backup...';
+      updateMessage = t('app.creatingBackup');
       await createBackup();
-      updateMessage = 'Downloading and installing update...';
+      updateMessage = t('app.downloadingUpdate');
       const result = await applyUpdate();
-      updateMessage = result.message || 'Update installed. Restart to apply.';
+      updateMessage = result.message || t('app.updateInstalled');
       updateInfo = null;
     } catch (e) {
-      updateMessage = 'Update failed: ' + e.message;
+      updateMessage = t('app.updateFailed', { error: e.message });
     } finally {
       updatingApp = false;
     }
@@ -429,7 +430,7 @@
         if (selectedSession?.ID === id) { selectedSession = null; pushURL('/'); }
         loadSessions();
       } catch (e) { error = e.message; }
-    }, { danger: true, confirmLabel: 'Delete' });
+    }, { danger: true, confirmLabel: t('common.delete') });
   }
 
   async function loadStorageStats() {
@@ -465,7 +466,7 @@
   });
 </script>
 
-<a class="skip-link" href="#main-content">Skip to content</a>
+<a class="skip-link" href="#main-content">{t('app.skipToContent')}</a>
 <div class="layout">
   <div class="drag-bar"><span class="drag-bar-title">{theme.app_name}</span></div>
   <Sidebar {theme} {darkMode} {sessions} {projects} {globalStats} {systemStats}
@@ -481,13 +482,13 @@
       {#if error}
         <div class="alert alert-error">
           <span>{error}</span>
-          <button class="btn btn-sm btn-ghost" onclick={() => error = null}>Dismiss</button>
+          <button class="btn btn-sm btn-ghost" onclick={() => error = null}>{t('common.dismiss')}</button>
         </div>
       {/if}
 
       {#if updateInfo && !updateDismissed}
         <div class="alert alert-info">
-          <span>Update available: <strong>v{updateInfo.latest_version}</strong></span>
+          <span>{t('app.updateAvailable', { version: updateInfo.latest_version })}</span>
           <div class="flex-center-gap">
             {#if updatingApp}
               <span class="text-sm">{updateMessage}</span>
@@ -495,8 +496,8 @@
               {#if updateMessage}
                 <span class="text-sm">{updateMessage}</span>
               {/if}
-              <button class="btn btn-sm btn-primary" onclick={doBackupAndUpdate} disabled={updatingApp}>Backup & Update</button>
-              <button class="btn btn-sm btn-ghost" onclick={() => updateDismissed = true}>Dismiss</button>
+              <button class="btn btn-sm btn-primary" onclick={doBackupAndUpdate} disabled={updatingApp}>{t('app.backupAndUpdate')}</button>
+              <button class="btn btn-sm btn-ghost" onclick={() => updateDismissed = true}>{t('common.dismiss')}</button>
             {/if}
           </div>
         </div>

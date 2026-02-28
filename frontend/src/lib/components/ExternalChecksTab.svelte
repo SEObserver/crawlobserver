@@ -1,5 +1,6 @@
 <script>
   import { getExternalLinkChecks, getExternalLinkCheckDomains } from '../api.js';
+  import { t } from '../i18n/index.svelte.js';
 
   let { sessionId, initialSubView = 'domains', initialFilters = {}, onpushurl, onnavigate, onerror } = $props();
 
@@ -98,42 +99,42 @@
 <div class="ext-checks">
   <div class="ext-checks-header">
     <div class="ext-checks-views">
-      <button class="btn-view" class:active={view === 'domains'} onclick={switchToDomains}>Domains</button>
-      <button class="btn-view" class:active={view === 'urls'} onclick={() => switchToUrls('')}>URLs</button>
+      <button class="btn-view" class:active={view === 'domains'} onclick={switchToDomains}>{t('extChecks.domains')}</button>
+      <button class="btn-view" class:active={view === 'urls'} onclick={() => switchToUrls('')}>{t('extChecks.urls')}</button>
     </div>
     {#if view === 'domains'}
-      <input type="text" class="ext-filter-input" placeholder="Filter domains..." bind:value={domainFilter}
+      <input type="text" class="ext-filter-input" placeholder={t('extChecks.filterDomains')} bind:value={domainFilter}
         onkeydown={(e) => { if (e.key === 'Enter') { domainsOffset = 0; loadDomains(); } }} />
     {:else}
-      <input type="text" class="ext-filter-input" placeholder="Filter URLs..." bind:value={urlFilters.url}
+      <input type="text" class="ext-filter-input" placeholder={t('extChecks.filterUrls')} bind:value={urlFilters.url}
         onkeydown={(e) => { if (e.key === 'Enter') { checksOffset = 0; pushFilters(); loadChecks(); } }} />
       <select class="ext-filter-select" bind:value={urlFilters.status_code}
         onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}>
-        <option value="">All status</option>
-        <option value="0">Dead (0)</option>
-        <option value="200-299">2xx OK</option>
-        <option value="300-399">3xx Redirect</option>
-        <option value="400-499">4xx Client Error</option>
-        <option value=">=500">5xx Server Error</option>
+        <option value="">{t('extChecks.allStatus')}</option>
+        <option value="0">{t('extChecks.dead')}</option>
+        <option value="200-299">{t('extChecks.ok2xx')}</option>
+        <option value="300-399">{t('extChecks.redirect3xx')}</option>
+        <option value="400-499">{t('extChecks.client4xx')}</option>
+        <option value=">=500">{t('extChecks.server5xx')}</option>
       </select>
     {/if}
   </div>
 
   {#if loading}
-    <div class="ext-loading">Loading...</div>
+    <div class="ext-loading">{t('common.loading')}</div>
   {:else if view === 'domains'}
     <table class="ext-table">
       <thead>
         <tr>
-          <th>Domain</th>
-          <th>URLs</th>
-          <th>Status Distribution</th>
-          <th>OK</th>
+          <th>{t('extChecks.domain')}</th>
+          <th>{t('extChecks.urls')}</th>
+          <th>{t('extChecks.statusDist')}</th>
+          <th>{t('extChecks.ok')}</th>
           <th>3xx</th>
           <th>4xx</th>
           <th>5xx</th>
           <th>Dead</th>
-          <th>Avg ms</th>
+          <th>{t('extChecks.avgMs')}</th>
         </tr>
       </thead>
       <tbody>
@@ -159,52 +160,52 @@
           </tr>
         {/each}
         {#if domains.length === 0}
-          <tr><td colspan="9" class="ext-empty">No external link checks found</td></tr>
+          <tr><td colspan="9" class="ext-empty">{t('extChecks.noChecks')}</td></tr>
         {/if}
       </tbody>
     </table>
 
     <div class="ext-pagination">
-      <button disabled={domainsOffset === 0} onclick={() => { domainsOffset = Math.max(0, domainsOffset - PAGE_SIZE); loadDomains(); }}>Previous</button>
+      <button disabled={domainsOffset === 0} onclick={() => { domainsOffset = Math.max(0, domainsOffset - PAGE_SIZE); loadDomains(); }}>{t('common.previous')}</button>
       <span>{domainsOffset + 1} - {domainsOffset + domains.length}</span>
-      <button disabled={!hasMoreDomains} onclick={() => { domainsOffset += PAGE_SIZE; loadDomains(); }}>Next</button>
+      <button disabled={!hasMoreDomains} onclick={() => { domainsOffset += PAGE_SIZE; loadDomains(); }}>{t('common.next')}</button>
     </div>
 
   {:else}
     <table class="ext-table">
       <thead>
         <tr>
-          <th>URL</th>
-          <th>Status</th>
-          <th>Content-Type</th>
-          <th>Redirect</th>
-          <th>Error</th>
-          <th>Time (ms)</th>
-          <th>Sources</th>
+          <th>{t('common.url')}</th>
+          <th>{t('common.status')}</th>
+          <th>{t('extChecks.contentType')}</th>
+          <th>{t('extChecks.redirect')}</th>
+          <th>{t('common.error')}</th>
+          <th>{t('extChecks.timeMs')}</th>
+          <th>{t('extChecks.sources')}</th>
         </tr>
       </thead>
       <tbody>
         {#each checks as c}
           <tr>
             <td class="cell-url"><a href={c.url} target="_blank" rel="noopener">{c.url}</a></td>
-            <td><span class="badge {statusClass(c.status_code)}">{c.status_code || 'Dead'}</span></td>
+            <td><span class="badge {statusClass(c.status_code)}">{c.status_code || t('extChecks.deadLabel')}</span></td>
             <td>{c.content_type || '-'}</td>
             <td class="cell-url">{c.redirect_url || '-'}</td>
             <td class="cell-error" title={c.error}>{c.error ? c.error.substring(0, 60) : '-'}</td>
             <td class="num">{c.response_time_ms}</td>
-            <td><button class="link-btn" onclick={() => viewSources(c.url)} title="View pages linking to this URL">View</button></td>
+            <td><button class="link-btn" onclick={() => viewSources(c.url)} title={t('extChecks.viewSources')}>{t('common.view')}</button></td>
           </tr>
         {/each}
         {#if checks.length === 0}
-          <tr><td colspan="7" class="ext-empty">No checks found</td></tr>
+          <tr><td colspan="7" class="ext-empty">{t('extChecks.noChecksFound')}</td></tr>
         {/if}
       </tbody>
     </table>
 
     <div class="ext-pagination">
-      <button disabled={checksOffset === 0} onclick={() => { checksOffset = Math.max(0, checksOffset - PAGE_SIZE); loadChecks(); }}>Previous</button>
+      <button disabled={checksOffset === 0} onclick={() => { checksOffset = Math.max(0, checksOffset - PAGE_SIZE); loadChecks(); }}>{t('common.previous')}</button>
       <span>{checksOffset + 1} - {checksOffset + checks.length}</span>
-      <button disabled={!hasMoreChecks} onclick={() => { checksOffset += PAGE_SIZE; loadChecks(); }}>Next</button>
+      <button disabled={!hasMoreChecks} onclick={() => { checksOffset += PAGE_SIZE; loadChecks(); }}>{t('common.next')}</button>
     </div>
   {/if}
 </div>

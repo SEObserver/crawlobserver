@@ -1,6 +1,7 @@
 <script>
   import { getProjectsPaginated } from '../api.js';
   import { timeAgo } from '../utils.js';
+  import { t } from '../i18n/index.svelte.js';
 
   let { onerror, onselectproject, oncreateproject } = $props();
 
@@ -41,32 +42,32 @@
 </script>
 
 <div class="page-header">
-  <h1>All Projects</h1>
+  <h1>{t('projects.title')}</h1>
   <div class="flex-center-gap">
     <button class="btn btn-sm" onclick={loadProjects} disabled={loading}>
-      {loading ? 'Loading...' : 'Refresh'}
+      {loading ? t('common.loading') : t('common.refresh')}
     </button>
-    <button class="btn btn-sm btn-primary" onclick={() => oncreateproject?.()}>New Project</button>
+    <button class="btn btn-sm btn-primary" onclick={() => oncreateproject?.()}>{t('projects.newProject')}</button>
   </div>
 </div>
 
 <div class="projects-filters">
   <form class="projects-search-form" onsubmit={(e) => { e.preventDefault(); applySearch(); }}>
-    <input class="projects-search" type="text" placeholder="Search projects..." bind:value={searchInput} />
-    <button class="btn btn-sm" type="submit">Search</button>
+    <input class="projects-search" type="text" placeholder={t('projects.searchProjects')} bind:value={searchInput} />
+    <button class="btn btn-sm" type="submit">{t('common.search')}</button>
   </form>
-  <span class="projects-count">{total} project{total !== 1 ? 's' : ''}</span>
+  <span class="projects-count">{total} {t('projects.projectCount')}</span>
 </div>
 
 {#if loading && projects.length === 0}
-  <div class="loading">Loading projects...</div>
+  <div class="loading">{t('common.loading')}</div>
 {:else}
   <div class="card card-flush">
     <table>
       <thead>
         <tr>
-          <th>Name</th>
-          <th class="col-created">Created</th>
+          <th>{t('common.name')}</th>
+          <th class="col-created">{t('projects.created')}</th>
           <th class="col-actions"></th>
         </tr>
       </thead>
@@ -82,11 +83,11 @@
               {proj.created_at ? timeAgo(proj.created_at) : '-'}
             </td>
             <td>
-              <button class="btn btn-sm" onclick={() => onselectproject?.(proj)}>View</button>
+              <button class="btn btn-sm" onclick={() => onselectproject?.(proj)}>{t('common.view')}</button>
             </td>
           </tr>
         {:else}
-          <tr><td colspan="3" class="empty-message">No projects found</td></tr>
+          <tr><td colspan="3" class="empty-message">{t('projects.noProjects')}</td></tr>
         {/each}
       </tbody>
     </table>
@@ -94,9 +95,9 @@
 
   {#if total > limit}
     <div class="pagination">
-      <button class="btn btn-sm" onclick={prevPage} disabled={offset === 0}>Previous</button>
-      <span class="pagination-info">{offset + 1}-{Math.min(offset + limit, total)} of {total}</span>
-      <button class="btn btn-sm" onclick={nextPage} disabled={offset + limit >= total}>Next</button>
+      <button class="btn btn-sm" onclick={prevPage} disabled={offset === 0}>{t('common.previous')}</button>
+      <span class="pagination-info">{offset + 1}-{Math.min(offset + limit, total)} {t('common.of')} {total}</span>
+      <button class="btn btn-sm" onclick={nextPage} disabled={offset + limit >= total}>{t('common.next')}</button>
     </div>
   {/if}
 {/if}

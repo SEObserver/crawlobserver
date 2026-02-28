@@ -1,5 +1,6 @@
 <script>
   import { fmtN, a11yKeydown } from '../../utils.js';
+  import { t } from '../../i18n/index.svelte.js';
   import DonutChart from '../charts/DonutChart.svelte';
   import HBarChart from '../charts/HBarChart.svelte';
 
@@ -12,8 +13,8 @@
   function extSegments(l) {
     if (!l) return [];
     const segs = [];
-    if (l.external_dofollow > 0) segs.push({ value: l.external_dofollow, color: 'var(--success)', label: 'Dofollow', onclick: () => nav('external') });
-    if (l.external_nofollow > 0) segs.push({ value: l.external_nofollow, color: 'var(--warning)', label: 'Nofollow', onclick: () => nav('external', { rel: 'nofollow' }) });
+    if (l.external_dofollow > 0) segs.push({ value: l.external_dofollow, color: 'var(--success)', label: t('report.links.dofollow'), onclick: () => nav('external') });
+    if (l.external_nofollow > 0) segs.push({ value: l.external_nofollow, color: 'var(--warning)', label: t('report.links.nofollow'), onclick: () => nav('external', { rel: 'nofollow' }) });
     return segs;
   }
 
@@ -44,42 +45,42 @@
 
 {#if links}
   <div class="report-section">
-    <h3 class="chart-title">Internal Links</h3>
+    <h3 class="chart-title">{t('report.links.internalLinks')}</h3>
     <div class="stats-grid">
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('internal')} onkeydown={a11yKeydown(() => nav('internal'))}>
-        <div class="stat-value">{fmtN(links.total_internal)}</div><div class="stat-label">Total Internal</div>
+        <div class="stat-value">{fmtN(links.total_internal)}</div><div class="stat-label">{t('report.links.totalInternal')}</div>
       </div>
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('overview', { internal_links_out: '0' })} onkeydown={a11yKeydown(() => nav('overview', { internal_links_out: '0' }))}>
-        <div class="stat-value text-warning">{fmtN(links.pages_no_internal_out || 0)}</div><div class="stat-label">Pages No Outlinks</div>
+        <div class="stat-value text-warning">{fmtN(links.pages_no_internal_out || 0)}</div><div class="stat-label">{t('report.links.noOutlinks')}</div>
       </div>
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('overview', { internal_links_out: '>100' })} onkeydown={a11yKeydown(() => nav('overview', { internal_links_out: '>100' }))}>
-        <div class="stat-value text-warning">{fmtN(links.pages_high_internal_out || 0)}</div><div class="stat-label">Pages >100 Outlinks</div>
+        <div class="stat-value text-warning">{fmtN(links.pages_high_internal_out || 0)}</div><div class="stat-label">{t('report.links.over100')}</div>
       </div>
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('internal')} onkeydown={a11yKeydown(() => nav('internal'))}>
-        <div class="stat-value text-error">{fmtN(links.broken_internal || 0)}</div><div class="stat-label">Broken Internal</div>
+        <div class="stat-value text-error">{fmtN(links.broken_internal || 0)}</div><div class="stat-label">{t('report.links.brokenInternal')}</div>
       </div>
     </div>
   </div>
 
   <div class="report-section">
-    <h3 class="chart-title">External Links</h3>
+    <h3 class="chart-title">{t('report.links.externalLinks')}</h3>
     <div class="report-grid">
       <div>
         <DonutChart segments={eSegs} size={180} strokeWidth={24}
-          centerLabel={fmtN(links.total_external)} centerSubLabel="external" />
+          centerLabel={fmtN(links.total_external)} centerSubLabel={t('common.external')} />
       </div>
       <div class="stats-grid">
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('external')} onkeydown={a11yKeydown(() => nav('external'))}>
-          <div class="stat-value">{fmtN(links.total_external)}</div><div class="stat-label">Total External</div>
+          <div class="stat-value">{fmtN(links.total_external)}</div><div class="stat-label">{t('report.links.totalExternal')}</div>
         </div>
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('overview', { external_links_out: '0' })} onkeydown={a11yKeydown(() => nav('overview', { external_links_out: '0' }))}>
-          <div class="stat-value">{fmtN(links.pages_no_external || 0)}</div><div class="stat-label">Pages No External</div>
+          <div class="stat-value">{fmtN(links.pages_no_external || 0)}</div><div class="stat-label">{t('report.links.noExternal')}</div>
         </div>
       </div>
     </div>
@@ -87,17 +88,17 @@
 
   {#if domBars.length > 0}
     <div class="report-section">
-      <h3 class="chart-title">Top External Domains</h3>
+      <h3 class="chart-title">{t('report.links.topExternalDomains')}</h3>
       <HBarChart bars={domBars} />
     </div>
   {/if}
 
   {#if aBars.length > 0}
     <div class="report-section">
-      <h3 class="chart-title">Top Internal Anchor Texts</h3>
+      <h3 class="chart-title">{t('report.links.topAnchors')}</h3>
       <HBarChart bars={aBars} />
     </div>
   {/if}
 {:else}
-  <p class="chart-empty">No links audit data available.</p>
+  <p class="chart-empty">{t('report.links.noData')}</p>
 {/if}

@@ -1,5 +1,6 @@
 <script>
   import { fmtN, fmt, a11yKeydown } from '../../utils.js';
+  import { t } from '../../i18n/index.svelte.js';
   import DonutChart from '../charts/DonutChart.svelte';
   import HBarChart from '../charts/HBarChart.svelte';
 
@@ -38,10 +39,10 @@
       else groups['5xx'] += count;
     }
     const segs = [];
-    if (groups['2xx'] > 0) segs.push({ value: groups['2xx'], color: 'var(--success)', label: '2xx Success', onclick: () => nav('overview', { status_code: '2' }) });
-    if (groups['3xx'] > 0) segs.push({ value: groups['3xx'], color: 'var(--info)', label: '3xx Redirect', onclick: () => nav('overview', { status_code: '3' }) });
-    if (groups['4xx'] > 0) segs.push({ value: groups['4xx'], color: 'var(--warning)', label: '4xx Client Error', onclick: () => nav('overview', { status_code: '4' }) });
-    if (groups['5xx'] > 0) segs.push({ value: groups['5xx'], color: 'var(--error)', label: '5xx Server Error', onclick: () => nav('overview', { status_code: '5' }) });
+    if (groups['2xx'] > 0) segs.push({ value: groups['2xx'], color: 'var(--success)', label: t('report.overview.2xxSuccess'), onclick: () => nav('overview', { status_code: '2' }) });
+    if (groups['3xx'] > 0) segs.push({ value: groups['3xx'], color: 'var(--info)', label: t('report.overview.3xxRedirect'), onclick: () => nav('overview', { status_code: '3' }) });
+    if (groups['4xx'] > 0) segs.push({ value: groups['4xx'], color: 'var(--warning)', label: t('report.overview.4xxClientError'), onclick: () => nav('overview', { status_code: '4' }) });
+    if (groups['5xx'] > 0) segs.push({ value: groups['5xx'], color: 'var(--error)', label: t('report.overview.5xxServerError'), onclick: () => nav('overview', { status_code: '5' }) });
     return segs;
   }
 
@@ -83,15 +84,15 @@
 
 {#if stats}
   <div class="report-section">
-    <h3 class="chart-title">Health Score</h3>
+    <h3 class="chart-title">{t('report.overview.healthScore')}</h3>
     <div class="health-score">
       <DonutChart
         segments={[
-          { value: healthScore, color: healthColor, label: 'Score' },
-          { value: 100 - healthScore, color: 'var(--border)', label: 'Remaining' },
+          { value: healthScore, color: healthColor, label: t('report.overview.score') },
+          { value: 100 - healthScore, color: 'var(--border)', label: t('report.overview.remaining') },
         ]}
         size={220} strokeWidth={24}
-        centerLabel="{healthScore}%" centerSubLabel="Health"
+        centerLabel="{healthScore}%" centerSubLabel={t('report.overview.health')}
       />
     </div>
   </div>
@@ -99,28 +100,28 @@
   <div class="report-section">
     <div class="stats-grid">
       <div class="stat-card stat-card-link" onclick={() => nav('overview')} role="button" tabindex="0" onkeydown={a11yKeydown(() => nav('overview'))}>
-        <div class="stat-value">{fmtN(stats.total_pages)}</div><div class="stat-label">Total Pages</div>
+        <div class="stat-value">{fmtN(stats.total_pages)}</div><div class="stat-label">{t('report.overview.totalPages')}</div>
       </div>
       <div class="stat-card stat-card-link" onclick={() => nav('internal')} role="button" tabindex="0" onkeydown={a11yKeydown(() => nav('internal'))}>
-        <div class="stat-value">{fmtN(stats.internal_links)}</div><div class="stat-label">Internal Links</div>
+        <div class="stat-value">{fmtN(stats.internal_links)}</div><div class="stat-label">{t('report.overview.internalLinks')}</div>
       </div>
       <div class="stat-card stat-card-link" onclick={() => nav('external')} role="button" tabindex="0" onkeydown={a11yKeydown(() => nav('external'))}>
-        <div class="stat-value">{fmtN(stats.external_links)}</div><div class="stat-label">External Links</div>
+        <div class="stat-value">{fmtN(stats.external_links)}</div><div class="stat-label">{t('report.overview.externalLinks')}</div>
       </div>
       <div class="stat-card stat-card-link" onclick={() => nav('response', { status_code: '4' })} role="button" tabindex="0" onkeydown={a11yKeydown(() => nav('response', { status_code: '4' }))}>
-        <div class="stat-value" style={non200 > 0 ? 'color: var(--error)' : ''}>{fmtN(non200)}</div><div class="stat-label">Errors</div>
+        <div class="stat-value" style={non200 > 0 ? 'color: var(--error)' : ''}>{fmtN(non200)}</div><div class="stat-label">{t('report.overview.errors')}</div>
       </div>
       <div class="stat-card stat-card-link" onclick={() => nav('response')} role="button" tabindex="0" onkeydown={a11yKeydown(() => nav('response'))}>
-        <div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">Avg Response</div>
+        <div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">{t('report.overview.avgResponse')}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">{stats.pages_per_second > 0 ? stats.pages_per_second.toFixed(1) : '-'}</div><div class="stat-label">Pages/sec</div>
+        <div class="stat-value">{stats.pages_per_second > 0 ? stats.pages_per_second.toFixed(1) : '-'}</div><div class="stat-label">{t('report.overview.pagesPerSec')}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">{duration}</div><div class="stat-label">Duration</div>
+        <div class="stat-value">{duration}</div><div class="stat-label">{t('report.overview.duration')}</div>
       </div>
       <div class="stat-card stat-card-link" onclick={() => nav('overview', { depth: String(maxDepth) })} role="button" tabindex="0" onkeydown={a11yKeydown(() => nav('overview', { depth: String(maxDepth) }))}>
-        <div class="stat-value">{maxDepth}</div><div class="stat-label">Max Depth</div>
+        <div class="stat-value">{maxDepth}</div><div class="stat-label">{t('report.overview.maxDepth')}</div>
       </div>
     </div>
   </div>
@@ -128,27 +129,27 @@
   <div class="report-section">
     <div class="report-grid">
       <div class="chart-section">
-        <h3 class="chart-title">Status Codes</h3>
-        <DonutChart segments={scSegments} size={200} strokeWidth={28} centerLabel={fmtN(stats.total_pages)} centerSubLabel="pages" />
+        <h3 class="chart-title">{t('report.overview.statusCodes')}</h3>
+        <DonutChart segments={scSegments} size={200} strokeWidth={28} centerLabel={fmtN(stats.total_pages)} centerSubLabel={t('common.pages')} />
       </div>
       <div class="chart-section">
-        <h3 class="chart-title">Status Codes Detail</h3>
+        <h3 class="chart-title">{t('report.overview.statusCodesDetail')}</h3>
         <HBarChart bars={scBars} />
       </div>
     </div>
   </div>
 
   <div class="report-section">
-    <h3 class="chart-title">Depth Distribution</h3>
+    <h3 class="chart-title">{t('report.overview.depthDist')}</h3>
     <HBarChart bars={dBars} />
   </div>
 
   {#if stats.top_pagerank?.length > 0}
     <div class="report-section">
-      <h3 class="chart-title">Top PageRank</h3>
+      <h3 class="chart-title">{t('report.overview.topPageRank')}</h3>
       <div class="report-mini-table">
         <table>
-          <thead><tr><th>#</th><th>URL</th><th>PageRank</th></tr></thead>
+          <thead><tr><th>#</th><th>{t('common.url')}</th><th>{t('urlDetail.pageRank')}</th></tr></thead>
           <tbody>
             {#each stats.top_pagerank.slice(0, 10) as entry, i}
               <tr>
@@ -168,5 +169,5 @@
     </div>
   {/if}
 {:else}
-  <p class="chart-empty">No stats available. Run a crawl first.</p>
+  <p class="chart-empty">{t('report.overview.noStats')}</p>
 {/if}

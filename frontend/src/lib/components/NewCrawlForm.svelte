@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../i18n/index.svelte.js';
   import { startCrawl } from '../api.js';
 
   let { projects = [], onstart, oncancel, onerror } = $props();
@@ -19,14 +20,14 @@
   let tlsProfile = $state('');
   let starting = $state(false);
 
-  const userAgentPresets = [
-    { label: 'Default (CrawlObserver)', value: '', tls: '' },
-    { label: 'Googlebot Desktop', value: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', tls: '' },
-    { label: 'Googlebot Mobile', value: 'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.69 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', tls: '' },
-    { label: 'Bingbot', value: 'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)', tls: '' },
-    { label: 'Chrome Desktop', value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', tls: 'chrome' },
-    { label: 'Custom', value: 'custom', tls: '' },
-  ];
+  let userAgentPresets = $derived([
+    { label: t('newCrawl.uaDefault'), value: '', tls: '' },
+    { label: t('newCrawl.uaGooglebotDesktop'), value: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', tls: '' },
+    { label: t('newCrawl.uaGooglebotMobile'), value: 'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.69 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', tls: '' },
+    { label: t('newCrawl.uaBingbot'), value: 'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)', tls: '' },
+    { label: t('newCrawl.uaChromeDesktop'), value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', tls: 'chrome' },
+    { label: t('newCrawl.uaCustom'), value: 'custom', tls: '' },
+  ]);
 
   function onUserAgentChange() {
     const preset = userAgentPresets.find(p => p.value === userAgentPreset);
@@ -50,27 +51,27 @@
 </script>
 
 <div class="page-header">
-  <h1>New Crawl</h1>
+  <h1>{t('newCrawl.title')}</h1>
 </div>
 <div class="card">
   <div class="form-grid">
     <div class="form-group form-full-width">
-      <label for="seeds">Seed URLs (one per line)</label>
+      <label for="seeds">{t('newCrawl.seedUrls')}</label>
       <textarea id="seeds" bind:value={seedInput} rows="3" placeholder="https://example.com"></textarea>
     </div>
-    <div class="form-group"><label for="workers">Workers</label><input id="workers" type="number" bind:value={workers} min="1" max="100" /></div>
-    <div class="form-group"><label for="delay">Delay</label><input id="delay" type="text" bind:value={crawlDelay} placeholder="1s" /></div>
-    <div class="form-group"><label for="maxpages">Max pages (0 = unlimited)</label><input id="maxpages" type="number" bind:value={maxPages} min="0" /></div>
-    <div class="form-group"><label for="maxdepth">Max depth (0 = unlimited)</label><input id="maxdepth" type="number" bind:value={maxDepth} min="0" /></div>
+    <div class="form-group"><label for="workers">{t('newCrawl.workers')}</label><input id="workers" type="number" bind:value={workers} min="1" max="100" /></div>
+    <div class="form-group"><label for="delay">{t('newCrawl.delay')}</label><input id="delay" type="text" bind:value={crawlDelay} placeholder="1s" /></div>
+    <div class="form-group"><label for="maxpages">{t('newCrawl.maxPages')}</label><input id="maxpages" type="number" bind:value={maxPages} min="0" /></div>
+    <div class="form-group"><label for="maxdepth">{t('newCrawl.maxDepth')}</label><input id="maxdepth" type="number" bind:value={maxDepth} min="0" /></div>
     <div class="form-group">
-      <label for="scope">Crawl scope</label>
+      <label for="scope">{t('newCrawl.crawlScope')}</label>
       <select id="scope" bind:value={crawlScope}>
-        <option value="host">Same host only</option>
-        <option value="domain">Same domain (incl. subdomains)</option>
+        <option value="host">{t('newCrawl.sameHost')}</option>
+        <option value="domain">{t('newCrawl.sameDomain')}</option>
       </select>
     </div>
     <div class="form-group">
-      <label for="useragent">User-Agent</label>
+      <label for="useragent">{t('newCrawl.userAgent')}</label>
       <select id="useragent" bind:value={userAgentPreset} onchange={onUserAgentChange}>
         {#each userAgentPresets as preset}
           <option value={preset.value}>{preset.label}</option>
@@ -79,38 +80,38 @@
     </div>
     {#if userAgentPreset === 'custom'}
       <div class="form-group">
-        <label for="useragent-custom">Custom User-Agent</label>
+        <label for="useragent-custom">{t('newCrawl.customUserAgent')}</label>
         <input id="useragent-custom" type="text" bind:value={userAgentCustom} placeholder="Mozilla/5.0 ..." />
       </div>
     {/if}
     {#if userAgentPreset !== ''}
       <div class="form-group">
-        <label for="tlsprofile">TLS Fingerprint</label>
+        <label for="tlsprofile">{t('newCrawl.tlsFingerprint')}</label>
         <select id="tlsprofile" bind:value={tlsProfile}>
-          <option value="">Off (Go default)</option>
-          <option value="chrome">Chrome</option>
-          <option value="firefox">Firefox</option>
-          <option value="edge">Edge</option>
+          <option value="">{t('newCrawl.tlsOff')}</option>
+          <option value="chrome">{t('newCrawl.tlsChrome')}</option>
+          <option value="firefox">{t('newCrawl.tlsFirefox')}</option>
+          <option value="edge">{t('newCrawl.tlsEdge')}</option>
         </select>
       </div>
     {/if}
     <div class="form-group form-checkbox-row">
-      <input id="storehtml" type="checkbox" bind:checked={storeHtml} /><label for="storehtml" class="form-checkbox-label">Store raw HTML</label>
+      <input id="storehtml" type="checkbox" bind:checked={storeHtml} /><label for="storehtml" class="form-checkbox-label">{t('newCrawl.storeHtml')}</label>
     </div>
     <div class="form-group form-checkbox-row">
-      <input id="checkext" type="checkbox" bind:checked={checkExternalLinks} /><label for="checkext" class="form-checkbox-label">Check external links</label>
+      <input id="checkext" type="checkbox" bind:checked={checkExternalLinks} /><label for="checkext" class="form-checkbox-label">{t('newCrawl.checkExternal')}</label>
     </div>
     <div class="form-group form-checkbox-row">
-      <input id="sitemaponly" type="checkbox" bind:checked={crawlSitemapOnly} /><label for="sitemaponly" class="form-checkbox-label">Sitemap only (crawl only URLs found in sitemaps)</label>
+      <input id="sitemaponly" type="checkbox" bind:checked={crawlSitemapOnly} /><label for="sitemaponly" class="form-checkbox-label">{t('newCrawl.sitemapOnly')}</label>
     </div>
     {#if checkExternalLinks}
-      <div class="form-group"><label for="extworkers">External link workers</label><input id="extworkers" type="number" bind:value={externalLinkWorkers} min="1" max="20" /></div>
+      <div class="form-group"><label for="extworkers">{t('newCrawl.extWorkers')}</label><input id="extworkers" type="number" bind:value={externalLinkWorkers} min="1" max="20" /></div>
     {/if}
     {#if projects.length > 0}
       <div class="form-group">
-        <label for="crawl-project">Project (optional)</label>
+        <label for="crawl-project">{t('newCrawl.project')}</label>
         <select id="crawl-project" bind:value={crawlProjectId}>
-          <option value="">No project</option>
+          <option value="">{t('newCrawl.noProject')}</option>
           {#each projects as p}
             <option value={p.id}>{p.name}</option>
           {/each}
@@ -120,9 +121,9 @@
   </div>
   <div class="form-actions">
     <button class="btn btn-primary" onclick={handleStartCrawl} disabled={starting || !seedInput.trim()}>
-      {starting ? 'Starting...' : 'Start Crawl'}
+      {starting ? t('newCrawl.starting') : t('newCrawl.startCrawl')}
     </button>
-    <button class="btn" onclick={oncancel}>Cancel</button>
+    <button class="btn" onclick={oncancel}>{t('common.cancel')}</button>
   </div>
 </div>
 

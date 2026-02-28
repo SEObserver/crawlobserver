@@ -1,3 +1,5 @@
+import { t } from './i18n/index.svelte.js';
+
 export const PAGE_SIZE = 100;
 
 export const TAB_FILTERS = {
@@ -12,21 +14,26 @@ export const TAB_FILTERS = {
   external:     ['source_url', 'target_url', 'anchor_text', 'rel'],
 };
 
-export const TABS = [
-  { id: 'overview', label: 'All Pages' },
-  { id: 'titles', label: 'Titles' },
-  { id: 'meta', label: 'Meta' },
-  { id: 'headings', label: 'H1/H2' },
-  { id: 'images', label: 'Images' },
-  { id: 'indexability', label: 'Indexability' },
-  { id: 'response', label: 'Response' },
-  { id: 'internal', label: 'Internal Links' },
-  { id: 'external', label: 'External Links' },
-  { id: 'ext-checks', label: 'Ext. Checks' },
-  { id: 'resources', label: 'Resources' },
-  { id: 'pagerank', label: 'PageRank' },
-  { id: 'robots', label: 'Robots.txt' },
-  { id: 'sitemaps', label: 'Sitemaps' },
-  { id: 'reports', label: 'Reports' },
-  { id: 'tests', label: 'Tests' },
-];
+export function getTabs() {
+  return [
+    { id: 'overview', label: t('tabs.allPages') },
+    { id: 'titles', label: t('tabs.titles') },
+    { id: 'meta', label: t('tabs.meta') },
+    { id: 'headings', label: t('tabs.h1h2') },
+    { id: 'images', label: t('tabs.images') },
+    { id: 'indexability', label: t('tabs.indexability') },
+    { id: 'response', label: t('tabs.response') },
+    { id: 'internal', label: t('tabs.internalLinks') },
+    { id: 'external', label: t('tabs.externalLinks') },
+    { id: 'ext-checks', label: t('tabs.extChecks') },
+    { id: 'resources', label: t('tabs.resources') },
+    { id: 'pagerank', label: t('tabs.pagerank') },
+    { id: 'robots', label: t('tabs.robotsTxt') },
+    { id: 'sitemaps', label: t('tabs.sitemaps') },
+    { id: 'reports', label: t('tabs.reports') },
+    { id: 'tests', label: t('tabs.tests') },
+  ];
+}
+
+// Keep TABS as alias for backward compatibility during migration
+export const TABS = null; // Removed — use getTabs()

@@ -3,6 +3,7 @@
   import { getSessionsPaginated, renameProject, deleteProject } from '../api.js';
   import { fmtN, timeAgo } from '../utils.js';
   import { pushURL } from '../router.js';
+  import { t } from '../i18n/index.svelte.js';
   import GSCTab from './GSCTab.svelte';
   import ProvidersTab from './ProvidersTab.svelte';
   import ConfirmModal from './ConfirmModal.svelte';
@@ -45,9 +46,9 @@
     } catch (e) { onerror?.(e.message); }
   }
 
-  function switchProjectTab(t) {
-    projectTab = t;
-    if (project) pushURL(`/projects/${project.id}/${t}`);
+  function switchProjectTab(tab) {
+    projectTab = tab;
+    if (project) pushURL(`/projects/${project.id}/${tab}`);
   }
 
   // --- Rename ---
@@ -73,12 +74,12 @@
 
   // --- Delete ---
   function handleDeleteProject() {
-    showConfirm(`Delete project "${project?.name}"? Sessions will be unassigned.`, async () => {
+    showConfirm(t('project.deleteProject') + ` "${project?.name}"?`, async () => {
       try {
         await deleteProject(project.id);
         onprojectdeleted?.();
       } catch (e) { onerror?.(e.message); }
-    }, { danger: true, confirmLabel: 'Delete' });
+    }, { danger: true, confirmLabel: t('common.delete') });
   }
 
   // --- Mount ---
@@ -88,7 +89,7 @@
 </script>
 
 <div class="breadcrumb">
-  <a href="/" onclick={(e) => { e.preventDefault(); ongohome?.(); }}>Dashboard</a>
+  <a href="/" onclick={(e) => { e.preventDefault(); ongohome?.(); }}>{t('project.dashboard')}</a>
   <span>/</span>
   {#if renamingProject}
     <input class="project-rename-input" type="text" bind:value={renameValue}
@@ -96,17 +97,17 @@
       onkeydown={(e) => { if (e.key === 'Enter') confirmRenameProject(); if (e.key === 'Escape') cancelRenameProject(); }}
       onblur={confirmRenameProject} />
   {:else}
-    <button class="inline-btn breadcrumb-active" ondblclick={startRenameProject} title="Double-click to rename">{project.name}</button>
+    <button class="inline-btn breadcrumb-active" ondblclick={startRenameProject} title={t('project.doubleClickRename')}>{project.name}</button>
   {/if}
-  <button class="project-delete-btn" onclick={() => handleDeleteProject()} title="Delete project" aria-label="Delete project">
+  <button class="project-delete-btn" onclick={() => handleDeleteProject()} title={t('project.deleteProject')} aria-label={t('project.deleteProject')}>
     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
   </button>
 </div>
 
 <div class="tab-bar">
-  <button class="tab" class:tab-active={projectTab === 'sessions'} onclick={() => switchProjectTab('sessions')}>Sessions</button>
-  <button class="tab" class:tab-active={projectTab === 'gsc'} onclick={() => switchProjectTab('gsc')}>Search Console</button>
-  <button class="tab" class:tab-active={projectTab === 'providers'} onclick={() => switchProjectTab('providers')}>SEO Data</button>
+  <button class="tab" class:tab-active={projectTab === 'sessions'} onclick={() => switchProjectTab('sessions')}>{t('project.sessions')}</button>
+  <button class="tab" class:tab-active={projectTab === 'gsc'} onclick={() => switchProjectTab('gsc')}>{t('project.searchConsole')}</button>
+  <button class="tab" class:tab-active={projectTab === 'providers'} onclick={() => switchProjectTab('providers')}>{t('project.seoData')}</button>
 </div>
 
 <div class="card card-flush card-tab-body">
@@ -115,10 +116,10 @@
       <table>
         <thead>
           <tr>
-            <th>Seed URL</th>
-            <th>Status</th>
-            <th>Pages</th>
-            <th>Started</th>
+            <th>{t('project.seedUrl')}</th>
+            <th>{t('common.status')}</th>
+            <th>{t('common.pages')}</th>
+            <th>{t('actionBar.started')}</th>
             <th></th>
           </tr>
         </thead>
@@ -132,17 +133,17 @@
               </td>
               <td>
                 {#if s.is_running}
-                  <span class="badge badge-info">Running</span>
+                  <span class="badge badge-info">{t('common.running')}</span>
                 {:else if s.Status === 'completed'}
-                  <span class="badge badge-success">Completed</span>
+                  <span class="badge badge-success">{t('common.completed')}</span>
                 {:else}
-                  <span class="badge">{s.Status || 'Unknown'}</span>
+                  <span class="badge">{s.Status || t('common.unknown')}</span>
                 {/if}
               </td>
               <td>{fmtN(s.PagesCrawled || 0)}</td>
               <td class="nowrap text-muted text-sm">{s.StartedAt ? timeAgo(s.StartedAt) : '-'}</td>
               <td>
-                <button class="btn btn-sm" onclick={() => onselectsession?.(s)}>View</button>
+                <button class="btn btn-sm" onclick={() => onselectsession?.(s)}>{t('common.view')}</button>
               </td>
             </tr>
           {/each}
@@ -150,13 +151,13 @@
       </table>
       {#if projSessionsTotal > PROJ_SESSIONS_LIMIT}
         <div class="pagination-controls">
-          <button class="btn btn-sm" onclick={() => { projSessionsOffset = Math.max(0, projSessionsOffset - PROJ_SESSIONS_LIMIT); loadProjectSessions(); }} disabled={projSessionsOffset === 0}>Previous</button>
-          <span class="text-sm text-muted">{projSessionsOffset + 1}-{Math.min(projSessionsOffset + PROJ_SESSIONS_LIMIT, projSessionsTotal)} of {projSessionsTotal}</span>
-          <button class="btn btn-sm" onclick={() => { projSessionsOffset += PROJ_SESSIONS_LIMIT; loadProjectSessions(); }} disabled={projSessionsOffset + PROJ_SESSIONS_LIMIT >= projSessionsTotal}>Next</button>
+          <button class="btn btn-sm" onclick={() => { projSessionsOffset = Math.max(0, projSessionsOffset - PROJ_SESSIONS_LIMIT); loadProjectSessions(); }} disabled={projSessionsOffset === 0}>{t('common.previous')}</button>
+          <span class="text-sm text-muted">{projSessionsOffset + 1}-{Math.min(projSessionsOffset + PROJ_SESSIONS_LIMIT, projSessionsTotal)} {t('common.of')} {projSessionsTotal}</span>
+          <button class="btn btn-sm" onclick={() => { projSessionsOffset += PROJ_SESSIONS_LIMIT; loadProjectSessions(); }} disabled={projSessionsOffset + PROJ_SESSIONS_LIMIT >= projSessionsTotal}>{t('common.next')}</button>
         </div>
       {/if}
     {:else}
-      <p class="loading-msg">No crawl sessions in this project yet.</p>
+      <p class="loading-msg">{t('project.noSessions')}</p>
     {/if}
   {:else if projectTab === 'gsc'}
     <GSCTab projectId={project.id} initialSubView={gscSubView} onerror={(msg) => onerror?.(msg)} onpushurl={(u) => onpushurl?.(u)} />

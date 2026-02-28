@@ -1,6 +1,7 @@
 <script>
   import { getSitemaps, getSitemapURLs } from '../api.js';
   import { a11yKeydown } from '../utils.js';
+  import { t } from '../i18n/index.svelte.js';
 
   let { sessionId, onerror } = $props();
 
@@ -82,13 +83,13 @@
 <div class="robots-layout">
   <div class="robots-hosts">
     {#if sitemapsLoading && sitemaps.length === 0}
-      <p class="panel-message text-muted">Loading...</p>
+      <p class="panel-message text-muted">{t('common.loading')}</p>
     {:else if sitemaps.length === 0}
-      <p class="panel-message text-muted">No sitemaps found. Run a crawl first.</p>
+      <p class="panel-message text-muted">{t('sitemaps.noData')}</p>
     {:else}
       <table>
         <thead>
-          <tr><th>URL</th><th>Type</th><th>URLs</th><th>Status</th></tr>
+          <tr><th>{t('common.url')}</th><th>{t('common.type')}</th><th>{t('sitemaps.urls')}</th><th>{t('common.status')}</th></tr>
         </thead>
         <tbody>
           {#each sitemaps as s}
@@ -107,13 +108,13 @@
     {#if selectedSitemap}
       <h3 class="sitemap-detail-title font-semibold text-secondary word-break">{selectedSitemap}</h3>
       {#if sitemapURLsLoading && sitemapURLs.length === 0}
-        <p class="text-muted">Loading...</p>
+        <p class="text-muted">{t('common.loading')}</p>
       {:else if sitemapURLs.length === 0}
-        <p class="text-muted">No URLs in this sitemap.</p>
+        <p class="text-muted">{t('sitemaps.noUrls')}</p>
       {:else}
         <table>
           <thead>
-            <tr><th>URL</th><th>Last Modified</th><th>Change Freq</th><th>Priority</th></tr>
+            <tr><th>{t('common.url')}</th><th>{t('sitemaps.lastModified')}</th><th>{t('sitemaps.changeFreq')}</th><th>{t('sitemaps.priority')}</th></tr>
           </thead>
           <tbody>
             {#each sitemapURLs as u}
@@ -127,16 +128,16 @@
           </tbody>
         </table>
         <div class="pagination pagination-gap">
-          <button class="btn btn-sm" onclick={sitemapURLsPrev} disabled={sitemapURLsOffset === 0 || sitemapURLsLoading}>Prev</button>
+          <button class="btn btn-sm" onclick={sitemapURLsPrev} disabled={sitemapURLsOffset === 0 || sitemapURLsLoading}>{t('common.prev')}</button>
           <span class="row-num">
             {sitemapURLsOffset + 1}&ndash;{sitemapURLsOffset + sitemapURLs.length}
           </span>
-          <button class="btn btn-sm" onclick={sitemapURLsNext} disabled={!hasMoreSitemapURLs || sitemapURLsLoading}>Next</button>
+          <button class="btn btn-sm" onclick={sitemapURLsNext} disabled={!hasMoreSitemapURLs || sitemapURLsLoading}>{t('common.next')}</button>
         </div>
       {/if}
     {:else}
       <div class="empty-state">
-        <p>Select a sitemap to view its URLs</p>
+        <p>{t('sitemaps.selectSitemap')}</p>
       </div>
     {/if}
   </div>

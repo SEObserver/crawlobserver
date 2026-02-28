@@ -1,4 +1,6 @@
 <script>
+  import { t } from '../i18n/index.svelte.js';
+
   let {
     columns,
     filterKeys,
@@ -31,7 +33,7 @@
       {/each}
       {#if columns.length > filterKeys.length}
         {#each Array(columns.length - filterKeys.length) as _}
-          <td>{#if hasActiveFilters && _ === undefined}<button class="btn-filter-clear" title="Clear filters" onclick={() => onclearfilters?.()}><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>{/if}</td>
+          <td>{#if hasActiveFilters && _ === undefined}<button class="btn-filter-clear" title={t('dataTable.clearFilters')} onclick={() => onclearfilters?.()}><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>{/if}</td>
         {/each}
       {/if}
     </tr>
@@ -45,8 +47,8 @@
 
 {#if data.length > 0}
   <div class="pagination">
-    <button class="btn btn-sm" onclick={() => onprevpage?.()} disabled={offset === 0}>Previous</button>
+    <button class="btn btn-sm" onclick={() => onprevpage?.()} disabled={offset === 0}>{t('common.previous')}</button>
     <span class="pagination-info">{offset + 1} - {offset + data.length}</span>
-    <button class="btn btn-sm" onclick={() => onnextpage?.()} disabled={!hasMore}>Next</button>
+    <button class="btn btn-sm" onclick={() => onnextpage?.()} disabled={!hasMore}>{t('common.next')}</button>
   </div>
 {/if}

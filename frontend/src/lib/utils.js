@@ -1,3 +1,5 @@
+import { t, getLocale } from './i18n/index.svelte.js';
+
 export function statusBadge(code) {
   if (code >= 200 && code < 300) return 'badge-success';
   if (code >= 300 && code < 400) return 'badge-info';
@@ -7,17 +9,17 @@ export function statusBadge(code) {
 
 export function fmt(ms) { return ms < 1000 ? `${ms}ms` : `${(ms/1000).toFixed(1)}s`; }
 export function fmtSize(b) { return b < 1024 ? `${b}B` : b < 1048576 ? `${(b/1024).toFixed(1)}KB` : b < 1073741824 ? `${(b/1048576).toFixed(1)}MB` : `${(b/1073741824).toFixed(2)}GB`; }
-export function fmtN(n) { return new Intl.NumberFormat().format(n); }
+export function fmtN(n) { return new Intl.NumberFormat(getLocale()).format(n); }
 export function trunc(s, n) { return s && s.length > n ? s.slice(0, n) + '...' : (s || '-'); }
 
 export function timeAgo(date) {
   const d = new Date(date);
   const now = new Date();
   const diff = Math.floor((now - d) / 1000);
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
-  return d.toLocaleDateString();
+  if (diff < 60) return t('timeAgo.justNow');
+  if (diff < 3600) return t('timeAgo.minutesAgo', { count: Math.floor(diff/60) });
+  if (diff < 86400) return t('timeAgo.hoursAgo', { count: Math.floor(diff/3600) });
+  return d.toLocaleDateString(getLocale());
 }
 
 export function a11yKeydown(callback) {

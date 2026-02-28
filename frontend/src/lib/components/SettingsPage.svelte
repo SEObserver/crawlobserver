@@ -1,6 +1,7 @@
 <script>
   import { updateTheme, getBackups, createBackup, restoreBackup, deleteBackup } from '../api.js';
   import { fmtSize } from '../utils.js';
+  import { t, setLocale, getLocale } from '../i18n/index.svelte.js';
   import ConfirmModal from './ConfirmModal.svelte';
 
   let { initialTheme, onerror, onsave, oncancel } = $props();
@@ -53,39 +54,39 @@
     backupMessage = '';
     try {
       await createBackup();
-      backupMessage = 'Backup created successfully.';
+      backupMessage = t('settings.backupCreated');
       await loadBackups();
     } catch (e) {
-      backupMessage = 'Backup failed: ' + e.message;
+      backupMessage = t('settings.backupFailed', { error: e.message });
     } finally {
       creatingBackup = false;
     }
   }
 
   function doRestoreBackup(filename) {
-    showConfirm(`Restore from ${filename}? The application should be restarted after restore.`, async () => {
+    showConfirm(t('settings.restoreConfirm', { name: filename }), async () => {
       restoringBackup = filename;
       backupMessage = '';
       try {
         const result = await restoreBackup(filename);
-        backupMessage = result.message || 'Restore complete. Restart to apply.';
+        backupMessage = result.message || t('settings.restoreComplete');
       } catch (e) {
-        backupMessage = 'Restore failed: ' + e.message;
+        backupMessage = t('settings.restoreFailed', { error: e.message });
       } finally {
         restoringBackup = null;
       }
-    }, { danger: true, confirmLabel: 'Restore' });
+    }, { danger: true, confirmLabel: t('settings.restore') });
   }
 
   function doDeleteBackup(name) {
-    showConfirm(`Delete backup ${name}?`, async () => {
+    showConfirm(t('settings.deleteBackupConfirm', { name }), async () => {
       try {
         await deleteBackup(name);
         await loadBackups();
       } catch (e) {
-        backupMessage = 'Delete failed: ' + e.message;
+        backupMessage = t('settings.deleteFailed', { error: e.message });
       }
-    }, { danger: true, confirmLabel: 'Delete' });
+    }, { danger: true, confirmLabel: t('common.delete') });
   }
 
   loadBackups();
@@ -93,73 +94,80 @@
 
 <!-- Settings -->
 <div class="page-header">
-  <h1>Settings</h1>
+  <h1>{t('settings.title')}</h1>
 </div>
 <div class="card">
   <div class="form-grid">
     <div class="form-group">
-      <label for="set-appname">App Name</label>
+      <label for="set-appname">{t('settings.appName')}</label>
       <input id="set-appname" type="text" bind:value={editTheme.app_name} oninput={previewTheme} />
     </div>
     <div class="form-group">
-      <label for="set-logo">Logo URL</label>
+      <label for="set-logo">{t('settings.logoUrl')}</label>
       <input id="set-logo" type="text" bind:value={editTheme.logo_url} oninput={previewTheme} placeholder="https://example.com/logo.png" />
     </div>
     {#if editTheme.logo_url}
       <div class="form-group full-width">
-        <span class="field-label">Logo Preview</span>
-        <img src={editTheme.logo_url} alt="Logo preview" class="logo-preview" />
+        <span class="field-label">{t('settings.logoPreview')}</span>
+        <img src={editTheme.logo_url} alt={t('settings.logoPreview')} class="logo-preview" />
       </div>
     {/if}
     <div class="form-group">
-      <label for="set-accent">Accent Color</label>
+      <label for="set-accent">{t('settings.accentColor')}</label>
       <div class="color-picker-row">
         <input id="set-accent" type="color" value={editTheme.accent_color} oninput={(e) => { editTheme.accent_color = e.target.value; previewTheme(); }} class="color-swatch" />
         <span class="color-value">{editTheme.accent_color}</span>
       </div>
     </div>
     <div class="form-group">
-      <span class="field-label mb-xs">Mode</span>
+      <span class="field-label mb-xs">{t('settings.mode')}</span>
       <div class="flex-center-gap">
-        <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'light'} onclick={() => { editTheme.mode = 'light'; previewTheme(); }}>Light</button>
-        <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'dark'} onclick={() => { editTheme.mode = 'dark'; previewTheme(); }}>Dark</button>
+        <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'light'} onclick={() => { editTheme.mode = 'light'; previewTheme(); }}>{t('settings.light')}</button>
+        <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'dark'} onclick={() => { editTheme.mode = 'dark'; previewTheme(); }}>{t('settings.dark')}</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>{t('settings.language')}</label>
+      <div class="flex-center-gap">
+        <button class="btn btn-sm" class:btn-primary={getLocale() === 'en'} onclick={() => setLocale('en')}>{t('settings.langEn')}</button>
+        <button class="btn btn-sm" class:btn-primary={getLocale() === 'fr'} onclick={() => setLocale('fr')}>{t('settings.langFr')}</button>
       </div>
     </div>
   </div>
   <div class="form-actions">
     <button class="btn btn-primary" onclick={saveTheme} disabled={savingTheme}>
-      {savingTheme ? 'Saving...' : 'Save'}
+      {savingTheme ? t('common.saving') : t('common.save')}
     </button>
-    <button class="btn" onclick={() => oncancel?.()}>Cancel</button>
+    <button class="btn" onclick={() => oncancel?.()}>{t('common.cancel')}</button>
   </div>
 </div>
 
 <!-- Backups -->
 <div class="page-header section-gap">
-  <h1>Backups</h1>
+  <h1>{t('settings.backups')}</h1>
   <button class="btn btn-sm btn-primary" onclick={doCreateBackup} disabled={creatingBackup}>
-    {creatingBackup ? 'Creating...' : 'Create Backup'}
+    {creatingBackup ? t('settings.creating') : t('settings.createBackup')}
   </button>
 </div>
 {#if backupMessage}
   <div class="alert alert-info mb-md">
     <span>{backupMessage}</span>
-    <button class="btn btn-sm btn-ghost" onclick={() => backupMessage = ''}>Dismiss</button>
+    <button class="btn btn-sm btn-ghost" onclick={() => backupMessage = ''}>{t('common.dismiss')}</button>
   </div>
 {/if}
 <div class="card card-flush">
   {#if loadingBackups}
-    <div class="card-empty-msg">Loading backups...</div>
+    <div class="card-empty-msg">{t('settings.loadingBackups')}</div>
   {:else if backups.length === 0}
-    <div class="card-empty-msg">No backups yet.</div>
+    <div class="card-empty-msg">{t('settings.noBackups')}</div>
   {:else}
     <table>
       <thead>
         <tr>
-          <th>Filename</th>
-          <th>Version</th>
-          <th>Date</th>
-          <th>Size</th>
+          <th>{t('settings.filename')}</th>
+          <th>{t('settings.version')}</th>
+          <th>{t('common.date')}</th>
+          <th>{t('common.size')}</th>
           <th></th>
         </tr>
       </thead>
@@ -173,9 +181,9 @@
             <td class="nowrap">
               <button class="btn btn-sm" onclick={() => doRestoreBackup(b.filename)}
                 disabled={restoringBackup === b.filename}>
-                {restoringBackup === b.filename ? 'Restoring...' : 'Restore'}
+                {restoringBackup === b.filename ? t('settings.restoring') : t('settings.restore')}
               </button>
-              <button class="btn btn-sm btn-danger" onclick={() => doDeleteBackup(b.filename)}>Delete</button>
+              <button class="btn btn-sm btn-danger" onclick={() => doDeleteBackup(b.filename)}>{t('common.delete')}</button>
             </td>
           </tr>
         {/each}

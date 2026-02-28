@@ -1,5 +1,6 @@
 <script>
   import { getAudit } from '../api.js';
+  import { t } from '../i18n/index.svelte.js';
   import OverviewReport from './reports/OverviewReport.svelte';
   import ContentReport from './reports/ContentReport.svelte';
   import TechnicalReport from './reports/TechnicalReport.svelte';
@@ -15,15 +16,16 @@
   let auditLoading = $state(false);
   let auditError = $state(null);
 
-  const SUB_VIEWS = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'content', label: 'Content' },
-    { id: 'technical', label: 'Technical' },
-    { id: 'links', label: 'Links' },
-    { id: 'structure', label: 'Structure' },
-    { id: 'sitemaps', label: 'Sitemaps' },
-    { id: 'international', label: 'International' },
-  ];
+  const SUB_VIEW_IDS = ['overview', 'content', 'technical', 'links', 'structure', 'sitemaps', 'international'];
+  const SUB_VIEW_KEYS = {
+    overview: 'reports.overview',
+    content: 'reports.content',
+    technical: 'reports.technical',
+    links: 'reports.links',
+    structure: 'reports.structure',
+    sitemaps: 'reports.sitemaps',
+    international: 'reports.international',
+  };
 
   async function loadAudit() {
     if (auditData || auditLoading) return;
@@ -55,10 +57,10 @@
 
 <div class="pr-container">
   <div class="pr-subview-bar">
-    {#each SUB_VIEWS as sv}
-      <button class="pr-subview-btn" class:pr-subview-active={subView === sv.id}
-        onclick={() => switchSubView(sv.id)}>
-        {sv.label}
+    {#each SUB_VIEW_IDS as id}
+      <button class="pr-subview-btn" class:pr-subview-active={subView === id}
+        onclick={() => switchSubView(id)}>
+        {t(SUB_VIEW_KEYS[id])}
       </button>
     {/each}
   </div>
@@ -66,11 +68,11 @@
   {#if subView === 'overview'}
     <OverviewReport {stats} {sessionId} {onnavigate} />
   {:else if auditLoading}
-    <p class="reports-msg-muted">Loading audit data...</p>
+    <p class="reports-msg-muted">{t('reports.loadingAudit')}</p>
   {:else if auditError && !auditData}
-    <p class="reports-msg-error">Failed to load audit: {auditError}</p>
+    <p class="reports-msg-error">{t('reports.loadFailed', { error: auditError })}</p>
   {:else if !auditData}
-    <p class="reports-msg-muted">Requires audit computation. Click a sub-view to load.</p>
+    <p class="reports-msg-muted">{t('reports.requiresAudit')}</p>
   {:else if subView === 'content'}
     <ContentReport {stats} audit={auditData} {sessionId} {onnavigate} />
   {:else if subView === 'technical'}

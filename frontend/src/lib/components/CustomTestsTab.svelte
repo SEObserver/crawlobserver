@@ -1,46 +1,49 @@
 <script>
   import { getRulesets, getRuleset, createRuleset, updateRuleset, deleteRuleset, runTests } from '../api.js';
   import ConfirmModal from './ConfirmModal.svelte';
+  import { t } from '../i18n/index.svelte.js';
 
   let { sessionId, onerror } = $props();
 
-  const RULE_TYPES = [
-    { value: 'string_contains', label: 'String contains', target: 'HTML' },
-    { value: 'string_not_contains', label: 'String not contains', target: 'HTML' },
-    { value: 'regex_match', label: 'Regex match', target: 'HTML' },
-    { value: 'regex_not_match', label: 'Regex not match', target: 'HTML' },
-    { value: 'header_exists', label: 'Header exists', target: 'Headers' },
-    { value: 'header_not_exists', label: 'Header not exists', target: 'Headers' },
-    { value: 'header_contains', label: 'Header contains', target: 'Headers' },
-    { value: 'header_regex', label: 'Header regex', target: 'Headers' },
-    { value: 'css_exists', label: 'CSS selector exists', target: 'HTML/CSS' },
-    { value: 'css_not_exists', label: 'CSS selector not exists', target: 'HTML/CSS' },
-    { value: 'css_extract_text', label: 'CSS extract text', target: 'HTML/CSS' },
-    { value: 'css_extract_attr', label: 'CSS extract attribute', target: 'HTML/CSS' },
-    { value: 'css_extract_all_text', label: 'CSS extract ALL text', target: 'HTML/CSS' },
-    { value: 'css_extract_all_attr', label: 'CSS extract ALL attributes', target: 'HTML/CSS' },
-    { value: 'regex_extract', label: 'Regex capture group', target: 'HTML' },
-    { value: 'regex_extract_all', label: 'Regex capture ALL', target: 'HTML' },
-    { value: 'xpath_extract', label: 'XPath extract', target: 'HTML/XPath' },
-    { value: 'xpath_extract_all', label: 'XPath extract ALL', target: 'HTML/XPath' },
-  ];
+  function getRuleTypes() {
+    return [
+      { value: 'string_contains', label: t('tests.stringContains'), target: 'HTML' },
+      { value: 'string_not_contains', label: t('tests.stringNotContains'), target: 'HTML' },
+      { value: 'regex_match', label: t('tests.regexMatch'), target: 'HTML' },
+      { value: 'regex_not_match', label: t('tests.regexNotMatch'), target: 'HTML' },
+      { value: 'header_exists', label: t('tests.headerExists'), target: 'Headers' },
+      { value: 'header_not_exists', label: t('tests.headerNotExists'), target: 'Headers' },
+      { value: 'header_contains', label: t('tests.headerContains'), target: 'Headers' },
+      { value: 'header_regex', label: t('tests.headerRegex'), target: 'Headers' },
+      { value: 'css_exists', label: t('tests.cssExists'), target: 'HTML/CSS' },
+      { value: 'css_not_exists', label: t('tests.cssNotExists'), target: 'HTML/CSS' },
+      { value: 'css_extract_text', label: t('tests.cssExtractText'), target: 'HTML/CSS' },
+      { value: 'css_extract_attr', label: t('tests.cssExtractAttr'), target: 'HTML/CSS' },
+      { value: 'css_extract_all_text', label: t('tests.cssExtractAllText'), target: 'HTML/CSS' },
+      { value: 'css_extract_all_attr', label: t('tests.cssExtractAllAttr'), target: 'HTML/CSS' },
+      { value: 'regex_extract', label: t('tests.regexExtract'), target: 'HTML' },
+      { value: 'regex_extract_all', label: t('tests.regexExtractAll'), target: 'HTML' },
+      { value: 'xpath_extract', label: t('tests.xpathExtract'), target: 'HTML/XPath' },
+      { value: 'xpath_extract_all', label: t('tests.xpathExtractAll'), target: 'HTML/XPath' },
+    ];
+  }
 
   function needsExtra(type) {
     return ['header_contains', 'header_regex', 'css_extract_attr', 'css_extract_all_attr'].includes(type);
   }
 
-  function extraLabel(type) {
-    if (type === 'header_contains' || type === 'header_regex') return 'Header value';
-    if (type === 'css_extract_attr' || type === 'css_extract_all_attr') return 'Attribute name';
-    return 'Extra';
+  function getExtraLabel(type) {
+    if (type === 'header_contains' || type === 'header_regex') return t('tests.headerValue');
+    if (type === 'css_extract_attr' || type === 'css_extract_all_attr') return t('tests.attributeName');
+    return t('tests.extra');
   }
 
-  function valueLabel(type) {
-    if (type.startsWith('header_')) return 'Header name';
-    if (type.startsWith('css_')) return 'CSS selector';
-    if (type.startsWith('regex_')) return 'Regex pattern';
-    if (type.startsWith('xpath_')) return 'XPath expression';
-    return 'Search string';
+  function getValueLabel(type) {
+    if (type.startsWith('header_')) return t('tests.headerName');
+    if (type.startsWith('css_')) return t('tests.cssSelector');
+    if (type.startsWith('regex_')) return t('tests.regexPattern');
+    if (type.startsWith('xpath_')) return t('tests.xpathExpression');
+    return t('tests.searchString');
   }
 
   function isAllRule(type) {
@@ -105,8 +108,8 @@
 
   async function saveRuleset() {
     const rules = editRules.filter(r => r.name && r.value);
-    if (!editName.trim()) { onerror?.('Ruleset name is required'); return; }
-    if (rules.length === 0) { onerror?.('At least one rule is required'); return; }
+    if (!editName.trim()) { onerror?.(t('tests.nameRequired')); return; }
+    if (rules.length === 0) { onerror?.(t('tests.ruleRequired')); return; }
 
     loading = true;
     try {
@@ -125,14 +128,14 @@
   }
 
   function removeRuleset(id) {
-    showConfirm('Delete this ruleset?', async () => {
+    showConfirm(t('tests.deleteConfirm'), async () => {
       try {
         await deleteRuleset(id);
         await loadRulesets();
       } catch (e) {
         onerror?.(e.message);
       }
-    }, { danger: true, confirmLabel: 'Delete' });
+    }, { danger: true, confirmLabel: t('common.delete') });
   }
 
   async function runRuleset(rulesetId) {
@@ -173,39 +176,39 @@
 {#if view === 'list'}
   <div class="card mt-md">
     <div class="ct-card-header">
-      <h3 class="ct-title">Rulesets</h3>
-      <button class="btn btn-primary btn-sm" onclick={newRuleset}>+ New Ruleset</button>
+      <h3 class="ct-title">{t('tests.rulesets')}</h3>
+      <button class="btn btn-primary btn-sm" onclick={newRuleset}>{t('tests.newRuleset')}</button>
     </div>
 
     {#if loading}
-      <div class="ct-empty">Loading...</div>
+      <div class="ct-empty">{t('common.loading')}</div>
     {:else if rulesets.length === 0}
       <div class="ct-empty">
-        No rulesets yet. Create one to start testing pages.
+        {t('tests.noRulesets')}
       </div>
     {:else}
       <table class="data-table">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Rules</th>
-            <th>Updated</th>
-            <th class="ct-col-actions">Actions</th>
+            <th>{t('common.name')}</th>
+            <th>{t('tests.rules')}</th>
+            <th>{t('tests.updated')}</th>
+            <th class="ct-col-actions">{t('common.actions')}</th>
           </tr>
         </thead>
         <tbody>
           {#each rulesets as rs}
             <tr>
               <td><strong>{rs.name}</strong></td>
-              <td>{rs.rules?.length ?? 0} rules</td>
+              <td>{t('tests.rulesCount', { count: rs.rules?.length ?? 0 })}</td>
               <td class="text-muted text-sm">{new Date(rs.updated_at).toLocaleDateString()}</td>
               <td>
-                <button class="btn btn-sm" onclick={() => editRulesetById(rs.id)}>Edit</button>
+                <button class="btn btn-sm" onclick={() => editRulesetById(rs.id)}>{t('common.edit')}</button>
                 <button class="btn btn-primary btn-sm" onclick={() => runRuleset(rs.id)}
                   disabled={runningRulesetId === rs.id}>
-                  {runningRulesetId === rs.id ? 'Running...' : 'Run'}
+                  {runningRulesetId === rs.id ? t('common.running') + '...' : t('tests.run')}
                 </button>
-                <button class="btn btn-sm btn-danger" onclick={() => removeRuleset(rs.id)}>Delete</button>
+                <button class="btn btn-sm btn-danger" onclick={() => removeRuleset(rs.id)}>{t('common.delete')}</button>
               </td>
             </tr>
           {/each}
@@ -218,11 +221,11 @@
   <div class="card mt-md">
     <div class="ct-editor-header">
       <h3 class="ct-title-mb">
-        {editId ? 'Edit Ruleset' : 'New Ruleset'}
+        {editId ? t('tests.editRuleset') : t('tests.newRulesetTitle')}
       </h3>
       <div class="flex-center-gap">
-        <label class="text-sm font-medium">Name:</label>
-        <input type="text" bind:value={editName} placeholder="Ruleset name"
+        <label class="text-sm font-medium">{t('tests.rulesetName')}</label>
+        <input type="text" bind:value={editName} placeholder={t('tests.rulesetNamePlaceholder')}
           class="ct-name-input" />
       </div>
     </div>
@@ -230,17 +233,17 @@
     <div class="ct-editor-body">
       {#if editRules.some(r => isAllRule(r.type))}
         <div class="ct-warning">
-          <strong>Warning:</strong> "Extract ALL" rules may produce large results on pages with many matching elements (capped at 20 items per page).
+          <strong>{t('tests.warning')}</strong> {t('tests.extractAllWarning')}
         </div>
       {/if}
 
       <table class="data-table mb-sm">
         <thead>
           <tr>
-            <th class="ct-col-type">Type</th>
-            <th>Name</th>
-            <th>Value</th>
-            <th>Extra</th>
+            <th class="ct-col-type">{t('common.type')}</th>
+            <th>{t('common.name')}</th>
+            <th>{t('common.value')}</th>
+            <th>{t('tests.extra')}</th>
             <th class="ct-col-remove"></th>
           </tr>
         </thead>
@@ -250,22 +253,22 @@
               <td>
                 <select bind:value={rule.type}
                   class="ct-input">
-                  {#each RULE_TYPES as rt}
+                  {#each getRuleTypes() as rt}
                     <option value={rt.value}>{rt.label}</option>
                   {/each}
                 </select>
               </td>
               <td>
-                <input type="text" bind:value={rule.name} placeholder="Rule label"
+                <input type="text" bind:value={rule.name} placeholder={t('tests.ruleLabel')}
                   class="ct-input" />
               </td>
               <td>
-                <input type="text" bind:value={rule.value} placeholder={valueLabel(rule.type)}
+                <input type="text" bind:value={rule.value} placeholder={getValueLabel(rule.type)}
                   class="ct-input" />
               </td>
               <td>
                 {#if needsExtra(rule.type)}
-                  <input type="text" bind:value={rule.extra} placeholder={extraLabel(rule.type)}
+                  <input type="text" bind:value={rule.extra} placeholder={getExtraLabel(rule.type)}
                     class="ct-input" />
                 {:else}
                   <span class="text-muted text-xs">-</span>
@@ -282,11 +285,11 @@
       </table>
 
       <div class="flex-center-gap">
-        <button class="btn btn-sm" onclick={addRule}>+ Add Rule</button>
+        <button class="btn btn-sm" onclick={addRule}>{t('tests.addRule')}</button>
         <div class="ct-spacer"></div>
-        <button class="btn btn-sm" onclick={() => { view = 'list'; }}>Cancel</button>
+        <button class="btn btn-sm" onclick={() => { view = 'list'; }}>{t('common.cancel')}</button>
         <button class="btn btn-primary btn-sm" onclick={saveRuleset} disabled={loading}>
-          {loading ? 'Saving...' : 'Save Ruleset'}
+          {loading ? t('common.saving') : t('tests.saveRuleset')}
         </button>
       </div>
     </div>
@@ -297,11 +300,11 @@
     <div class="ct-card-header">
       <div>
         <h3 class="ct-title">
-          Results: {testResult.ruleset_name}
+          {t('tests.results', { name: testResult.ruleset_name })}
         </h3>
-        <span class="text-sm text-muted">{testResult.total_pages} pages tested</span>
+        <span class="text-sm text-muted">{t('tests.pagesTested', { count: testResult.total_pages })}</span>
       </div>
-      <button class="btn btn-sm" onclick={() => { view = 'list'; }}>Back to Rulesets</button>
+      <button class="btn btn-sm" onclick={() => { view = 'list'; }}>{t('tests.backToRulesets')}</button>
     </div>
 
     <!-- Summary -->
@@ -315,10 +318,10 @@
           <div class="text-xs text-muted mb-xs">{rule.name}</div>
           {#if isExtract}
             <div class="ct-result-value">{count}/{total}</div>
-            <div class="ct-result-sublabel">have value</div>
+            <div class="ct-result-sublabel">{t('tests.haveValue')}</div>
           {:else}
             <div class="ct-result-value" style="color: {pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--error)'};">{pct}%</div>
-            <div class="ct-result-sublabel">{count}/{total} pass</div>
+            <div class="ct-result-sublabel">{count}/{total} {t('tests.pass')}</div>
           {/if}
         </div>
       {/each}
@@ -329,7 +332,7 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>URL</th>
+            <th>{t('common.url')}</th>
             {#each testResult.rules as rule}
               <th class="ct-col-rule">{rule.name}</th>
             {/each}
@@ -343,9 +346,9 @@
                 {@const val = page.results[rule.id] ?? ''}
                 <td>
                   {#if val === 'pass'}
-                    <span class="badge badge-success">pass</span>
+                    <span class="badge badge-success">{t('tests.pass')}</span>
                   {:else if val === 'fail'}
-                    <span class="badge badge-error">fail</span>
+                    <span class="badge badge-error">{t('tests.fail')}</span>
                   {:else}
                     <span class="text-xs" title={val}>{val.length > 60 ? val.slice(0, 60) + '...' : val || '-'}</span>
                   {/if}
@@ -359,11 +362,11 @@
 
     {#if testResult.pages.length > RESULTS_PAGE_SIZE}
       <div class="pagination">
-        <button class="btn btn-sm" disabled={resultsPage === 0} onclick={() => resultsPage--}>Previous</button>
+        <button class="btn btn-sm" disabled={resultsPage === 0} onclick={() => resultsPage--}>{t('common.previous')}</button>
         <span class="text-sm text-muted">
           {resultsPage * RESULTS_PAGE_SIZE + 1} - {Math.min((resultsPage + 1) * RESULTS_PAGE_SIZE, testResult.pages.length)} of {testResult.pages.length}
         </span>
-        <button class="btn btn-sm" disabled={!hasMoreResults} onclick={() => resultsPage++}>Next</button>
+        <button class="btn btn-sm" disabled={!hasMoreResults} onclick={() => resultsPage++}>{t('common.next')}</button>
       </div>
     {/if}
   </div>

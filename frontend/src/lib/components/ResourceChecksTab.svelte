@@ -1,5 +1,6 @@
 <script>
   import { getPageResourceChecks, getPageResourceChecksSummary } from '../api.js';
+  import { t } from '../i18n/index.svelte.js';
 
   let { sessionId, initialSubView = 'summary', initialFilters = {}, onpushurl, onerror } = $props();
 
@@ -79,10 +80,10 @@
 
   function typeIcon(type) {
     switch (type) {
-      case 'css': return 'CSS';
-      case 'js': return 'JS';
-      case 'font': return 'Font';
-      case 'icon': return 'Icon';
+      case 'css': return t('resources.css');
+      case 'js': return t('resources.js');
+      case 'font': return t('resources.font');
+      case 'icon': return t('resources.icon');
       default: return type;
     }
   }
@@ -98,51 +99,51 @@
 <div class="res-checks">
   <div class="res-checks-header">
     <div class="res-checks-views">
-      <button class="btn-view" class:active={view === 'summary'} onclick={switchToSummary}>Summary</button>
-      <button class="btn-view" class:active={view === 'urls'} onclick={() => switchToUrls('')}>URLs</button>
+      <button class="btn-view" class:active={view === 'summary'} onclick={switchToSummary}>{t('resources.summary')}</button>
+      <button class="btn-view" class:active={view === 'urls'} onclick={() => switchToUrls('')}>{t('resources.urls')}</button>
     </div>
     {#if view === 'urls'}
-      <input type="text" class="res-filter-input" placeholder="Filter URLs..." bind:value={urlFilters.url}
+      <input type="text" class="res-filter-input" placeholder={t('resources.filterUrls')} bind:value={urlFilters.url}
         onkeydown={(e) => { if (e.key === 'Enter') { checksOffset = 0; pushFilters(); loadChecks(); } }} />
       <select class="res-filter-select" bind:value={urlFilters.resource_type}
         onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}>
-        <option value="">All types</option>
-        <option value="css">CSS</option>
-        <option value="js">JS</option>
-        <option value="font">Font</option>
-        <option value="icon">Icon</option>
+        <option value="">{t('resources.allTypes')}</option>
+        <option value="css">{t('resources.css')}</option>
+        <option value="js">{t('resources.js')}</option>
+        <option value="font">{t('resources.font')}</option>
+        <option value="icon">{t('resources.icon')}</option>
       </select>
       <select class="res-filter-select" bind:value={urlFilters.is_internal}
         onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}>
-        <option value="">All sources</option>
-        <option value="true">Internal</option>
-        <option value="false">Hotlink</option>
+        <option value="">{t('resources.allSources')}</option>
+        <option value="true">{t('common.internal')}</option>
+        <option value="false">{t('resources.hotlink')}</option>
       </select>
       <select class="res-filter-select" bind:value={urlFilters.status_code}
         onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}>
-        <option value="">All status</option>
-        <option value="0">Dead (0)</option>
-        <option value="200-299">2xx OK</option>
-        <option value="300-399">3xx Redirect</option>
-        <option value="400-499">4xx Client Error</option>
-        <option value=">=500">5xx Server Error</option>
+        <option value="">{t('resources.allStatus')}</option>
+        <option value="0">{t('extChecks.dead')}</option>
+        <option value="200-299">{t('extChecks.ok2xx')}</option>
+        <option value="300-399">{t('extChecks.redirect3xx')}</option>
+        <option value="400-499">{t('extChecks.client4xx')}</option>
+        <option value=">=500">{t('extChecks.server5xx')}</option>
       </select>
     {/if}
   </div>
 
   {#if loading}
-    <div class="res-loading">Loading...</div>
+    <div class="res-loading">{t('common.loading')}</div>
   {:else if view === 'summary'}
     <table class="res-table">
       <thead>
         <tr>
-          <th>Type</th>
-          <th>Total</th>
-          <th>Internal</th>
-          <th>External (Hotlink)</th>
-          <th>OK</th>
-          <th>Errors</th>
-          <th>Distribution</th>
+          <th>{t('common.type')}</th>
+          <th>{t('resources.total')}</th>
+          <th>{t('common.internal')}</th>
+          <th>{t('resources.externalHotlink')}</th>
+          <th>{t('extChecks.ok')}</th>
+          <th>{t('resources.errors')}</th>
+          <th>{t('resources.distribution')}</th>
         </tr>
       </thead>
       <tbody>
@@ -163,7 +164,7 @@
           </tr>
         {/each}
         {#if summary.length === 0}
-          <tr><td colspan="7" class="res-empty">No resource checks found</td></tr>
+          <tr><td colspan="7" class="res-empty">{t('resources.noChecks')}</td></tr>
         {/if}
       </tbody>
     </table>
@@ -172,14 +173,14 @@
     <table class="res-table">
       <thead>
         <tr>
-          <th>URL</th>
-          <th>Type</th>
-          <th>Source</th>
-          <th>Status</th>
-          <th>Content-Type</th>
-          <th>Redirect</th>
-          <th>Pages</th>
-          <th>Time (ms)</th>
+          <th>{t('common.url')}</th>
+          <th>{t('common.type')}</th>
+          <th>{t('resources.source')}</th>
+          <th>{t('common.status')}</th>
+          <th>{t('extChecks.contentType')}</th>
+          <th>{t('extChecks.redirect')}</th>
+          <th>{t('common.pages')}</th>
+          <th>{t('extChecks.timeMs')}</th>
         </tr>
       </thead>
       <tbody>
@@ -187,8 +188,8 @@
           <tr>
             <td class="cell-url"><a href={c.url} target="_blank" rel="noopener">{c.url}</a></td>
             <td><span class="badge badge-type">{typeIcon(c.resource_type)}</span></td>
-            <td>{#if c.is_internal}<span class="badge badge-internal">Internal</span>{:else}<span class="badge badge-hotlink">Hotlink</span>{/if}</td>
-            <td><span class="badge {statusClass(c.status_code)}">{c.status_code || 'Dead'}</span></td>
+            <td>{#if c.is_internal}<span class="badge badge-internal">{t('common.internal')}</span>{:else}<span class="badge badge-hotlink">{t('resources.hotlink')}</span>{/if}</td>
+            <td><span class="badge {statusClass(c.status_code)}">{c.status_code || t('extChecks.deadLabel')}</span></td>
             <td>{c.content_type || '-'}</td>
             <td class="cell-url">{c.redirect_url || '-'}</td>
             <td class="num">{c.page_count || 0}</td>
@@ -196,15 +197,15 @@
           </tr>
         {/each}
         {#if checks.length === 0}
-          <tr><td colspan="8" class="res-empty">No checks found</td></tr>
+          <tr><td colspan="8" class="res-empty">{t('resources.noChecksFound')}</td></tr>
         {/if}
       </tbody>
     </table>
 
     <div class="res-pagination">
-      <button disabled={checksOffset === 0} onclick={() => { checksOffset = Math.max(0, checksOffset - PAGE_SIZE); loadChecks(); }}>Previous</button>
+      <button disabled={checksOffset === 0} onclick={() => { checksOffset = Math.max(0, checksOffset - PAGE_SIZE); loadChecks(); }}>{t('common.previous')}</button>
       <span>{checksOffset + 1} - {checksOffset + checks.length}</span>
-      <button disabled={!hasMoreChecks} onclick={() => { checksOffset += PAGE_SIZE; loadChecks(); }}>Next</button>
+      <button disabled={!hasMoreChecks} onclick={() => { checksOffset += PAGE_SIZE; loadChecks(); }}>{t('common.next')}</button>
     </div>
   {/if}
 </div>

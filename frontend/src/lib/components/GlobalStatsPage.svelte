@@ -1,6 +1,7 @@
 <script>
   import { getGlobalStats } from '../api.js';
   import { fmtN, fmtSize } from '../utils.js';
+  import { t } from '../i18n/index.svelte.js';
 
   let { onerror } = $props();
 
@@ -19,38 +20,38 @@
 </script>
 
 <div class="page-header">
-  <h1>Global Stats</h1>
+  <h1>{t('stats.title')}</h1>
   <button class="btn btn-sm" onclick={loadData} disabled={globalStatsLoading}>
-    {globalStatsLoading ? 'Loading...' : 'Refresh'}
+    {globalStatsLoading ? t('common.loading') : t('common.refresh')}
   </button>
 </div>
 
 {#if globalStatsLoading && !globalStats}
-  <div class="loading">Loading global stats...</div>
+  <div class="loading">{t('stats.loadingStats')}</div>
 {:else if globalStats}
   <div class="stats-grid mb-lg">
-    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_pages)}</div><div class="stat-label">Total Pages</div></div>
-    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_links)}</div><div class="stat-label">Total Links</div></div>
-    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_errors)}</div><div class="stat-label">Total Errors</div></div>
-    <div class="stat-card"><div class="stat-value">{globalStats.avg_fetch_ms?.toFixed(0) || 0}ms</div><div class="stat-label">Avg Response</div></div>
-    <div class="stat-card"><div class="stat-value">{fmtSize(globalStats.total_storage)}</div><div class="stat-label">Total Storage</div></div>
-    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_sessions)}</div><div class="stat-label">Sessions</div></div>
+    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_pages)}</div><div class="stat-label">{t('stats.totalPages')}</div></div>
+    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_links)}</div><div class="stat-label">{t('stats.totalLinks')}</div></div>
+    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_errors)}</div><div class="stat-label">{t('stats.totalErrors')}</div></div>
+    <div class="stat-card"><div class="stat-value">{globalStats.avg_fetch_ms?.toFixed(0) || 0}ms</div><div class="stat-label">{t('stats.avgResponse')}</div></div>
+    <div class="stat-card"><div class="stat-value">{fmtSize(globalStats.total_storage)}</div><div class="stat-label">{t('stats.totalStorage')}</div></div>
+    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_sessions)}</div><div class="stat-label">{t('stats.sessions')}</div></div>
   </div>
 
   {#if globalStats.projects?.length > 0}
     <div class="card overflow-auto">
-      <h3 class="card-heading">Stats by Project</h3>
+      <h3 class="card-heading">{t('stats.byProject')}</h3>
       <table class="data-table">
         <thead>
           <tr>
-            <th>Project</th>
-            <th class="text-right">Sessions</th>
-            <th class="text-right">Pages</th>
-            <th class="text-right">Links</th>
-            <th class="text-right">Errors</th>
-            <th class="text-right">Avg Response</th>
-            <th class="text-right">Storage</th>
-            <th class="col-proportion">Proportion</th>
+            <th>{t('stats.project')}</th>
+            <th class="text-right">{t('stats.sessions')}</th>
+            <th class="text-right">{t('common.pages')}</th>
+            <th class="text-right">{t('stats.links')}</th>
+            <th class="text-right">{t('stats.errors')}</th>
+            <th class="text-right">{t('stats.avgResponse')}</th>
+            <th class="text-right">{t('stats.storage')}</th>
+            <th class="col-proportion">{t('stats.proportion')}</th>
           </tr>
         </thead>
         <tbody>
@@ -77,21 +78,21 @@
 
   {#if globalStats.storage_tables?.length > 0}
     <div class="card mt-md">
-      <h3 class="card-heading">Storage by Table</h3>
+      <h3 class="card-heading">{t('stats.storageByTable')}</h3>
       <table class="data-table">
         <thead>
           <tr>
-            <th>Table</th>
-            <th class="text-right">Rows</th>
-            <th class="text-right">Disk Usage</th>
+            <th>{t('stats.table')}</th>
+            <th class="text-right">{t('stats.rows')}</th>
+            <th class="text-right">{t('stats.diskUsage')}</th>
           </tr>
         </thead>
         <tbody>
-          {#each globalStats.storage_tables as t}
+          {#each globalStats.storage_tables as tbl}
             <tr>
-              <td><code>{t.name}</code></td>
-              <td class="text-right">{fmtN(t.rows)}</td>
-              <td class="text-right">{fmtSize(t.bytes_on_disk)}</td>
+              <td><code>{tbl.name}</code></td>
+              <td class="text-right">{fmtN(tbl.rows)}</td>
+              <td class="text-right">{fmtSize(tbl.bytes_on_disk)}</td>
             </tr>
           {/each}
         </tbody>

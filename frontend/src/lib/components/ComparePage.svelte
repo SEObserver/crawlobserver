@@ -1,6 +1,7 @@
 <script>
   import { getCompareStats, getComparePages, getCompareLinks } from '../api.js';
   import { fmtN, fmt, trunc, timeAgo } from '../utils.js';
+  import { t } from '../i18n/index.svelte.js';
 
   let { sessions = [], initialA = '', initialB = '', onerror, onnavigate } = $props();
 
@@ -27,7 +28,7 @@
     try {
       const host = new URL(s.SeedURLs?.[0] || 'https://unknown').hostname;
       const date = new Date(s.StartedAt).toLocaleDateString();
-      return `${host} - ${date} (${fmtN(s.PagesCrawled)} pages)`;
+      return `${host} - ${date} (${t('sessions.pagesCount', { count: fmtN(s.PagesCrawled) })})`;
     } catch {
       return s.ID.slice(0, 8);
     }
@@ -79,10 +80,10 @@
     }
   }
 
-  function switchMainTab(t) {
-    activeTab = t;
-    if (t === 'pages' && !pagesResult) loadPages();
-    if (t === 'links' && !linksResult) loadLinks();
+  function switchMainTab(tab) {
+    activeTab = tab;
+    if (tab === 'pages' && !pagesResult) loadPages();
+    if (tab === 'links' && !linksResult) loadLinks();
   }
 
   function switchPagesDiffType(type) {
@@ -125,42 +126,42 @@
 </script>
 
 <div class="compare-page">
-  <h2>Compare Crawls</h2>
+  <h2>{t('compare.title')}</h2>
 
   <div class="compare-selectors">
     <div class="selector-group">
-      <label>Session A (before)</label>
+      <label>{t('compare.sessionA')}</label>
       <select bind:value={sessionA}>
-        <option value="">Select session...</option>
+        <option value="">{t('compare.selectSession')}</option>
         {#each sessions as s}
           <option value={s.ID}>{sessionLabel(s)}</option>
         {/each}
       </select>
     </div>
     <div class="selector-swap">
-      <button class="btn btn-sm" title="Swap sessions" onclick={() => { const tmp = sessionA; sessionA = sessionB; sessionB = tmp; compareStats = null; pagesResult = null; linksResult = null; }}>
+      <button class="btn btn-sm" title={t('compare.swap')} onclick={() => { const tmp = sessionA; sessionA = sessionB; sessionB = tmp; compareStats = null; pagesResult = null; linksResult = null; }}>
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
       </button>
     </div>
     <div class="selector-group">
-      <label>Session B (after)</label>
+      <label>{t('compare.sessionB')}</label>
       <select bind:value={sessionB}>
-        <option value="">Select session...</option>
+        <option value="">{t('compare.selectSession')}</option>
         {#each sessions as s}
           <option value={s.ID}>{sessionLabel(s)}</option>
         {/each}
       </select>
     </div>
     <button class="btn btn-primary" onclick={doCompare} disabled={!sessionA || !sessionB || loading}>
-      {loading ? 'Comparing...' : 'Compare'}
+      {loading ? t('compare.comparing') : t('sidebar.compare')}
     </button>
   </div>
 
   {#if compareStats}
     <div class="tab-bar compare-tab-bar">
-      <button class="tab" class:tab-active={activeTab === 'stats'} onclick={() => switchMainTab('stats')}>Stats</button>
-      <button class="tab" class:tab-active={activeTab === 'pages'} onclick={() => switchMainTab('pages')}>Pages</button>
-      <button class="tab" class:tab-active={activeTab === 'links'} onclick={() => switchMainTab('links')}>Internal Links</button>
+      <button class="tab" class:tab-active={activeTab === 'stats'} onclick={() => switchMainTab('stats')}>{t('compare.stats')}</button>
+      <button class="tab" class:tab-active={activeTab === 'pages'} onclick={() => switchMainTab('pages')}>{t('common.pages')}</button>
+      <button class="tab" class:tab-active={activeTab === 'links'} onclick={() => switchMainTab('links')}>{t('compare.internalLinks')}</button>
     </div>
 
     <div class="card card-flush compare-card-flush">
@@ -169,7 +170,7 @@
         {@const sb = compareStats.stats_b}
         <div class="compare-stats-grid">
           <div class="compare-stat-card">
-            <div class="compare-stat-label">Total Pages</div>
+            <div class="compare-stat-label">{t('compare.totalPages')}</div>
             <div class="compare-stat-values">
               <span class="val-a">{fmtN(sa.total_pages)}</span>
               <span class="val-arrow">→</span>
@@ -178,7 +179,7 @@
             <div class="compare-delta {deltaClass(sa.total_pages, sb.total_pages)}">{delta(sa.total_pages, sb.total_pages)}</div>
           </div>
           <div class="compare-stat-card">
-            <div class="compare-stat-label">Internal Links</div>
+            <div class="compare-stat-label">{t('compare.internalLinks')}</div>
             <div class="compare-stat-values">
               <span class="val-a">{fmtN(sa.internal_links)}</span>
               <span class="val-arrow">→</span>
@@ -187,7 +188,7 @@
             <div class="compare-delta {deltaClass(sa.internal_links, sb.internal_links)}">{delta(sa.internal_links, sb.internal_links)}</div>
           </div>
           <div class="compare-stat-card">
-            <div class="compare-stat-label">External Links</div>
+            <div class="compare-stat-label">{t('session.externalLinks')}</div>
             <div class="compare-stat-values">
               <span class="val-a">{fmtN(sa.external_links)}</span>
               <span class="val-arrow">→</span>
@@ -196,7 +197,7 @@
             <div class="compare-delta {deltaClass(sa.external_links, sb.external_links)}">{delta(sa.external_links, sb.external_links)}</div>
           </div>
           <div class="compare-stat-card">
-            <div class="compare-stat-label">Errors</div>
+            <div class="compare-stat-label">{t('compare.errors')}</div>
             <div class="compare-stat-values">
               <span class="val-a">{fmtN(sa.error_count)}</span>
               <span class="val-arrow">→</span>
@@ -205,7 +206,7 @@
             <div class="compare-delta {deltaClass(sa.error_count, sb.error_count)}">{delta(sa.error_count, sb.error_count)}</div>
           </div>
           <div class="compare-stat-card">
-            <div class="compare-stat-label">Avg Response</div>
+            <div class="compare-stat-label">{t('compare.avgResponse')}</div>
             <div class="compare-stat-values">
               <span class="val-a">{fmt(Math.round(sa.avg_fetch_ms))}</span>
               <span class="val-arrow">→</span>
@@ -214,7 +215,7 @@
             <div class="compare-delta {deltaClass(sa.avg_fetch_ms, sb.avg_fetch_ms)}">{delta(Math.round(sa.avg_fetch_ms), Math.round(sb.avg_fetch_ms))}</div>
           </div>
           <div class="compare-stat-card">
-            <div class="compare-stat-label">Pages/sec</div>
+            <div class="compare-stat-label">{t('compare.pagesPerSec')}</div>
             <div class="compare-stat-values">
               <span class="val-a">{sa.pages_per_second?.toFixed(1) || '0'}</span>
               <span class="val-arrow">→</span>
@@ -224,10 +225,10 @@
         </div>
 
         {#if sa.status_codes || sb.status_codes}
-          <h3 class="status-codes-heading">Status Codes</h3>
+          <h3 class="status-codes-heading">{t('compare.statusCodes')}</h3>
           {@const allCodes = [...new Set([...Object.keys(sa.status_codes || {}), ...Object.keys(sb.status_codes || {})])].sort()}
           <table class="table">
-            <thead><tr><th>Code</th><th>Session A</th><th>Session B</th><th>Delta</th></tr></thead>
+            <thead><tr><th>{t('compare.code')}</th><th>{t('compare.sessionA')}</th><th>{t('compare.sessionB')}</th><th>{t('compare.delta')}</th></tr></thead>
             <tbody>
               {#each allCodes as code}
                 {@const countA = (sa.status_codes || {})[code] || 0}
@@ -246,18 +247,18 @@
       {:else if activeTab === 'pages'}
         <div class="sub-tabs">
           <button class="sub-tab" class:sub-tab-active={pagesDiffType === 'changed'} onclick={() => switchPagesDiffType('changed')}>
-            Changed {#if pagesResult}<span class="badge-count">{fmtN(pagesResult.total_changed)}</span>{/if}
+            {t('compare.changed')} {#if pagesResult}<span class="badge-count">{fmtN(pagesResult.total_changed)}</span>{/if}
           </button>
           <button class="sub-tab" class:sub-tab-active={pagesDiffType === 'added'} onclick={() => switchPagesDiffType('added')}>
-            Added {#if pagesResult}<span class="badge-count">{fmtN(pagesResult.total_added)}</span>{/if}
+            {t('compare.added')} {#if pagesResult}<span class="badge-count">{fmtN(pagesResult.total_added)}</span>{/if}
           </button>
           <button class="sub-tab" class:sub-tab-active={pagesDiffType === 'removed'} onclick={() => switchPagesDiffType('removed')}>
-            Removed {#if pagesResult}<span class="badge-count">{fmtN(pagesResult.total_removed)}</span>{/if}
+            {t('compare.removed')} {#if pagesResult}<span class="badge-count">{fmtN(pagesResult.total_removed)}</span>{/if}
           </button>
         </div>
 
         {#if loading}
-          <div class="loading-state">Loading...</div>
+          <div class="loading-state">{t('common.loading')}</div>
         {:else if pagesResult && pagesResult.pages?.length > 0}
           <div class="table-scroll">
             <table class="table">
@@ -306,30 +307,30 @@
             </table>
           </div>
           <div class="pagination">
-            <button class="btn btn-sm" disabled={pagesOffset === 0} onclick={() => { pagesOffset -= PAGE_SIZE; loadPages(); }}>Previous</button>
-            <span>Showing {pagesOffset + 1}–{pagesOffset + pagesResult.pages.length}</span>
-            <button class="btn btn-sm" disabled={pagesResult.pages.length < PAGE_SIZE} onclick={() => { pagesOffset += PAGE_SIZE; loadPages(); }}>Next</button>
+            <button class="btn btn-sm" disabled={pagesOffset === 0} onclick={() => { pagesOffset -= PAGE_SIZE; loadPages(); }}>{t('common.previous')}</button>
+            <span>{t('common.showing', { start: pagesOffset + 1, end: pagesOffset + pagesResult.pages.length })}</span>
+            <button class="btn btn-sm" disabled={pagesResult.pages.length < PAGE_SIZE} onclick={() => { pagesOffset += PAGE_SIZE; loadPages(); }}>{t('common.next')}</button>
           </div>
         {:else if pagesResult}
-          <div class="empty-state">No {pagesDiffType} pages found.</div>
+          <div class="empty-state">{t('compare.noPages', { type: pagesDiffType })}</div>
         {/if}
 
       {:else if activeTab === 'links'}
         <div class="sub-tabs">
           <button class="sub-tab" class:sub-tab-active={linksDiffType === 'added'} onclick={() => switchLinksDiffType('added')}>
-            Added {#if linksResult}<span class="badge-count">{fmtN(linksResult.total_added)}</span>{/if}
+            {t('compare.added')} {#if linksResult}<span class="badge-count">{fmtN(linksResult.total_added)}</span>{/if}
           </button>
           <button class="sub-tab" class:sub-tab-active={linksDiffType === 'removed'} onclick={() => switchLinksDiffType('removed')}>
-            Removed {#if linksResult}<span class="badge-count">{fmtN(linksResult.total_removed)}</span>{/if}
+            {t('compare.removed')} {#if linksResult}<span class="badge-count">{fmtN(linksResult.total_removed)}</span>{/if}
           </button>
         </div>
 
         {#if loading}
-          <div class="loading-state">Loading...</div>
+          <div class="loading-state">{t('common.loading')}</div>
         {:else if linksResult && linksResult.links?.length > 0}
           <div class="table-scroll">
             <table class="table">
-              <thead><tr><th>Source</th><th>Target</th><th>Anchor Text</th></tr></thead>
+              <thead><tr><th>{t('common.source')}</th><th>{t('common.target')}</th><th>{t('session.anchorText')}</th></tr></thead>
               <tbody>
                 {#each linksResult.links as l}
                   <tr>
@@ -342,12 +343,12 @@
             </table>
           </div>
           <div class="pagination">
-            <button class="btn btn-sm" disabled={linksOffset === 0} onclick={() => { linksOffset -= PAGE_SIZE; loadLinks(); }}>Previous</button>
-            <span>Showing {linksOffset + 1}–{linksOffset + linksResult.links.length}</span>
-            <button class="btn btn-sm" disabled={linksResult.links.length < PAGE_SIZE} onclick={() => { linksOffset += PAGE_SIZE; loadLinks(); }}>Next</button>
+            <button class="btn btn-sm" disabled={linksOffset === 0} onclick={() => { linksOffset -= PAGE_SIZE; loadLinks(); }}>{t('common.previous')}</button>
+            <span>{t('common.showing', { start: linksOffset + 1, end: linksOffset + linksResult.links.length })}</span>
+            <button class="btn btn-sm" disabled={linksResult.links.length < PAGE_SIZE} onclick={() => { linksOffset += PAGE_SIZE; loadLinks(); }}>{t('common.next')}</button>
           </div>
         {:else if linksResult}
-          <div class="empty-state">No {linksDiffType} links found.</div>
+          <div class="empty-state">{t('compare.noLinks', { type: linksDiffType })}</div>
         {/if}
       {/if}
     </div>

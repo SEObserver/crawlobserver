@@ -1,6 +1,7 @@
 <script>
   import { getRobotsHosts, getRobotsContent, testRobotsUrls, simulateRobots } from '../api.js';
   import { a11yKeydown } from '../utils.js';
+  import { t } from '../i18n/index.svelte.js';
 
   let { sessionId, onerror } = $props();
 
@@ -93,13 +94,13 @@
 <div class="robots-layout">
   <div class="robots-hosts">
     {#if robotsLoading && robotsHosts.length === 0}
-      <p class="robots-empty-msg text-muted">Loading...</p>
+      <p class="robots-empty-msg text-muted">{t('common.loading')}</p>
     {:else if robotsHosts.length === 0}
-      <p class="robots-empty-msg text-muted">No robots.txt data. Run a crawl first.</p>
+      <p class="robots-empty-msg text-muted">{t('robots.noData')}</p>
     {:else}
       <table>
         <thead>
-          <tr><th>Host</th><th>Status</th><th>Fetched</th></tr>
+          <tr><th>{t('robots.host')}</th><th>{t('common.status')}</th><th>{t('robots.fetched')}</th></tr>
         </thead>
         <tbody>
           {#each robotsHosts as h}
@@ -118,36 +119,36 @@
       <h3 class="robots-detail-title text-secondary font-semibold">robots.txt &mdash; {robotsSelectedHost}</h3>
 
       <div class="pr-subview-bar">
-        <button class="pr-subview-btn {robotsSubView === 'content' ? 'pr-subview-active' : ''}" onclick={() => robotsSubView = 'content'}>Content</button>
-        <button class="pr-subview-btn {robotsSubView === 'tester' ? 'pr-subview-active' : ''}" onclick={() => robotsSubView = 'tester'}>URL Tester</button>
-        <button class="pr-subview-btn {robotsSubView === 'simulator' ? 'pr-subview-active' : ''}" onclick={() => robotsSubView = 'simulator'}>Simulator</button>
+        <button class="pr-subview-btn {robotsSubView === 'content' ? 'pr-subview-active' : ''}" onclick={() => robotsSubView = 'content'}>{t('robots.content')}</button>
+        <button class="pr-subview-btn {robotsSubView === 'tester' ? 'pr-subview-active' : ''}" onclick={() => robotsSubView = 'tester'}>{t('robots.urlTester')}</button>
+        <button class="pr-subview-btn {robotsSubView === 'simulator' ? 'pr-subview-active' : ''}" onclick={() => robotsSubView = 'simulator'}>{t('robots.simulator')}</button>
       </div>
 
       {#if robotsSubView === 'content'}
         {#if robotsContent !== null}
-          <pre class="robots-content-pre">{robotsContent || '(empty)'}</pre>
+          <pre class="robots-content-pre">{robotsContent || t('robots.empty')}</pre>
         {:else}
-          <p class="text-muted">Loading...</p>
+          <p class="text-muted">{t('common.loading')}</p>
         {/if}
 
       {:else if robotsSubView === 'tester'}
         <div class="form-group mb-sm">
-          <label>User-Agent (optional)</label>
-          <input type="text" placeholder="* (default)" bind:value={robotsTestUA} class="robots-ua-input" />
+          <label>{t('robots.userAgentOptional')}</label>
+          <input type="text" placeholder={t('robots.userAgentDefault')} bind:value={robotsTestUA} class="robots-ua-input" />
         </div>
         <div class="form-group mb-sm">
-          <label>URLs to test (one per line)</label>
+          <label>{t('robots.urlsToTest')}</label>
           <textarea rows="4" bind:value={robotsTestUrls} placeholder="/path/to/page&#10;/another/path" class="robots-mono-textarea"></textarea>
         </div>
         <button class="btn btn-primary btn-sm" onclick={runRobotsTest} disabled={robotsTestLoading || !robotsTestUrls.trim()}>
-          {robotsTestLoading ? 'Testing...' : 'Test'}
+          {robotsTestLoading ? t('robots.testing') : t('robots.test')}
         </button>
 
         {#if robotsTestResults}
           <div class="robots-test-results">
             {#each robotsTestResults as r}
               <div class="robots-test-result">
-                <span class="badge {r.allowed ? 'badge-success' : 'badge-error'}">{r.allowed ? 'Allowed' : 'Blocked'}</span>
+                <span class="badge {r.allowed ? 'badge-success' : 'badge-error'}">{r.allowed ? t('robots.allowed') : t('robots.blocked')}</span>
                 <span class="text-sm robots-test-url">{r.url}</span>
               </div>
             {/each}
@@ -156,18 +157,18 @@
 
       {:else}
         <p class="text-xs text-muted robots-sim-hint">
-          Edit the robots.txt below, then run the simulation to see which crawled URLs would be newly blocked or allowed.
+          {t('robots.simulatorDesc')}
         </p>
         <div class="form-group mb-sm">
-          <label>User-Agent (optional)</label>
-          <input type="text" placeholder="* (default)" bind:value={simulateUA} class="robots-ua-input" />
+          <label>{t('robots.userAgentOptional')}</label>
+          <input type="text" placeholder={t('robots.userAgentDefault')} bind:value={simulateUA} class="robots-ua-input" />
         </div>
         <div class="form-group robots-sim-form-group">
-          <label>Proposed robots.txt</label>
+          <label>{t('robots.proposedRobots')}</label>
           <textarea rows="12" bind:value={simulateContent} class="robots-sim-textarea"></textarea>
         </div>
         <button class="btn btn-primary btn-sm" onclick={runSimulation} disabled={simulateLoading || !simulateContent.trim()}>
-          {simulateLoading ? 'Running...' : 'Run Simulation'}
+          {simulateLoading ? t('robots.runningSimulation') : t('robots.runSimulation')}
         </button>
 
         {#if simulateResults}
@@ -179,13 +180,13 @@
           <div class="sim-compare">
             <div class="sim-compare-header">
               <span></span>
-              <span>Before</span>
+              <span>{t('robots.before')}</span>
               <span></span>
-              <span>After</span>
-              <span>Delta</span>
+              <span>{t('robots.after')}</span>
+              <span>{t('robots.delta')}</span>
             </div>
             <div class="sim-compare-row">
-              <span class="sim-compare-label">Allowed</span>
+              <span class="sim-compare-label">{t('robots.allowed')}</span>
               <span class="sim-compare-val sim-val-success">{res.currently_allowed?.toLocaleString()}</span>
               <span class="sim-compare-arrow">→</span>
               <span class="sim-compare-val sim-val-success">{afterAllowed.toLocaleString()}</span>
@@ -197,7 +198,7 @@
               {/if}
             </div>
             <div class="sim-compare-row">
-              <span class="sim-compare-label">Blocked</span>
+              <span class="sim-compare-label">{t('robots.blocked')}</span>
               <span class="sim-compare-val sim-val-error">{res.currently_blocked?.toLocaleString()}</span>
               <span class="sim-compare-arrow">→</span>
               <span class="sim-compare-val sim-val-error">{afterBlocked.toLocaleString()}</span>
@@ -209,7 +210,7 @@
               {/if}
             </div>
             <div class="sim-compare-row sim-compare-total">
-              <span class="sim-compare-label">Total</span>
+              <span class="sim-compare-label">{t('robots.total')}</span>
               <span class="sim-compare-val">{res.total_urls?.toLocaleString()}</span>
               <span class="sim-compare-arrow"></span>
               <span class="sim-compare-val">{res.total_urls?.toLocaleString()}</span>
@@ -220,7 +221,7 @@
           {#if res.newly_blocked?.length > 0}
             <button class="sim-change-header sim-url-blocked" onclick={() => showNewlyBlocked = !showNewlyBlocked}>
               <span class="badge badge-error">{res.newly_blocked.length}</span>
-              <span>URLs newly blocked</span>
+              <span>{t('robots.urlsNewlyBlocked')}</span>
               <span class="sim-toggle-icon">{showNewlyBlocked ? '▲' : '▼'}</span>
             </button>
             {#if showNewlyBlocked}
@@ -235,7 +236,7 @@
           {#if res.newly_allowed?.length > 0}
             <button class="sim-change-header sim-url-allowed" onclick={() => showNewlyAllowed = !showNewlyAllowed}>
               <span class="badge badge-success">{res.newly_allowed.length}</span>
-              <span>URLs newly allowed</span>
+              <span>{t('robots.urlsNewlyAllowed')}</span>
               <span class="sim-toggle-icon">{showNewlyAllowed ? '▲' : '▼'}</span>
             </button>
             {#if showNewlyAllowed}
@@ -248,13 +249,13 @@
           {/if}
 
           {#if (!res.newly_blocked || res.newly_blocked.length === 0) && (!res.newly_allowed || res.newly_allowed.length === 0)}
-            <p class="mt-md text-muted text-sm">No changes — all URLs keep their current status.</p>
+            <p class="mt-md text-muted text-sm">{t('robots.noChanges')}</p>
           {/if}
         {/if}
       {/if}
     {:else}
       <div class="robots-placeholder text-center text-muted">
-        <p>Select a host to view its robots.txt</p>
+        <p>{t('robots.selectHost')}</p>
       </div>
     {/if}
   </div>

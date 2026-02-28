@@ -1,4 +1,5 @@
 <script>
+  import { t } from '../i18n/index.svelte.js';
   import { fmtN, fmtSize, timeAgo } from '../utils.js';
   import { importSession } from '../api.js';
 
@@ -25,16 +26,16 @@
 </script>
 
 <div class="page-header">
-  <h1>Crawl Sessions</h1>
+  <h1>{t('sessions.title')}</h1>
   <div class="flex-center-gap">
     <label class="btn btn-sm import-label">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      {importing ? 'Importing...' : 'Import'}
+      {importing ? t('common.importing') : t('common.import')}
       <input type="file" accept=".gz,.jsonl.gz" onchange={handleImport} disabled={importing} class="sr-only-input" />
     </label>
     <button class="btn btn-primary" onclick={() => onnewcrawl?.()}>
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      New Crawl
+      {t('sessions.newCrawl')}
     </button>
   </div>
 </div>
@@ -44,12 +45,12 @@
 {/if}
 
 {#if loading}
-  <p class="loading-msg">Loading...</p>
+  <p class="loading-msg">{t('common.loading')}</p>
 {:else if sessions.length === 0}
   <div class="empty-state">
-    <h2>No crawl sessions yet</h2>
-    <p>Start your first crawl to begin analyzing your site.</p>
-    <button class="btn btn-primary mt-md" onclick={() => onnewcrawl?.()}>Start a Crawl</button>
+    <h2>{t('sessions.noSessions')}</h2>
+    <p>{t('sessions.noSessionsDesc')}</p>
+    <button class="btn btn-primary mt-md" onclick={() => onnewcrawl?.()}>{t('sessions.startCrawl')}</button>
   </div>
 {:else}
   <div class="card card-flush">
@@ -60,11 +61,11 @@
           <div class="session-meta">
             {#if s.is_running}
               <span class="badge badge-info">
-                Running
+                {t('common.running')}
                 {#if liveProgress[s.ID]}
-                  &middot; {fmtN(liveProgress[s.ID].pages_crawled)} pages &middot; {fmtN(liveProgress[s.ID].queue_size)} queued
+                  &middot; {fmtN(liveProgress[s.ID].pages_crawled)} {t('common.pages')} &middot; {fmtN(liveProgress[s.ID].queue_size)} {t('sessions.queued')}
                   {#if liveProgress[s.ID].lost_pages > 0}
-                    <span class="text-error font-semibold">&middot; {fmtN(liveProgress[s.ID].lost_pages)} lost</span>
+                    <span class="text-error font-semibold">&middot; {fmtN(liveProgress[s.ID].lost_pages)} {t('sessions.lost')}</span>
                   {/if}
                 {/if}
               </span>
@@ -74,18 +75,18 @@
             {#if s.ProjectID}
               <span class="badge badge-project">{projects.find(p => p.id === s.ProjectID)?.name || 'Project'}</span>
             {/if}
-            <span>{fmtN(s.PagesCrawled)} pages</span>
+            <span>{t('sessions.pagesCount', { count: fmtN(s.PagesCrawled) })}</span>
             {#if sessionStorageMap[s.ID]}<span>{fmtSize(sessionStorageMap[s.ID])}</span>{/if}
             <span>{timeAgo(s.StartedAt)}</span>
           </div>
         </div>
         <div class="session-actions">
-          <button class="btn btn-sm" onclick={() => onselectsession?.(s)}>View</button>
+          <button class="btn btn-sm" onclick={() => onselectsession?.(s)}>{t('common.view')}</button>
           {#if s.is_running}
-            <button class="btn btn-sm btn-danger" onclick={() => onstop?.(s.ID)}>Stop</button>
+            <button class="btn btn-sm btn-danger" onclick={() => onstop?.(s.ID)}>{t('common.stop')}</button>
           {:else}
-            <button class="btn btn-sm" onclick={() => onresume?.(s.ID)}>Resume</button>
-            <button class="btn btn-sm btn-danger" onclick={() => ondelete?.(s.ID)}>Delete</button>
+            <button class="btn btn-sm" onclick={() => onresume?.(s.ID)}>{t('sessions.resume')}</button>
+            <button class="btn btn-sm btn-danger" onclick={() => ondelete?.(s.ID)}>{t('common.delete')}</button>
           {/if}
         </div>
       </div>

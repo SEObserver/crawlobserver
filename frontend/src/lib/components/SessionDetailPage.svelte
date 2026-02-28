@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import { getPages, getExternalLinks, getInternalLinks } from '../api.js';
   import { statusBadge, fmt, fmtSize, fmtN, trunc } from '../utils.js';
-  import { PAGE_SIZE, TAB_FILTERS, TABS } from '../tabColumns.js';
+  import { PAGE_SIZE, TAB_FILTERS, getTabs } from '../tabColumns.js';
+  import { t } from '../i18n/index.svelte.js';
   import { pushURL } from '../router.js';
   import HtmlModal from './HtmlModal.svelte';
   import SessionActionBar from './SessionActionBar.svelte';
@@ -177,11 +178,11 @@
 
 {#if tab === 'url-detail' && session}
   <div class="breadcrumb">
-    <a href="/" onclick={(e) => { e.preventDefault(); ongohome?.(); }}>Sessions</a>
+    <a href="/" onclick={(e) => { e.preventDefault(); ongohome?.(); }}>{t('session.sessions')}</a>
     <span>/</span>
     <a href={`/sessions/${session.ID}/overview`} onclick={(e) => { e.preventDefault(); onnavigate?.(`/sessions/${session.ID}/overview`); }}>{session.SeedURLs?.[0] || session.ID}</a>
     <span>/</span>
-    <span class="breadcrumb-active">URL Detail</span>
+    <span class="breadcrumb-active">{t('session.urlDetail')}</span>
   </div>
   {#key detailUrl}
     <UrlDetailView sessionId={session.ID} url={detailUrl}
@@ -192,7 +193,7 @@
 {:else if session}
   <!-- Session Detail -->
   <div class="breadcrumb">
-    <a href="/" onclick={(e) => { e.preventDefault(); ongohome?.(); }}>Sessions</a>
+    <a href="/" onclick={(e) => { e.preventDefault(); ongohome?.(); }}>{t('session.sessions')}</a>
     <span>/</span>
     <span class="breadcrumb-active">{session.SeedURLs?.[0] || session.ID}</span>
   </div>
@@ -206,12 +207,12 @@
     {@const non200 = stats.status_codes ? Object.entries(stats.status_codes).filter(([k]) => k !== '200').reduce((a, [, v]) => a + v, 0) : stats.error_count}
     {@const maxDepth = stats.depth_distribution ? Math.max(...Object.keys(stats.depth_distribution).map(Number)) : 0}
     <div class="stats-grid">
-      <div class="stat-card"><div class="stat-value">{fmtN(stats.total_pages)}</div><div class="stat-label">Pages</div></div>
-      <div class="stat-card"><div class="stat-value" style={non200 > 0 ? 'color: var(--error)' : ''}>{fmtN(non200)}</div><div class="stat-label">Non-200</div></div>
-      <div class="stat-card"><div class="stat-value">{fmtN(stats.internal_links)}</div><div class="stat-label">Internal links</div></div>
-      <div class="stat-card"><div class="stat-value">{fmtN(stats.external_links)}</div><div class="stat-label">External links</div></div>
-      <div class="stat-card"><div class="stat-value">{maxDepth}</div><div class="stat-label">Max depth</div></div>
-      <div class="stat-card"><div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">Avg response</div></div>
+      <div class="stat-card"><div class="stat-value">{fmtN(stats.total_pages)}</div><div class="stat-label">{t('common.pages')}</div></div>
+      <div class="stat-card"><div class="stat-value" style={non200 > 0 ? 'color: var(--error)' : ''}>{fmtN(non200)}</div><div class="stat-label">{t('session.non200')}</div></div>
+      <div class="stat-card"><div class="stat-value">{fmtN(stats.internal_links)}</div><div class="stat-label">{t('session.internalLinks')}</div></div>
+      <div class="stat-card"><div class="stat-value">{fmtN(stats.external_links)}</div><div class="stat-label">{t('session.externalLinks')}</div></div>
+      <div class="stat-card"><div class="stat-value">{maxDepth}</div><div class="stat-label">{t('session.maxDepth')}</div></div>
+      <div class="stat-card"><div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">{t('session.avgResponse')}</div></div>
     </div>
     {#if stats.status_codes && Object.keys(stats.status_codes).length > 1}
       <div class="stats-mini mt-sm">
@@ -223,20 +224,20 @@
     <div class="stats-secondary stats-secondary-gap">
       {#if stats.pages_per_second > 0}<span>{stats.pages_per_second.toFixed(1)} pages/sec</span>{/if}
       {#if stats.crawl_duration_sec > 0}<span>{stats.crawl_duration_sec < 60 ? stats.crawl_duration_sec.toFixed(0) + 's' : (stats.crawl_duration_sec / 60).toFixed(1) + 'min'}</span>{/if}
-      {#if sessionStorageMap[session.ID]}<span>{fmtSize(sessionStorageMap[session.ID])} storage</span>{/if}
+      {#if sessionStorageMap[session.ID]}<span>{fmtSize(sessionStorageMap[session.ID])} {t('stats.storage')}</span>{/if}
     </div>
   {/if}
 
   <div class="tab-bar">
-    {#each TABS as t}
-      <button class="tab" class:tab-active={tab === t.id} onclick={() => switchTab(t.id)}>{t.label}</button>
+    {#each getTabs() as tb}
+      <button class="tab" class:tab-active={tab === tb.id} onclick={() => switchTab(tb.id)}>{tb.label}</button>
     {/each}
   </div>
 
   <div class="card card-flush card-tab-body">
 
     {#if tab === 'overview'}
-      <DataTable columns={[{label:'URL'},{label:'Status'},{label:'Title'},{label:'Words'},{label:'Int Out'},{label:'Ext Out'},{label:'Size'},{label:'Time'},{label:'Depth'},{label:'PR'},{label:''}]}
+      <DataTable columns={[{label:t('session.url')},{label:t('session.status')},{label:t('session.title')},{label:t('session.words')},{label:t('session.intOut')},{label:t('session.extOut')},{label:t('common.size')},{label:t('session.time')},{label:t('session.depth')},{label:t('session.pr')},{label:''}]}
         filterKeys={TAB_FILTERS.overview} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
         hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
         onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
@@ -252,13 +253,13 @@
             <td>{fmt(p.FetchDurationMs)}</td>
             <td>{p.Depth}</td>
             <td class="text-accent font-medium">{p.PageRank > 0 ? p.PageRank.toFixed(1) : '-'}</td>
-            <td>{#if p.BodySize > 0}<button class="btn-html" title="View HTML" onclick={() => openHtmlModal(p.URL)}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>{/if}</td>
+            <td>{#if p.BodySize > 0}<button class="btn-html" title={t('session.viewHtml')} onclick={() => openHtmlModal(p.URL)}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>{/if}</td>
           </tr>
         {/snippet}
       </DataTable>
 
     {:else if tab === 'titles'}
-      <DataTable columns={[{label:'URL'},{label:'Title'},{label:'Length'},{label:'H1'}]}
+      <DataTable columns={[{label:t('session.url')},{label:t('session.title')},{label:t('session.length')},{label:t('session.h1')}]}
         filterKeys={TAB_FILTERS.titles} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
         hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
         onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
@@ -273,7 +274,7 @@
       </DataTable>
 
     {:else if tab === 'meta'}
-      <DataTable columns={[{label:'URL'},{label:'Meta Description'},{label:'Length'},{label:'Meta Keywords'},{label:'OG Title'}]}
+      <DataTable columns={[{label:t('session.url')},{label:t('session.metaDescription')},{label:t('session.length')},{label:t('session.metaKeywords')},{label:t('session.ogTitle')}]}
         filterKeys={TAB_FILTERS.meta} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
         hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
         onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
@@ -289,7 +290,7 @@
       </DataTable>
 
     {:else if tab === 'headings'}
-      <DataTable columns={[{label:'URL'},{label:'H1'},{label:'H1 Count'},{label:'H2'},{label:'H2 Count'}]}
+      <DataTable columns={[{label:t('session.url')},{label:t('session.h1')},{label:t('session.h1Count')},{label:t('session.h2')},{label:t('session.h2Count')}]}
         filterKeys={TAB_FILTERS.headings} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
         hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
         onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
@@ -305,7 +306,7 @@
       </DataTable>
 
     {:else if tab === 'images'}
-      <DataTable columns={[{label:'URL'},{label:'Images'},{label:'Without Alt'},{label:'Title'},{label:'Words'}]}
+      <DataTable columns={[{label:t('session.url')},{label:t('session.images')},{label:t('session.withoutAlt')},{label:t('session.title')},{label:t('session.words')}]}
         filterKeys={TAB_FILTERS.images} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
         hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
         onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
@@ -321,24 +322,24 @@
       </DataTable>
 
     {:else if tab === 'indexability'}
-      <DataTable columns={[{label:'URL'},{label:'Indexable'},{label:'Reason'},{label:'Meta Robots'},{label:'Canonical'},{label:'Self'}]}
+      <DataTable columns={[{label:t('session.url')},{label:t('session.indexable')},{label:t('session.reason')},{label:t('session.metaRobots')},{label:t('session.canonical')},{label:t('session.self')}]}
         filterKeys={TAB_FILTERS.indexability} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
         hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
         onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
         {#snippet row(p)}
           <tr>
             <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
-            <td><span class="badge" class:badge-success={p.IsIndexable} class:badge-error={!p.IsIndexable}>{p.IsIndexable ? 'Yes' : 'No'}</span></td>
+            <td><span class="badge" class:badge-success={p.IsIndexable} class:badge-error={!p.IsIndexable}>{p.IsIndexable ? t('common.yes') : t('common.no')}</span></td>
             <td>{p.IndexReason || '-'}</td>
             <td>{p.MetaRobots || '-'}</td>
             <td class="cell-url">{trunc(p.Canonical, 60)}</td>
-            <td>{p.CanonicalIsSelf ? 'Yes' : '-'}</td>
+            <td>{p.CanonicalIsSelf ? t('common.yes') : '-'}</td>
           </tr>
         {/snippet}
       </DataTable>
 
     {:else if tab === 'response'}
-      <DataTable columns={[{label:'URL'},{label:'Status'},{label:'Content Type'},{label:'Encoding'},{label:'Size'},{label:'Time'},{label:'Redirects'}]}
+      <DataTable columns={[{label:t('session.url')},{label:t('session.status')},{label:t('session.contentType')},{label:t('session.encoding')},{label:t('common.size')},{label:t('session.time')},{label:t('session.redirects')}]}
         filterKeys={TAB_FILTERS.response} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
         hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
         onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
@@ -356,7 +357,7 @@
       </DataTable>
 
     {:else if tab === 'internal'}
-      <DataTable columns={[{label:'Source'},{label:'Target'},{label:'Anchor Text'},{label:'Tag'}]}
+      <DataTable columns={[{label:t('common.source')},{label:t('common.target')},{label:t('session.anchorText')},{label:t('session.tag')}]}
         filterKeys={TAB_FILTERS.internal} {filters} data={intLinks} offset={intLinksOffset} pageSize={PAGE_SIZE}
         hasMore={hasMoreIntLinks} hasActiveFilters={hasActiveFilters()}
         onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
@@ -371,7 +372,7 @@
       </DataTable>
 
     {:else if tab === 'external'}
-      <DataTable columns={[{label:'Source'},{label:'Target'},{label:'Anchor Text'},{label:'Rel'}]}
+      <DataTable columns={[{label:t('common.source')},{label:t('common.target')},{label:t('session.anchorText')},{label:t('session.rel')}]}
         filterKeys={TAB_FILTERS.external} {filters} data={extLinks} offset={extLinksOffset} pageSize={PAGE_SIZE}
         hasMore={hasMoreExtLinks} hasActiveFilters={hasActiveFilters()}
         onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
