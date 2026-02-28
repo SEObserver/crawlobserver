@@ -45,6 +45,7 @@ type CrawlRequest struct {
 	CheckExternalLinks  *bool    `json:"check_external_links"`
 	ExternalLinkWorkers int      `json:"external_link_workers"`
 	RetryStatusCode     int      `json:"retry_status_code"`
+	UserAgent           string   `json:"user_agent"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -75,6 +76,10 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 		crawlerCfg.CrawlScope = req.CrawlScope
 	}
 	cfg.Crawler = crawlerCfg
+
+	if req.UserAgent != "" {
+		cfg.Crawler.UserAgent = req.UserAgent
+	}
 
 	engine := NewEngine(&cfg, m.store)
 	sessionID := engine.SessionID(req.Seeds)
@@ -202,6 +207,9 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		crawlerCfg.StoreHTML = overrides.StoreHTML
 		if overrides.CrawlScope != "" {
 			crawlerCfg.CrawlScope = overrides.CrawlScope
+		}
+		if overrides.UserAgent != "" {
+			crawlerCfg.UserAgent = overrides.UserAgent
 		}
 		cfg.Crawler = crawlerCfg
 	}
