@@ -22,6 +22,7 @@ import (
 	"github.com/SEObserver/seocrawler/internal/backup"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/crawler"
+	"github.com/SEObserver/seocrawler/internal/customtests"
 	"github.com/SEObserver/seocrawler/internal/gsc"
 	"github.com/SEObserver/seocrawler/internal/storage"
 	"github.com/SEObserver/seocrawler/internal/updater"
@@ -145,6 +146,14 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/sessions/{id}/gsc/devices", s.handleGSCDevices)
 	mux.HandleFunc("GET /api/sessions/{id}/gsc/timeline", s.handleGSCTimeline)
 	mux.HandleFunc("GET /api/sessions/{id}/gsc/inspection", s.handleGSCInspection)
+
+	// Custom Test Profiles routes
+	mux.HandleFunc("GET /api/test-profiles", s.handleListTestProfiles)
+	mux.HandleFunc("POST /api/test-profiles", s.handleCreateTestProfile)
+	mux.HandleFunc("GET /api/test-profiles/{id}", s.handleGetTestProfile)
+	mux.HandleFunc("PUT /api/test-profiles/{id}", s.handleUpdateTestProfile)
+	mux.HandleFunc("DELETE /api/test-profiles/{id}", s.handleDeleteTestProfile)
+	mux.HandleFunc("POST /api/sessions/{id}/run-tests", s.handleRunTests)
 
 	// Static frontend files with SPA fallback
 	distFS, err := fs.Sub(frontendFS, "frontend/dist")
@@ -1673,6 +1682,151 @@ func internalError(w http.ResponseWriter, r *http.Request, err error) {
 	writeError(w, http.StatusInternalServerError, "internal server error")
 }
 
+// --- Custom Tests Handlers ---
+
+func (s *Server) handleListTestProfiles(w http.ResponseWriter, r *http.Request) {
+	profiles, err := s.keyStore.ListTestProfiles()
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, profiles)
+}
+
+func (s *Server) handleCreateTestProfile(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	var req struct {
+		Name  string              `json:"name"`
+		Rules []customtests.TestRule `json:"rules"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	profile, err := s.keyStore.CreateTestProfile(req.Name, req.Rules)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, profile)
+}
+
+func (s *Server) handleGetTestProfile(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	profile, err := s.keyStore.GetTestProfile(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "test profile not found")
+		return
+	}
+	writeJSON(w, profile)
+}
+
+func (s *Server) handleUpdateTestProfile(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	id := r.PathValue("id")
+	var req struct {
+		Name  string              `json:"name"`
+		Rules []customtests.TestRule `json:"rules"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if err := s.keyStore.UpdateTestProfile(id, req.Name, req.Rules); err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	profile, err := s.keyStore.GetTestProfile(id)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, profile)
+}
+
+func (s *Server) handleDeleteTestProfile(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	id := r.PathValue("id")
+	if err := s.keyStore.DeleteTestProfile(id); err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	writeJSON(w, map[string]string{"status": "deleted"})
+}
+
+func (s *Server) handleRunTests(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+
+	var req struct {
+		ProfileID string `json:"profile_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ProfileID == "" {
+		writeError(w, http.StatusBadRequest, "profile_id is required")
+		return
+	}
+
+	profile, err := s.keyStore.GetTestProfile(req.ProfileID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "test profile not found")
+		return
+	}
+
+	// Wrap StorageService into the customtests.StorageInterface adapter
+	adapter := &customTestsStorageAdapter{store: s.store}
+	result, err := customtests.RunTests(r.Context(), adapter, sessionID, profile)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
+// customTestsStorageAdapter adapts StorageService to customtests.StorageInterface.
+type customTestsStorageAdapter struct {
+	store StorageService
+}
+
+func (a *customTestsStorageAdapter) RunCustomTestsSQL(ctx context.Context, sessionID string, rules []customtests.TestRule) (map[string]map[string]string, error) {
+	return a.store.RunCustomTestsSQL(ctx, sessionID, rules)
+}
+
+func (a *customTestsStorageAdapter) StreamPagesHTML(ctx context.Context, sessionID string) (<-chan customtests.PageHTMLRow, error) {
+	ch, err := a.store.StreamPagesHTML(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(chan customtests.PageHTMLRow, 64)
+	go func() {
+		defer close(out)
+		for row := range ch {
+			out <- customtests.PageHTMLRow{URL: row.URL, HTML: row.HTML}
+		}
+	}()
+	return out, nil
+}
+
 // --- GSC Handlers ---
 
 // resolveProjectID resolves a session ID to its project ID.
@@ -1835,9 +1989,15 @@ func (s *Server) handleGSCFetch(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch in background
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("GSC fetch PANIC: %v", r)
+			}
+		}()
 		ctx := context.Background()
 		log.Printf("GSC fetch started for project %s, property %s, range %s to %s", projectID, conn.PropertyURL, startDate, endDate)
 
+		log.Printf("GSC: calling FetchSearchAnalytics...")
 		rows, err := client.FetchSearchAnalytics(ctx, conn.PropertyURL, startDate, endDate)
 		if err != nil {
 			log.Printf("GSC fetch analytics error: %v", err)

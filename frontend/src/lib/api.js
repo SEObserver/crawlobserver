@@ -342,6 +342,44 @@ export async function getCompareLinks(a, b, type = 'added', limit = 100, offset 
   return fetchJSON(`/compare/links?a=${a}&b=${b}&type=${type}&limit=${limit}&offset=${offset}`);
 }
 
+// --- Custom Test Profiles ---
+
+export async function getTestProfiles() {
+  return fetchJSON('/test-profiles');
+}
+
+export async function getTestProfile(id) {
+  return fetchJSON(`/test-profiles/${id}`);
+}
+
+export async function createTestProfile(name, rules) {
+  return fetchJSON('/test-profiles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, rules }),
+  });
+}
+
+export async function updateTestProfile(id, name, rules) {
+  return fetchJSON(`/test-profiles/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, rules }),
+  });
+}
+
+export async function deleteTestProfile(id) {
+  return fetchJSON(`/test-profiles/${id}`, { method: 'DELETE' });
+}
+
+export async function runTests(sessionId, profileId) {
+  return fetchJSON(`/sessions/${sessionId}/run-tests`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profile_id: profileId }),
+  });
+}
+
 // SSE for live progress
 export function subscribeProgress(sessionId, onMessage, onDone) {
   const source = new EventSource(`${BASE}/sessions/${sessionId}/events`);

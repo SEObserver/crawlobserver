@@ -27,4 +27,5 @@ export const TABS = [
   { id: 'sitemaps', label: 'Sitemaps' },
   { id: 'gsc', label: 'Search Console' },
   { id: 'reports', label: 'Reports' },
+  { id: 'tests', label: 'Tests' },
 ];

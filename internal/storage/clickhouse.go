@@ -9,6 +9,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/SEObserver/seocrawler/internal/customtests"
 	"github.com/google/uuid"
 )
 
@@ -2269,39 +2270,39 @@ type GSCQueryRow struct {
 	Query       string  `json:"query"`
 	Clicks      uint64  `json:"clicks"`
 	Impressions uint64  `json:"impressions"`
-	CTR         float32 `json:"ctr"`
-	Position    float32 `json:"position"`
+	CTR         float64 `json:"ctr"`
+	Position    float64 `json:"position"`
 }
 
 type GSCPageRow struct {
 	Page        string  `json:"page"`
 	Clicks      uint64  `json:"clicks"`
 	Impressions uint64  `json:"impressions"`
-	CTR         float32 `json:"ctr"`
-	Position    float32 `json:"position"`
+	CTR         float64 `json:"ctr"`
+	Position    float64 `json:"position"`
 }
 
 type GSCCountryRow struct {
 	Country     string  `json:"country"`
 	Clicks      uint64  `json:"clicks"`
 	Impressions uint64  `json:"impressions"`
-	CTR         float32 `json:"ctr"`
-	Position    float32 `json:"position"`
+	CTR         float64 `json:"ctr"`
+	Position    float64 `json:"position"`
 }
 
 type GSCDeviceRow struct {
 	Device      string  `json:"device"`
 	Clicks      uint64  `json:"clicks"`
 	Impressions uint64  `json:"impressions"`
-	CTR         float32 `json:"ctr"`
-	Position    float32 `json:"position"`
+	CTR         float64 `json:"ctr"`
+	Position    float64 `json:"position"`
 }
 
 type GSCOverviewStats struct {
 	TotalClicks      uint64  `json:"total_clicks"`
 	TotalImpressions uint64  `json:"total_impressions"`
-	AvgCTR           float32 `json:"avg_ctr"`
-	AvgPosition      float32 `json:"avg_position"`
+	AvgCTR           float64 `json:"avg_ctr"`
+	AvgPosition      float64 `json:"avg_position"`
 	DateMin          string  `json:"date_min"`
 	DateMax          string  `json:"date_max"`
 	TotalQueries     uint64  `json:"total_queries"`
@@ -2412,7 +2413,7 @@ func (s *Store) GSCOverview(ctx context.Context, projectID string) (*GSCOverview
 			sum(clicks), sum(impressions),
 			if(sum(impressions) > 0, sum(clicks) / sum(impressions), 0),
 			if(sum(impressions) > 0, sum(position * impressions) / sum(impressions), 0),
-			min(date), max(date),
+			toString(min(date)), toString(max(date)),
 			uniqExact(query), uniqExact(page)
 		FROM seocrawler.gsc_analytics FINAL
 		WHERE project_id = ?`, projectID).Scan(
@@ -2428,7 +2429,7 @@ func (s *Store) GSCOverview(ctx context.Context, projectID string) (*GSCOverview
 }
 
 func (s *Store) GSCTopQueries(ctx context.Context, projectID string, limit, offset int) ([]GSCQueryRow, int, error) {
-	var total int
+	var total uint64
 	if err := s.conn.QueryRow(ctx, `
 		SELECT uniqExact(query) FROM seocrawler.gsc_analytics FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting gsc queries: %w", err)
@@ -2459,11 +2460,11 @@ func (s *Store) GSCTopQueries(ctx context.Context, projectID string, limit, offs
 	if result == nil {
 		result = []GSCQueryRow{}
 	}
-	return result, total, nil
+	return result, int(total), nil
 }
 
 func (s *Store) GSCTopPages(ctx context.Context, projectID string, limit, offset int) ([]GSCPageRow, int, error) {
-	var total int
+	var total uint64
 	if err := s.conn.QueryRow(ctx, `
 		SELECT uniqExact(page) FROM seocrawler.gsc_analytics FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting gsc pages: %w", err)
@@ -2494,7 +2495,7 @@ func (s *Store) GSCTopPages(ctx context.Context, projectID string, limit, offset
 	if result == nil {
 		result = []GSCPageRow{}
 	}
-	return result, total, nil
+	return result, int(total), nil
 }
 
 func (s *Store) GSCByCountry(ctx context.Context, projectID string) ([]GSCCountryRow, error) {
@@ -2580,7 +2581,7 @@ func (s *Store) GSCTimeline(ctx context.Context, projectID string) ([]GSCTimelin
 }
 
 func (s *Store) GSCInspectionResults(ctx context.Context, projectID string, limit, offset int) ([]GSCInspectionRow, int, error) {
-	var total int
+	var total uint64
 	if err := s.conn.QueryRow(ctx, `
 		SELECT count() FROM seocrawler.gsc_inspection FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting gsc inspections: %w", err)
@@ -2612,7 +2613,7 @@ func (s *Store) GSCInspectionResults(ctx context.Context, projectID string, limi
 	if result == nil {
 		result = []GSCInspectionRow{}
 	}
-	return result, total, nil
+	return result, int(total), nil
 }
 
 func (s *Store) DeleteGSCData(ctx context.Context, projectID string) error {
@@ -2623,6 +2624,117 @@ func (s *Store) DeleteGSCData(ctx context.Context, projectID string) error {
 		return fmt.Errorf("deleting gsc inspection: %w", err)
 	}
 	return nil
+}
+
+// --- Custom Tests ---
+
+// PageHTMLRow is a url+html pair streamed from ClickHouse.
+type PageHTMLRow struct {
+	URL  string
+	HTML string
+}
+
+// buildRuleExpr returns a ClickHouse SQL expression for a single rule.
+func buildRuleExpr(r customtests.TestRule) string {
+	v := strings.ReplaceAll(r.Value, "'", "\\'")
+	ex := strings.ReplaceAll(r.Extra, "'", "\\'")
+	switch r.Type {
+	case customtests.StringContains:
+		return fmt.Sprintf("position(body_html, '%s') > 0", v)
+	case customtests.StringNotContains:
+		return fmt.Sprintf("position(body_html, '%s') = 0", v)
+	case customtests.RegexMatch:
+		return fmt.Sprintf("match(body_html, '%s')", v)
+	case customtests.RegexNotMatch:
+		return fmt.Sprintf("NOT match(body_html, '%s')", v)
+	case customtests.HeaderExists:
+		return fmt.Sprintf("mapContains(headers, '%s')", v)
+	case customtests.HeaderNotExists:
+		return fmt.Sprintf("NOT mapContains(headers, '%s')", v)
+	case customtests.HeaderContains:
+		return fmt.Sprintf("mapContains(headers, '%s') AND position(headers['%s'], '%s') > 0", v, v, ex)
+	case customtests.HeaderRegex:
+		return fmt.Sprintf("mapContains(headers, '%s') AND match(headers['%s'], '%s')", v, v, ex)
+	default:
+		return "0"
+	}
+}
+
+// RunCustomTestsSQL runs ClickHouse-native test rules as a single query.
+func (s *Store) RunCustomTestsSQL(ctx context.Context, sessionID string, rules []customtests.TestRule) (map[string]map[string]string, error) {
+	if len(rules) == 0 {
+		return map[string]map[string]string{}, nil
+	}
+
+	var selects []string
+	selects = append(selects, "url")
+	for _, r := range rules {
+		selects = append(selects, fmt.Sprintf("(%s) AS `%s`", buildRuleExpr(r), r.ID))
+	}
+
+	query := fmt.Sprintf("SELECT %s FROM seocrawler.pages WHERE crawl_session_id = {sessionID:String}",
+		strings.Join(selects, ", "))
+
+	rows, err := s.conn.Query(ctx, query, clickhouse.Named("sessionID", sessionID))
+	if err != nil {
+		return nil, fmt.Errorf("running custom tests SQL: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]map[string]string)
+	for rows.Next() {
+		// Scan url + one bool per rule
+		vals := make([]interface{}, 1+len(rules))
+		var url string
+		vals[0] = &url
+		bools := make([]bool, len(rules))
+		for i := range rules {
+			vals[i+1] = &bools[i]
+		}
+		if err := rows.Scan(vals...); err != nil {
+			return nil, fmt.Errorf("scanning custom test row: %w", err)
+		}
+		m := make(map[string]string, len(rules))
+		for i, r := range rules {
+			if bools[i] {
+				m[r.ID] = "pass"
+			} else {
+				m[r.ID] = "fail"
+			}
+		}
+		result[url] = m
+	}
+	return result, nil
+}
+
+// StreamPagesHTML streams url+body_html pairs for a session.
+func (s *Store) StreamPagesHTML(ctx context.Context, sessionID string) (<-chan PageHTMLRow, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT url, body_html FROM seocrawler.pages
+		WHERE crawl_session_id = {sessionID:String} AND body_html != ''`,
+		clickhouse.Named("sessionID", sessionID))
+	if err != nil {
+		return nil, fmt.Errorf("streaming pages HTML: %w", err)
+	}
+
+	ch := make(chan PageHTMLRow, 64)
+	go func() {
+		defer close(ch)
+		defer rows.Close()
+		for rows.Next() {
+			var r PageHTMLRow
+			if err := rows.Scan(&r.URL, &r.HTML); err != nil {
+				log.Printf("StreamPagesHTML scan error: %v", err)
+				return
+			}
+			select {
+			case ch <- r:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return ch, nil
 }
 
 // Close closes the ClickHouse connection.

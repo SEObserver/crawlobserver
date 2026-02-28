@@ -14,6 +14,7 @@ import (
 	"github.com/SEObserver/seocrawler/internal/apikeys"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/crawler"
+	"github.com/SEObserver/seocrawler/internal/customtests"
 	"github.com/SEObserver/seocrawler/internal/storage"
 )
 
@@ -260,6 +261,27 @@ func (m *mockStore) GSCInspectionResults(_ context.Context, _ string, _, _ int) 
 }
 func (m *mockStore) DeleteGSCData(_ context.Context, _ string) error {
 	return m.err
+}
+
+// Custom Tests mock methods
+func (m *mockStore) RunCustomTestsSQL(_ context.Context, _ string, rules []customtests.TestRule) (map[string]map[string]string, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	result := make(map[string]map[string]string)
+	result["https://example.com/"] = make(map[string]string)
+	for _, r := range rules {
+		result["https://example.com/"][r.ID] = "pass"
+	}
+	return result, nil
+}
+func (m *mockStore) StreamPagesHTML(_ context.Context, _ string) (<-chan storage.PageHTMLRow, error) {
+	ch := make(chan storage.PageHTMLRow)
+	go func() {
+		defer close(ch)
+		ch <- storage.PageHTMLRow{URL: "https://example.com/", HTML: "<html><head><title>Test</title></head><body><h1>Hello</h1></body></html>"}
+	}()
+	return ch, m.err
 }
 
 // ---------------------------------------------------------------------------
@@ -1318,6 +1340,119 @@ func TestAudit_Success(t *testing.T) {
 	}
 	if result.Links.TotalInternal != 500 {
 		t.Errorf("expected total_internal 500, got %d", result.Links.TotalInternal)
+	}
+}
+
+// =========================================================================
+// Custom Tests tests
+// =========================================================================
+
+func TestListTestProfiles_Success(t *testing.T) {
+	_, handler, ks := newTestServer(t)
+
+	// Create a profile first
+	_, err := ks.CreateTestProfile("My Profile", []customtests.TestRule{
+		{Type: customtests.StringContains, Name: "Has GTM", Value: "GTM-XXXX"},
+	})
+	if err != nil {
+		t.Fatalf("creating profile: %v", err)
+	}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/test-profiles", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var profiles []customtests.TestProfile
+	decodeJSON(t, rec, &profiles)
+	if len(profiles) != 1 {
+		t.Fatalf("expected 1 profile, got %d", len(profiles))
+	}
+	if profiles[0].Name != "My Profile" {
+		t.Errorf("expected name 'My Profile', got %q", profiles[0].Name)
+	}
+}
+
+func TestCreateTestProfile_Success(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	body := jsonBody(t, map[string]interface{}{
+		"name": "SEO Checks",
+		"rules": []map[string]interface{}{
+			{"type": "string_contains", "name": "Has GTM", "value": "GTM-XXXX"},
+			{"type": "header_exists", "name": "Has X-Frame", "value": "X-Frame-Options"},
+		},
+	})
+	req := authRequest(httptest.NewRequest("POST", "/api/test-profiles", body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var profile customtests.TestProfile
+	decodeJSON(t, rec, &profile)
+	if profile.Name != "SEO Checks" {
+		t.Errorf("expected name 'SEO Checks', got %q", profile.Name)
+	}
+	if len(profile.Rules) != 2 {
+		t.Errorf("expected 2 rules, got %d", len(profile.Rules))
+	}
+}
+
+func TestRunTests_Success(t *testing.T) {
+	srv, handler, ks := newTestServer(t)
+
+	// Seed a session so requireSessionAccess works
+	ms := srv.store.(*mockStore)
+	ms.sessions = []storage.CrawlSession{{ID: "sess-1"}}
+
+	// Create a profile with a CH-native rule
+	profile, err := ks.CreateTestProfile("Test", []customtests.TestRule{
+		{Type: customtests.StringContains, Name: "Has GTM", Value: "GTM-XXXX"},
+	})
+	if err != nil {
+		t.Fatalf("creating profile: %v", err)
+	}
+
+	body := jsonBody(t, map[string]string{"profile_id": profile.ID})
+	req := authRequest(httptest.NewRequest("POST", "/api/sessions/sess-1/run-tests", body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var result customtests.TestRunResult
+	decodeJSON(t, rec, &result)
+	if result.ProfileName != "Test" {
+		t.Errorf("expected profile name 'Test', got %q", result.ProfileName)
+	}
+	if len(result.Pages) == 0 {
+		t.Error("expected at least one page in results")
+	}
+}
+
+func TestRunTests_MissingProfile(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+	ms := srv.store.(*mockStore)
+	ms.sessions = []storage.CrawlSession{{ID: "sess-1"}}
+
+	body := jsonBody(t, map[string]string{"profile_id": ""})
+	req := authRequest(httptest.NewRequest("POST", "/api/sessions/sess-1/run-tests", body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", rec.Code)
 	}
 }
 

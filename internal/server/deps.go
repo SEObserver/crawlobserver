@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/SEObserver/seocrawler/internal/crawler"
+	"github.com/SEObserver/seocrawler/internal/customtests"
 	"github.com/SEObserver/seocrawler/internal/storage"
 )
 
@@ -56,6 +57,10 @@ type StorageService interface {
 	GSCTimeline(ctx context.Context, projectID string) ([]storage.GSCTimelineRow, error)
 	GSCInspectionResults(ctx context.Context, projectID string, limit, offset int) ([]storage.GSCInspectionRow, int, error)
 	DeleteGSCData(ctx context.Context, projectID string) error
+
+	// Custom Tests
+	RunCustomTestsSQL(ctx context.Context, sessionID string, rules []customtests.TestRule) (map[string]map[string]string, error)
+	StreamPagesHTML(ctx context.Context, sessionID string) (<-chan storage.PageHTMLRow, error)
 }
 
 // CrawlService is the subset of crawler.Manager used by the HTTP server.
