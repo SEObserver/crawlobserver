@@ -493,7 +493,7 @@
           stats = await getStats(sessionId);
         } catch (_) {}
       }
-    }, 2000);
+    }, 5000);
   }
 
   // --- Update check polling ---
