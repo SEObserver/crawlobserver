@@ -14,6 +14,7 @@ import (
 const (
 	defaultExternalWorkers = 3
 	defaultResourceWorkers = 3
+	maxLastErrors          = 1000
 )
 
 // Manager manages running crawl engines.
@@ -358,6 +359,12 @@ func (m *Manager) runEngine(sessionID string, engine *Engine, seeds []string) {
 	m.mu.Lock()
 	delete(m.engines, sessionID)
 	if err != nil {
+		if len(m.lastErrors) >= maxLastErrors {
+			for k := range m.lastErrors {
+				delete(m.lastErrors, k)
+				break
+			}
+		}
 		m.lastErrors[sessionID] = err.Error()
 	} else {
 		delete(m.lastErrors, sessionID)
