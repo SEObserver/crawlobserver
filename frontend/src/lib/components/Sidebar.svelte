@@ -109,7 +109,7 @@
   </div>
 
   <div class="sidebar-section">
-    <div class="sidebar-section-title" style="display:flex;align-items:center;justify-content:space-between;">
+    <div class="sidebar-section-title flex-between">
       <span>Projects</span>
       <button class="sidebar-add-btn" onclick={startCreate} title="New project">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -133,7 +133,7 @@
         <div class="sidebar-project">
           <button class="sidebar-link sidebar-project-header" class:active={selectedProject?.id === proj.id} onclick={() => onselectproject?.(proj)}>
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">{proj.name}</span>
+            <span class="truncate sidebar-project-name">{proj.name}</span>
             {#if projStats}
               <span class="sidebar-badge">{fmtN(projStats.total_pages)}</span>
             {/if}
@@ -155,9 +155,9 @@
         {#each sessions.filter(s => !s.ProjectID).slice(0, 5) as s}
           <button class="sidebar-link" class:active={selectedSession?.ID === s.ID} onclick={() => onselectsession?.(s)}>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <span class="truncate">
               {#if s.is_running}
-                <span style="color: var(--info);">{new URL(s.SeedURLs?.[0] || 'https://unknown').hostname}</span>
+                <span class="text-info">{new URL(s.SeedURLs?.[0] || 'https://unknown').hostname}</span>
               {:else}
                 {new URL(s.SeedURLs?.[0] || 'https://unknown').hostname}
               {/if}
@@ -196,7 +196,7 @@
     </div>
   {/if}
 
-  <div class="sidebar-section" style="margin-top: auto;">
+  <div class="sidebar-section sidebar-section-push">
     <div class="sidebar-section-title">General</div>
     <nav class="sidebar-nav">
       <button class="sidebar-link" class:active={currentView === 'stats'} onclick={() => onopenstats?.()}>
@@ -464,6 +464,12 @@
     width: 100%;
     text-align: left;
     transition: all 0.15s;
+  }
+  .sidebar-project-name {
+    flex: 1;
+  }
+  .sidebar-section-push {
+    margin-top: auto;
   }
   .theme-toggle:hover { background: var(--bg-hover); color: var(--text); }
 

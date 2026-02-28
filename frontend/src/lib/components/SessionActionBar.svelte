@@ -85,7 +85,7 @@
       {#if liveProgress[session.ID]}
         &middot; {fmtN(liveProgress[session.ID].pages_crawled)} pages &middot; {fmtN(liveProgress[session.ID].queue_size)} in queue
         {#if liveProgress[session.ID].lost_pages > 0}
-          <span style="color: var(--error); font-weight: 600;">&middot; {fmtN(liveProgress[session.ID].lost_pages)} lost</span>
+          <span class="text-error font-semibold">&middot; {fmtN(liveProgress[session.ID].lost_pages)} lost</span>
         {/if}
       {/if}
     </span>
@@ -136,7 +136,7 @@
     onclick={() => showExportDialog = false}
     onkeydown={a11yKeydown(() => showExportDialog = false)}>
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="html-modal" role="dialog" style="max-width: 400px; height: auto;" onclick={(e) => e.stopPropagation()}>
+    <div class="html-modal export-modal" role="dialog" onclick={(e) => e.stopPropagation()}>
       <div class="html-modal-header">
         <div class="html-modal-url">Export Session</div>
         <div class="html-modal-actions">
@@ -145,12 +145,12 @@
           </button>
         </div>
       </div>
-      <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
-        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+      <div class="export-body">
+        <label class="checkbox-label">
           <input type="checkbox" bind:checked={exportIncludeHTML} />
           Include HTML body (larger file)
         </label>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <div class="export-actions">
           <button class="btn btn-sm" onclick={() => showExportDialog = false}>Cancel</button>
           <button class="btn btn-sm btn-primary" onclick={handleExport}>Download .jsonl.gz</button>
         </div>
@@ -204,5 +204,26 @@
     align-items: center;
     gap: 6px;
     flex-shrink: 0;
+  }
+  .export-modal {
+    max-width: 400px;
+    height: auto;
+  }
+  .export-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .export-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
   }
 </style>

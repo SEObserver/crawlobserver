@@ -82,34 +82,34 @@
 
 <!-- API Endpoint -->
 {#if serverInfo}
-  <div class="card" style="margin-bottom: 24px; border: 1px solid var(--border);">
-    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-      <h3 style="margin: 0; font-size: 15px; font-weight: 600;">API Endpoint</h3>
-      <span class="badge badge-success" style="font-size: 11px;">Running</span>
+  <div class="card mb-lg api-endpoint-card">
+    <div class="flex-center-gap api-endpoint-header">
+      <h3 class="api-endpoint-title">API Endpoint</h3>
+      <span class="badge badge-success badge-xs">Running</span>
     </div>
-    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
-      <code style="flex: 1; padding: 8px 12px; background: var(--bg-secondary); border-radius: 6px; font-size: 13px; word-break: break-all;">{serverInfo.api_url}</code>
+    <div class="flex-center-gap api-url-row">
+      <code class="text-sm word-break api-url-code">{serverInfo.api_url}</code>
       <button class="btn btn-sm" onclick={() => copyToClipboard(serverInfo.api_url)}>Copy</button>
     </div>
     {#if serverInfo.has_auth}
-      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+      <div class="text-xs text-muted mb-sm">
         Auth: Basic (<code>{serverInfo.username}</code>) or API key via <code>X-API-Key</code> header
       </div>
     {/if}
-    <details style="font-size: 12px; color: var(--text-muted);">
-      <summary style="cursor: pointer; user-select: none;">Usage examples</summary>
-      <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+    <details class="text-xs text-muted">
+      <summary class="usage-summary">Usage examples</summary>
+      <div class="mt-sm flex-col gap-sm">
         <div>
           <strong>curl:</strong>
-          <code style="display: block; padding: 6px 10px; background: var(--bg-secondary); border-radius: 4px; margin-top: 4px; font-size: 12px; white-space: pre-wrap;">curl {serverInfo.has_auth ? `-u ${serverInfo.username}:PASSWORD ` : ''}{serverInfo.api_url}/sessions</code>
+          <code class="code-example code-example-wrap">curl {serverInfo.has_auth ? `-u ${serverInfo.username}:PASSWORD ` : ''}{serverInfo.api_url}/sessions</code>
         </div>
         <div>
           <strong>API key:</strong>
-          <code style="display: block; padding: 6px 10px; background: var(--bg-secondary); border-radius: 4px; margin-top: 4px; font-size: 12px; white-space: pre-wrap;">curl -H "X-API-Key: YOUR_KEY" {serverInfo.api_url}/sessions</code>
+          <code class="code-example code-example-wrap">curl -H "X-API-Key: YOUR_KEY" {serverInfo.api_url}/sessions</code>
         </div>
         <div>
           <strong>Discovery file:</strong>
-          <code style="display: block; padding: 6px 10px; background: var(--bg-secondary); border-radius: 4px; margin-top: 4px; font-size: 12px;">cat .crawlobserver-api.json</code>
+          <code class="code-example">cat .crawlobserver-api.json</code>
         </div>
       </div>
     </details>
@@ -124,9 +124,9 @@
 <!-- Create Project -->
 <div class="card">
   <div class="form-grid">
-    <div class="form-group" style="grid-column: 1 / -1;">
+    <div class="form-group form-group-full">
       <label for="new-project">New project</label>
-      <div style="display: flex; gap: 8px;">
+      <div class="flex-center-gap">
         <input id="new-project" type="text" bind:value={newProjectName} placeholder="Project name" onkeydown={(e) => e.key === 'Enter' && handleCreateProject()} />
         <button class="btn btn-primary" onclick={handleCreateProject} disabled={!newProjectName.trim()}>Create</button>
       </div>
@@ -136,15 +136,15 @@
 
 <!-- Projects List -->
 {#if projects.length === 0}
-  <div class="card" style="text-align: center; color: var(--text-muted); padding: 32px;">No projects yet.</div>
+  <div class="card text-center text-muted empty-state">No projects yet.</div>
 {:else}
   <div class="card card-flush">
     {#each projects as p}
       <div class="session-row">
         <div class="session-info">
           {#if renamingProject === p.id}
-            <div style="display: flex; gap: 8px; align-items: center; flex: 1;">
-              <input type="text" bind:value={renameValue} style="flex: 1;" onkeydown={(e) => e.key === 'Enter' && handleRenameProject(p.id)} />
+            <div class="flex-center-gap rename-row">
+              <input type="text" bind:value={renameValue} class="flex-1" onkeydown={(e) => e.key === 'Enter' && handleRenameProject(p.id)} />
               <button class="btn btn-sm btn-primary" onclick={() => handleRenameProject(p.id)}>Save</button>
               <button class="btn btn-sm" onclick={() => renamingProject = null}>Cancel</button>
             </div>
@@ -167,18 +167,18 @@
 {/if}
 
 <!-- API Keys Header -->
-<div class="page-header" style="margin-top: 32px;">
+<div class="page-header api-keys-header">
   <h1>API Keys</h1>
 </div>
 
 {#if createdKeyFull}
-  <div class="card" style="border: 1px solid var(--success); background: var(--success-bg);">
-    <div style="display: flex; align-items: flex-start; gap: 12px;">
-      <div style="flex: 1;">
+  <div class="card key-created-card">
+    <div class="key-created-inner">
+      <div class="flex-1">
         <strong>API Key created!</strong> Copy it now — it won't be shown again:<br/>
-        <code style="font-size: 0.85rem; word-break: break-all; margin-top: 6px; display: inline-block;">{createdKeyFull}</code>
+        <code class="word-break key-created-code">{createdKeyFull}</code>
       </div>
-      <div style="display: flex; gap: 6px; flex-shrink: 0;">
+      <div class="key-created-actions">
         <button class="btn btn-sm" onclick={() => copyToClipboard(createdKeyFull)}>Copy</button>
         <button class="btn btn-sm" onclick={() => createdKeyFull = null}>Dismiss</button>
       </div>
@@ -212,14 +212,14 @@
       </div>
     {/if}
   </div>
-  <div style="margin-top: 16px;">
+  <div class="mt-md">
     <button class="btn btn-primary" onclick={handleCreateAPIKey} disabled={!newKeyName.trim() || (newKeyType === 'project' && !newKeyProjectId)}>Create Key</button>
   </div>
 </div>
 
 <!-- API Keys List -->
 {#if apiKeys.length === 0}
-  <div class="card" style="text-align: center; color: var(--text-muted); padding: 32px;">No API keys yet.</div>
+  <div class="card text-center text-muted empty-state">No API keys yet.</div>
 {:else}
   <div class="card card-flush">
     {#each apiKeys as k}
@@ -229,9 +229,9 @@
           <div class="session-meta">
             <span class="badge" class:badge-info={k.type === 'general'} class:badge-warning={k.type === 'project'}>{k.type}</span>
             {#if k.project_id}
-              <span class="badge" style="background: var(--accent-light); color: var(--accent);">{projects.find(p => p.id === k.project_id)?.name || k.project_id}</span>
+              <span class="badge badge-accent">{projects.find(p => p.id === k.project_id)?.name || k.project_id}</span>
             {/if}
-            <code style="font-size: 0.8rem;">{k.key_prefix}</code>
+            <code class="key-prefix-code">{k.key_prefix}</code>
             <span>{new Date(k.created_at).toLocaleDateString()}</span>
             <span>{k.last_used_at ? 'Used ' + timeAgo(k.last_used_at) : 'Never used'}</span>
           </div>
@@ -243,3 +243,104 @@
     {/each}
   </div>
 {/if}
+
+<style>
+  .api-endpoint-card {
+    border: 1px solid var(--border);
+  }
+
+  .api-endpoint-header {
+    margin-bottom: 12px;
+  }
+
+  .api-endpoint-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .badge-xs {
+    font-size: 11px;
+  }
+
+  .api-url-row {
+    margin-bottom: 10px;
+  }
+
+  .api-url-code {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+  }
+
+  .usage-summary {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .code-example {
+    display: block;
+    padding: 6px 10px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    margin-top: 4px;
+    font-size: 12px;
+  }
+
+  .code-example-wrap {
+    white-space: pre-wrap;
+  }
+
+  .form-group-full {
+    grid-column: 1 / -1;
+  }
+
+  .empty-state {
+    padding: 32px;
+  }
+
+  .rename-row {
+    flex: 1;
+  }
+
+  .flex-1 {
+    flex: 1;
+  }
+
+  .api-keys-header {
+    margin-top: 32px;
+  }
+
+  .key-created-card {
+    border: 1px solid var(--success);
+    background: var(--success-bg);
+  }
+
+  .key-created-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .key-created-code {
+    font-size: 0.85rem;
+    margin-top: 6px;
+    display: inline-block;
+  }
+
+  .key-created-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .badge-accent {
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+
+  .key-prefix-code {
+    font-size: 0.8rem;
+  }
+</style>

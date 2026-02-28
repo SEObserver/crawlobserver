@@ -34,7 +34,8 @@
         stroke-dasharray="{arc.dash} {arc.gap}"
         stroke-dashoffset={-arc.offset}
         transform="rotate(-90 {size / 2} {size / 2})"
-        style="cursor: pointer; opacity: {hoveredIndex >= 0 && hoveredIndex !== arc.index ? 0.4 : 1}; transition: opacity 0.15s;"
+        class="donut-arc"
+        style="opacity: {hoveredIndex >= 0 && hoveredIndex !== arc.index ? 0.4 : 1};"
         onmouseenter={() => hoveredIndex = arc.index}
         onmouseleave={() => hoveredIndex = -1}
         onclick={() => arc.onclick?.()}
@@ -42,11 +43,13 @@
     {/each}
     {#if centerLabel}
       <text x={size / 2} y={centerSubLabel ? size / 2 - 6 : size / 2 + 6} text-anchor="middle" dominant-baseline="middle"
-        style="font-size: {size * 0.16}px; font-weight: 700; fill: var(--text);">{centerLabel}</text>
+        class="donut-center-label"
+        style="font-size: {size * 0.16}px;">{centerLabel}</text>
     {/if}
     {#if centerSubLabel}
       <text x={size / 2} y={size / 2 + 16} text-anchor="middle" dominant-baseline="middle"
-        style="font-size: {size * 0.07}px; font-weight: 500; fill: var(--text-muted);">{centerSubLabel}</text>
+        class="donut-center-sublabel"
+        style="font-size: {size * 0.07}px;">{centerSubLabel}</text>
     {/if}
   </svg>
 
@@ -59,14 +62,36 @@
 
   <div class="donut-legend">
     {#each arcs as arc}
-      <div class="donut-legend-item"
+      <div class="donut-legend-item donut-legend-item-interactive"
         onmouseenter={() => hoveredIndex = arc.index}
         onmouseleave={() => hoveredIndex = -1}
-        style="cursor: pointer; opacity: {hoveredIndex >= 0 && hoveredIndex !== arc.index ? 0.5 : 1};">
+        style="opacity: {hoveredIndex >= 0 && hoveredIndex !== arc.index ? 0.5 : 1};">
         <span class="donut-legend-color" style="background: {arc.color};"></span>
         <span>{arc.label}</span>
-        <span style="color: var(--text-muted); margin-left: auto;">{fmtN(arc.value)}</span>
+        <span class="donut-legend-value">{fmtN(arc.value)}</span>
       </div>
     {/each}
   </div>
 </div>
+
+<style>
+  .donut-arc {
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .donut-center-label {
+    font-weight: 700;
+    fill: var(--text);
+  }
+  .donut-center-sublabel {
+    font-weight: 500;
+    fill: var(--text-muted);
+  }
+  .donut-legend-item-interactive {
+    cursor: pointer;
+  }
+  .donut-legend-value {
+    color: var(--text-muted);
+    margin-left: auto;
+  }
+</style>

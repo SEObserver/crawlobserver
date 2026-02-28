@@ -52,15 +52,15 @@
       </div>
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('overview', { internal_links_out: '0' })} onkeydown={a11yKeydown(() => nav('overview', { internal_links_out: '0' }))}>
-        <div class="stat-value" style="color: var(--warning)">{fmtN(links.pages_no_internal_out || 0)}</div><div class="stat-label">Pages No Outlinks</div>
+        <div class="stat-value text-warning">{fmtN(links.pages_no_internal_out || 0)}</div><div class="stat-label">Pages No Outlinks</div>
       </div>
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('overview', { internal_links_out: '>100' })} onkeydown={a11yKeydown(() => nav('overview', { internal_links_out: '>100' }))}>
-        <div class="stat-value" style="color: var(--warning)">{fmtN(links.pages_high_internal_out || 0)}</div><div class="stat-label">Pages >100 Outlinks</div>
+        <div class="stat-value text-warning">{fmtN(links.pages_high_internal_out || 0)}</div><div class="stat-label">Pages >100 Outlinks</div>
       </div>
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('internal')} onkeydown={a11yKeydown(() => nav('internal'))}>
-        <div class="stat-value" style="color: var(--error)">{fmtN(links.broken_internal || 0)}</div><div class="stat-label">Broken Internal</div>
+        <div class="stat-value text-error">{fmtN(links.broken_internal || 0)}</div><div class="stat-label">Broken Internal</div>
       </div>
     </div>
   </div>

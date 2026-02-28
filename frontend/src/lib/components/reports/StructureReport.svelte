@@ -51,7 +51,7 @@
     <div class="stats-grid">
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('overview')} onkeydown={a11yKeydown(() => nav('overview'))}>
-        <div class="stat-value" style="color: var(--warning)">{fmtN(structure.orphan_pages || 0)}</div><div class="stat-label">Orphan Pages</div>
+        <div class="stat-value text-warning">{fmtN(structure.orphan_pages || 0)}</div><div class="stat-label">Orphan Pages</div>
       </div>
     </div>
   </div>

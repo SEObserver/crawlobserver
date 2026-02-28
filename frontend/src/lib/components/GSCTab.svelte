@@ -172,16 +172,16 @@
   {#if !projectId}
     <div class="gsc-empty">
       <p>This session is not associated with a project.</p>
-      <p style="color: var(--text-muted); font-size: 13px;">Associate it with a project first, then connect Google Search Console.</p>
+      <p class="text-muted text-sm">Associate it with a project first, then connect Google Search Console.</p>
     </div>
 
   {:else if !status}
-    <p style="color: var(--text-muted); padding: 40px 0; text-align: center;">Loading...</p>
+    <p class="loading-msg">Loading...</p>
 
   {:else if !status.connected}
     <div class="gsc-empty">
-      <h3 style="margin-bottom: 12px; font-size: 16px;">Connect Google Search Console</h3>
-      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+      <h3 class="gsc-connect-title">Connect Google Search Console</h3>
+      <p class="text-muted text-sm mb-md">
         Link this project to GSC to see search queries, impressions, clicks, and indexation status.
       </p>
       <button class="btn btn-primary" onclick={authorize}>Connect GSC</button>
@@ -189,13 +189,13 @@
 
   {:else if status.connected && !status.property_url}
     <div class="gsc-empty">
-      <h3 style="margin-bottom: 12px; font-size: 16px;">Select a Property</h3>
-      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+      <h3 class="gsc-connect-title">Select a Property</h3>
+      <p class="text-muted text-sm mb-md">
         Choose the Search Console property to associate with this project.
       </p>
       {#if status.properties?.length > 0}
-        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-          <select class="pr-select" style="min-width: 300px;" bind:value={selectedProperty}>
+        <div class="flex-center-gap gsc-property-wrap">
+          <select class="pr-select gsc-property-select" bind:value={selectedProperty}>
             <option value="">-- Select property --</option>
             {#each status.properties as p}
               <option value={p.site_url}>{p.site_url} ({p.permission_level})</option>
@@ -206,28 +206,28 @@
           </button>
         </div>
       {:else}
-        <p style="color: var(--text-muted);">No properties found. Make sure your Google account has access to Search Console properties.</p>
+        <p class="text-muted">No properties found. Make sure your Google account has access to Search Console properties.</p>
       {/if}
-      <button class="btn btn-sm" style="margin-top: 12px;" onclick={doDisconnect}>Disconnect</button>
+      <button class="btn btn-sm gsc-disconnect-btn" onclick={doDisconnect}>Disconnect</button>
     </div>
 
   {:else}
     <!-- Connected with property selected -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-      <span style="font-size: 13px; color: var(--text-secondary);">
+    <div class="gsc-toolbar">
+      <span class="text-sm text-secondary">
         Property: <strong>{status.property_url}</strong>
       </span>
-      <div style="display: flex; gap: 8px; align-items: center;">
+      <div class="flex-center-gap">
         {#if fetchingData}
           <span class="fetch-indicator">
             <span class="fetch-spinner"></span>
             Fetching{fetchStatus?.rows_so_far ? ` — ${fmtN(fetchStatus.rows_so_far)} rows` : '...'}
           </span>
-          <button class="btn btn-sm" style="color: var(--danger);" onclick={doStop}>Stop</button>
+          <button class="btn btn-sm text-danger" onclick={doStop}>Stop</button>
         {:else}
           <button class="btn btn-sm" onclick={() => doFetch()}>Refresh Data</button>
         {/if}
-        <button class="btn btn-sm" style="color: var(--text-muted);" onclick={doDisconnect}>Disconnect</button>
+        <button class="btn btn-sm text-muted" onclick={doDisconnect}>Disconnect</button>
       </div>
     </div>
 
@@ -240,11 +240,11 @@
     </div>
 
     {#if loading}
-      <p style="color: var(--text-muted); padding: 40px 0; text-align: center;">Loading...</p>
+      <p class="loading-msg">Loading...</p>
 
     {:else if subView === 'overview'}
       {#if overview && overview.total_clicks > 0}
-        <div class="stats-grid" style="margin-bottom: 20px;">
+        <div class="stats-grid gsc-stats">
           <div class="stat-card"><div class="stat-value">{fmtN(overview.total_clicks)}</div><div class="stat-label">Total Clicks</div></div>
           <div class="stat-card"><div class="stat-value">{fmtN(overview.total_impressions)}</div><div class="stat-label">Total Impressions</div></div>
           <div class="stat-card"><div class="stat-value">{(overview.avg_ctr * 100).toFixed(1)}%</div><div class="stat-label">Avg CTR</div></div>
@@ -262,8 +262,8 @@
           {@const margin = { left: 50, right: 20, top: 10, bottom: 30 }}
           {@const plotW = chartW - margin.left - margin.right}
           {@const plotH = chartH - margin.top - margin.bottom}
-          <h4 style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Clicks & Impressions over Time</h4>
-          <svg viewBox="0 0 {chartW} {chartH}" style="width: 100%; max-width: 800px; height: auto; margin-bottom: 24px;">
+          <h4 class="sub-heading">Clicks & Impressions over Time</h4>
+          <svg viewBox="0 0 {chartW} {chartH}" class="gsc-chart-svg">
             <!-- Impressions area -->
             <path d="M {margin.left},{margin.top + plotH}
               {timeline.map((t, i) => `L ${margin.left + (i / (timeline.length - 1)) * plotW},${margin.top + plotH - (t.impressions / maxImpr) * plotH}`).join(' ')}
@@ -279,18 +279,18 @@
               fill="none" stroke="var(--accent)" stroke-width="2" />
             <!-- Axis labels -->
             {#each [0, Math.floor(timeline.length / 2), timeline.length - 1] as idx}
-              <text x={margin.left + (idx / (timeline.length - 1)) * plotW} y={chartH - 4} text-anchor="middle" style="font-size: 10px; fill: var(--text-muted);">
+              <text x={margin.left + (idx / (timeline.length - 1)) * plotW} y={chartH - 4} text-anchor="middle" class="gsc-axis-label">
                 {timeline[idx].date.slice(5)}
               </text>
             {/each}
-            <text x={12} y={margin.top + 10} style="font-size: 9px; fill: var(--accent);">clicks</text>
+            <text x={12} y={margin.top + 10} class="gsc-chart-legend">clicks</text>
           </svg>
         {/if}
 
         <!-- Quick top queries preview -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div class="gsc-grid-2col">
           <div>
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Top Queries (by clicks)</h4>
+            <h4 class="sub-heading">Top Queries (by clicks)</h4>
             {#await getGSCQueries(projectId, 10, 0) then data}
               {#if data.rows?.length > 0}
                 <table>
@@ -298,7 +298,7 @@
                   <tbody>
                     {#each data.rows as r}
                       <tr>
-                        <td class="cell-url" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{r.query}</td>
+                        <td class="cell-url gsc-cell-query">{r.query}</td>
                         <td>{fmtN(r.clicks)}</td>
                         <td>{fmtN(r.impressions)}</td>
                         <td>{(r.ctr * 100).toFixed(1)}%</td>
@@ -311,7 +311,7 @@
             {/await}
           </div>
           <div>
-            <h4 style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Top Pages (by clicks)</h4>
+            <h4 class="sub-heading">Top Pages (by clicks)</h4>
             {#await getGSCPages(projectId, 10, 0) then data}
               {#if data.rows?.length > 0}
                 <table>
@@ -319,7 +319,7 @@
                   <tbody>
                     {#each data.rows as r}
                       <tr>
-                        <td class="cell-url" style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{r.page.replace(/^https?:\/\/[^/]+/, '') || '/'}</td>
+                        <td class="cell-url gsc-cell-page">{r.page.replace(/^https?:\/\/[^/]+/, '') || '/'}</td>
                         <td>{fmtN(r.clicks)}</td>
                         <td>{fmtN(r.impressions)}</td>
                         <td>{(r.ctr * 100).toFixed(1)}%</td>
@@ -338,13 +338,13 @@
 
     {:else if subView === 'queries'}
       {#if queries?.rows?.length > 0}
-        <div style="margin-bottom: 8px; color: var(--text-muted); font-size: 12px;">{fmtN(queries.total)} queries</div>
+        <div class="table-meta">{fmtN(queries.total)} queries</div>
         <table>
           <thead><tr><th>#</th><th>Query</th><th>Clicks</th><th>Impressions</th><th>CTR</th><th>Position</th></tr></thead>
           <tbody>
             {#each queries.rows as r, i}
               <tr>
-                <td style="color: var(--text-muted); font-size: 12px;">{queriesOffset + i + 1}</td>
+                <td class="row-num">{queriesOffset + i + 1}</td>
                 <td class="cell-url">{r.query}</td>
                 <td>{fmtN(r.clicks)}</td>
                 <td>{fmtN(r.impressions)}</td>
@@ -367,13 +367,13 @@
 
     {:else if subView === 'pages'}
       {#if pages?.rows?.length > 0}
-        <div style="margin-bottom: 8px; color: var(--text-muted); font-size: 12px;">{fmtN(pages.total)} pages</div>
+        <div class="table-meta">{fmtN(pages.total)} pages</div>
         <table>
           <thead><tr><th>#</th><th>Page</th><th>Clicks</th><th>Impressions</th><th>CTR</th><th>Position</th></tr></thead>
           <tbody>
             {#each pages.rows as r, i}
               <tr>
-                <td style="color: var(--text-muted); font-size: 12px;">{pagesOffset + i + 1}</td>
+                <td class="row-num">{pagesOffset + i + 1}</td>
                 <td class="cell-url">{r.page}</td>
                 <td>{fmtN(r.clicks)}</td>
                 <td>{fmtN(r.impressions)}</td>
@@ -395,20 +395,20 @@
       {/if}
 
     {:else if subView === 'countries'}
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div class="gsc-grid-2col">
         <div>
-          <h4 style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">By Country</h4>
+          <h4 class="sub-heading">By Country</h4>
           {#if countries?.length > 0}
             {@const totalCountryClicks = countries.reduce((s, c) => s + c.clicks, 0) || 1}
             {@const maxCountryClicks = Math.max(...countries.map(c => c.clicks), 1)}
             {#each countries as c}
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px;">
-                <span style="width: 36px; font-weight: 600; text-transform: uppercase;">{c.country}</span>
-                <div style="flex: 1; height: 18px; background: var(--bg-alt); border-radius: 4px; overflow: hidden;">
-                  <div style="height: 100%; width: {(c.clicks / maxCountryClicks) * 100}%; background: var(--accent); opacity: 0.7; border-radius: 4px;"></div>
+              <div class="gsc-bar-row">
+                <span class="gsc-country-code">{c.country}</span>
+                <div class="gsc-bar-track">
+                  <div class="gsc-bar-fill" style="width: {(c.clicks / maxCountryClicks) * 100}%;"></div>
                 </div>
-                <span style="width: 60px; text-align: right; color: var(--text-muted);">{fmtN(c.clicks)}</span>
-                <span style="width: 50px; text-align: right; color: var(--text-muted); font-size: 11px;">{(c.clicks / totalCountryClicks * 100).toFixed(1)}%</span>
+                <span class="gsc-bar-value">{fmtN(c.clicks)}</span>
+                <span class="gsc-bar-pct">{(c.clicks / totalCountryClicks * 100).toFixed(1)}%</span>
               </div>
             {/each}
           {:else}
@@ -416,18 +416,18 @@
           {/if}
         </div>
         <div>
-          <h4 style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">By Device</h4>
+          <h4 class="sub-heading">By Device</h4>
           {#if devices?.length > 0}
             {@const totalDeviceClicks = devices.reduce((s, d) => s + d.clicks, 0) || 1}
             {@const maxDeviceClicks = Math.max(...devices.map(d => d.clicks), 1)}
             {#each devices as d}
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px;">
-                <span style="width: 70px; font-weight: 600; text-transform: capitalize;">{d.device}</span>
-                <div style="flex: 1; height: 18px; background: var(--bg-alt); border-radius: 4px; overflow: hidden;">
-                  <div style="height: 100%; width: {(d.clicks / maxDeviceClicks) * 100}%; background: var(--accent); opacity: 0.7; border-radius: 4px;"></div>
+              <div class="gsc-bar-row">
+                <span class="gsc-device-name">{d.device}</span>
+                <div class="gsc-bar-track">
+                  <div class="gsc-bar-fill" style="width: {(d.clicks / maxDeviceClicks) * 100}%;"></div>
                 </div>
-                <span style="width: 60px; text-align: right; color: var(--text-muted);">{fmtN(d.clicks)}</span>
-                <span style="width: 50px; text-align: right; color: var(--text-muted); font-size: 11px;">{(d.clicks / totalDeviceClicks * 100).toFixed(1)}%</span>
+                <span class="gsc-bar-value">{fmtN(d.clicks)}</span>
+                <span class="gsc-bar-pct">{(d.clicks / totalDeviceClicks * 100).toFixed(1)}%</span>
               </div>
             {/each}
           {:else}
@@ -438,7 +438,7 @@
 
     {:else if subView === 'inspection'}
       {#if inspection?.rows?.length > 0}
-        <div style="margin-bottom: 8px; color: var(--text-muted); font-size: 12px;">{fmtN(inspection.total)} URLs inspected</div>
+        <div class="table-meta">{fmtN(inspection.total)} URLs inspected</div>
         <table>
           <thead>
             <tr>
@@ -449,15 +449,15 @@
           <tbody>
             {#each inspection.rows as r, i}
               <tr>
-                <td style="color: var(--text-muted); font-size: 12px;">{inspectionOffset + i + 1}</td>
-                <td class="cell-url" style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{r.url}</td>
+                <td class="row-num">{inspectionOffset + i + 1}</td>
+                <td class="cell-url gsc-cell-insp-url">{r.url}</td>
                 <td><span class="badge" class:badge-success={r.verdict === 'PASS'} class:badge-danger={r.verdict !== 'PASS' && r.verdict !== ''}>{r.verdict || '-'}</span></td>
-                <td style="font-size: 12px;">{r.coverage_state || '-'}</td>
-                <td style="font-size: 12px;">{r.indexing_state || '-'}</td>
-                <td style="font-size: 12px;">{r.robots_txt_state || '-'}</td>
-                <td style="font-size: 12px; white-space: nowrap;">{r.last_crawl_time ? r.last_crawl_time.slice(0, 10) : '-'}</td>
-                <td class="cell-url" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px;">{r.canonical_url || '-'}</td>
-                <td style="font-size: 12px;">{r.mobile_usability || '-'}</td>
+                <td class="text-xs">{r.coverage_state || '-'}</td>
+                <td class="text-xs">{r.indexing_state || '-'}</td>
+                <td class="text-xs">{r.robots_txt_state || '-'}</td>
+                <td class="text-xs nowrap">{r.last_crawl_time ? r.last_crawl_time.slice(0, 10) : '-'}</td>
+                <td class="cell-url gsc-cell-canonical">{r.canonical_url || '-'}</td>
+                <td class="text-xs">{r.mobile_usability || '-'}</td>
                 <td>{r.rich_results_items || 0}</td>
               </tr>
             {/each}
@@ -513,4 +513,26 @@
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .gsc-connect-title { margin-bottom: 12px; font-size: 16px; }
+  .gsc-property-select { min-width: 300px; }
+  .gsc-property-wrap { flex-wrap: wrap; }
+  .gsc-disconnect-btn { margin-top: 12px; }
+  .gsc-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .gsc-stats { margin-bottom: 20px; }
+  .gsc-chart-svg { width: 100%; max-width: 800px; height: auto; margin-bottom: 24px; }
+  .gsc-axis-label { font-size: 10px; fill: var(--text-muted); }
+  .gsc-chart-legend { font-size: 9px; fill: var(--accent); }
+  .gsc-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .gsc-cell-query { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gsc-cell-page { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gsc-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px; }
+  .gsc-country-code { width: 36px; font-weight: 600; text-transform: uppercase; }
+  .gsc-device-name { width: 70px; font-weight: 600; text-transform: capitalize; }
+  .gsc-bar-track { flex: 1; height: 18px; background: var(--bg-alt); border-radius: 4px; overflow: hidden; }
+  .gsc-bar-fill { height: 100%; background: var(--accent); opacity: 0.7; border-radius: 4px; }
+  .gsc-bar-value { width: 60px; text-align: right; color: var(--text-muted); }
+  .gsc-bar-pct { width: 50px; text-align: right; color: var(--text-muted); font-size: 11px; }
+  .gsc-cell-insp-url { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gsc-cell-canonical { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  .pr-select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px; }
 </style>

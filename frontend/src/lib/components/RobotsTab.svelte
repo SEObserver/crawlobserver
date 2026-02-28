@@ -93,9 +93,9 @@
 <div class="robots-layout">
   <div class="robots-hosts">
     {#if robotsLoading && robotsHosts.length === 0}
-      <p style="padding: 20px; color: var(--text-muted);">Loading...</p>
+      <p class="robots-empty-msg text-muted">Loading...</p>
     {:else if robotsHosts.length === 0}
-      <p style="padding: 20px; color: var(--text-muted);">No robots.txt data. Run a crawl first.</p>
+      <p class="robots-empty-msg text-muted">No robots.txt data. Run a crawl first.</p>
     {:else}
       <table>
         <thead>
@@ -103,10 +103,10 @@
         </thead>
         <tbody>
           {#each robotsHosts as h}
-            <tr class:robots-host-active={robotsSelectedHost === h.Host} role="button" tabindex="0" style="cursor:pointer" onclick={() => selectRobotsHost(h.Host)} onkeydown={a11yKeydown(() => selectRobotsHost(h.Host))}>
-              <td style="font-weight: 500;">{h.Host}</td>
+            <tr class="robots-host-row" class:robots-host-active={robotsSelectedHost === h.Host} role="button" tabindex="0" onclick={() => selectRobotsHost(h.Host)} onkeydown={a11yKeydown(() => selectRobotsHost(h.Host))}>
+              <td class="font-medium">{h.Host}</td>
               <td><span class="badge {h.StatusCode === 200 ? 'badge-success' : h.StatusCode >= 400 ? 'badge-error' : 'badge-warning'}">{h.StatusCode}</span></td>
-              <td style="color: var(--text-muted); font-size: 12px;">{new Date(h.FetchedAt).toLocaleString()}</td>
+              <td class="text-muted text-xs">{new Date(h.FetchedAt).toLocaleString()}</td>
             </tr>
           {/each}
         </tbody>
@@ -115,7 +115,7 @@
   </div>
   <div class="robots-detail">
     {#if robotsSelectedHost}
-      <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary);">robots.txt &mdash; {robotsSelectedHost}</h3>
+      <h3 class="robots-detail-title text-secondary font-semibold">robots.txt &mdash; {robotsSelectedHost}</h3>
 
       <div class="pr-subview-bar">
         <button class="pr-subview-btn {robotsSubView === 'content' ? 'pr-subview-active' : ''}" onclick={() => robotsSubView = 'content'}>Content</button>
@@ -127,44 +127,44 @@
         {#if robotsContent !== null}
           <pre class="robots-content-pre">{robotsContent || '(empty)'}</pre>
         {:else}
-          <p style="color: var(--text-muted);">Loading...</p>
+          <p class="text-muted">Loading...</p>
         {/if}
 
       {:else if robotsSubView === 'tester'}
-        <div class="form-group" style="margin-bottom: 8px;">
+        <div class="form-group mb-sm">
           <label>User-Agent (optional)</label>
-          <input type="text" placeholder="* (default)" bind:value={robotsTestUA} style="max-width: 300px;" />
+          <input type="text" placeholder="* (default)" bind:value={robotsTestUA} class="robots-ua-input" />
         </div>
-        <div class="form-group" style="margin-bottom: 8px;">
+        <div class="form-group mb-sm">
           <label>URLs to test (one per line)</label>
-          <textarea rows="4" bind:value={robotsTestUrls} placeholder="/path/to/page&#10;/another/path" style="font-family: 'SF Mono', monospace; font-size: 13px;"></textarea>
+          <textarea rows="4" bind:value={robotsTestUrls} placeholder="/path/to/page&#10;/another/path" class="robots-mono-textarea"></textarea>
         </div>
         <button class="btn btn-primary btn-sm" onclick={runRobotsTest} disabled={robotsTestLoading || !robotsTestUrls.trim()}>
           {robotsTestLoading ? 'Testing...' : 'Test'}
         </button>
 
         {#if robotsTestResults}
-          <div style="margin-top: 12px;">
+          <div class="robots-test-results">
             {#each robotsTestResults as r}
               <div class="robots-test-result">
                 <span class="badge {r.allowed ? 'badge-success' : 'badge-error'}">{r.allowed ? 'Allowed' : 'Blocked'}</span>
-                <span style="font-size: 13px; margin-left: 8px;">{r.url}</span>
+                <span class="text-sm robots-test-url">{r.url}</span>
               </div>
             {/each}
           </div>
         {/if}
 
       {:else}
-        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+        <p class="text-xs text-muted robots-sim-hint">
           Edit the robots.txt below, then run the simulation to see which crawled URLs would be newly blocked or allowed.
         </p>
-        <div class="form-group" style="margin-bottom: 8px;">
+        <div class="form-group mb-sm">
           <label>User-Agent (optional)</label>
-          <input type="text" placeholder="* (default)" bind:value={simulateUA} style="max-width: 300px;" />
+          <input type="text" placeholder="* (default)" bind:value={simulateUA} class="robots-ua-input" />
         </div>
-        <div class="form-group" style="margin-bottom: 12px;">
+        <div class="form-group robots-sim-form-group">
           <label>Proposed robots.txt</label>
-          <textarea rows="12" bind:value={simulateContent} style="font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.6;"></textarea>
+          <textarea rows="12" bind:value={simulateContent} class="robots-sim-textarea"></textarea>
         </div>
         <button class="btn btn-primary btn-sm" onclick={runSimulation} disabled={simulateLoading || !simulateContent.trim()}>
           {simulateLoading ? 'Running...' : 'Run Simulation'}
@@ -186,26 +186,26 @@
             </div>
             <div class="sim-compare-row">
               <span class="sim-compare-label">Allowed</span>
-              <span class="sim-compare-val" style="color: var(--success);">{res.currently_allowed?.toLocaleString()}</span>
+              <span class="sim-compare-val sim-val-success">{res.currently_allowed?.toLocaleString()}</span>
               <span class="sim-compare-arrow">→</span>
-              <span class="sim-compare-val" style="color: var(--success);">{afterAllowed.toLocaleString()}</span>
+              <span class="sim-compare-val sim-val-success">{afterAllowed.toLocaleString()}</span>
               {#if newlyBlockedCount > 0 || newlyAllowedCount > 0}
                 {@const delta = afterAllowed - (res.currently_allowed || 0)}
                 <span class="sim-compare-delta" style="color: {delta > 0 ? 'var(--success)' : delta < 0 ? 'var(--error)' : 'var(--text-muted)'};">{delta > 0 ? '+' : ''}{delta.toLocaleString()}</span>
               {:else}
-                <span class="sim-compare-delta" style="color: var(--text-muted);">—</span>
+                <span class="sim-compare-delta text-muted">—</span>
               {/if}
             </div>
             <div class="sim-compare-row">
               <span class="sim-compare-label">Blocked</span>
-              <span class="sim-compare-val" style="color: var(--error);">{res.currently_blocked?.toLocaleString()}</span>
+              <span class="sim-compare-val sim-val-error">{res.currently_blocked?.toLocaleString()}</span>
               <span class="sim-compare-arrow">→</span>
-              <span class="sim-compare-val" style="color: var(--error);">{afterBlocked.toLocaleString()}</span>
+              <span class="sim-compare-val sim-val-error">{afterBlocked.toLocaleString()}</span>
               {#if newlyBlockedCount > 0 || newlyAllowedCount > 0}
                 {@const delta = afterBlocked - (res.currently_blocked || 0)}
                 <span class="sim-compare-delta" style="color: {delta > 0 ? 'var(--error)' : delta < 0 ? 'var(--success)' : 'var(--text-muted)'};">{delta > 0 ? '+' : ''}{delta.toLocaleString()}</span>
               {:else}
-                <span class="sim-compare-delta" style="color: var(--text-muted);">—</span>
+                <span class="sim-compare-delta text-muted">—</span>
               {/if}
             </div>
             <div class="sim-compare-row sim-compare-total">
@@ -221,7 +221,7 @@
             <button class="sim-change-header sim-url-blocked" onclick={() => showNewlyBlocked = !showNewlyBlocked}>
               <span class="badge badge-error">{res.newly_blocked.length}</span>
               <span>URLs newly blocked</span>
-              <span style="margin-left: auto; font-size: 12px;">{showNewlyBlocked ? '▲' : '▼'}</span>
+              <span class="sim-toggle-icon">{showNewlyBlocked ? '▲' : '▼'}</span>
             </button>
             {#if showNewlyBlocked}
               <div class="sim-url-list">
@@ -236,7 +236,7 @@
             <button class="sim-change-header sim-url-allowed" onclick={() => showNewlyAllowed = !showNewlyAllowed}>
               <span class="badge badge-success">{res.newly_allowed.length}</span>
               <span>URLs newly allowed</span>
-              <span style="margin-left: auto; font-size: 12px;">{showNewlyAllowed ? '▲' : '▼'}</span>
+              <span class="sim-toggle-icon">{showNewlyAllowed ? '▲' : '▼'}</span>
             </button>
             {#if showNewlyAllowed}
               <div class="sim-url-list">
@@ -248,12 +248,12 @@
           {/if}
 
           {#if (!res.newly_blocked || res.newly_blocked.length === 0) && (!res.newly_allowed || res.newly_allowed.length === 0)}
-            <p style="margin-top: 16px; color: var(--text-muted); font-size: 13px;">No changes — all URLs keep their current status.</p>
+            <p class="mt-md text-muted text-sm">No changes — all URLs keep their current status.</p>
           {/if}
         {/if}
       {/if}
     {:else}
-      <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+      <div class="robots-placeholder text-center text-muted">
         <p>Select a host to view its robots.txt</p>
       </div>
     {/if}
@@ -394,4 +394,47 @@
     word-break: break-all;
   }
   .sim-url-item:last-child { border-bottom: none; }
+  .robots-empty-msg {
+    padding: 20px;
+  }
+  .robots-host-row {
+    cursor: pointer;
+  }
+  .robots-detail-title {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  .robots-ua-input {
+    max-width: 300px;
+  }
+  .robots-mono-textarea {
+    font-family: 'SF Mono', monospace;
+    font-size: 13px;
+  }
+  .robots-test-results {
+    margin-top: 12px;
+  }
+  .robots-test-url {
+    margin-left: 8px;
+  }
+  .robots-sim-hint {
+    margin-bottom: 12px;
+  }
+  .robots-sim-form-group {
+    margin-bottom: 12px;
+  }
+  .robots-sim-textarea {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .sim-val-success { color: var(--success); }
+  .sim-val-error { color: var(--error); }
+  .sim-toggle-icon {
+    margin-left: auto;
+    font-size: 12px;
+  }
+  .robots-placeholder {
+    padding: 40px;
+  }
 </style>

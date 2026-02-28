@@ -105,27 +105,27 @@
       <input id="set-logo" type="text" bind:value={editTheme.logo_url} oninput={previewTheme} placeholder="https://example.com/logo.png" />
     </div>
     {#if editTheme.logo_url}
-      <div class="form-group" style="grid-column: 1 / -1;">
-        <span style="font-weight: 500; font-size: 0.85rem; color: var(--text-secondary);">Logo Preview</span>
-        <img src={editTheme.logo_url} alt="Logo preview" style="max-height: 48px; border-radius: 6px; background: var(--bg-card);" />
+      <div class="form-group full-width">
+        <span class="field-label">Logo Preview</span>
+        <img src={editTheme.logo_url} alt="Logo preview" class="logo-preview" />
       </div>
     {/if}
     <div class="form-group">
       <label for="set-accent">Accent Color</label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input id="set-accent" type="color" value={editTheme.accent_color} oninput={(e) => { editTheme.accent_color = e.target.value; previewTheme(); }} style="width: 48px; height: 36px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; padding: 2px;" />
-        <span style="font-family: monospace; color: var(--text-secondary);">{editTheme.accent_color}</span>
+      <div class="color-picker-row">
+        <input id="set-accent" type="color" value={editTheme.accent_color} oninput={(e) => { editTheme.accent_color = e.target.value; previewTheme(); }} class="color-swatch" />
+        <span class="color-value">{editTheme.accent_color}</span>
       </div>
     </div>
     <div class="form-group">
-      <span style="font-weight: 500; font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Mode</span>
-      <div style="display: flex; gap: 8px;">
+      <span class="field-label mb-xs">Mode</span>
+      <div class="flex-center-gap">
         <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'light'} onclick={() => { editTheme.mode = 'light'; previewTheme(); }}>Light</button>
         <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'dark'} onclick={() => { editTheme.mode = 'dark'; previewTheme(); }}>Dark</button>
       </div>
     </div>
   </div>
-  <div style="display: flex; gap: 8px; margin-top: 20px;">
+  <div class="form-actions">
     <button class="btn btn-primary" onclick={saveTheme} disabled={savingTheme}>
       {savingTheme ? 'Saving...' : 'Save'}
     </button>
@@ -134,23 +134,23 @@
 </div>
 
 <!-- Backups -->
-<div class="page-header" style="margin-top:32px">
+<div class="page-header section-gap">
   <h1>Backups</h1>
   <button class="btn btn-sm btn-primary" onclick={doCreateBackup} disabled={creatingBackup}>
     {creatingBackup ? 'Creating...' : 'Create Backup'}
   </button>
 </div>
 {#if backupMessage}
-  <div class="alert alert-info" style="margin-bottom:16px">
+  <div class="alert alert-info mb-md">
     <span>{backupMessage}</span>
     <button class="btn btn-sm btn-ghost" onclick={() => backupMessage = ''}>Dismiss</button>
   </div>
 {/if}
 <div class="card card-flush">
   {#if loadingBackups}
-    <div style="padding:20px;color:var(--text-muted)">Loading backups...</div>
+    <div class="card-empty-msg">Loading backups...</div>
   {:else if backups.length === 0}
-    <div style="padding:20px;color:var(--text-muted)">No backups yet.</div>
+    <div class="card-empty-msg">No backups yet.</div>
   {:else}
     <table>
       <thead>
@@ -169,7 +169,7 @@
             <td>{b.version || '-'}</td>
             <td>{new Date(b.created_at).toLocaleString()}</td>
             <td>{formatBytes(b.size)}</td>
-            <td style="white-space:nowrap">
+            <td class="nowrap">
               <button class="btn btn-sm" onclick={() => doRestoreBackup(b.filename)}
                 disabled={restoringBackup === b.filename}>
                 {restoringBackup === b.filename ? 'Restoring...' : 'Restore'}
@@ -182,3 +182,57 @@
     </table>
   {/if}
 </div>
+
+<style>
+  .full-width {
+    grid-column: 1 / -1;
+  }
+
+  .field-label {
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    display: block;
+  }
+
+  .logo-preview {
+    max-height: 48px;
+    border-radius: 6px;
+    background: var(--bg-card);
+  }
+
+  .color-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .color-swatch {
+    width: 48px;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 2px;
+  }
+
+  .color-value {
+    font-family: monospace;
+    color: var(--text-secondary);
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .section-gap {
+    margin-top: 32px;
+  }
+
+  .card-empty-msg {
+    padding: 20px;
+    color: var(--text-muted);
+  }
+</style>

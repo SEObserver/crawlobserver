@@ -157,13 +157,13 @@
   </div>
 
   {#if compareStats}
-    <div class="tab-bar" style="margin-top: 24px;">
+    <div class="tab-bar compare-tab-bar">
       <button class="tab" class:tab-active={activeTab === 'stats'} onclick={() => switchMainTab('stats')}>Stats</button>
       <button class="tab" class:tab-active={activeTab === 'pages'} onclick={() => switchMainTab('pages')}>Pages</button>
       <button class="tab" class:tab-active={activeTab === 'links'} onclick={() => switchMainTab('links')}>Internal Links</button>
     </div>
 
-    <div class="card card-flush" style="border-top-left-radius: 0; border-top-right-radius: 0; border-top: none;">
+    <div class="card card-flush compare-card-flush">
       {#if activeTab === 'stats'}
         {@const sa = compareStats.stats_a}
         {@const sb = compareStats.stats_b}
@@ -224,7 +224,7 @@
         </div>
 
         {#if sa.status_codes || sb.status_codes}
-          <h3 style="margin: 20px 0 12px;">Status Codes</h3>
+          <h3 class="status-codes-heading">Status Codes</h3>
           {@const allCodes = [...new Set([...Object.keys(sa.status_codes || {}), ...Object.keys(sb.status_codes || {})])].sort()}
           <table class="table">
             <thead><tr><th>Code</th><th>Session A</th><th>Session B</th><th>Delta</th></tr></thead>
@@ -527,5 +527,16 @@
     font-size: 14px;
     font-weight: 600;
     color: var(--text);
+  }
+  .compare-tab-bar {
+    margin-top: 24px;
+  }
+  .compare-card-flush {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-top: none;
+  }
+  .status-codes-heading {
+    margin: 20px 0 12px;
   }
 </style>

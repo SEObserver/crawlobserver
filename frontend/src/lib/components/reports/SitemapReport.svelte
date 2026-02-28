@@ -35,11 +35,11 @@
         </div>
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('overview')} onkeydown={a11yKeydown(() => nav('overview'))}>
-          <div class="stat-value" style="color: var(--warning)">{fmtN(sitemap.crawled_only || 0)}</div><div class="stat-label">Crawled Only</div>
+          <div class="stat-value text-warning">{fmtN(sitemap.crawled_only || 0)}</div><div class="stat-label">Crawled Only</div>
         </div>
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('sitemaps')} onkeydown={a11yKeydown(() => nav('sitemaps'))}>
-          <div class="stat-value" style="color: var(--error)">{fmtN(sitemap.sitemap_only || 0)}</div><div class="stat-label">Sitemap Only</div>
+          <div class="stat-value text-error">{fmtN(sitemap.sitemap_only || 0)}</div><div class="stat-label">Sitemap Only</div>
         </div>
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('sitemaps')} onkeydown={a11yKeydown(() => nav('sitemaps'))}>

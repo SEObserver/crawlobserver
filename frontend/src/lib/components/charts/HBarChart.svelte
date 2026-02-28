@@ -14,7 +14,7 @@
       {@const y = i * (barHeight + gap)}
       {@const colorClass = bar.color || 'chart-bar-accent'}
       {#if bar.onclick}
-        <g class="chart-bar-clickable" role="button" tabindex="0" style="cursor:pointer"
+        <g class="chart-bar-clickable" role="button" tabindex="0"
           onclick={() => bar.onclick()} onkeydown={a11yKeydown(() => bar.onclick())}>
           <text x="90" y={y + barHeight / 2 + 5} text-anchor="end" class="chart-label">{bar.label}</text>
           <rect x="100" y={y} width={Math.max(barW, 2)} height={barHeight} rx="4" class="chart-bar {colorClass}" />

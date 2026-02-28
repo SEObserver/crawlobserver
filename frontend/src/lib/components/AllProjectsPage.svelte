@@ -42,7 +42,7 @@
 
 <div class="page-header">
   <h1>All Projects</h1>
-  <div style="display:flex;gap:8px;align-items:center">
+  <div class="flex-center-gap">
     <button class="btn btn-sm" onclick={loadProjects} disabled={loading}>
       {loading ? 'Loading...' : 'Refresh'}
     </button>
@@ -66,8 +66,8 @@
       <thead>
         <tr>
           <th>Name</th>
-          <th style="width:180px">Created</th>
-          <th style="width:100px"></th>
+          <th class="col-created">Created</th>
+          <th class="col-actions"></th>
         </tr>
       </thead>
       <tbody>
@@ -78,7 +78,7 @@
                 {proj.name}
               </a>
             </td>
-            <td style="white-space:nowrap;color:var(--text-muted);font-size:13px">
+            <td class="nowrap text-muted text-sm">
               {proj.created_at ? timeAgo(proj.created_at) : '-'}
             </td>
             <td>
@@ -86,7 +86,7 @@
             </td>
           </tr>
         {:else}
-          <tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-muted)">No projects found</td></tr>
+          <tr><td colspan="3" class="empty-message">No projects found</td></tr>
         {/each}
       </tbody>
     </table>
@@ -138,6 +138,17 @@
   }
   .pagination-info {
     font-size: 13px;
+    color: var(--text-muted);
+  }
+  .col-created {
+    width: 180px;
+  }
+  .col-actions {
+    width: 100px;
+  }
+  .empty-message {
+    text-align: center;
+    padding: 24px;
     color: var(--text-muted);
   }
 </style>

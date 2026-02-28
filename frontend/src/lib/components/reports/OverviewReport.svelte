@@ -152,14 +152,14 @@
           <tbody>
             {#each stats.top_pagerank.slice(0, 10) as entry, i}
               <tr>
-                <td style="color: var(--text-muted); font-weight: 600;">{i + 1}</td>
+                <td class="text-muted font-semibold">{i + 1}</td>
                 <td class="cell-url">
                   <a href={`/sessions/${sessionId}/url/${encodeURIComponent(entry.url)}`}
                     onclick={(e) => { e.preventDefault(); onnavigate?.(`/sessions/${sessionId}/url/${encodeURIComponent(entry.url)}`); }}>
                     {entry.url}
                   </a>
                 </td>
-                <td style="color: var(--accent); font-weight: 600;">{entry.pagerank.toFixed(2)}</td>
+                <td class="text-accent font-semibold">{entry.pagerank.toFixed(2)}</td>
               </tr>
             {/each}
           </tbody>

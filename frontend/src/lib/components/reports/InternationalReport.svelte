@@ -40,7 +40,7 @@
     {:else}
       <p class="chart-empty">No schema types detected.</p>
     {/if}
-    <div class="stats-grid" style="margin-top: 16px;">
+    <div class="stats-grid mt-md">
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('overview')} onkeydown={a11yKeydown(() => nav('overview'))}>
         <div class="stat-value">{fmtN(intl.pages_with_schema || 0)}</div><div class="stat-label">Pages with Schema</div>

@@ -67,7 +67,7 @@
 
 <div class="page-header">
   <h1>Application Logs</h1>
-  <div style="display:flex;gap:8px;align-items:center">
+  <div class="flex-center-gap">
     <button class="btn btn-sm" onclick={loadLogs} disabled={loading}>
       {loading ? 'Loading...' : 'Refresh'}
     </button>
@@ -105,9 +105,9 @@
     <table>
       <thead>
         <tr>
-          <th style="width:180px">Timestamp</th>
-          <th style="width:70px">Level</th>
-          <th style="width:100px">Component</th>
+          <th class="col-timestamp">Timestamp</th>
+          <th class="col-level">Level</th>
+          <th class="col-component">Component</th>
           <th>Message</th>
         </tr>
       </thead>
@@ -122,7 +122,7 @@
             <td class="td-mono td-msg">{log.message}</td>
           </tr>
         {:else}
-          <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted)">No logs found</td></tr>
+          <tr><td colspan="4" class="logs-empty">No logs found</td></tr>
         {/each}
       </tbody>
     </table>
@@ -213,6 +213,14 @@
   }
   .pagination-info {
     font-size: 13px;
+    color: var(--text-muted);
+  }
+  .col-timestamp { width: 180px; }
+  .col-level { width: 70px; }
+  .col-component { width: 100px; }
+  .logs-empty {
+    text-align: center;
+    padding: 24px;
     color: var(--text-muted);
   }
 </style>

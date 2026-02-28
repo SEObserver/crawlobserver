@@ -40,7 +40,7 @@
 </script>
 
 <div class="html-modal-overlay" role="button" tabindex="0" onclick={onclose} onkeydown={a11yKeydown(onclose)}>
-  <div class="html-modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} style="max-width: 480px; height: auto;">
+  <div class="html-modal resume-modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
     <div class="html-modal-header">
       <div class="html-modal-url">Resume Crawl</div>
       <div class="html-modal-actions">
@@ -49,7 +49,7 @@
         </button>
       </div>
     </div>
-    <div style="padding: 20px;">
+    <div class="modal-body">
       <div class="form-grid">
         <div class="form-group"><label for="r-maxpages">Max pages (0 = unlimited)</label><input id="r-maxpages" type="number" bind:value={resumeMaxPages} min="0" /></div>
         <div class="form-group"><label for="r-maxdepth">Max depth (0 = unlimited)</label><input id="r-maxdepth" type="number" bind:value={resumeMaxDepth} min="0" /></div>
@@ -62,11 +62,11 @@
             <option value="domain">Same domain (incl. subdomains)</option>
           </select>
         </div>
-        <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
-          <input id="r-storehtml" type="checkbox" bind:checked={resumeStoreHtml} /><label for="r-storehtml" style="margin: 0;">Store raw HTML</label>
+        <div class="form-group checkbox-row">
+          <input id="r-storehtml" type="checkbox" bind:checked={resumeStoreHtml} /><label for="r-storehtml" class="mb-0">Store raw HTML</label>
         </div>
       </div>
-      <div style="display: flex; gap: 8px; margin-top: 20px;">
+      <div class="modal-actions">
         <button class="btn btn-primary" onclick={handleResume} disabled={resuming}>
           {resuming ? 'Resuming...' : 'Resume'}
         </button>
@@ -75,3 +75,25 @@
     </div>
   </div>
 </div>
+
+<style>
+  .resume-modal {
+    max-width: 480px;
+    height: auto;
+  }
+  .modal-body {
+    padding: 20px;
+  }
+  .checkbox-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding-top: 24px;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+  }
+</style>

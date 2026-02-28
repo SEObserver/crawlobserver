@@ -38,9 +38,9 @@
     </div>
     <div class="html-modal-body">
       {#if loading}
-        <p style="padding: 40px; color: var(--text-muted); text-align: center;">Loading...</p>
+        <p class="modal-placeholder">Loading...</p>
       {:else if !htmlModalData.body_html}
-        <p style="padding: 40px; color: var(--text-muted); text-align: center;">No HTML stored for this page.</p>
+        <p class="modal-placeholder">No HTML stored for this page.</p>
       {:else if htmlModalView === 'render'}
         <iframe srcdoc={htmlModalData.body_html} title="Page render" class="html-modal-iframe" sandbox></iframe>
       {:else}
@@ -121,5 +121,10 @@
     white-space: pre-wrap;
     word-break: break-all;
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+  .modal-placeholder {
+    padding: 40px;
+    color: var(--text-muted);
+    text-align: center;
   }
 </style>

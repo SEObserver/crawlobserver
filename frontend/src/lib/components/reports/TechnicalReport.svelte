@@ -70,18 +70,18 @@
       <DonutChart segments={idxSegs} size={200} strokeWidth={28}
         centerLabel={fmtN((tech.indexable || 0) + (tech.non_indexable || 0))} centerSubLabel="pages" />
       <div>
-        <div class="stats-grid" style="margin-bottom: 16px;">
+        <div class="stats-grid mb-md">
           <div class="stat-card stat-card-link" role="button" tabindex="0"
             onclick={() => nav('indexability', { is_indexable: 'true' })} onkeydown={a11yKeydown(() => nav('indexability', { is_indexable: 'true' }))}>
-            <div class="stat-value" style="color: var(--success)">{fmtN(tech.indexable)}</div><div class="stat-label">Indexable</div>
+            <div class="stat-value text-success">{fmtN(tech.indexable)}</div><div class="stat-label">Indexable</div>
           </div>
           <div class="stat-card stat-card-link" role="button" tabindex="0"
             onclick={() => nav('indexability', { is_indexable: 'false' })} onkeydown={a11yKeydown(() => nav('indexability', { is_indexable: 'false' }))}>
-            <div class="stat-value" style="color: var(--error)">{fmtN(tech.non_indexable)}</div><div class="stat-label">Non-Indexable</div>
+            <div class="stat-value text-error">{fmtN(tech.non_indexable)}</div><div class="stat-label">Non-Indexable</div>
           </div>
         </div>
         {#if niBars.length > 0}
-          <h4 style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">Non-Indexable Reasons</h4>
+          <h4 class="noindex-heading">Non-Indexable Reasons</h4>
           <HBarChart bars={niBars} />
         {/if}
       </div>
@@ -95,15 +95,15 @@
       <div class="stats-grid">
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('indexability', { canonical_is_self: 'true' })} onkeydown={a11yKeydown(() => nav('indexability', { canonical_is_self: 'true' }))}>
-          <div class="stat-value" style="color: var(--success)">{fmtN(tech.canonical_self)}</div><div class="stat-label">Self-canonical</div>
+          <div class="stat-value text-success">{fmtN(tech.canonical_self)}</div><div class="stat-label">Self-canonical</div>
         </div>
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('indexability', { canonical_is_self: 'false' })} onkeydown={a11yKeydown(() => nav('indexability', { canonical_is_self: 'false' }))}>
-          <div class="stat-value" style="color: var(--info)">{fmtN(tech.canonical_other)}</div><div class="stat-label">Other canonical</div>
+          <div class="stat-value text-info">{fmtN(tech.canonical_other)}</div><div class="stat-label">Other canonical</div>
         </div>
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('indexability', { canonical: '' })} onkeydown={a11yKeydown(() => nav('indexability', { canonical: '' }))}>
-          <div class="stat-value" style="color: var(--warning)">{fmtN(tech.canonical_missing)}</div><div class="stat-label">Missing</div>
+          <div class="stat-value text-warning">{fmtN(tech.canonical_missing)}</div><div class="stat-label">Missing</div>
         </div>
       </div>
     </div>
@@ -118,11 +118,11 @@
       </div>
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('response', { status_code: '3' })} onkeydown={a11yKeydown(() => nav('response', { status_code: '3' }))}>
-        <div class="stat-value" style="color: var(--warning)">{fmtN(tech.redirect_chains_over_2 || 0)}</div><div class="stat-label">Chains > 2 hops</div>
+        <div class="stat-value text-warning">{fmtN(tech.redirect_chains_over_2 || 0)}</div><div class="stat-label">Chains > 2 hops</div>
       </div>
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('response', { status_code: '5' })} onkeydown={a11yKeydown(() => nav('response', { status_code: '5' }))}>
-        <div class="stat-value" style="color: var(--error)">{fmtN(tech.error_pages || 0)}</div><div class="stat-label">Error Pages</div>
+        <div class="stat-value text-error">{fmtN(tech.error_pages || 0)}</div><div class="stat-label">Error Pages</div>
       </div>
     </div>
   </div>
@@ -131,7 +131,7 @@
     <h3 class="chart-title">Response Time</h3>
     <HBarChart bars={resBars} />
     {#if stats}
-      <div class="stats-grid" style="margin-top: 16px;">
+      <div class="stats-grid mt-md">
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('response')} onkeydown={a11yKeydown(() => nav('response'))}>
           <div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">Average</div>
@@ -147,3 +147,11 @@
 {:else}
   <p class="chart-empty">No technical audit data available.</p>
 {/if}
+
+<style>
+  .noindex-heading {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+</style>

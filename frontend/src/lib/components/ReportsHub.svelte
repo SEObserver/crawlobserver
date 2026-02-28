@@ -66,11 +66,11 @@
   {#if subView === 'overview'}
     <OverviewReport {stats} {sessionId} {onnavigate} />
   {:else if auditLoading}
-    <p style="color: var(--text-muted); padding: 32px 0;">Loading audit data...</p>
+    <p class="reports-msg-muted">Loading audit data...</p>
   {:else if auditError && !auditData}
-    <p style="color: var(--error); padding: 32px 0;">Failed to load audit: {auditError}</p>
+    <p class="reports-msg-error">Failed to load audit: {auditError}</p>
   {:else if !auditData}
-    <p style="color: var(--text-muted); padding: 32px 0;">Requires audit computation. Click a sub-view to load.</p>
+    <p class="reports-msg-muted">Requires audit computation. Click a sub-view to load.</p>
   {:else if subView === 'content'}
     <ContentReport {stats} audit={auditData} {sessionId} {onnavigate} />
   {:else if subView === 'technical'}
@@ -85,3 +85,14 @@
     <InternationalReport {stats} audit={auditData} {sessionId} {onnavigate} />
   {/if}
 </div>
+
+<style>
+  .reports-msg-muted {
+    color: var(--text-muted);
+    padding: 32px 0;
+  }
+  .reports-msg-error {
+    color: var(--error);
+    padding: 32px 0;
+  }
+</style>

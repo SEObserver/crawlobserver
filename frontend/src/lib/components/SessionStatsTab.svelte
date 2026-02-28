@@ -18,7 +18,7 @@
           {@const barW = depthMax > 0 ? (count / depthMax) * 440 : 0}
           {@const y = i * (depthBarH + depthGap)}
           {@const opacity = 0.5 + (0.5 * (1 - i / Math.max(depthEntries.length - 1, 1)))}
-          <g class="chart-bar-clickable" role="button" tabindex="0" style="cursor:pointer" onclick={() => onnavigate?.(`/sessions/${sessionId}/overview`, {depth: String(depth)})} onkeydown={a11yKeydown(() => onnavigate?.(`/sessions/${sessionId}/overview`, {depth: String(depth)}))}>
+          <g class="chart-bar-clickable cursor-pointer" role="button" tabindex="0" onclick={() => onnavigate?.(`/sessions/${sessionId}/overview`, {depth: String(depth)})} onkeydown={a11yKeydown(() => onnavigate?.(`/sessions/${sessionId}/overview`, {depth: String(depth)}))}>
             <text x="30" y={y + depthBarH / 2 + 5} text-anchor="end" class="chart-label">{depth}</text>
             <rect x="40" y={y} width={Math.max(barW, 2)} height={depthBarH} rx="4" class="chart-bar chart-bar-accent" style="opacity: {opacity}" />
             <text x={44 + barW} y={y + depthBarH / 2 + 5} class="chart-value">{fmtN(count)}</text>
@@ -43,7 +43,7 @@
           {@const barW = scMax > 0 ? (count / scMax) * 440 : 0}
           {@const y = i * (scBarH + scGap)}
           {@const colorClass = code >= 200 && code < 300 ? 'chart-bar-success' : code >= 300 && code < 400 ? 'chart-bar-info' : code >= 400 && code < 500 ? 'chart-bar-warning' : 'chart-bar-error'}
-          <g class="chart-bar-clickable" role="button" tabindex="0" style="cursor:pointer" onclick={() => onnavigate?.(`/sessions/${sessionId}/overview`, {status_code: String(code)})} onkeydown={a11yKeydown(() => onnavigate?.(`/sessions/${sessionId}/overview`, {status_code: String(code)}))}>
+          <g class="chart-bar-clickable cursor-pointer" role="button" tabindex="0" onclick={() => onnavigate?.(`/sessions/${sessionId}/overview`, {status_code: String(code)})} onkeydown={a11yKeydown(() => onnavigate?.(`/sessions/${sessionId}/overview`, {status_code: String(code)}))}>
             <text x="30" y={y + scBarH / 2 + 5} text-anchor="end" class="chart-label">{code}</text>
             <rect x="40" y={y} width={Math.max(barW, 2)} height={scBarH} rx="4" class={`chart-bar ${colorClass}`} />
             <text x={44 + barW} y={y + scBarH / 2 + 5} class="chart-value">{fmtN(count)}</text>
@@ -56,3 +56,9 @@
   {/if}
 
 </div>
+
+<style>
+  .cursor-pointer {
+    cursor: pointer;
+  }
+</style>

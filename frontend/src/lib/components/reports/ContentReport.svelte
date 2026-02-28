@@ -64,18 +64,18 @@
       <DonutChart segments={tSegs} size={200} strokeWidth={28}
         centerLabel={fmtN(content.total)} centerSubLabel="pages" />
       <div>
-        <div class="stats-grid" style="margin-bottom: 16px;">
+        <div class="stats-grid mb-md">
           <div class="stat-card stat-card-link" role="button" tabindex="0"
             onclick={() => nav('titles', { title_length: '0' })} onkeydown={a11yKeydown(() => nav('titles', { title_length: '0' }))}>
-            <div class="stat-value" style="color: var(--error)">{fmtN(content.title_missing)}</div><div class="stat-label">Missing</div>
+            <div class="stat-value text-error">{fmtN(content.title_missing)}</div><div class="stat-label">Missing</div>
           </div>
           <div class="stat-card stat-card-link" role="button" tabindex="0"
             onclick={() => nav('titles', { title_length: '>60' })} onkeydown={a11yKeydown(() => nav('titles', { title_length: '>60' }))}>
-            <div class="stat-value" style="color: var(--warning)">{fmtN(content.title_too_long)}</div><div class="stat-label">Too Long</div>
+            <div class="stat-value text-warning">{fmtN(content.title_too_long)}</div><div class="stat-label">Too Long</div>
           </div>
           <div class="stat-card stat-card-link" role="button" tabindex="0"
             onclick={() => nav('titles', { title_length: '<30' })} onkeydown={a11yKeydown(() => nav('titles', { title_length: '<30' }))}>
-            <div class="stat-value" style="color: var(--info)">{fmtN(content.title_too_short)}</div><div class="stat-label">Too Short</div>
+            <div class="stat-value text-info">{fmtN(content.title_too_short)}</div><div class="stat-label">Too Short</div>
           </div>
           <div class="stat-card stat-card-link" role="button" tabindex="0"
             onclick={() => nav('titles')} onkeydown={a11yKeydown(() => nav('titles'))}>
@@ -94,15 +94,15 @@
       <div class="stats-grid">
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('meta', { meta_desc_length: '0' })} onkeydown={a11yKeydown(() => nav('meta', { meta_desc_length: '0' }))}>
-          <div class="stat-value" style="color: var(--error)">{fmtN(content.meta_desc_missing)}</div><div class="stat-label">Missing</div>
+          <div class="stat-value text-error">{fmtN(content.meta_desc_missing)}</div><div class="stat-label">Missing</div>
         </div>
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('meta', { meta_desc_length: '>160' })} onkeydown={a11yKeydown(() => nav('meta', { meta_desc_length: '>160' }))}>
-          <div class="stat-value" style="color: var(--warning)">{fmtN(content.meta_desc_too_long)}</div><div class="stat-label">Too Long</div>
+          <div class="stat-value text-warning">{fmtN(content.meta_desc_too_long)}</div><div class="stat-label">Too Long</div>
         </div>
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('meta', { meta_desc_length: '<70' })} onkeydown={a11yKeydown(() => nav('meta', { meta_desc_length: '<70' }))}>
-          <div class="stat-value" style="color: var(--info)">{fmtN(content.meta_desc_too_short)}</div><div class="stat-label">Too Short</div>
+          <div class="stat-value text-info">{fmtN(content.meta_desc_too_short)}</div><div class="stat-label">Too Short</div>
         </div>
       </div>
     </div>
@@ -116,11 +116,11 @@
       <div class="stats-grid">
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('headings', { h1: '' })} onkeydown={a11yKeydown(() => nav('headings', { h1: '' }))}>
-          <div class="stat-value" style="color: var(--error)">{fmtN(content.h1_missing)}</div><div class="stat-label">Missing H1</div>
+          <div class="stat-value text-error">{fmtN(content.h1_missing)}</div><div class="stat-label">Missing H1</div>
         </div>
         <div class="stat-card stat-card-link" role="button" tabindex="0"
           onclick={() => nav('headings')} onkeydown={a11yKeydown(() => nav('headings'))}>
-          <div class="stat-value" style="color: var(--warning)">{fmtN(content.h1_multiple)}</div><div class="stat-label">Multiple H1</div>
+          <div class="stat-value text-warning">{fmtN(content.h1_multiple)}</div><div class="stat-label">Multiple H1</div>
         </div>
       </div>
     </div>
@@ -140,7 +140,7 @@
       </div>
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('images', { images_no_alt: '>0' })} onkeydown={a11yKeydown(() => nav('images', { images_no_alt: '>0' }))}>
-        <div class="stat-value" style="color: var(--warning)">{fmtN(content.images_no_alt_total)}</div><div class="stat-label">Without Alt</div>
+        <div class="stat-value text-warning">{fmtN(content.images_no_alt_total)}</div><div class="stat-label">Without Alt</div>
       </div>
       <div class="stat-card stat-card-link" role="button" tabindex="0"
         onclick={() => nav('images', { images_no_alt: '>0' })} onkeydown={a11yKeydown(() => nav('images', { images_no_alt: '>0' }))}>

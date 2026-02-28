@@ -699,3 +699,53 @@ tr:hover td { background: var(--bg-hover); }
   .main-content { padding: 16px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ===== Utility classes ===== */
+
+/* --- Text --- */
+.text-right    { text-align: right; }
+.text-center   { text-align: center; }
+.text-muted    { color: var(--text-muted); }
+.text-secondary { color: var(--text-secondary); }
+.text-warning  { color: var(--warning); }
+.text-error    { color: var(--error); }
+.text-info     { color: var(--info); }
+.text-accent   { color: var(--accent); }
+.text-success  { color: var(--success); }
+.text-danger   { color: var(--danger, #e53e3e); }
+
+/* --- Typography --- */
+.font-medium   { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.text-xs       { font-size: 12px; }
+.text-sm       { font-size: 13px; }
+
+/* --- Spacing --- */
+.mb-0  { margin-bottom: 0; }
+.mb-xs { margin-bottom: 4px; }
+.mb-sm { margin-bottom: 8px; }
+.mb-md { margin-bottom: 16px; }
+.mb-lg { margin-bottom: 24px; }
+.mt-sm { margin-top: 8px; }
+.mt-md { margin-top: 16px; }
+
+/* --- Flex --- */
+.flex-center     { display: flex; align-items: center; }
+.flex-center-gap { display: flex; align-items: center; gap: 8px; }
+.flex-between    { display: flex; align-items: center; justify-content: space-between; }
+.flex-col        { display: flex; flex-direction: column; }
+.flex-col-gap    { display: flex; flex-direction: column; gap: 8px; }
+.flex-wrap-gap   { display: flex; flex-wrap: wrap; gap: 8px; }
+.gap-sm          { gap: 6px; }
+
+/* --- Common patterns --- */
+.truncate      { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nowrap        { white-space: nowrap; }
+.word-break    { word-break: break-all; }
+.loading-msg   { padding: 40px 0; text-align: center; color: var(--text-muted); }
+.card-section  { margin-bottom: 16px; }
+.section-title { margin: 0 0 12px 0; font-size: 0.95rem; }
+.sub-heading   { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+.table-meta    { margin-bottom: 8px; color: var(--text-muted); font-size: 12px; }
+.row-num       { color: var(--text-muted); font-size: 12px; }
+.overflow-auto { overflow-x: auto; }

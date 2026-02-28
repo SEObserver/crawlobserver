@@ -182,19 +182,19 @@
   {#if !projectId}
     <div class="prov-empty">
       <p>This session is not associated with a project.</p>
-      <p style="color: var(--text-muted); font-size: 13px;">Associate it with a project first, then connect an SEO data provider.</p>
+      <p class="text-muted text-sm">Associate it with a project first, then connect an SEO data provider.</p>
     </div>
 
   {:else if !status}
-    <p style="color: var(--text-muted); padding: 40px 0; text-align: center;">Loading...</p>
+    <p class="loading-msg">Loading...</p>
 
   {:else if !status.connected}
     <div class="prov-empty">
-      <h3 style="margin-bottom: 12px; font-size: 16px;">Connect SEObserver</h3>
-      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+      <h3 class="prov-connect-title">Connect SEObserver</h3>
+      <p class="text-muted text-sm mb-md">
         Link this project to SEObserver to get backlinks, rankings, referring domains, and visibility data.
       </p>
-      <div style="display: flex; flex-direction: column; gap: 10px; max-width: 400px; margin: 0 auto;">
+      <div class="prov-connect-form">
         <input type="text" class="pr-input" placeholder="Domain (e.g. example.com)" bind:value={domainInput} />
         <input type="password" class="pr-input" placeholder="SEObserver API Key" bind:value={apiKeyInput} />
         <button class="btn btn-primary" onclick={doConnect} disabled={connecting || !apiKeyInput || !domainInput}>
@@ -205,18 +205,18 @@
 
   {:else}
     <!-- Connected -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-      <span style="font-size: 13px; color: var(--text-secondary);">
+    <div class="prov-toolbar">
+      <span class="text-sm text-secondary">
         Domain: <strong>{status.domain}</strong>
-        <span style="color: var(--text-muted); margin-left: 8px;">({provider})</span>
+        <span class="prov-provider-tag">({provider})</span>
       </span>
-      <div style="display: flex; gap: 8px; align-items: center;">
+      <div class="flex-center-gap">
         {#if fetchingData}
           <span class="fetch-indicator">
             <span class="fetch-spinner"></span>
             {fetchStatus?.phase || 'Fetching'}{fetchStatus?.rows_so_far ? ` — ${fmtN(fetchStatus.rows_so_far)} rows` : '...'}
           </span>
-          <button class="btn btn-sm" style="color: var(--danger);" onclick={doStop}>Stop</button>
+          <button class="btn btn-sm text-danger" onclick={doStop}>Stop</button>
         {:else}
           <button class="btn btn-sm" onclick={doFetch}>Fetch Data</button>
         {/if}
@@ -232,11 +232,11 @@
     </div>
 
     {#if loading}
-      <p style="color: var(--text-muted); padding: 40px 0; text-align: center;">Loading...</p>
+      <p class="loading-msg">Loading...</p>
 
     {:else if subView === 'overview'}
       {#if metrics && (metrics.backlinks_total > 0 || metrics.domain_rank > 0)}
-        <div class="stats-grid" style="margin-bottom: 20px;">
+        <div class="stats-grid prov-stats">
           <div class="stat-card"><div class="stat-value">{metrics.domain_rank?.toFixed(1) || '0'}</div><div class="stat-label">Domain Rank</div></div>
           <div class="stat-card"><div class="stat-value">{fmtN(metrics.backlinks_total)}</div><div class="stat-label">Total Backlinks</div></div>
           <div class="stat-card"><div class="stat-value">{fmtN(metrics.refdomains_total)}</div><div class="stat-label">Referring Domains</div></div>
@@ -253,8 +253,8 @@
           {@const margin = { left: 50, right: 20, top: 10, bottom: 30 }}
           {@const plotW = chartW - margin.left - margin.right}
           {@const plotH = chartH - margin.top - margin.bottom}
-          <h4 style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Visibility over Time</h4>
-          <svg viewBox="0 0 {chartW} {chartH}" style="width: 100%; max-width: 800px; height: auto; margin-bottom: 24px;">
+          <h4 class="sub-heading">Visibility over Time</h4>
+          <svg viewBox="0 0 {chartW} {chartH}" class="prov-chart-svg">
             <path d="M {margin.left},{margin.top + plotH}
               {visibility.map((v, i) => `L ${margin.left + (i / (visibility.length - 1)) * plotW},${margin.top + plotH - (v.visibility / maxVis) * plotH}`).join(' ')}
               L {margin.left + plotW},{margin.top + plotH} Z"
@@ -263,11 +263,11 @@
               points={visibility.map((v, i) => `${margin.left + (i / (visibility.length - 1)) * plotW},${margin.top + plotH - (v.visibility / maxVis) * plotH}`).join(' ')}
               fill="none" stroke="var(--accent)" stroke-width="2" />
             {#each [0, Math.floor(visibility.length / 2), visibility.length - 1] as idx}
-              <text x={margin.left + (idx / (visibility.length - 1)) * plotW} y={chartH - 4} text-anchor="middle" style="font-size: 10px; fill: var(--text-muted);">
+              <text x={margin.left + (idx / (visibility.length - 1)) * plotW} y={chartH - 4} text-anchor="middle" class="prov-axis-label">
                 {visibility[idx].date?.slice?.(0, 10) || ''}
               </text>
             {/each}
-            <text x={12} y={margin.top + 10} style="font-size: 9px; fill: var(--accent);">visibility</text>
+            <text x={12} y={margin.top + 10} class="prov-chart-legend">visibility</text>
           </svg>
         {/if}
       {:else}
@@ -276,21 +276,21 @@
 
     {:else if subView === 'backlinks'}
       {#if backlinks?.rows?.length > 0}
-        <div style="margin-bottom: 8px; color: var(--text-muted); font-size: 12px;">{fmtN(backlinks.total)} backlinks</div>
+        <div class="table-meta">{fmtN(backlinks.total)} backlinks</div>
         <table>
           <thead><tr><th>#</th><th>Source URL</th><th>Target URL</th><th>Anchor</th><th>DR</th><th>NF</th><th>First Seen</th></tr></thead>
           <tbody>
             {#each backlinks.rows as r, i}
               <tr>
-                <td style="color: var(--text-muted); font-size: 12px;">{backlinksOffset + i + 1}</td>
-                <td class="cell-url" style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <td class="row-num">{backlinksOffset + i + 1}</td>
+                <td class="cell-url prov-cell-url">
                   <a href={r.source_url} target="_blank" rel="noopener">{r.source_url}</a>
                 </td>
-                <td class="cell-url" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{r.target_url}</td>
-                <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{r.anchor_text || '-'}</td>
+                <td class="cell-url prov-cell-target">{r.target_url}</td>
+                <td class="prov-cell-anchor">{r.anchor_text || '-'}</td>
                 <td>{r.domain_rank?.toFixed(1) || '-'}</td>
                 <td>{r.nofollow ? 'NF' : 'DF'}</td>
-                <td style="font-size: 12px; white-space: nowrap;">{r.first_seen?.slice?.(0, 10) || '-'}</td>
+                <td class="text-xs nowrap">{r.first_seen?.slice?.(0, 10) || '-'}</td>
               </tr>
             {/each}
           </tbody>
@@ -308,18 +308,18 @@
 
     {:else if subView === 'refdomains'}
       {#if refdomains?.rows?.length > 0}
-        <div style="margin-bottom: 8px; color: var(--text-muted); font-size: 12px;">{fmtN(refdomains.total)} referring domains</div>
+        <div class="table-meta">{fmtN(refdomains.total)} referring domains</div>
         <table>
           <thead><tr><th>#</th><th>Domain</th><th>Backlinks</th><th>DR</th><th>First Seen</th><th>Last Seen</th></tr></thead>
           <tbody>
             {#each refdomains.rows as r, i}
               <tr>
-                <td style="color: var(--text-muted); font-size: 12px;">{refdomainsOffset + i + 1}</td>
+                <td class="row-num">{refdomainsOffset + i + 1}</td>
                 <td><strong>{r.ref_domain}</strong></td>
                 <td>{fmtN(r.backlink_count)}</td>
                 <td>{r.domain_rank?.toFixed(1) || '-'}</td>
-                <td style="font-size: 12px; white-space: nowrap;">{r.first_seen?.slice?.(0, 10) || '-'}</td>
-                <td style="font-size: 12px; white-space: nowrap;">{r.last_seen?.slice?.(0, 10) || '-'}</td>
+                <td class="text-xs nowrap">{r.first_seen?.slice?.(0, 10) || '-'}</td>
+                <td class="text-xs nowrap">{r.last_seen?.slice?.(0, 10) || '-'}</td>
               </tr>
             {/each}
           </tbody>
@@ -337,16 +337,16 @@
 
     {:else if subView === 'rankings'}
       {#if rankings?.rows?.length > 0}
-        <div style="margin-bottom: 8px; color: var(--text-muted); font-size: 12px;">{fmtN(rankings.total)} keywords</div>
+        <div class="table-meta">{fmtN(rankings.total)} keywords</div>
         <table>
           <thead><tr><th>#</th><th>Keyword</th><th>Pos</th><th>URL</th><th>Volume</th><th>CPC</th><th>Traffic</th></tr></thead>
           <tbody>
             {#each rankings.rows as r, i}
               <tr>
-                <td style="color: var(--text-muted); font-size: 12px;">{rankingsOffset + i + 1}</td>
+                <td class="row-num">{rankingsOffset + i + 1}</td>
                 <td><strong>{r.keyword}</strong></td>
                 <td><span class="badge" class:badge-success={r.position <= 3} class:badge-warn={r.position > 3 && r.position <= 10}>{r.position}</span></td>
-                <td class="cell-url" style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{r.url}</td>
+                <td class="cell-url prov-cell-url">{r.url}</td>
                 <td>{fmtN(r.search_volume)}</td>
                 <td>{r.cpc?.toFixed(2) || '-'}</td>
                 <td>{r.traffic?.toFixed(0) || '0'}</td>
@@ -367,7 +367,7 @@
 
     {:else if subView === 'settings'}
       <div class="settings-section">
-        <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 16px;">Connection</h4>
+        <h4 class="prov-settings-title">Connection</h4>
         <div class="settings-info">
           <div class="settings-row">
             <span class="settings-label">Provider</span>
@@ -383,8 +383,8 @@
           </div>
         </div>
 
-        <h4 style="font-size: 14px; font-weight: 600; margin: 24px 0 12px;">Update Connection</h4>
-        <div style="display: flex; flex-direction: column; gap: 10px; max-width: 400px;">
+        <h4 class="prov-settings-subtitle">Update Connection</h4>
+        <div class="prov-settings-form">
           <label class="settings-field-label">
             Domain
             <input type="text" class="pr-input" bind:value={settingsDomain} placeholder="example.com" />
@@ -393,15 +393,15 @@
             API Key
             <input type="password" class="pr-input" bind:value={settingsApiKey} placeholder="Leave empty to keep current key" />
           </label>
-          <button class="btn btn-primary" onclick={doUpdate} disabled={updating || !settingsDomain} style="align-self: flex-start;">
+          <button class="btn btn-primary prov-settings-submit" onclick={doUpdate} disabled={updating || !settingsDomain}>
             {updating ? 'Updating...' : 'Update'}
           </button>
         </div>
 
-        <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border);">
-          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--danger);">Danger Zone</h4>
-          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Disconnecting will remove the API key and all fetched data for this provider.</p>
-          <button class="btn btn-sm" style="color: var(--danger); border-color: var(--danger);" onclick={doDisconnect}>Disconnect</button>
+        <div class="prov-danger-zone">
+          <h4 class="prov-danger-title">Danger Zone</h4>
+          <p class="prov-danger-text">Disconnecting will remove the API key and all fetched data for this provider.</p>
+          <button class="btn btn-sm prov-disconnect-btn" onclick={doDisconnect}>Disconnect</button>
         </div>
       </div>
     {/if}
@@ -476,4 +476,23 @@
     color: var(--text-secondary);
     font-weight: 500;
   }
+  .prov-connect-title { margin-bottom: 12px; font-size: 16px; }
+  .prov-connect-form { display: flex; flex-direction: column; gap: 10px; max-width: 400px; margin: 0 auto; }
+  .prov-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .prov-provider-tag { color: var(--text-muted); margin-left: 8px; }
+  .prov-stats { margin-bottom: 20px; }
+  .prov-chart-svg { width: 100%; max-width: 800px; height: auto; margin-bottom: 24px; }
+  .prov-axis-label { font-size: 10px; fill: var(--text-muted); }
+  .prov-chart-legend { font-size: 9px; fill: var(--accent); }
+  .prov-cell-url { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prov-cell-target { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prov-cell-anchor { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prov-settings-title { font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+  .prov-settings-subtitle { font-size: 14px; font-weight: 600; margin: 24px 0 12px; }
+  .prov-settings-form { display: flex; flex-direction: column; gap: 10px; max-width: 400px; }
+  .prov-settings-submit { align-self: flex-start; }
+  .prov-danger-zone { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .prov-danger-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--danger, #e53e3e); }
+  .prov-danger-text { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
+  .prov-disconnect-btn { color: var(--danger, #e53e3e); border-color: var(--danger, #e53e3e); }
 </style>

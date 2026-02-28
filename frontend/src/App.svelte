@@ -676,12 +676,12 @@
       {#if updateInfo && !updateDismissed}
         <div class="alert alert-info">
           <span>Update available: <strong>v{updateInfo.latest_version}</strong></span>
-          <div style="display:flex;gap:8px;align-items:center">
+          <div class="flex-center-gap">
             {#if updatingApp}
-              <span style="font-size:13px">{updateMessage}</span>
+              <span class="text-sm">{updateMessage}</span>
             {:else}
               {#if updateMessage}
-                <span style="font-size:13px">{updateMessage}</span>
+                <span class="text-sm">{updateMessage}</span>
               {/if}
               <button class="btn btn-sm btn-primary" onclick={doBackupAndUpdate} disabled={updatingApp}>Backup & Update</button>
               <button class="btn btn-sm btn-ghost" onclick={() => updateDismissed = true}>Dismiss</button>
@@ -716,7 +716,7 @@
 
       {:else if currentView === 'project' && selectedProject}
         <!-- Project View -->
-        <div class="breadcrumb" style="display:flex;align-items:center;gap:8px;">
+        <div class="breadcrumb">
           <a href="/" onclick={(e) => { e.preventDefault(); goHome(); }}>Dashboard</a>
           <span>/</span>
           {#if renamingProject}
@@ -725,7 +725,7 @@
               onkeydown={(e) => { if (e.key === 'Enter') confirmRenameProject(); if (e.key === 'Escape') cancelRenameProject(); }}
               onblur={confirmRenameProject} />
           {:else}
-            <button class="inline-btn" style="color: var(--text);" ondblclick={startRenameProject} title="Double-click to rename">{selectedProject.name}</button>
+            <button class="inline-btn breadcrumb-active" ondblclick={startRenameProject} title="Double-click to rename">{selectedProject.name}</button>
           {/if}
           <button class="project-delete-btn" onclick={() => handleDeleteProject(selectedProject.id)} title="Delete project" aria-label="Delete project">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -738,7 +738,7 @@
           <button class="tab" class:tab-active={projectTab === 'providers'} onclick={() => switchProjectTab('providers')}>SEO Data</button>
         </div>
 
-        <div class="card card-flush" style="border-top-left-radius: 0; border-top-right-radius: 0; border-top: none;">
+        <div class="card card-flush card-tab-body">
           {#if projectTab === 'sessions'}
             {#if projSessions.length > 0}
               <table>
@@ -769,7 +769,7 @@
                         {/if}
                       </td>
                       <td>{fmtN(s.PagesCrawled || 0)}</td>
-                      <td style="white-space: nowrap; color: var(--text-muted); font-size: 13px;">{s.StartedAt ? timeAgo(s.StartedAt) : '-'}</td>
+                      <td class="nowrap text-muted text-sm">{s.StartedAt ? timeAgo(s.StartedAt) : '-'}</td>
                       <td>
                         <button class="btn btn-sm" onclick={() => selectSession(s)}>View</button>
                       </td>
@@ -778,14 +778,14 @@
                 </tbody>
               </table>
               {#if projSessionsTotal > PROJ_SESSIONS_LIMIT}
-                <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0;">
+                <div class="pagination-controls">
                   <button class="btn btn-sm" onclick={() => { projSessionsOffset = Math.max(0, projSessionsOffset - PROJ_SESSIONS_LIMIT); loadProjectSessions(); }} disabled={projSessionsOffset === 0}>Previous</button>
-                  <span style="font-size:13px;color:var(--text-muted)">{projSessionsOffset + 1}-{Math.min(projSessionsOffset + PROJ_SESSIONS_LIMIT, projSessionsTotal)} of {projSessionsTotal}</span>
+                  <span class="text-sm text-muted">{projSessionsOffset + 1}-{Math.min(projSessionsOffset + PROJ_SESSIONS_LIMIT, projSessionsTotal)} of {projSessionsTotal}</span>
                   <button class="btn btn-sm" onclick={() => { projSessionsOffset += PROJ_SESSIONS_LIMIT; loadProjectSessions(); }} disabled={projSessionsOffset + PROJ_SESSIONS_LIMIT >= projSessionsTotal}>Next</button>
                 </div>
               {/if}
             {:else}
-              <p style="color: var(--text-muted); padding: 40px 0; text-align: center;">No crawl sessions in this project yet.</p>
+              <p class="loading-msg">No crawl sessions in this project yet.</p>
             {/if}
           {:else if projectTab === 'gsc'}
             <GSCTab projectId={selectedProject.id} initialSubView={gscSubView} onerror={(msg) => error = msg} onpushurl={(u) => pushURL(u)} />
@@ -805,7 +805,7 @@
           <span>/</span>
           <a href={`/sessions/${selectedSession.ID}/overview`} onclick={(e) => { e.preventDefault(); navigateTo(`/sessions/${selectedSession.ID}/overview`); }}>{selectedSession.SeedURLs?.[0] || selectedSession.ID}</a>
           <span>/</span>
-          <span style="color: var(--text);">URL Detail</span>
+          <span class="breadcrumb-active">URL Detail</span>
         </div>
         {#key detailUrl}
           <UrlDetailView sessionId={selectedSession.ID} url={detailUrl}
@@ -818,7 +818,7 @@
         <div class="breadcrumb">
           <a href="/" onclick={(e) => { e.preventDefault(); goHome(); }}>Sessions</a>
           <span>/</span>
-          <span style="color: var(--text);">{selectedSession.SeedURLs?.[0] || selectedSession.ID}</span>
+          <span class="breadcrumb-active">{selectedSession.SeedURLs?.[0] || selectedSession.ID}</span>
         </div>
 
         <SessionActionBar session={selectedSession} {stats} {liveProgress}
@@ -838,13 +838,13 @@
             <div class="stat-card"><div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">Avg response</div></div>
           </div>
           {#if stats.status_codes && Object.keys(stats.status_codes).length > 1}
-            <div class="stats-mini" style="margin-top: 8px;">
+            <div class="stats-mini mt-sm">
               {#each Object.entries(stats.status_codes).sort((a, b) => Number(a[0]) - Number(b[0])) as [code, count]}
                 <span class="stats-mini-item"><span class="badge {statusBadge(Number(code))}">{code}</span> {fmtN(count)}</span>
               {/each}
             </div>
           {/if}
-          <div class="stats-secondary" style="margin-top: 10px;">
+          <div class="stats-secondary stats-secondary-gap">
             {#if stats.pages_per_second > 0}<span>{stats.pages_per_second.toFixed(1)} pages/sec</span>{/if}
             {#if stats.crawl_duration_sec > 0}<span>{stats.crawl_duration_sec < 60 ? stats.crawl_duration_sec.toFixed(0) + 's' : (stats.crawl_duration_sec / 60).toFixed(1) + 'min'}</span>{/if}
             {#if sessionStorageMap[selectedSession.ID]}<span>{fmtSize(sessionStorageMap[selectedSession.ID])} storage</span>{/if}
@@ -857,7 +857,7 @@
           {/each}
         </div>
 
-        <div class="card card-flush" style="border-top-left-radius: 0; border-top-right-radius: 0; border-top: none;">
+        <div class="card card-flush card-tab-body">
 
           {#if tab === 'overview'}
             <DataTable columns={[{label:'URL'},{label:'Status'},{label:'Title'},{label:'Words'},{label:'Int Out'},{label:'Ext Out'},{label:'Size'},{label:'Time'},{label:'Depth'},{label:'PR'},{label:''}]}
@@ -875,7 +875,7 @@
                   <td>{fmtSize(p.BodySize)}</td>
                   <td>{fmt(p.FetchDurationMs)}</td>
                   <td>{p.Depth}</td>
-                  <td style="color: var(--accent); font-weight: 500;">{p.PageRank > 0 ? p.PageRank.toFixed(1) : '-'}</td>
+                  <td class="text-accent font-medium">{p.PageRank > 0 ? p.PageRank.toFixed(1) : '-'}</td>
                   <td>{#if p.BodySize > 0}<button class="btn-html" title="View HTML" onclick={() => openHtmlModal(p.URL)}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>{/if}</td>
                 </tr>
               {/snippet}
@@ -1052,3 +1052,24 @@
 {#if showHtmlModal}
   <HtmlModal sessionId={selectedSession.ID} url={htmlModalUrl} onclose={closeHtmlModal} onerror={(msg) => error = msg} />
 {/if}
+
+<style>
+  .breadcrumb-active {
+    color: var(--text);
+  }
+  .card-tab-body {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-top: none;
+  }
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px 0;
+  }
+  .stats-secondary-gap {
+    margin-top: 10px;
+  }
+</style>

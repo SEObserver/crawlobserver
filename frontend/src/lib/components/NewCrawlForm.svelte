@@ -54,7 +54,7 @@
 </div>
 <div class="card">
   <div class="form-grid">
-    <div class="form-group" style="grid-column: 1 / -1;">
+    <div class="form-group form-full-width">
       <label for="seeds">Seed URLs (one per line)</label>
       <textarea id="seeds" bind:value={seedInput} rows="3" placeholder="https://example.com"></textarea>
     </div>
@@ -94,14 +94,14 @@
         </select>
       </div>
     {/if}
-    <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
-      <input id="storehtml" type="checkbox" bind:checked={storeHtml} /><label for="storehtml" style="margin: 0;">Store raw HTML</label>
+    <div class="form-group form-checkbox-row">
+      <input id="storehtml" type="checkbox" bind:checked={storeHtml} /><label for="storehtml" class="form-checkbox-label">Store raw HTML</label>
     </div>
-    <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
-      <input id="checkext" type="checkbox" bind:checked={checkExternalLinks} /><label for="checkext" style="margin: 0;">Check external links</label>
+    <div class="form-group form-checkbox-row">
+      <input id="checkext" type="checkbox" bind:checked={checkExternalLinks} /><label for="checkext" class="form-checkbox-label">Check external links</label>
     </div>
-    <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
-      <input id="sitemaponly" type="checkbox" bind:checked={crawlSitemapOnly} /><label for="sitemaponly" style="margin: 0;">Sitemap only (crawl only URLs found in sitemaps)</label>
+    <div class="form-group form-checkbox-row">
+      <input id="sitemaponly" type="checkbox" bind:checked={crawlSitemapOnly} /><label for="sitemaponly" class="form-checkbox-label">Sitemap only (crawl only URLs found in sitemaps)</label>
     </div>
     {#if checkExternalLinks}
       <div class="form-group"><label for="extworkers">External link workers</label><input id="extworkers" type="number" bind:value={externalLinkWorkers} min="1" max="20" /></div>
@@ -118,10 +118,27 @@
       </div>
     {/if}
   </div>
-  <div style="display: flex; gap: 8px; margin-top: 20px;">
+  <div class="form-actions">
     <button class="btn btn-primary" onclick={handleStartCrawl} disabled={starting || !seedInput.trim()}>
       {starting ? 'Starting...' : 'Start Crawl'}
     </button>
     <button class="btn" onclick={oncancel}>Cancel</button>
   </div>
 </div>
+
+<style>
+  .form-full-width { grid-column: 1 / -1; }
+  .form-checkbox-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding-top: 24px;
+  }
+  .form-checkbox-label { margin: 0; }
+  .form-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+  }
+</style>

@@ -163,16 +163,16 @@
 </script>
 
 {#if view === 'list'}
-  <div class="card" style="margin-top: 16px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border);">
-      <h3 style="margin: 0; font-size: 15px; font-weight: 600;">Rulesets</h3>
+  <div class="card mt-md">
+    <div class="ct-card-header">
+      <h3 class="ct-title">Rulesets</h3>
       <button class="btn btn-primary btn-sm" onclick={newRuleset}>+ New Ruleset</button>
     </div>
 
     {#if loading}
-      <div style="padding: 40px; text-align: center; color: var(--text-muted);">Loading...</div>
+      <div class="ct-empty">Loading...</div>
     {:else if rulesets.length === 0}
-      <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+      <div class="ct-empty">
         No rulesets yet. Create one to start testing pages.
       </div>
     {:else}
@@ -182,7 +182,7 @@
             <th>Name</th>
             <th>Rules</th>
             <th>Updated</th>
-            <th style="width: 200px;">Actions</th>
+            <th class="ct-col-actions">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -190,7 +190,7 @@
             <tr>
               <td><strong>{rs.name}</strong></td>
               <td>{rs.rules?.length ?? 0} rules</td>
-              <td style="color: var(--text-muted); font-size: 13px;">{new Date(rs.updated_at).toLocaleDateString()}</td>
+              <td class="text-muted text-sm">{new Date(rs.updated_at).toLocaleDateString()}</td>
               <td>
                 <button class="btn btn-sm" onclick={() => editRulesetById(rs.id)}>Edit</button>
                 <button class="btn btn-primary btn-sm" onclick={() => runRuleset(rs.id)}
@@ -207,33 +207,33 @@
   </div>
 
 {:else if view === 'editor'}
-  <div class="card" style="margin-top: 16px;">
-    <div style="padding: 16px 20px; border-bottom: 1px solid var(--border);">
-      <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600;">
+  <div class="card mt-md">
+    <div class="ct-editor-header">
+      <h3 class="ct-title-mb">
         {editId ? 'Edit Ruleset' : 'New Ruleset'}
       </h3>
-      <div style="display: flex; gap: 8px; align-items: center;">
-        <label style="font-size: 13px; font-weight: 500;">Name:</label>
+      <div class="flex-center-gap">
+        <label class="text-sm font-medium">Name:</label>
         <input type="text" bind:value={editName} placeholder="Ruleset name"
-          style="flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px;" />
+          class="ct-name-input" />
       </div>
     </div>
 
-    <div style="padding: 16px 20px;">
+    <div class="ct-editor-body">
       {#if editRules.some(r => isAllRule(r.type))}
-        <div style="background: #fff3cd; color: #856404; border: 1px solid #ffc107; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px;">
+        <div class="ct-warning">
           <strong>Warning:</strong> "Extract ALL" rules may produce large results on pages with many matching elements (capped at 20 items per page).
         </div>
       {/if}
 
-      <table class="data-table" style="margin-bottom: 12px;">
+      <table class="data-table mb-sm">
         <thead>
           <tr>
-            <th style="width: 200px;">Type</th>
+            <th class="ct-col-type">Type</th>
             <th>Name</th>
             <th>Value</th>
             <th>Extra</th>
-            <th style="width: 40px;"></th>
+            <th class="ct-col-remove"></th>
           </tr>
         </thead>
         <tbody>
@@ -241,7 +241,7 @@
             <tr>
               <td>
                 <select bind:value={rule.type}
-                  style="width: 100%; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 12px;">
+                  class="ct-input">
                   {#each RULE_TYPES as rt}
                     <option value={rt.value}>{rt.label}</option>
                   {/each}
@@ -249,23 +249,23 @@
               </td>
               <td>
                 <input type="text" bind:value={rule.name} placeholder="Rule label"
-                  style="width: 100%; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 12px;" />
+                  class="ct-input" />
               </td>
               <td>
                 <input type="text" bind:value={rule.value} placeholder={valueLabel(rule.type)}
-                  style="width: 100%; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 12px;" />
+                  class="ct-input" />
               </td>
               <td>
                 {#if needsExtra(rule.type)}
                   <input type="text" bind:value={rule.extra} placeholder={extraLabel(rule.type)}
-                    style="width: 100%; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 12px;" />
+                    class="ct-input" />
                 {:else}
-                  <span style="color: var(--text-muted); font-size: 12px;">-</span>
+                  <span class="text-muted text-xs">-</span>
                 {/if}
               </td>
               <td>
                 {#if editRules.length > 1}
-                  <button class="btn-ghost" style="padding: 2px 6px; font-size: 16px; color: var(--error);" onclick={() => removeRule(i)}>x</button>
+                  <button class="btn-ghost ct-remove-btn" onclick={() => removeRule(i)}>x</button>
                 {/if}
               </td>
             </tr>
@@ -273,9 +273,9 @@
         </tbody>
       </table>
 
-      <div style="display: flex; gap: 8px;">
+      <div class="flex-center-gap">
         <button class="btn btn-sm" onclick={addRule}>+ Add Rule</button>
-        <div style="flex: 1;"></div>
+        <div class="ct-spacer"></div>
         <button class="btn btn-sm" onclick={() => { view = 'list'; }}>Cancel</button>
         <button class="btn btn-primary btn-sm" onclick={saveRuleset} disabled={loading}>
           {loading ? 'Saving...' : 'Save Ruleset'}
@@ -285,45 +285,45 @@
   </div>
 
 {:else if view === 'results' && testResult}
-  <div class="card" style="margin-top: 16px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border);">
+  <div class="card mt-md">
+    <div class="ct-card-header">
       <div>
-        <h3 style="margin: 0; font-size: 15px; font-weight: 600;">
+        <h3 class="ct-title">
           Results: {testResult.ruleset_name}
         </h3>
-        <span style="font-size: 13px; color: var(--text-muted);">{testResult.total_pages} pages tested</span>
+        <span class="text-sm text-muted">{testResult.total_pages} pages tested</span>
       </div>
       <button class="btn btn-sm" onclick={() => { view = 'list'; }}>Back to Rulesets</button>
     </div>
 
     <!-- Summary -->
-    <div style="display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border);">
+    <div class="ct-results-summary">
       {#each testResult.rules as rule}
         {@const count = testResult.summary[rule.id] ?? 0}
         {@const total = testResult.total_pages}
         {@const pct = total > 0 ? Math.round(count / total * 100) : 0}
         {@const isExtract = rule.type.includes('extract')}
-        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 10px 14px; min-width: 140px;">
-          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">{rule.name}</div>
+        <div class="ct-result-card">
+          <div class="text-xs text-muted mb-xs">{rule.name}</div>
           {#if isExtract}
-            <div style="font-size: 18px; font-weight: 600;">{count}/{total}</div>
-            <div style="font-size: 11px; color: var(--text-muted);">have value</div>
+            <div class="ct-result-value">{count}/{total}</div>
+            <div class="ct-result-sublabel">have value</div>
           {:else}
-            <div style="font-size: 18px; font-weight: 600; color: {pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--error)'};">{pct}%</div>
-            <div style="font-size: 11px; color: var(--text-muted);">{count}/{total} pass</div>
+            <div class="ct-result-value" style="color: {pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--error)'};">{pct}%</div>
+            <div class="ct-result-sublabel">{count}/{total} pass</div>
           {/if}
         </div>
       {/each}
     </div>
 
     <!-- Results table -->
-    <div style="overflow-x: auto;">
+    <div class="overflow-auto">
       <table class="data-table">
         <thead>
           <tr>
             <th>URL</th>
             {#each testResult.rules as rule}
-              <th style="min-width: 100px;">{rule.name}</th>
+              <th class="ct-col-rule">{rule.name}</th>
             {/each}
           </tr>
         </thead>
@@ -339,7 +339,7 @@
                   {:else if val === 'fail'}
                     <span class="badge badge-error">fail</span>
                   {:else}
-                    <span style="font-size: 12px;" title={val}>{val.length > 60 ? val.slice(0, 60) + '...' : val || '-'}</span>
+                    <span class="text-xs" title={val}>{val.length > 60 ? val.slice(0, 60) + '...' : val || '-'}</span>
                   {/if}
                 </td>
               {/each}
@@ -352,7 +352,7 @@
     {#if testResult.pages.length > RESULTS_PAGE_SIZE}
       <div class="pagination">
         <button class="btn btn-sm" disabled={resultsPage === 0} onclick={() => resultsPage--}>Previous</button>
-        <span style="font-size: 13px; color: var(--text-muted);">
+        <span class="text-sm text-muted">
           {resultsPage * RESULTS_PAGE_SIZE + 1} - {Math.min((resultsPage + 1) * RESULTS_PAGE_SIZE, testResult.pages.length)} of {testResult.pages.length}
         </span>
         <button class="btn btn-sm" disabled={!hasMoreResults} onclick={() => resultsPage++}>Next</button>
@@ -360,3 +360,25 @@
     {/if}
   </div>
 {/if}
+
+<style>
+  .ct-card-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .ct-title { margin: 0; font-size: 15px; font-weight: 600; }
+  .ct-title-mb { margin: 0 0 12px 0; font-size: 15px; font-weight: 600; }
+  .ct-empty { padding: 40px; text-align: center; color: var(--text-muted); }
+  .ct-col-actions { width: 200px; }
+  .ct-col-type { width: 200px; }
+  .ct-col-remove { width: 40px; }
+  .ct-col-rule { min-width: 100px; }
+  .ct-editor-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .ct-editor-body { padding: 16px 20px; }
+  .ct-name-input { flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px; }
+  .ct-warning { background: #fff3cd; color: #856404; border: 1px solid #ffc107; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px; }
+  .ct-input { width: 100%; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 12px; }
+  .ct-remove-btn { padding: 2px 6px; font-size: 16px; color: var(--error); }
+  .ct-spacer { flex: 1; }
+  .ct-results-summary { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .ct-result-card { background: var(--bg-secondary); border-radius: 8px; padding: 10px 14px; min-width: 140px; }
+  .ct-result-value { font-size: 18px; font-weight: 600; }
+  .ct-result-sublabel { font-size: 11px; color: var(--text-muted); }
+</style>
