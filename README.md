@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="https://github.com/SEObserver/seocrawler/actions"><img src="https://github.com/SEObserver/seocrawler/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="AGPL-3.0 License"></a>
   <a href="https://goreportcard.com/report/github.com/SEObserver/seocrawler"><img src="https://goreportcard.com/badge/github.com/SEObserver/seocrawler" alt="Go Report Card"></a>
 </p>
 
@@ -289,6 +289,6 @@ We welcome contributions. Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** bef
 
 ## License
 
-MIT &mdash; see [LICENSE](LICENSE).
+AGPL-3.0 &mdash; see [LICENSE](LICENSE).
 
 Built by [SEObserver](https://www.seobserver.com).
