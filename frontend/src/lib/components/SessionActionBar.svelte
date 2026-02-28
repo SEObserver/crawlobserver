@@ -84,6 +84,9 @@
     <span class="badge badge-info">Running
       {#if liveProgress[session.ID]}
         &middot; {fmtN(liveProgress[session.ID].pages_crawled)} pages &middot; {fmtN(liveProgress[session.ID].queue_size)} in queue
+        {#if liveProgress[session.ID].lost_pages > 0}
+          <span style="color: var(--error); font-weight: 600;">&middot; {fmtN(liveProgress[session.ID].lost_pages)} lost</span>
+        {/if}
       {/if}
     </span>
     {#if session.StartedAt && session.StartedAt !== '1970-01-01T00:00:00Z'}
@@ -91,7 +94,7 @@
     {/if}
     <button class="btn btn-sm btn-danger" onclick={() => onstop?.(session.ID)}>Stop</button>
   {:else}
-    <span class="badge" class:badge-success={session.Status==='completed'} class:badge-error={session.Status==='failed'} class:badge-warning={session.Status==='stopped'}>{session.Status}</span>
+    <span class="badge" class:badge-success={session.Status==='completed'} class:badge-error={session.Status==='failed'} class:badge-warning={session.Status==='stopped' || session.Status==='completed_with_errors'}>{session.Status}</span>
     {#if session.StartedAt && session.StartedAt !== '1970-01-01T00:00:00Z'}
       <span class="action-bar-meta">{fmtDate(session.StartedAt)} &middot; {elapsed()}</span>
     {/if}

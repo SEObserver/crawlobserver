@@ -144,6 +144,17 @@ func (m *Manager) Progress(sessionID string) (int64, int, bool) {
 	return engine.PagesCrawled(), engine.QueueLen(), true
 }
 
+// BufferState returns the buffer error state for a running session.
+func (m *Manager) BufferState(sessionID string) storage.BufferErrorState {
+	m.mu.RLock()
+	engine, ok := m.engines[sessionID]
+	m.mu.RUnlock()
+	if !ok {
+		return storage.BufferErrorState{}
+	}
+	return engine.BufferState()
+}
+
 // ActiveSessions returns IDs of currently running sessions.
 func (m *Manager) ActiveSessions() []string {
 	m.mu.RLock()

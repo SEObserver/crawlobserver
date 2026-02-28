@@ -63,10 +63,13 @@
                 Running
                 {#if liveProgress[s.ID]}
                   &middot; {fmtN(liveProgress[s.ID].pages_crawled)} pages &middot; {fmtN(liveProgress[s.ID].queue_size)} queued
+                  {#if liveProgress[s.ID].lost_pages > 0}
+                    <span style="color: var(--error); font-weight: 600;">&middot; {fmtN(liveProgress[s.ID].lost_pages)} lost</span>
+                  {/if}
                 {/if}
               </span>
             {:else}
-              <span class="badge" class:badge-success={s.Status==='completed'} class:badge-error={s.Status==='failed'} class:badge-warning={s.Status==='stopped'}>{s.Status}</span>
+              <span class="badge" class:badge-success={s.Status==='completed'} class:badge-error={s.Status==='failed'} class:badge-warning={s.Status==='stopped' || s.Status==='completed_with_errors'}>{s.Status}</span>
             {/if}
             {#if s.ProjectID}
               <span class="badge" style="background: var(--accent-light); color: var(--accent);">{projects.find(p => p.id === s.ProjectID)?.name || 'Project'}</span>

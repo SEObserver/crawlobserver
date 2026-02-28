@@ -90,6 +90,7 @@ type StorageService interface {
 type CrawlService interface {
 	IsRunning(sessionID string) bool
 	Progress(sessionID string) (int64, int, bool)
+	BufferState(sessionID string) storage.BufferErrorState
 	StartCrawl(req crawler.CrawlRequest) (string, error)
 	StopCrawl(sessionID string) error
 	ResumeCrawl(sessionID string, overrides *crawler.CrawlRequest) (string, error)

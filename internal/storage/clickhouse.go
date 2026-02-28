@@ -1177,7 +1177,6 @@ func (s *Store) UncrawledURLs(ctx context.Context, sessionID string) ([]string, 
 		  AND target_url NOT IN (
 		    SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?
 		  )
-		LIMIT 10000
 	`, sessionID, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("querying uncrawled URLs: %w", err)
@@ -2048,8 +2047,7 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 func (s *Store) FailedURLs(ctx context.Context, sessionID string) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT url FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND status_code = 0
-		LIMIT 10000`, sessionID)
+		WHERE crawl_session_id = ? AND status_code = 0`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("querying failed URLs: %w", err)
 	}

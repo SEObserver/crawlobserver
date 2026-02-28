@@ -217,6 +217,91 @@ func TestErrorStateReporting(t *testing.T) {
 	}
 }
 
+func TestOnDataLostCallbackPages(t *testing.T) {
+	m := &mockInserter{
+		pageErr: fmt.Errorf("disk full"),
+	}
+	b := newTestBuffer(m)
+	b.maxRetries = 3
+
+	var callbackPages, callbackLinks int64
+	var callbackCount int
+	b.SetOnDataLost(func(lostPages, lostLinks int64) {
+		callbackCount++
+		callbackPages = lostPages
+		callbackLinks = lostLinks
+	})
+
+	b.AddPage(PageRow{URL: "a"})
+	b.AddPage(PageRow{URL: "b"})
+
+	// Flush 1-3: retries accumulate, no drop yet
+	b.Flush()
+	b.Flush()
+	b.Flush()
+	if callbackCount != 0 {
+		t.Fatalf("callback called %d times during retries, want 0", callbackCount)
+	}
+
+	// Flush 4: retries=3 >= maxRetries -> drop -> callback
+	b.Flush()
+	if callbackCount != 1 {
+		t.Fatalf("callback called %d times after drop, want 1", callbackCount)
+	}
+	if callbackPages != 2 {
+		t.Errorf("callbackPages = %d, want 2", callbackPages)
+	}
+	if callbackLinks != 0 {
+		t.Errorf("callbackLinks = %d, want 0", callbackLinks)
+	}
+}
+
+func TestOnDataLostCallbackLinks(t *testing.T) {
+	m := &mockInserter{
+		linkErr: fmt.Errorf("disk full"),
+	}
+	b := newTestBuffer(m)
+	b.maxRetries = 1 // drop after first retry
+
+	var callbackPages, callbackLinks int64
+	b.SetOnDataLost(func(lostPages, lostLinks int64) {
+		callbackPages = lostPages
+		callbackLinks = lostLinks
+	})
+
+	b.AddLinks([]LinkRow{{SourceURL: "a", TargetURL: "b"}, {SourceURL: "a", TargetURL: "c"}, {SourceURL: "a", TargetURL: "d"}})
+
+	// Flush 1: initial failure -> retry batch
+	b.Flush()
+	// Flush 2: retries=1 >= maxRetries -> drop -> callback
+	b.Flush()
+
+	if callbackPages != 0 {
+		t.Errorf("callbackPages = %d, want 0", callbackPages)
+	}
+	if callbackLinks != 3 {
+		t.Errorf("callbackLinks = %d, want 3", callbackLinks)
+	}
+}
+
+func TestOnDataLostNotCalledWithoutCallback(t *testing.T) {
+	m := &mockInserter{
+		pageErr: fmt.Errorf("disk full"),
+	}
+	b := newTestBuffer(m)
+	b.maxRetries = 1
+
+	// No SetOnDataLost called — should not panic
+	b.AddPage(PageRow{URL: "a"})
+	b.Flush()
+	b.Flush() // drop happens here, no callback set
+
+	state := b.ErrorState()
+	if state.LostPages != 1 {
+		t.Errorf("LostPages = %d, want 1", state.LostPages)
+	}
+}
+
 func TestCloseRetriesFailedBatches(t *testing.T) {
 	m := &mockInserter{
 		pageErr:   fmt.Errorf("temporary failure"),

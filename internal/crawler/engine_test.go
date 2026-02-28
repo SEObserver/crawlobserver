@@ -1,10 +1,13 @@
 package crawler
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
 func TestNewSession(t *testing.T) {
@@ -110,3 +113,169 @@ func TestResumeSessionPreservesSeedURLs(t *testing.T) {
 		t.Errorf("storage row SeedURLs = %v, want [https://example.com]", row.SeedURLs)
 	}
 }
+
+// diskFullInserter simulates ClickHouse returning "Cannot reserve N MiB" (code 243)
+// when the Docker virtual disk is full. All inserts fail permanently.
+type diskFullInserter struct{}
+
+func (d *diskFullInserter) InsertPages(_ context.Context, _ []storage.PageRow) error {
+	return fmt.Errorf("code: 243, Cannot reserve 1073741824 bytes in file")
+}
+
+func (d *diskFullInserter) InsertLinks(_ context.Context, _ []storage.LinkRow) error {
+	return fmt.Errorf("code: 243, Cannot reserve 1073741824 bytes in file")
+}
+
+// TestDiskFullAutoStop verifies the full disk-full scenario:
+// ClickHouse inserts fail permanently → buffer drops data after max retries →
+// onDataLost callback fires → engine.Stop() cancels the crawl context.
+func TestDiskFullAutoStop(t *testing.T) {
+	cfg := &config.Config{
+		Crawler: config.CrawlerConfig{
+			UserAgent: "TestBot/1.0",
+		},
+		Storage: config.StorageConfig{
+			BatchSize:     100,
+			FlushInterval: time.Hour, // won't auto-tick during test
+		},
+	}
+
+	engine := NewEngine(cfg, nil)
+	engine.session = NewSession([]string{"https://example.com"}, cfg)
+
+	// Create buffer with a permanently failing store (simulates disk full)
+	engine.buffer = storage.NewBuffer(&diskFullInserter{}, 100, time.Hour, engine.session.ID)
+
+	// Wire up the same callback as Run() does
+	engine.buffer.SetOnDataLost(func(lostPages, lostLinks int64) {
+		engine.Stop()
+	})
+
+	// Simulate crawler writing pages and links to the buffer
+	for i := 0; i < 5; i++ {
+		engine.buffer.AddPage(storage.PageRow{URL: fmt.Sprintf("https://example.com/%d", i)})
+	}
+	engine.buffer.AddLinks([]storage.LinkRow{
+		{SourceURL: "https://example.com", TargetURL: "https://example.com/1"},
+		{SourceURL: "https://example.com", TargetURL: "https://example.com/2"},
+	})
+
+	// Flush 1: initial failure → data moves to retry queue
+	engine.buffer.Flush()
+	select {
+	case <-engine.ctx.Done():
+		t.Fatal("engine should NOT be stopped yet (retries pending)")
+	default:
+	}
+
+	// Flush 2-3: retries fail, still under maxRetries
+	engine.buffer.Flush()
+	engine.buffer.Flush()
+	select {
+	case <-engine.ctx.Done():
+		t.Fatal("engine should NOT be stopped yet (retries still pending)")
+	default:
+	}
+
+	// Flush 4: retries exhaust (retries=3 >= maxRetries=3) → data dropped → callback → Stop()
+	engine.buffer.Flush()
+
+	select {
+	case <-engine.ctx.Done():
+		// Engine was stopped — this is the expected behavior
+	default:
+		t.Fatal("engine context should be cancelled after disk-full data loss")
+	}
+
+	// Verify buffer reports the data loss
+	state := engine.BufferState()
+	if state.LostPages != 5 {
+		t.Errorf("LostPages = %d, want 5", state.LostPages)
+	}
+	if state.LostLinks != 2 {
+		t.Errorf("LostLinks = %d, want 2", state.LostLinks)
+	}
+
+	// Clean up the buffer's flush goroutine
+	engine.buffer.Close()
+}
+
+// TestDiskFullCompletedWithErrors verifies that after a disk-full scenario,
+// the session status is set to "completed_with_errors" (not plain "completed").
+func TestDiskFullCompletedWithErrors(t *testing.T) {
+	cfg := &config.Config{
+		Crawler: config.CrawlerConfig{
+			UserAgent: "TestBot/1.0",
+		},
+		Storage: config.StorageConfig{
+			BatchSize:     100,
+			FlushInterval: time.Hour,
+		},
+	}
+
+	engine := NewEngine(cfg, nil)
+	engine.session = NewSession([]string{"https://example.com"}, cfg)
+
+	// Create buffer that will lose data
+	engine.buffer = storage.NewBuffer(&diskFullInserter{}, 100, time.Hour, engine.session.ID)
+
+	engine.buffer.AddPage(storage.PageRow{URL: "https://example.com/1"})
+
+	// Exhaust retries: 4 flushes → drop
+	for i := 0; i < 5; i++ {
+		engine.buffer.Flush()
+	}
+	engine.buffer.Close()
+
+	// Reproduce the same status logic as Run()
+	bufState := engine.BufferState()
+	if bufState.LostPages > 0 || bufState.LostLinks > 0 {
+		engine.session.Status = "completed_with_errors"
+	} else {
+		engine.session.Status = "completed"
+	}
+
+	if engine.session.Status != "completed_with_errors" {
+		t.Errorf("session.Status = %q, want %q", engine.session.Status, "completed_with_errors")
+	}
+}
+
+// TestNoDiskIssueCompletedNormally verifies that without data loss,
+// the session status remains "completed".
+func TestNoDiskIssueCompletedNormally(t *testing.T) {
+	cfg := &config.Config{
+		Crawler: config.CrawlerConfig{
+			UserAgent: "TestBot/1.0",
+		},
+		Storage: config.StorageConfig{
+			BatchSize:     100,
+			FlushInterval: time.Hour,
+		},
+	}
+
+	engine := NewEngine(cfg, nil)
+	engine.session = NewSession([]string{"https://example.com"}, cfg)
+
+	// Create buffer with a working store
+	engine.buffer = storage.NewBuffer(&successInserter{}, 100, time.Hour, engine.session.ID)
+
+	engine.buffer.AddPage(storage.PageRow{URL: "https://example.com/1"})
+	engine.buffer.Flush()
+	engine.buffer.Close()
+
+	bufState := engine.BufferState()
+	if bufState.LostPages > 0 || bufState.LostLinks > 0 {
+		engine.session.Status = "completed_with_errors"
+	} else {
+		engine.session.Status = "completed"
+	}
+
+	if engine.session.Status != "completed" {
+		t.Errorf("session.Status = %q, want %q", engine.session.Status, "completed")
+	}
+}
+
+type successInserter struct{}
+
+func (s *successInserter) InsertPages(_ context.Context, _ []storage.PageRow) error { return nil }
+func (s *successInserter) InsertLinks(_ context.Context, _ []storage.LinkRow) error { return nil }

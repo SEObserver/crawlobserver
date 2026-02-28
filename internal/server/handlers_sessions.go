@@ -146,6 +146,7 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	var lastPages int64
 	var lastQueue int
 	var lastRunning bool
+	var lastLostPages, lastLostLinks int64
 	first := true
 
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -159,15 +160,25 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 		}
 
 		pages, queue, running := s.manager.Progress(sessionID)
+		bufState := s.manager.BufferState(sessionID)
 
 		// Only send if data changed or first message
-		if !first && pages == lastPages && queue == lastQueue && running == lastRunning {
+		if !first && pages == lastPages && queue == lastQueue && running == lastRunning &&
+			bufState.LostPages == lastLostPages && bufState.LostLinks == lastLostLinks {
 			continue
 		}
 		lastPages, lastQueue, lastRunning = pages, queue, running
+		lastLostPages, lastLostLinks = bufState.LostPages, bufState.LostLinks
 		first = false
 
-		data := fmt.Sprintf(`{"pages_crawled":%d,"queue_size":%d,"is_running":%t}`, pages, queue, running)
+		data := fmt.Sprintf(`{"pages_crawled":%d,"queue_size":%d,"is_running":%t`, pages, queue, running)
+		if bufState.LostPages > 0 {
+			data += fmt.Sprintf(`,"lost_pages":%d`, bufState.LostPages)
+		}
+		if bufState.LostLinks > 0 {
+			data += fmt.Sprintf(`,"lost_links":%d`, bufState.LostLinks)
+		}
+		data += "}"
 		fmt.Fprintf(w, "data: %s\n\n", data)
 		flusher.Flush()
 
@@ -185,11 +196,19 @@ func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pages, queue, running := s.manager.Progress(sessionID)
-	writeJSON(w, map[string]interface{}{
+	resp := map[string]interface{}{
 		"pages_crawled": pages,
 		"queue_size":    queue,
 		"is_running":    running,
-	})
+	}
+	bufState := s.manager.BufferState(sessionID)
+	if bufState.LostPages > 0 {
+		resp["lost_pages"] = bufState.LostPages
+	}
+	if bufState.LostLinks > 0 {
+		resp["lost_links"] = bufState.LostLinks
+	}
+	writeJSON(w, resp)
 }
 
 func (s *Server) handleStartCrawl(w http.ResponseWriter, r *http.Request) {

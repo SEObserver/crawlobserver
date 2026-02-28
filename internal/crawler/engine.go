@@ -164,6 +164,10 @@ func (e *Engine) Run(seeds []string) error {
 	e.maxPages = int64(e.cfg.Crawler.MaxPages)
 	e.buildScope()
 	e.buffer = storage.NewBuffer(e.store, e.cfg.Storage.BatchSize, e.cfg.Storage.FlushInterval, e.session.ID)
+	e.buffer.SetOnDataLost(func(lostPages, lostLinks int64) {
+		applog.Errorf("crawler", "[%s] DATA LOSS: %d pages, %d links dropped — stopping crawl (disk full?)", e.session.ID, lostPages, lostLinks)
+		e.Stop()
+	})
 
 	// Save session to ClickHouse
 	if err := e.store.InsertSession(e.ctx, e.session.ToStorageRow()); err != nil {
@@ -337,6 +341,13 @@ func (e *Engine) Run(seeds []string) error {
 	// Final flush
 	e.buffer.Close()
 
+	// Check for data loss
+	bufState := e.buffer.ErrorState()
+	if bufState.LostPages > 0 || bufState.LostLinks > 0 {
+		applog.Warnf("crawler", "[%s] Crawl ended with data loss: %d pages, %d links dropped",
+			e.session.ID, bufState.LostPages, bufState.LostLinks)
+	}
+
 	// Persist robots.txt data
 	entries := e.robots.Entries()
 	if len(entries) > 0 {
@@ -368,7 +379,11 @@ func (e *Engine) Run(seeds []string) error {
 	}
 
 	// Update session status with actual page count from storage
-	e.session.Status = "completed"
+	if bufState.LostPages > 0 || bufState.LostLinks > 0 {
+		e.session.Status = "completed_with_errors"
+	} else {
+		e.session.Status = "completed"
+	}
 	if total, err := e.store.CountPages(context.Background(), e.session.ID); err == nil {
 		e.session.Pages = total
 	} else {
@@ -384,6 +399,14 @@ func (e *Engine) Run(seeds []string) error {
 		e.pagesCrawled.Load(), e.session.ID)
 
 	return nil
+}
+
+// BufferState returns the current buffer error state for monitoring.
+func (e *Engine) BufferState() storage.BufferErrorState {
+	if e.buffer == nil {
+		return storage.BufferErrorState{}
+	}
+	return e.buffer.ErrorState()
 }
 
 // Stop gracefully stops the engine.

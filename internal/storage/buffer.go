@@ -52,6 +52,8 @@ type Buffer struct {
 	// Atomic counter for lost data (safe to read without lock)
 	lostPagesAtomic atomic.Int64
 	lostLinksAtomic atomic.Int64
+
+	onDataLost func(lostPages, lostLinks int64)
 }
 
 // NewBuffer creates a new write buffer.
@@ -93,6 +95,13 @@ func (b *Buffer) AddLinks(links []LinkRow) {
 	}
 }
 
+// SetOnDataLost registers a callback invoked (outside the lock) whenever data is dropped.
+func (b *Buffer) SetOnDataLost(fn func(lostPages, lostLinks int64)) {
+	b.mu.Lock()
+	b.onDataLost = fn
+	b.mu.Unlock()
+}
+
 // Flush writes all buffered data to ClickHouse, retrying previously failed batches first.
 func (b *Buffer) Flush() {
 	b.mu.Lock()
@@ -111,6 +120,7 @@ func (b *Buffer) Flush() {
 	ctx := context.Background()
 
 	// Retry previously failed page batches
+	dataLost := false
 	for _, batch := range failedPages {
 		if err := b.store.InsertPages(ctx, batch.data); err != nil {
 			batch.retries++
@@ -122,6 +132,7 @@ func (b *Buffer) Flush() {
 				b.lastError = err
 				b.mu.Unlock()
 				b.lostPagesAtomic.Add(lost)
+				dataLost = true
 			} else {
 				b.mu.Lock()
 				b.failedPages = append(b.failedPages, batch)
@@ -143,12 +154,23 @@ func (b *Buffer) Flush() {
 				b.lastError = err
 				b.mu.Unlock()
 				b.lostLinksAtomic.Add(lost)
+				dataLost = true
 			} else {
 				b.mu.Lock()
 				b.failedLinks = append(b.failedLinks, batch)
 				b.lastError = err
 				b.mu.Unlock()
 			}
+		}
+	}
+
+	// Notify data loss callback (outside lock)
+	if dataLost {
+		b.mu.Lock()
+		cb := b.onDataLost
+		b.mu.Unlock()
+		if cb != nil {
+			cb(b.lostPagesAtomic.Load(), b.lostLinksAtomic.Load())
 		}
 	}
 

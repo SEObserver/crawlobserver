@@ -418,6 +418,10 @@ func (m *mockManager) RetryFailed(sessionID string, overrides *crawler.CrawlRequ
 	return m.retryCount, m.retryErr
 }
 
+func (m *mockManager) BufferState(sessionID string) storage.BufferErrorState {
+	return storage.BufferErrorState{}
+}
+
 // ---------------------------------------------------------------------------
 // newTestServer helper
 // ---------------------------------------------------------------------------
