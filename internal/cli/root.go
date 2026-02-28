@@ -11,9 +11,9 @@ import (
 var cfgFile string
 
 var rootCmd = &cobra.Command{
-	Use:   "seocrawler",
+	Use:   "crawlobserver",
 	Short: "SEO crawler — extract SEO signals at scale",
-	Long:  `SEOCrawler is an open-source SEO crawler that extracts SEO signals (title, canonical, headers, links) and stores them in ClickHouse.`,
+	Long:  `CrawlObserver is an open-source SEO crawler that extracts SEO signals (title, canonical, headers, links) and stores them in ClickHouse.`,
 }
 
 func Execute() error {

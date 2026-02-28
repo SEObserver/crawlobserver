@@ -16,7 +16,7 @@ import (
 // BackupOptions configures what to include in a backup.
 type BackupOptions struct {
 	DataDir    string // ClickHouse data directory
-	SQLitePath string // Path to seocrawler.db
+	SQLitePath string // Path to crawlobserver.db
 	ConfigPath string // Path to config.yaml
 	BackupDir  string // Where to store backups
 }
@@ -80,7 +80,7 @@ func Create(opts BackupOptions, version string) (*BackupInfo, error) {
 	// Backup SQLite
 	if opts.SQLitePath != "" {
 		if _, err := os.Stat(opts.SQLitePath); err == nil {
-			if err := addFileToTar(tw, opts.SQLitePath, "seocrawler.db"); err != nil {
+			if err := addFileToTar(tw, opts.SQLitePath, "crawlobserver.db"); err != nil {
 				return nil, fmt.Errorf("archiving SQLite: %w", err)
 			}
 		}
@@ -195,7 +195,7 @@ func Restore(archivePath string, opts BackupOptions) error {
 				return fmt.Errorf("extracting %s: %w", cleanName, err)
 			}
 
-		case cleanName == "seocrawler.db":
+		case cleanName == "crawlobserver.db":
 			if opts.SQLitePath == "" {
 				continue
 			}

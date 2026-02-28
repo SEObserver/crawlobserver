@@ -1,6 +1,6 @@
-# Contributing to SEOCrawler
+# Contributing to CrawlObserver
 
-SEOCrawler is maintained by [SEObserver](https://www.seobserver.com) and open to community contributions. This document explains how to contribute effectively and what we expect from pull requests.
+CrawlObserver is maintained by [SEObserver](https://www.seobserver.com) and open to community contributions. This document explains how to contribute effectively and what we expect from pull requests.
 
 ## Ground Rules
 
@@ -33,8 +33,8 @@ SEOCrawler is maintained by [SEObserver](https://www.seobserver.com) and open to
 ### Getting started
 
 ```bash
-git clone https://github.com/SEObserver/seocrawler.git
-cd seocrawler
+git clone https://github.com/SEObserver/crawlobserver.git
+cd crawlobserver
 
 # Start ClickHouse
 docker compose up -d
@@ -43,10 +43,10 @@ docker compose up -d
 make build
 
 # Run migrations
-./seocrawler migrate
+./crawlobserver migrate
 
 # Run the web UI (with hot-reload on the backend)
-./seocrawler serve
+./crawlobserver serve
 ```
 
 ### Frontend development
@@ -64,7 +64,7 @@ The frontend is a Svelte 5 app (`frontend/src/App.svelte`) bundled with Vite. On
 cd frontend && npm run build && cd ..
 rm -rf internal/server/frontend/dist
 cp -r frontend/dist internal/server/frontend/dist
-go build -o seocrawler ./cmd/seocrawler
+go build -o crawlobserver ./cmd/crawlobserver
 ```
 
 Or just `make build`.
@@ -72,7 +72,7 @@ Or just `make build`.
 ## Project Structure
 
 ```
-cmd/seocrawler/         Entry point
+cmd/crawlobserver/         Entry point
 internal/
   cli/                  Cobra commands (crawl, serve, gui, migrate...)
   config/               Viper config loading + validation
@@ -122,7 +122,7 @@ frontend/
 
 ## What We Don't Accept
 
-- **Feature creep.** SEOCrawler crawls websites and extracts SEO signals. It's not a keyword tracker, a rank checker, or a backlink monitor. Stay focused.
+- **Feature creep.** CrawlObserver crawls websites and extracts SEO signals. It's not a keyword tracker, a rank checker, or a backlink monitor. Stay focused.
 - **Massive refactors without prior discussion.** If you want to restructure the project, open an issue and make the case first.
 - **Dependency bloat.** Think twice before adding a dependency. If it saves 10 lines of code, it's not worth the supply chain risk.
 - **Breaking changes to the API.** The REST API is used by other tools. Breaking changes need a deprecation path and a very good reason.
@@ -150,7 +150,7 @@ Open an issue with:
 
 1. **What you expected** vs. **what happened**
 2. **Steps to reproduce** (seed URL, config, command)
-3. **Version** (`seocrawler version`)
+3. **Version** (`crawlobserver version`)
 4. **Logs** (relevant output, not the entire terminal)
 
 ## Security

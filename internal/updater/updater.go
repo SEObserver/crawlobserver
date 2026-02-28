@@ -18,7 +18,7 @@ import (
 
 const (
 	repoOwner = "SEObserver"
-	repoName  = "seocrawler"
+	repoName  = "crawlobserver"
 )
 
 // Release represents a GitHub release.
@@ -150,7 +150,7 @@ func DownloadUpdate(release *Release) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	tmpFile, err := os.CreateTemp("", "seocrawler-update-*")
+	tmpFile, err := os.CreateTemp("", "crawlobserver-update-*")
 	if err != nil {
 		return "", fmt.Errorf("creating temp file: %w", err)
 	}
@@ -202,12 +202,12 @@ func expectedAssetName() string {
 	if runtime.GOOS == "windows" {
 		ext = ".exe"
 	}
-	return fmt.Sprintf("seocrawler-%s-%s%s", runtime.GOOS, runtime.GOARCH, ext)
+	return fmt.Sprintf("crawlobserver-%s-%s%s", runtime.GOOS, runtime.GOARCH, ext)
 }
 
 // ExpectedDesktopAssetName returns the expected .app.tar.gz asset name for desktop updates.
 func ExpectedDesktopAssetName() string {
-	return fmt.Sprintf("SEOCrawler-%s-%s.app.tar.gz", runtime.GOOS, runtime.GOARCH)
+	return fmt.Sprintf("CrawlObserver-%s-%s.app.tar.gz", runtime.GOOS, runtime.GOARCH)
 }
 
 // DownloadDesktopUpdate downloads and extracts the .app.tar.gz for desktop mode.
@@ -233,7 +233,7 @@ func DownloadDesktopUpdate(release *Release) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	tmpDir, err := os.MkdirTemp("", "seocrawler-desktop-update-*")
+	tmpDir, err := os.MkdirTemp("", "crawlobserver-desktop-update-*")
 	if err != nil {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}
@@ -305,7 +305,7 @@ func SelfUpdateDesktop(newAppPath string) error {
 	}
 
 	// Walk up from the binary to find the .app bundle
-	// e.g. /path/to/SEOCrawler.app/Contents/MacOS/SEOCrawler -> /path/to/SEOCrawler.app
+	// e.g. /path/to/CrawlObserver.app/Contents/MacOS/CrawlObserver -> /path/to/CrawlObserver.app
 	currentApp := execPath
 	for {
 		if strings.HasSuffix(currentApp, ".app") {

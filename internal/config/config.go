@@ -95,7 +95,7 @@ func SetDefaults() {
 	viper.SetDefault("crawler.max_pages", 0)
 	viper.SetDefault("crawler.max_depth", 0)
 	viper.SetDefault("crawler.timeout", "30s")
-	viper.SetDefault("crawler.user_agent", "SEOCrawler/1.0")
+	viper.SetDefault("crawler.user_agent", "CrawlObserver/1.0")
 	viper.SetDefault("crawler.max_body_size", 10*1024*1024) // 10MB
 	viper.SetDefault("crawler.respect_robots", true)
 	viper.SetDefault("crawler.store_html", false)
@@ -108,7 +108,7 @@ func SetDefaults() {
 
 	viper.SetDefault("clickhouse.host", "localhost")
 	viper.SetDefault("clickhouse.port", 19000)
-	viper.SetDefault("clickhouse.database", "seocrawler")
+	viper.SetDefault("clickhouse.database", "crawlobserver")
 	viper.SetDefault("clickhouse.username", "default")
 	viper.SetDefault("clickhouse.password", "")
 	viper.SetDefault("clickhouse.mode", "")
@@ -125,9 +125,9 @@ func SetDefaults() {
 	viper.SetDefault("server.port", 8899)
 	viper.SetDefault("server.username", "admin")
 	viper.SetDefault("server.password", "")
-	viper.SetDefault("server.sqlite_path", "seocrawler.db")
+	viper.SetDefault("server.sqlite_path", "crawlobserver.db")
 
-	viper.SetDefault("theme.app_name", "SEOCrawler")
+	viper.SetDefault("theme.app_name", "CrawlObserver")
 	viper.SetDefault("theme.logo_url", "")
 	viper.SetDefault("theme.accent_color", "#7c3aed")
 	viper.SetDefault("theme.mode", "light")

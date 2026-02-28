@@ -201,7 +201,7 @@ func (s *Store) exportPages(ctx context.Context, enc *json.Encoder, sessionID st
 			headers, redirect_chain, body_size, fetch_duration_ms,
 			content_encoding, x_robots_tag,
 			error, depth, found_on, pagerank, %s, body_truncated, crawled_at
-		FROM seocrawler.pages
+		FROM crawlobserver.pages
 		WHERE crawl_session_id = ?
 		ORDER BY url
 		LIMIT ? OFFSET ?`, htmlCol)
@@ -277,7 +277,7 @@ func (s *Store) exportPages(ctx context.Context, enc *json.Encoder, sessionID st
 func (s *Store) exportLinks(ctx context.Context, enc *json.Encoder, sessionID string) error {
 	query := `
 		SELECT source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
-		FROM seocrawler.links
+		FROM crawlobserver.links
 		WHERE crawl_session_id = ?
 		ORDER BY source_url, target_url
 		LIMIT ? OFFSET ?`
@@ -318,7 +318,7 @@ func (s *Store) exportLinks(ctx context.Context, enc *json.Encoder, sessionID st
 func (s *Store) exportRobots(ctx context.Context, enc *json.Encoder, sessionID string) error {
 	rows, err := s.conn.Query(ctx, `
 		SELECT host, status_code, content, fetched_at
-		FROM seocrawler.robots_txt FINAL
+		FROM crawlobserver.robots_txt FINAL
 		WHERE crawl_session_id = ?
 		ORDER BY host`, sessionID)
 	if err != nil {
@@ -345,7 +345,7 @@ func (s *Store) exportRobots(ctx context.Context, enc *json.Encoder, sessionID s
 func (s *Store) exportSitemaps(ctx context.Context, enc *json.Encoder, sessionID string) error {
 	rows, err := s.conn.Query(ctx, `
 		SELECT url, type, url_count, parent_url, status_code, fetched_at
-		FROM seocrawler.sitemaps FINAL
+		FROM crawlobserver.sitemaps FINAL
 		WHERE crawl_session_id = ?
 		ORDER BY url`, sessionID)
 	if err != nil {
@@ -372,7 +372,7 @@ func (s *Store) exportSitemaps(ctx context.Context, enc *json.Encoder, sessionID
 func (s *Store) exportSitemapURLs(ctx context.Context, enc *json.Encoder, sessionID string) error {
 	query := `
 		SELECT sitemap_url, loc, lastmod, changefreq, priority
-		FROM seocrawler.sitemap_urls FINAL
+		FROM crawlobserver.sitemap_urls FINAL
 		WHERE crawl_session_id = ?
 		ORDER BY sitemap_url, loc
 		LIMIT ? OFFSET ?`

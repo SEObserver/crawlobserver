@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	chmanaged "github.com/SEObserver/seocrawler/internal/clickhouse"
-	"github.com/SEObserver/seocrawler/internal/config"
+	chmanaged "github.com/SEObserver/crawlobserver/internal/clickhouse"
+	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/spf13/cobra"
 )
 

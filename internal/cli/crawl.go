@@ -9,8 +9,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/SEObserver/seocrawler/internal/config"
-	"github.com/SEObserver/seocrawler/internal/crawler"
+	"github.com/SEObserver/crawlobserver/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/crawler"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

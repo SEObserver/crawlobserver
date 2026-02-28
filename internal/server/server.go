@@ -16,13 +16,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/SEObserver/seocrawler/internal/apikeys"
-	"github.com/SEObserver/seocrawler/internal/applog"
-	"github.com/SEObserver/seocrawler/internal/backup"
-	"github.com/SEObserver/seocrawler/internal/config"
-	"github.com/SEObserver/seocrawler/internal/crawler"
-	"github.com/SEObserver/seocrawler/internal/storage"
-	"github.com/SEObserver/seocrawler/internal/updater"
+	"github.com/SEObserver/crawlobserver/internal/apikeys"
+	"github.com/SEObserver/crawlobserver/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/backup"
+	"github.com/SEObserver/crawlobserver/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/crawler"
+	"github.com/SEObserver/crawlobserver/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/updater"
 	"github.com/spf13/viper"
 )
 
@@ -302,7 +302,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
-const apiDiscoveryFile = ".seocrawler-api.json"
+const apiDiscoveryFile = ".crawlobserver-api.json"
 
 func (s *Server) writeAPIDiscoveryFile() {
 	data, err := json.MarshalIndent(s.serverInfoPayload(), "", "  ")
@@ -429,7 +429,7 @@ func basicAuth(next http.Handler, username, password string) http.Handler {
 		if !ok ||
 			subtle.ConstantTimeCompare([]byte(user), []byte(username)) != 1 ||
 			subtle.ConstantTimeCompare([]byte(pass), []byte(password)) != 1 {
-			w.Header().Set("WWW-Authenticate", `Basic realm="SEOCrawler"`)
+			w.Header().Set("WWW-Authenticate", `Basic realm="CrawlObserver"`)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}

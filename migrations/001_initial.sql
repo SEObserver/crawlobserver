@@ -1,9 +1,9 @@
--- SEOCrawler initial schema
--- Run with: seocrawler migrate
+-- CrawlObserver initial schema
+-- Run with: crawlobserver migrate
 
-CREATE DATABASE IF NOT EXISTS seocrawler;
+CREATE DATABASE IF NOT EXISTS crawlobserver;
 
-CREATE TABLE IF NOT EXISTS seocrawler.crawl_sessions (
+CREATE TABLE IF NOT EXISTS crawlobserver.crawl_sessions (
     id UUID,
     started_at DateTime64(3),
     finished_at DateTime64(3),
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS seocrawler.crawl_sessions (
 ) ENGINE = ReplacingMergeTree()
 ORDER BY (id);
 
-CREATE TABLE IF NOT EXISTS seocrawler.pages (
+CREATE TABLE IF NOT EXISTS crawlobserver.pages (
     crawl_session_id UUID,
     url String,
     final_url String,
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS seocrawler.pages (
 PARTITION BY toYYYYMM(crawled_at)
 ORDER BY (crawl_session_id, url);
 
-CREATE TABLE IF NOT EXISTS seocrawler.links (
+CREATE TABLE IF NOT EXISTS crawlobserver.links (
     crawl_session_id UUID,
     source_url String,
     target_url String,

@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">SEOCrawler</h1>
+  <h1 align="center">CrawlObserver</h1>
   <p align="center">
     Free, open-source SEO crawler built by <a href="https://www.seobserver.com">SEObserver</a>.<br>
     Extract 45+ SEO signals per page. Store in ClickHouse. Analyze at scale.
@@ -16,16 +16,16 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/SEObserver/seocrawler/actions"><img src="https://github.com/SEObserver/seocrawler/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/SEObserver/crawlobserver/actions"><img src="https://github.com/SEObserver/crawlobserver/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="AGPL-3.0 License"></a>
-  <a href="https://goreportcard.com/report/github.com/SEObserver/seocrawler"><img src="https://goreportcard.com/badge/github.com/SEObserver/seocrawler" alt="Go Report Card"></a>
+  <a href="https://goreportcard.com/report/github.com/SEObserver/crawlobserver"><img src="https://goreportcard.com/badge/github.com/SEObserver/crawlobserver" alt="Go Report Card"></a>
 </p>
 
 ---
 
-## Why SEOCrawler?
+## Why CrawlObserver?
 
-At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We built SEOCrawler because every SEO deserves a proper crawler — not a spreadsheet with 10,000 rows, not a SaaS with monthly limits. A real tool that runs on your machine, stores data in a columnar database, and lets you query millions of pages in milliseconds.
+At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We built CrawlObserver because every SEO deserves a proper crawler — not a spreadsheet with 10,000 rows, not a SaaS with monthly limits. A real tool that runs on your machine, stores data in a columnar database, and lets you query millions of pages in milliseconds.
 
 **We're giving it to the community for free.** Use it, break it, improve it.
 
@@ -47,31 +47,31 @@ At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We buil
 
 ```bash
 # 1. Clone & build
-git clone https://github.com/SEObserver/seocrawler.git
-cd seocrawler
+git clone https://github.com/SEObserver/crawlobserver.git
+cd crawlobserver
 make build
 
 # 2. Start ClickHouse
 docker compose up -d
 
 # 3. Create tables
-./seocrawler migrate
+./crawlobserver migrate
 
 # 4. Crawl a site
-./seocrawler crawl --seed https://example.com --max-pages 1000
+./crawlobserver crawl --seed https://example.com --max-pages 1000
 
 # 5. Browse results
-./seocrawler serve
+./crawlobserver serve
 # Open http://127.0.0.1:8899
 ```
 
-> **Managed mode:** Don't have Docker? SEOCrawler can download and run ClickHouse for you automatically. Set `clickhouse.mode: managed` in your config.
+> **Managed mode:** Don't have Docker? CrawlObserver can download and run ClickHouse for you automatically. Set `clickhouse.mode: managed` in your config.
 
 ---
 
 ## Web UI
 
-Start the web interface with `./seocrawler serve` and open `http://127.0.0.1:8899`.
+Start the web interface with `./crawlobserver serve` and open `http://127.0.0.1:8899`.
 
 The UI gives you:
 
@@ -92,7 +92,7 @@ The UI is a single Go binary — no Node.js runtime needed in production.
 ## CLI Reference
 
 ```
-seocrawler [command]
+crawlobserver [command]
 ```
 
 | Command | Description |
@@ -111,13 +111,13 @@ seocrawler [command]
 
 ```bash
 # Single seed URL
-seocrawler crawl --seed https://example.com
+crawlobserver crawl --seed https://example.com
 
 # Multiple seeds from file (one URL per line)
-seocrawler crawl --seeds-file urls.txt
+crawlobserver crawl --seeds-file urls.txt
 
 # Fine-tune the crawl
-seocrawler crawl --seed https://example.com \
+crawlobserver crawl --seed https://example.com \
   --workers 20 \
   --delay 500ms \
   --max-pages 50000 \
@@ -129,13 +129,13 @@ seocrawler crawl --seed https://example.com \
 
 ```bash
 # External links as a table
-seocrawler report external-links --format table
+crawlobserver report external-links --format table
 
 # Export to CSV
-seocrawler report external-links --format csv > external-links.csv
+crawlobserver report external-links --format csv > external-links.csv
 
 # Filter by session
-seocrawler report external-links --session <session-id> --format csv
+crawlobserver report external-links --session <session-id> --format csv
 ```
 
 ---
@@ -159,7 +159,7 @@ All settings can be overridden via **environment variables** with the `SEOCRAWLE
 | `crawler.max_pages` | `0` | Max pages to crawl (0 = unlimited) |
 | `crawler.max_depth` | `0` | Max crawl depth (0 = unlimited) |
 | `crawler.timeout` | `30s` | HTTP request timeout |
-| `crawler.user_agent` | `SEOCrawler/1.0` | User-Agent string |
+| `crawler.user_agent` | `CrawlObserver/1.0` | User-Agent string |
 | `crawler.respect_robots` | `true` | Obey robots.txt |
 | `crawler.store_html` | `false` | Store raw HTML (ZSTD compressed) |
 | `crawler.crawl_scope` | `host` | `host` (exact) or `domain` (eTLD+1) |
@@ -227,7 +227,7 @@ Adding a graph layer would mean double storage, sync complexity, and a heavier i
 
 ## API
 
-The REST API is available when running `seocrawler serve`. All endpoints are under `/api/`.
+The REST API is available when running `crawlobserver serve`. All endpoints are under `/api/`.
 
 ### Sessions
 

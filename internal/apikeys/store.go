@@ -9,8 +9,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/SEObserver/seocrawler/internal/customtests"
-	"github.com/SEObserver/seocrawler/internal/providers"
+	"github.com/SEObserver/crawlobserver/internal/customtests"
+	"github.com/SEObserver/crawlobserver/internal/providers"
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 )

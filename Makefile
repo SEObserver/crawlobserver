@@ -1,8 +1,8 @@
 .PHONY: build run test clean migrate frontend
 
 VERSION ?= dev
-LDFLAGS = -ldflags "-X github.com/SEObserver/seocrawler/internal/updater.Version=$(VERSION)"
-BINARY = seocrawler
+LDFLAGS = -ldflags "-X github.com/SEObserver/crawlobserver/internal/updater.Version=$(VERSION)"
+BINARY = crawlobserver
 
 frontend:
 	cd frontend && npm install && npm run build
@@ -11,10 +11,10 @@ frontend:
 	cp -r frontend/dist internal/server/frontend/
 
 build: frontend
-	go build $(LDFLAGS) -o $(BINARY) ./cmd/seocrawler
+	go build $(LDFLAGS) -o $(BINARY) ./cmd/crawlobserver
 
 build-go:
-	go build $(LDFLAGS) -o $(BINARY) ./cmd/seocrawler
+	go build $(LDFLAGS) -o $(BINARY) ./cmd/crawlobserver
 
 run: build
 	./$(BINARY)

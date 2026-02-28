@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SEObserver/seocrawler/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/config"
 )
 
 func TestNewSession(t *testing.T) {

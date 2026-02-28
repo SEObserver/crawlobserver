@@ -109,7 +109,7 @@
         </div>
         <div>
           <strong>Discovery file:</strong>
-          <code style="display: block; padding: 6px 10px; background: var(--bg-secondary); border-radius: 4px; margin-top: 4px; font-size: 12px;">cat .seocrawler-api.json</code>
+          <code style="display: block; padding: 6px 10px; background: var(--bg-secondary); border-radius: 4px; margin-top: 4px; font-size: 12px;">cat .crawlobserver-api.json</code>
         </div>
       </div>
     </details>

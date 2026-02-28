@@ -4,10 +4,10 @@ import (
 	"context"
 	"io"
 
-	"github.com/SEObserver/seocrawler/internal/applog"
-	"github.com/SEObserver/seocrawler/internal/crawler"
-	"github.com/SEObserver/seocrawler/internal/customtests"
-	"github.com/SEObserver/seocrawler/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/crawler"
+	"github.com/SEObserver/crawlobserver/internal/customtests"
+	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
 // StorageService is the subset of storage.Store used by the HTTP server.

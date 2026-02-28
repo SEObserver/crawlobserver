@@ -9,8 +9,8 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/SEObserver/seocrawler/internal/applog"
-	"github.com/SEObserver/seocrawler/internal/customtests"
+	"github.com/SEObserver/crawlobserver/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/customtests"
 	"github.com/google/uuid"
 )
 
@@ -63,7 +63,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 // InsertSession inserts or updates a crawl session.
 func (s *Store) InsertSession(ctx context.Context, session *CrawlSession) error {
 	return s.conn.Exec(ctx, `
-		INSERT INTO seocrawler.crawl_sessions
+		INSERT INTO crawlobserver.crawl_sessions
 		(id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		session.ID, session.StartedAt, session.FinishedAt, session.Status,
@@ -79,7 +79,7 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 	}
 
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.pages (
+		INSERT INTO crawlobserver.pages (
 			crawl_session_id, url, final_url, status_code, content_type,
 			title, title_length, canonical, canonical_is_self, is_indexable, index_reason,
 			meta_robots, meta_description, meta_desc_length, meta_keywords,
@@ -134,7 +134,7 @@ func (s *Store) InsertLinks(ctx context.Context, links []LinkRow) error {
 	}
 
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.links (
+		INSERT INTO crawlobserver.links (
 			crawl_session_id, source_url, target_url, anchor_text, rel,
 			is_internal, tag, crawled_at
 		)`)
@@ -157,7 +157,7 @@ func (s *Store) InsertLinks(ctx context.Context, links []LinkRow) error {
 // CountPages returns the total number of pages for a session.
 func (s *Store) CountPages(ctx context.Context, sessionID string) (uint64, error) {
 	var count uint64
-	err := s.conn.QueryRow(ctx, `SELECT count() FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID).Scan(&count)
+	err := s.conn.QueryRow(ctx, `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID).Scan(&count)
 	return count, err
 }
 
@@ -165,7 +165,7 @@ func (s *Store) CountPages(ctx context.Context, sessionID string) (uint64, error
 func (s *Store) ListSessions(ctx context.Context, projectID ...string) ([]CrawlSession, error) {
 	query := `
 		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id
-		FROM seocrawler.crawl_sessions FINAL`
+		FROM crawlobserver.crawl_sessions FINAL`
 	var args []interface{}
 	if len(projectID) > 0 && projectID[0] != "" {
 		query += ` WHERE project_id = ?`
@@ -198,7 +198,7 @@ func (s *Store) ListSessions(ctx context.Context, projectID ...string) ([]CrawlS
 func (s *Store) GetSession(ctx context.Context, sessionID string) (*CrawlSession, error) {
 	row := s.conn.QueryRow(ctx, `
 		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id
-		FROM seocrawler.crawl_sessions FINAL
+		FROM crawlobserver.crawl_sessions FINAL
 		WHERE id = ?
 	`, sessionID)
 
@@ -227,7 +227,7 @@ func (s *Store) UpdateSessionProject(ctx context.Context, sessionID string, proj
 func (s *Store) ExternalLinks(ctx context.Context, sessionID string) ([]LinkRow, error) {
 	query := `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
-		FROM seocrawler.links
+		FROM crawlobserver.links
 		WHERE is_internal = false`
 	args := []interface{}{}
 
@@ -261,7 +261,7 @@ func (s *Store) ExternalLinks(ctx context.Context, sessionID string) ([]LinkRow,
 func (s *Store) InternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]LinkRow, error) {
 	query := `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
-		FROM seocrawler.links
+		FROM crawlobserver.links
 		WHERE is_internal = true AND crawl_session_id = ?`
 	args := []interface{}{sessionID}
 
@@ -301,7 +301,7 @@ func (s *Store) InternalLinksPaginated(ctx context.Context, sessionID string, li
 func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]LinkRow, error) {
 	query := `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
-		FROM seocrawler.links
+		FROM crawlobserver.links
 		WHERE is_internal = false`
 	args := []interface{}{}
 
@@ -354,7 +354,7 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 			lang, og_title, og_description, og_image, schema_types,
 			body_size, fetch_duration_ms, content_encoding, x_robots_tag,
 			error, depth, found_on, pagerank, crawled_at
-		FROM seocrawler.pages
+		FROM crawlobserver.pages
 		WHERE crawl_session_id = ?`
 	args := []interface{}{sessionID}
 
@@ -428,7 +428,7 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 	// Page stats
 	row := s.conn.QueryRow(ctx, `
 		SELECT count(), avg(fetch_duration_ms), countIf(error != '')
-		FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
 	if err := row.Scan(&stats.TotalPages, &stats.AvgFetchMs, &stats.ErrorCount); err != nil {
 		return nil, fmt.Errorf("querying page stats: %w", err)
 	}
@@ -436,14 +436,14 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 	// Link stats
 	row = s.conn.QueryRow(ctx, `
 		SELECT count(), countIf(is_internal = true), countIf(is_internal = false)
-		FROM seocrawler.links WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.links WHERE crawl_session_id = ?`, sessionID)
 	if err := row.Scan(&stats.TotalLinks, &stats.InternalLinks, &stats.ExternalLinks); err != nil {
 		return nil, fmt.Errorf("querying link stats: %w", err)
 	}
 
 	// Status code distribution
 	rows, err := s.conn.Query(ctx, `
-		SELECT status_code, count() FROM seocrawler.pages
+		SELECT status_code, count() FROM crawlobserver.pages
 		WHERE crawl_session_id = ? GROUP BY status_code ORDER BY status_code`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("querying status codes: %w", err)
@@ -460,7 +460,7 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 
 	// Depth distribution
 	depthRows, err := s.conn.Query(ctx, `
-		SELECT depth, count() FROM seocrawler.pages
+		SELECT depth, count() FROM crawlobserver.pages
 		WHERE crawl_session_id = ? GROUP BY depth ORDER BY depth`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("querying depth distribution: %w", err)
@@ -479,7 +479,7 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 	var startedAt, finishedAt time.Time
 	durRow := s.conn.QueryRow(ctx, `
 		SELECT started_at, finished_at
-		FROM seocrawler.crawl_sessions FINAL
+		FROM crawlobserver.crawl_sessions FINAL
 		WHERE id = ?`, sessionID)
 	if err := durRow.Scan(&startedAt, &finishedAt); err == nil {
 		if !finishedAt.IsZero() && finishedAt.After(startedAt) {
@@ -492,7 +492,7 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 
 	// Top PageRank
 	prRows, err := s.conn.Query(ctx, `
-		SELECT url, pagerank FROM seocrawler.pages
+		SELECT url, pagerank FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND pagerank > 0
 		ORDER BY pagerank DESC LIMIT 20`, sessionID)
 	if err == nil {
@@ -659,7 +659,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			sum(images_count) AS images_total,
 			sum(images_no_alt) AS images_no_alt_total,
 			countIf(images_no_alt > 0) AS pages_with_images_no_alt
-		FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
 	if err := row.Scan(
 		&content.Total, &content.HTMLPages,
 		&content.TitleMissing, &content.TitleTooLong, &content.TitleTooShort,
@@ -674,7 +674,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	// Title duplicates
 	dupRow := s.conn.QueryRow(ctx, `
 		SELECT sum(cnt - 1) FROM (
-			SELECT title, count() AS cnt FROM seocrawler.pages
+			SELECT title, count() AS cnt FROM crawlobserver.pages
 			WHERE crawl_session_id = ? AND title != ''
 			GROUP BY title HAVING cnt > 1
 		)`, sessionID)
@@ -697,7 +697,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			countIf(fetch_duration_ms >= 500 AND fetch_duration_ms < 1000) AS response_slow,
 			countIf(fetch_duration_ms >= 1000) AS response_very_slow,
 			countIf(error != '') AS error_pages
-		FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
 	if err := techRow.Scan(
 		&tech.Indexable, &tech.NonIndexable,
 		&tech.CanonicalSelf, &tech.CanonicalOther, &tech.CanonicalMissing,
@@ -710,7 +710,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 
 	// Noindex reasons
 	niRows, err := s.conn.Query(ctx, `
-		SELECT index_reason, count() AS cnt FROM seocrawler.pages
+		SELECT index_reason, count() AS cnt FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND is_indexable = false AND index_reason != ''
 		GROUP BY index_reason ORDER BY cnt DESC`, sessionID)
 	if err == nil {
@@ -725,7 +725,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 
 	// Content types
 	ctRows, err := s.conn.Query(ctx, `
-		SELECT content_type, count() AS cnt FROM seocrawler.pages
+		SELECT content_type, count() AS cnt FROM crawlobserver.pages
 		WHERE crawl_session_id = ?
 		GROUP BY content_type ORDER BY cnt DESC LIMIT 20`, sessionID)
 	if err == nil {
@@ -747,7 +747,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			countIf(is_internal = false) AS total_external,
 			countIf(is_internal = false AND rel LIKE '%nofollow%') AS external_nofollow,
 			countIf(is_internal = false AND (rel = '' OR rel NOT LIKE '%nofollow%')) AS external_dofollow
-		FROM seocrawler.links WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.links WHERE crawl_session_id = ?`, sessionID)
 	if err := linkRow.Scan(&links.TotalInternal, &links.TotalExternal, &links.ExternalNofollow, &links.ExternalDofollow); err != nil {
 		return nil, fmt.Errorf("audit links: %w", err)
 	}
@@ -758,20 +758,20 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			countIf(internal_links_out = 0) AS pages_no_internal_out,
 			countIf(internal_links_out > 100) AS pages_high_internal_out,
 			countIf(external_links_out = 0) AS pages_no_external
-		FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
 	_ = pageDistRow.Scan(&links.PagesNoInternalOut, &links.PagesHighInternalOut, &links.PagesNoExternal)
 
 	// Broken internal links
 	brokenRow := s.conn.QueryRow(ctx, `
-		SELECT count(DISTINCT target_url) FROM seocrawler.links
+		SELECT count(DISTINCT target_url) FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND is_internal = true
-		AND target_url NOT IN (SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?)`,
+		AND target_url NOT IN (SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?)`,
 		sessionID, sessionID)
 	_ = brokenRow.Scan(&links.BrokenInternal)
 
 	// Top external domains
 	edRows, err := s.conn.Query(ctx, `
-		SELECT domain(target_url) AS d, count() AS cnt FROM seocrawler.links
+		SELECT domain(target_url) AS d, count() AS cnt FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND is_internal = false
 		GROUP BY d ORDER BY cnt DESC LIMIT 20`, sessionID)
 	if err == nil {
@@ -786,7 +786,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 
 	// Top anchor texts
 	anRows, err := s.conn.Query(ctx, `
-		SELECT anchor_text, count() AS cnt FROM seocrawler.links
+		SELECT anchor_text, count() AS cnt FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND is_internal = true AND anchor_text != ''
 		GROUP BY anchor_text ORDER BY cnt DESC LIMIT 20`, sessionID)
 	if err == nil {
@@ -808,7 +808,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 		SELECT
 			concat('/', arrayStringConcat(arraySlice(splitByChar('/', pathFull(url)), 2, 1), '/'), '/') AS dir,
 			count() AS cnt
-		FROM seocrawler.pages
+		FROM crawlobserver.pages
 		WHERE crawl_session_id = ?
 		GROUP BY dir ORDER BY cnt DESC LIMIT 50`, sessionID)
 	if err == nil {
@@ -823,9 +823,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 
 	// Orphan pages (not targeted by any internal link)
 	orphanRow := s.conn.QueryRow(ctx, `
-		SELECT count() FROM seocrawler.pages
+		SELECT count() FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND url NOT IN (
-			SELECT DISTINCT target_url FROM seocrawler.links
+			SELECT DISTINCT target_url FROM crawlobserver.links
 			WHERE crawl_session_id = ? AND is_internal = true
 		)`, sessionID, sessionID)
 	_ = orphanRow.Scan(&structure.OrphanPages)
@@ -834,7 +834,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	// --- Sitemaps audit ---
 	sitemaps := &AuditSitemaps{}
 	smRow := s.conn.QueryRow(ctx, `
-		SELECT count(DISTINCT url) FROM seocrawler.sitemap_urls
+		SELECT count(DISTINCT url) FROM crawlobserver.sitemap_urls
 		WHERE crawl_session_id = ?`, sessionID)
 	_ = smRow.Scan(&sitemaps.TotalSitemapURLs)
 
@@ -847,15 +847,15 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			FROM (
 				SELECT
 					url AS u,
-					url IN (SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?) AS in_crawl,
+					url IN (SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?) AS in_crawl,
 					1 AS in_sitemap
-				FROM seocrawler.sitemap_urls WHERE crawl_session_id = ?
+				FROM crawlobserver.sitemap_urls WHERE crawl_session_id = ?
 				UNION ALL
 				SELECT
 					url AS u,
 					1 AS in_crawl,
-					url IN (SELECT url FROM seocrawler.sitemap_urls WHERE crawl_session_id = ?) AS in_sitemap
-				FROM seocrawler.pages WHERE crawl_session_id = ?
+					url IN (SELECT url FROM crawlobserver.sitemap_urls WHERE crawl_session_id = ?) AS in_sitemap
+				FROM crawlobserver.pages WHERE crawl_session_id = ?
 			) GROUP BY u
 			HAVING 1`, sessionID, sessionID, sessionID, sessionID)
 		// Simplified: just do two counts
@@ -866,14 +866,14 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 		var inBoth uint64
 		ibRow := s.conn.QueryRow(ctx, `
 			SELECT count() FROM (
-				SELECT DISTINCT url FROM seocrawler.sitemap_urls WHERE crawl_session_id = ?
+				SELECT DISTINCT url FROM crawlobserver.sitemap_urls WHERE crawl_session_id = ?
 			) AS sm WHERE sm.url IN (
-				SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?
+				SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?
 			)`, sessionID, sessionID)
 		if ibRow.Scan(&inBoth) == nil {
 			sitemaps.InBoth = inBoth
 			var totalCrawled uint64
-			tcRow := s.conn.QueryRow(ctx, `SELECT count() FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+			tcRow := s.conn.QueryRow(ctx, `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
 			_ = tcRow.Scan(&totalCrawled)
 			sitemaps.CrawledOnly = totalCrawled - inBoth
 			sitemaps.SitemapOnly = sitemaps.TotalSitemapURLs - inBoth
@@ -888,12 +888,12 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			countIf(length(hreflang) > 0) AS pages_with_hreflang,
 			countIf(lang != '') AS pages_with_lang,
 			countIf(length(schema_types) > 0) AS pages_with_schema
-		FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
 	_ = intlRow.Scan(&intl.PagesWithHreflang, &intl.PagesWithLang, &intl.PagesWithSchema)
 
 	// Lang distribution
 	langRows, err := s.conn.Query(ctx, `
-		SELECT lang, count() AS cnt FROM seocrawler.pages
+		SELECT lang, count() AS cnt FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND lang != ''
 		GROUP BY lang ORDER BY cnt DESC LIMIT 20`, sessionID)
 	if err == nil {
@@ -908,7 +908,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 
 	// Schema distribution
 	schemaRows, err := s.conn.Query(ctx, `
-		SELECT arrayJoin(schema_types) AS st, count() AS cnt FROM seocrawler.pages
+		SELECT arrayJoin(schema_types) AS st, count() AS cnt FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND length(schema_types) > 0
 		GROUP BY st ORDER BY cnt DESC LIMIT 20`, sessionID)
 	if err == nil {
@@ -965,11 +965,11 @@ func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType s
 			)) AS changed
 		FROM (
 			SELECT url, status_code, title, canonical, is_indexable, meta_description, h1, depth, word_count, pagerank
-			FROM seocrawler.pages WHERE crawl_session_id = ?
+			FROM crawlobserver.pages WHERE crawl_session_id = ?
 		) a
 		FULL OUTER JOIN (
 			SELECT url, status_code, title, canonical, is_indexable, meta_description, h1, depth, word_count, pagerank
-			FROM seocrawler.pages WHERE crawl_session_id = ?
+			FROM crawlobserver.pages WHERE crawl_session_id = ?
 		) b USING (url)`, sessionA, sessionB)
 	if err := countRow.Scan(&result.TotalAdded, &result.TotalRemoved, &result.TotalChanged); err != nil {
 		return nil, fmt.Errorf("counting page diffs: %w", err)
@@ -983,8 +983,8 @@ func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType s
 			SELECT b.url,
 				0, '', '', false, 0, 0, 0, '', '',
 				b.status_code, b.title, b.canonical, b.is_indexable, b.word_count, b.depth, b.pagerank, b.meta_description, b.h1[1]
-			FROM seocrawler.pages b
-			LEFT JOIN seocrawler.pages a ON a.url = b.url AND a.crawl_session_id = ?
+			FROM crawlobserver.pages b
+			LEFT JOIN crawlobserver.pages a ON a.url = b.url AND a.crawl_session_id = ?
 			WHERE b.crawl_session_id = ? AND a.url = ''
 			ORDER BY b.url
 			LIMIT ? OFFSET ?`
@@ -1011,8 +1011,8 @@ func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType s
 			SELECT a.url,
 				a.status_code, a.title, a.canonical, a.is_indexable, a.word_count, a.depth, a.pagerank, a.meta_description, a.h1[1],
 				0, '', '', false, 0, 0, 0, '', ''
-			FROM seocrawler.pages a
-			LEFT JOIN seocrawler.pages b ON a.url = b.url AND b.crawl_session_id = ?
+			FROM crawlobserver.pages a
+			LEFT JOIN crawlobserver.pages b ON a.url = b.url AND b.crawl_session_id = ?
 			WHERE a.crawl_session_id = ? AND b.url = ''
 			ORDER BY a.url
 			LIMIT ? OFFSET ?`
@@ -1039,8 +1039,8 @@ func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType s
 			SELECT a.url,
 				a.status_code, a.title, a.canonical, a.is_indexable, a.word_count, a.depth, a.pagerank, a.meta_description, a.h1[1],
 				b.status_code, b.title, b.canonical, b.is_indexable, b.word_count, b.depth, b.pagerank, b.meta_description, b.h1[1]
-			FROM seocrawler.pages a
-			INNER JOIN seocrawler.pages b ON a.url = b.url AND b.crawl_session_id = ?
+			FROM crawlobserver.pages a
+			INNER JOIN crawlobserver.pages b ON a.url = b.url AND b.crawl_session_id = ?
 			WHERE a.crawl_session_id = ? AND (
 				a.status_code != b.status_code OR
 				a.title != b.title OR
@@ -1087,11 +1087,11 @@ func (s *Store) CompareLinks(ctx context.Context, sessionA, sessionB, diffType s
 			countIf(a.source_url != '' AND b.source_url = '') AS removed
 		FROM (
 			SELECT source_url, target_url
-			FROM seocrawler.links WHERE crawl_session_id = ? AND is_internal = true
+			FROM crawlobserver.links WHERE crawl_session_id = ? AND is_internal = true
 		) a
 		FULL OUTER JOIN (
 			SELECT source_url, target_url
-			FROM seocrawler.links WHERE crawl_session_id = ? AND is_internal = true
+			FROM crawlobserver.links WHERE crawl_session_id = ? AND is_internal = true
 		) b USING (source_url, target_url)`, sessionA, sessionB)
 	if err := countRow.Scan(&result.TotalAdded, &result.TotalRemoved); err != nil {
 		return nil, fmt.Errorf("counting link diffs: %w", err)
@@ -1101,8 +1101,8 @@ func (s *Store) CompareLinks(ctx context.Context, sessionA, sessionB, diffType s
 	case "added":
 		rows, err := s.conn.Query(ctx, `
 			SELECT b.source_url, b.target_url, b.anchor_text
-			FROM seocrawler.links b
-			LEFT JOIN seocrawler.links a
+			FROM crawlobserver.links b
+			LEFT JOIN crawlobserver.links a
 				ON a.source_url = b.source_url AND a.target_url = b.target_url
 				AND a.crawl_session_id = ? AND a.is_internal = true
 			WHERE b.crawl_session_id = ? AND b.is_internal = true AND a.source_url = ''
@@ -1124,8 +1124,8 @@ func (s *Store) CompareLinks(ctx context.Context, sessionA, sessionB, diffType s
 	case "removed":
 		rows, err := s.conn.Query(ctx, `
 			SELECT a.source_url, a.target_url, a.anchor_text
-			FROM seocrawler.links a
-			LEFT JOIN seocrawler.links b
+			FROM crawlobserver.links a
+			LEFT JOIN crawlobserver.links b
 				ON a.source_url = b.source_url AND a.target_url = b.target_url
 				AND b.crawl_session_id = ? AND b.is_internal = true
 			WHERE a.crawl_session_id = ? AND a.is_internal = true AND b.source_url = ''
@@ -1154,14 +1154,14 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 	// Drop partition on data tables (partitioned by crawl_session_id)
 	dataTables := []string{"pages", "links", "robots_txt", "sitemaps", "sitemap_urls"}
 	for _, table := range dataTables {
-		q := fmt.Sprintf("ALTER TABLE seocrawler.%s DROP PARTITION ID ?", table)
+		q := fmt.Sprintf("ALTER TABLE crawlobserver.%s DROP PARTITION ID ?", table)
 		if err := s.conn.Exec(ctx, q, sessionID); err != nil {
 			return fmt.Errorf("dropping partition on %s: %w", table, err)
 		}
 	}
 
 	// crawl_sessions is not partitioned by session, use regular DELETE
-	if err := s.conn.Exec(ctx, `ALTER TABLE seocrawler.crawl_sessions DELETE WHERE id = ?`, sessionID); err != nil {
+	if err := s.conn.Exec(ctx, `ALTER TABLE crawlobserver.crawl_sessions DELETE WHERE id = ?`, sessionID); err != nil {
 		return fmt.Errorf("deleting session row: %w", err)
 	}
 
@@ -1172,10 +1172,10 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 func (s *Store) UncrawledURLs(ctx context.Context, sessionID string) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT DISTINCT target_url
-		FROM seocrawler.links
+		FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND is_internal = true
 		  AND target_url NOT IN (
-		    SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?
+		    SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?
 		  )
 		LIMIT 10000
 	`, sessionID, sessionID)
@@ -1198,7 +1198,7 @@ func (s *Store) UncrawledURLs(ctx context.Context, sessionID string) ([]string, 
 // CrawledURLs returns all URLs already crawled in a session (for dedup on resume).
 func (s *Store) CrawledURLs(ctx context.Context, sessionID string) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
-		SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?
+		SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?
 	`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("querying crawled URLs: %w", err)
@@ -1220,7 +1220,7 @@ func (s *Store) CrawledURLs(ctx context.Context, sessionID string) ([]string, er
 func (s *Store) GetPageHTML(ctx context.Context, sessionID, url string) (string, error) {
 	var html string
 	row := s.conn.QueryRow(ctx, `
-		SELECT body_html FROM seocrawler.pages
+		SELECT body_html FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND url = ? LIMIT 1`, sessionID, url)
 	if err := row.Scan(&html); err != nil {
 		return "", fmt.Errorf("querying page HTML: %w", err)
@@ -1240,12 +1240,12 @@ type StorageStatsResult struct {
 	Tables []TableStorageStats `json:"tables"`
 }
 
-// StorageStats retrieves disk usage and row counts for all seocrawler tables.
+// StorageStats retrieves disk usage and row counts for all crawlobserver tables.
 func (s *Store) StorageStats(ctx context.Context) (*StorageStatsResult, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT table, sum(bytes_on_disk), sum(rows)
 		FROM system.parts
-		WHERE database = 'seocrawler' AND active = 1
+		WHERE database = 'crawlobserver' AND active = 1
 		GROUP BY table
 		ORDER BY table`)
 	if err != nil {
@@ -1270,7 +1270,7 @@ func (s *Store) SessionStorageStats(ctx context.Context) (map[string]uint64, err
 	rows, err := s.conn.Query(ctx, `
 		SELECT partition AS session_id, sum(bytes_on_disk) AS bytes
 		FROM system.parts
-		WHERE database = 'seocrawler' AND active = 1 AND table != 'crawl_sessions'
+		WHERE database = 'crawlobserver' AND active = 1 AND table != 'crawl_sessions'
 		GROUP BY partition`)
 	if err != nil {
 		return nil, fmt.Errorf("querying session storage stats: %w", err)
@@ -1303,7 +1303,7 @@ func (s *Store) GlobalStats(ctx context.Context) ([]GlobalSessionStats, *Storage
 	// 1. Page stats per session
 	pageRows, err := s.conn.Query(ctx, `
 		SELECT crawl_session_id, count(), countIf(error != ''), avg(fetch_duration_ms)
-		FROM seocrawler.pages
+		FROM crawlobserver.pages
 		GROUP BY crawl_session_id`)
 	if err != nil {
 		return nil, nil, fmt.Errorf("querying global page stats: %w", err)
@@ -1322,7 +1322,7 @@ func (s *Store) GlobalStats(ctx context.Context) ([]GlobalSessionStats, *Storage
 	// 2. Link counts per session
 	linkRows, err := s.conn.Query(ctx, `
 		SELECT crawl_session_id, count()
-		FROM seocrawler.links
+		FROM crawlobserver.links
 		GROUP BY crawl_session_id`)
 	if err != nil {
 		return nil, nil, fmt.Errorf("querying global link stats: %w", err)
@@ -1372,7 +1372,7 @@ func (s *Store) GetPage(ctx context.Context, sessionID, url string) (*PageRow, e
 			headers, redirect_chain, body_size, fetch_duration_ms,
 			content_encoding, x_robots_tag,
 			error, depth, found_on, pagerank, crawled_at
-		FROM seocrawler.pages
+		FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND url = ?
 		LIMIT 1`, sessionID, url)
 
@@ -1430,7 +1430,7 @@ func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string, inLimit
 	// Counts
 	countRow := s.conn.QueryRow(ctx, `
 		SELECT countIf(source_url = ?), countIf(target_url = ?)
-		FROM seocrawler.links
+		FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND (source_url = ? OR target_url = ?)`,
 		url, url, sessionID, url, url)
 	if err := countRow.Scan(&result.OutLinksCount, &result.InLinksCount); err != nil {
@@ -1440,7 +1440,7 @@ func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string, inLimit
 	// Outbound links (all, capped at 1000)
 	outRows, err := s.conn.Query(ctx, `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
-		FROM seocrawler.links
+		FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND source_url = ?
 		ORDER BY target_url
 		LIMIT 1000`, sessionID, url)
@@ -1460,7 +1460,7 @@ func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string, inLimit
 	// Inbound links (paginated)
 	inRows, err := s.conn.Query(ctx, `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
-		FROM seocrawler.links
+		FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND target_url = ?
 		ORDER BY source_url
 		LIMIT ? OFFSET ?`, sessionID, url, inLimit, inOffset)
@@ -1495,7 +1495,7 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 
 	// 1. Load all crawled URLs and assign numeric IDs
 	urlRows, err := s.conn.Query(ctx, `
-		SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+		SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
 	if err != nil {
 		return fmt.Errorf("querying URLs: %w", err)
 	}
@@ -1519,7 +1519,7 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 
 	// 2. Load internal links as adjacency list (outgoing edges by source ID)
 	linkRows, err := s.conn.Query(ctx, `
-		SELECT source_url, target_url FROM seocrawler.links
+		SELECT source_url, target_url FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND is_internal = true`, sessionID)
 	if err != nil {
 		return fmt.Errorf("querying links: %w", err)
@@ -1656,7 +1656,7 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		multiIfExpr := "multiIf(" + strings.Join(conditions, ", ") + ", pagerank)"
 		inList := strings.Join(urlList, ", ")
 
-		query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
+		query := fmt.Sprintf(`ALTER TABLE crawlobserver.pages UPDATE
 			pagerank = %s
 			WHERE crawl_session_id = ? AND url IN (%s)`,
 			multiIfExpr, inList)
@@ -1752,7 +1752,7 @@ func ComputeBFSDepths(seedURLs []string, crawledSet map[string]bool, adj map[str
 func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs []string) error {
 	// 1. Get all crawled URLs
 	crawledRows, err := s.conn.Query(ctx, `
-		SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+		SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
 	if err != nil {
 		return fmt.Errorf("querying crawled URLs: %w", err)
 	}
@@ -1773,7 +1773,7 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 
 	// 2. Get all internal links as adjacency list
 	linkRows, err := s.conn.Query(ctx, `
-		SELECT source_url, target_url FROM seocrawler.links
+		SELECT source_url, target_url FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND is_internal = true`, sessionID)
 	if err != nil {
 		return fmt.Errorf("querying links: %w", err)
@@ -1804,7 +1804,7 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 		return fmt.Errorf("invalid session ID: %s", sessionID)
 	}
 
-	tmpTable := fmt.Sprintf("seocrawler.tmp_depths_%s", strings.ReplaceAll(sessionID, "-", ""))
+	tmpTable := fmt.Sprintf("crawlobserver.tmp_depths_%s", strings.ReplaceAll(sessionID, "-", ""))
 	if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
 		return fmt.Errorf("dropping old temp depths table: %w", err)
 	}
@@ -1842,8 +1842,8 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 	// Single mutation: update from temp table.
 	// Column names in the temp table (page_url, new_depth, new_found_on) differ
 	// from pages columns to avoid ambiguity — bare `url` in the subquery WHERE
-	// clause resolves to seocrawler.pages.url in the ALTER TABLE context.
-	query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
+	// clause resolves to crawlobserver.pages.url in the ALTER TABLE context.
+	query := fmt.Sprintf(`ALTER TABLE crawlobserver.pages UPDATE
 		depth = (SELECT new_depth FROM %s WHERE page_url = url LIMIT 1),
 		found_on = (SELECT new_found_on FROM %s WHERE page_url = url LIMIT 1)
 		WHERE crawl_session_id = ? AND url IN (SELECT page_url FROM %s)`,
@@ -1887,7 +1887,7 @@ func (s *Store) PageRankDistribution(ctx context.Context, sessionID string, buck
 	row := s.conn.QueryRow(ctx, `
 		SELECT count(), avg(pagerank),
 			quantile(0.5)(pagerank), quantile(0.9)(pagerank), quantile(0.99)(pagerank)
-		FROM seocrawler.pages
+		FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND pagerank > 0`, sessionID)
 	if err := row.Scan(&result.TotalWithPR, &result.Avg, &result.Median, &result.P90, &result.P99); err != nil {
 		return nil, fmt.Errorf("querying pagerank stats: %w", err)
@@ -1904,7 +1904,7 @@ func (s *Store) PageRankDistribution(ctx context.Context, sessionID string, buck
 			floor(pagerank / %f) * %f + %f AS bucket_max,
 			count() AS cnt,
 			avg(pagerank) AS avg_pr
-		FROM seocrawler.pages
+		FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND pagerank > 0
 		GROUP BY bucket_min, bucket_max
 		ORDER BY bucket_min`, width, width, width, width, width)
@@ -1952,7 +1952,7 @@ func (s *Store) PageRankTreemap(ctx context.Context, sessionID string, depth, mi
 			sum(pagerank) AS total_pr,
 			avg(pagerank) AS avg_pr,
 			max(pagerank) AS max_pr
-		FROM seocrawler.pages
+		FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND pagerank > 0
 		GROUP BY dir_path
 		HAVING page_count >= %d
@@ -2005,7 +2005,7 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 	result := &PageRankTopResult{}
 
 	// Count query
-	countQuery := `SELECT count() FROM seocrawler.pages WHERE crawl_session_id = ? AND pagerank > 0`
+	countQuery := `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ? AND pagerank > 0`
 	countArgs := []interface{}{sessionID}
 	if directory != "" {
 		countQuery += ` AND url LIKE ?`
@@ -2018,7 +2018,7 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 
 	// Data query
 	query := `SELECT url, pagerank, depth, internal_links_out, external_links_out, word_count, status_code, title
-		FROM seocrawler.pages
+		FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND pagerank > 0`
 	args := []interface{}{sessionID}
 	if directory != "" {
@@ -2047,7 +2047,7 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 // FailedURLs returns URLs with status_code = 0 (fetch errors) for a session.
 func (s *Store) FailedURLs(ctx context.Context, sessionID string) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
-		SELECT url FROM seocrawler.pages
+		SELECT url FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND status_code = 0
 		LIMIT 10000`, sessionID)
 	if err != nil {
@@ -2071,7 +2071,7 @@ func (s *Store) DeleteFailedPages(ctx context.Context, sessionID string) (int, e
 	// Count first
 	var cnt uint64
 	row := s.conn.QueryRow(ctx, `
-		SELECT count() FROM seocrawler.pages
+		SELECT count() FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND status_code = 0`, sessionID)
 	if err := row.Scan(&cnt); err != nil {
 		return 0, fmt.Errorf("counting failed pages: %w", err)
@@ -2083,7 +2083,7 @@ func (s *Store) DeleteFailedPages(ctx context.Context, sessionID string) (int, e
 
 	// Delete them
 	if err := s.conn.Exec(ctx, `
-		ALTER TABLE seocrawler.pages DELETE
+		ALTER TABLE crawlobserver.pages DELETE
 		WHERE crawl_session_id = ? AND status_code = 0`, sessionID); err != nil {
 		return 0, fmt.Errorf("deleting failed pages: %w", err)
 	}
@@ -2095,7 +2095,7 @@ func (s *Store) DeleteFailedPages(ctx context.Context, sessionID string) (int, e
 func (s *Store) DeletePagesByStatus(ctx context.Context, sessionID string, statusCode int) (int, error) {
 	var cnt uint64
 	row := s.conn.QueryRow(ctx, `
-		SELECT count() FROM seocrawler.pages
+		SELECT count() FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND status_code = ?`, sessionID, statusCode)
 	if err := row.Scan(&cnt); err != nil {
 		return 0, fmt.Errorf("counting pages with status %d: %w", statusCode, err)
@@ -2104,7 +2104,7 @@ func (s *Store) DeletePagesByStatus(ctx context.Context, sessionID string, statu
 		return 0, nil
 	}
 	if err := s.conn.Exec(ctx, `
-		ALTER TABLE seocrawler.pages DELETE
+		ALTER TABLE crawlobserver.pages DELETE
 		WHERE crawl_session_id = ? AND status_code = ?`, sessionID, statusCode); err != nil {
 		return 0, fmt.Errorf("deleting pages with status %d: %w", statusCode, err)
 	}
@@ -2114,7 +2114,7 @@ func (s *Store) DeletePagesByStatus(ctx context.Context, sessionID string, statu
 // URLsByStatus returns URLs with a specific status code for a session.
 func (s *Store) URLsByStatus(ctx context.Context, sessionID string, statusCode int) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
-		SELECT url FROM seocrawler.pages
+		SELECT url FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND status_code = ?`, sessionID, statusCode)
 	if err != nil {
 		return nil, err
@@ -2138,7 +2138,7 @@ func (s *Store) InsertRobotsData(ctx context.Context, rows []RobotsRow) error {
 	}
 
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.robots_txt (
+		INSERT INTO crawlobserver.robots_txt (
 			crawl_session_id, host, status_code, content, fetched_at
 		)`)
 	if err != nil {
@@ -2158,7 +2158,7 @@ func (s *Store) InsertRobotsData(ctx context.Context, rows []RobotsRow) error {
 func (s *Store) GetRobotsHosts(ctx context.Context, sessionID string) ([]RobotsRow, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT crawl_session_id, host, status_code, '' AS content, fetched_at
-		FROM seocrawler.robots_txt FINAL
+		FROM crawlobserver.robots_txt FINAL
 		WHERE crawl_session_id = ?
 		ORDER BY host`, sessionID)
 	if err != nil {
@@ -2181,7 +2181,7 @@ func (s *Store) GetRobotsHosts(ctx context.Context, sessionID string) ([]RobotsR
 func (s *Store) GetRobotsContent(ctx context.Context, sessionID, host string) (*RobotsRow, error) {
 	row := s.conn.QueryRow(ctx, `
 		SELECT crawl_session_id, host, status_code, content, fetched_at
-		FROM seocrawler.robots_txt FINAL
+		FROM crawlobserver.robots_txt FINAL
 		WHERE crawl_session_id = ? AND host = ?
 		LIMIT 1`, sessionID, host)
 
@@ -2196,7 +2196,7 @@ func (s *Store) GetRobotsContent(ctx context.Context, sessionID, host string) (*
 func (s *Store) GetURLsByHost(ctx context.Context, sessionID, host string) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT DISTINCT url
-		FROM seocrawler.pages
+		FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND url LIKE ?
 		ORDER BY url`, sessionID, host+"/%")
 	if err != nil {
@@ -2222,7 +2222,7 @@ func (s *Store) InsertSitemaps(ctx context.Context, rows []SitemapRow) error {
 	}
 
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.sitemaps (
+		INSERT INTO crawlobserver.sitemaps (
 			crawl_session_id, url, type, url_count, parent_url, status_code, fetched_at
 		)`)
 	if err != nil {
@@ -2245,7 +2245,7 @@ func (s *Store) InsertSitemapURLs(ctx context.Context, rows []SitemapURLRow) err
 	}
 
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.sitemap_urls (
+		INSERT INTO crawlobserver.sitemap_urls (
 			crawl_session_id, sitemap_url, loc, lastmod, changefreq, priority
 		)`)
 	if err != nil {
@@ -2265,7 +2265,7 @@ func (s *Store) InsertSitemapURLs(ctx context.Context, rows []SitemapURLRow) err
 func (s *Store) GetSitemaps(ctx context.Context, sessionID string) ([]SitemapRow, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT crawl_session_id, url, type, url_count, parent_url, status_code, fetched_at
-		FROM seocrawler.sitemaps FINAL
+		FROM crawlobserver.sitemaps FINAL
 		WHERE crawl_session_id = ?
 		ORDER BY url`, sessionID)
 	if err != nil {
@@ -2288,7 +2288,7 @@ func (s *Store) GetSitemaps(ctx context.Context, sessionID string) ([]SitemapRow
 func (s *Store) GetSitemapURLs(ctx context.Context, sessionID, sitemapURL string, limit, offset int) ([]SitemapURLRow, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT crawl_session_id, sitemap_url, loc, lastmod, changefreq, priority
-		FROM seocrawler.sitemap_urls FINAL
+		FROM crawlobserver.sitemap_urls FINAL
 		WHERE crawl_session_id = ? AND sitemap_url = ?
 		ORDER BY loc
 		LIMIT ? OFFSET ?`, sessionID, sitemapURL, limit, offset)
@@ -2378,7 +2378,7 @@ func (s *Store) InsertGSCAnalytics(ctx context.Context, projectID string, rows [
 		return nil
 	}
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.gsc_analytics (
+		INSERT INTO crawlobserver.gsc_analytics (
 			project_id, date, query, page, country, device,
 			clicks, impressions, ctr, position, fetched_at
 		)`)
@@ -2415,7 +2415,7 @@ func (s *Store) InsertGSCInspection(ctx context.Context, projectID string, rows 
 		return nil
 	}
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.gsc_inspection (
+		INSERT INTO crawlobserver.gsc_inspection (
 			project_id, url, verdict, coverage_state, indexing_state, robots_txt_state,
 			last_crawl_time, crawled_as, canonical_url, is_google_canonical,
 			mobile_usability, rich_results_items, fetched_at
@@ -2459,7 +2459,7 @@ func (s *Store) GSCOverview(ctx context.Context, projectID string) (*GSCOverview
 			if(sum(impressions) > 0, sum(position * impressions) / sum(impressions), 0),
 			toString(min(date)), toString(max(date)),
 			uniqExact(query), uniqExact(page)
-		FROM seocrawler.gsc_analytics FINAL
+		FROM crawlobserver.gsc_analytics FINAL
 		WHERE project_id = ?`, projectID).Scan(
 		&stats.TotalClicks, &stats.TotalImpressions,
 		&stats.AvgCTR, &stats.AvgPosition,
@@ -2475,7 +2475,7 @@ func (s *Store) GSCOverview(ctx context.Context, projectID string) (*GSCOverview
 func (s *Store) GSCTopQueries(ctx context.Context, projectID string, limit, offset int) ([]GSCQueryRow, int, error) {
 	var total uint64
 	if err := s.conn.QueryRow(ctx, `
-		SELECT uniqExact(query) FROM seocrawler.gsc_analytics FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
+		SELECT uniqExact(query) FROM crawlobserver.gsc_analytics FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting gsc queries: %w", err)
 	}
 
@@ -2483,7 +2483,7 @@ func (s *Store) GSCTopQueries(ctx context.Context, projectID string, limit, offs
 		SELECT query, sum(clicks), sum(impressions),
 			if(sum(impressions) > 0, sum(clicks) / sum(impressions), 0),
 			if(sum(impressions) > 0, sum(position * impressions) / sum(impressions), 0)
-		FROM seocrawler.gsc_analytics FINAL
+		FROM crawlobserver.gsc_analytics FINAL
 		WHERE project_id = ?
 		GROUP BY query
 		ORDER BY sum(clicks) DESC
@@ -2510,7 +2510,7 @@ func (s *Store) GSCTopQueries(ctx context.Context, projectID string, limit, offs
 func (s *Store) GSCTopPages(ctx context.Context, projectID string, limit, offset int) ([]GSCPageRow, int, error) {
 	var total uint64
 	if err := s.conn.QueryRow(ctx, `
-		SELECT uniqExact(page) FROM seocrawler.gsc_analytics FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
+		SELECT uniqExact(page) FROM crawlobserver.gsc_analytics FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting gsc pages: %w", err)
 	}
 
@@ -2518,7 +2518,7 @@ func (s *Store) GSCTopPages(ctx context.Context, projectID string, limit, offset
 		SELECT page, sum(clicks), sum(impressions),
 			if(sum(impressions) > 0, sum(clicks) / sum(impressions), 0),
 			if(sum(impressions) > 0, sum(position * impressions) / sum(impressions), 0)
-		FROM seocrawler.gsc_analytics FINAL
+		FROM crawlobserver.gsc_analytics FINAL
 		WHERE project_id = ?
 		GROUP BY page
 		ORDER BY sum(clicks) DESC
@@ -2547,7 +2547,7 @@ func (s *Store) GSCByCountry(ctx context.Context, projectID string) ([]GSCCountr
 		SELECT country, sum(clicks), sum(impressions),
 			if(sum(impressions) > 0, sum(clicks) / sum(impressions), 0),
 			if(sum(impressions) > 0, sum(position * impressions) / sum(impressions), 0)
-		FROM seocrawler.gsc_analytics FINAL
+		FROM crawlobserver.gsc_analytics FINAL
 		WHERE project_id = ?
 		GROUP BY country
 		ORDER BY sum(clicks) DESC`, projectID)
@@ -2575,7 +2575,7 @@ func (s *Store) GSCByDevice(ctx context.Context, projectID string) ([]GSCDeviceR
 		SELECT device, sum(clicks), sum(impressions),
 			if(sum(impressions) > 0, sum(clicks) / sum(impressions), 0),
 			if(sum(impressions) > 0, sum(position * impressions) / sum(impressions), 0)
-		FROM seocrawler.gsc_analytics FINAL
+		FROM crawlobserver.gsc_analytics FINAL
 		WHERE project_id = ?
 		GROUP BY device
 		ORDER BY sum(clicks) DESC`, projectID)
@@ -2601,7 +2601,7 @@ func (s *Store) GSCByDevice(ctx context.Context, projectID string) ([]GSCDeviceR
 func (s *Store) GSCTimeline(ctx context.Context, projectID string) ([]GSCTimelineRow, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT toString(date), sum(clicks), sum(impressions)
-		FROM seocrawler.gsc_analytics FINAL
+		FROM crawlobserver.gsc_analytics FINAL
 		WHERE project_id = ?
 		GROUP BY date
 		ORDER BY date`, projectID)
@@ -2627,7 +2627,7 @@ func (s *Store) GSCTimeline(ctx context.Context, projectID string) ([]GSCTimelin
 func (s *Store) GSCInspectionResults(ctx context.Context, projectID string, limit, offset int) ([]GSCInspectionRow, int, error) {
 	var total uint64
 	if err := s.conn.QueryRow(ctx, `
-		SELECT count() FROM seocrawler.gsc_inspection FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
+		SELECT count() FROM crawlobserver.gsc_inspection FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting gsc inspections: %w", err)
 	}
 
@@ -2635,7 +2635,7 @@ func (s *Store) GSCInspectionResults(ctx context.Context, projectID string, limi
 		SELECT url, verdict, coverage_state, indexing_state, robots_txt_state,
 			toString(last_crawl_time), crawled_as, canonical_url, is_google_canonical,
 			mobile_usability, rich_results_items
-		FROM seocrawler.gsc_inspection FINAL
+		FROM crawlobserver.gsc_inspection FINAL
 		WHERE project_id = ?
 		ORDER BY url
 		LIMIT ? OFFSET ?`, projectID, limit, offset)
@@ -2661,10 +2661,10 @@ func (s *Store) GSCInspectionResults(ctx context.Context, projectID string, limi
 }
 
 func (s *Store) DeleteGSCData(ctx context.Context, projectID string) error {
-	if err := s.conn.Exec(ctx, `ALTER TABLE seocrawler.gsc_analytics DELETE WHERE project_id = ?`, projectID); err != nil {
+	if err := s.conn.Exec(ctx, `ALTER TABLE crawlobserver.gsc_analytics DELETE WHERE project_id = ?`, projectID); err != nil {
 		return fmt.Errorf("deleting gsc analytics: %w", err)
 	}
-	if err := s.conn.Exec(ctx, `ALTER TABLE seocrawler.gsc_inspection DELETE WHERE project_id = ?`, projectID); err != nil {
+	if err := s.conn.Exec(ctx, `ALTER TABLE crawlobserver.gsc_inspection DELETE WHERE project_id = ?`, projectID); err != nil {
 		return fmt.Errorf("deleting gsc inspection: %w", err)
 	}
 	return nil
@@ -2716,7 +2716,7 @@ func (s *Store) RunCustomTestsSQL(ctx context.Context, sessionID string, rules [
 		selects = append(selects, fmt.Sprintf("(%s) AS `%s`", buildRuleExpr(r), r.ID))
 	}
 
-	query := fmt.Sprintf("SELECT %s FROM seocrawler.pages WHERE crawl_session_id = {sessionID:String}",
+	query := fmt.Sprintf("SELECT %s FROM crawlobserver.pages WHERE crawl_session_id = {sessionID:String}",
 		strings.Join(selects, ", "))
 
 	rows, err := s.conn.Query(ctx, query, clickhouse.Named("sessionID", sessionID))
@@ -2754,7 +2754,7 @@ func (s *Store) RunCustomTestsSQL(ctx context.Context, sessionID string, rules [
 // StreamPagesHTML streams url+body_html pairs for a session.
 func (s *Store) StreamPagesHTML(ctx context.Context, sessionID string) (<-chan PageHTMLRow, error) {
 	rows, err := s.conn.Query(ctx, `
-		SELECT url, body_html FROM seocrawler.pages
+		SELECT url, body_html FROM crawlobserver.pages
 		WHERE crawl_session_id = {sessionID:String} AND body_html != ''`,
 		clickhouse.Named("sessionID", sessionID))
 	if err != nil {
@@ -2788,7 +2788,7 @@ func (s *Store) InsertExternalLinkChecks(ctx context.Context, checks []ExternalL
 	}
 
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.external_link_checks (
+		INSERT INTO crawlobserver.external_link_checks (
 			crawl_session_id, url, status_code, error, content_type,
 			redirect_url, response_time_ms, checked_at
 		)`)
@@ -2817,7 +2817,7 @@ func (s *Store) GetExternalLinkChecks(ctx context.Context, sessionID string, lim
 
 	query := `SELECT crawl_session_id, url, status_code, error, content_type,
 		redirect_url, response_time_ms, checked_at
-		FROM seocrawler.external_link_checks
+		FROM crawlobserver.external_link_checks
 		WHERE crawl_session_id = ?`
 	queryArgs := []interface{}{sessionID}
 
@@ -2862,7 +2862,7 @@ func (s *Store) GetExternalLinkCheckDomains(ctx context.Context, sessionID strin
 		countIf(status_code >= 500) AS server_errors,
 		countIf(status_code = 0) AS unreachable,
 		toUInt32(avg(response_time_ms)) AS avg_response_ms
-		FROM seocrawler.external_link_checks
+		FROM crawlobserver.external_link_checks
 		WHERE crawl_session_id = ?`
 	queryArgs := []interface{}{sessionID}
 
@@ -2897,7 +2897,7 @@ func (s *Store) InsertLogs(ctx context.Context, logs []applog.LogRow) error {
 	if len(logs) == 0 {
 		return nil
 	}
-	batch, err := s.conn.PrepareBatch(ctx, `INSERT INTO seocrawler.application_logs (timestamp, level, component, message, context)`)
+	batch, err := s.conn.PrepareBatch(ctx, `INSERT INTO crawlobserver.application_logs (timestamp, level, component, message, context)`)
 	if err != nil {
 		return fmt.Errorf("preparing log batch: %w", err)
 	}
@@ -2930,12 +2930,12 @@ func (s *Store) ListLogs(ctx context.Context, limit, offset int, level, componen
 	var total uint64
 	countArgs := make([]any, len(args))
 	copy(countArgs, args)
-	if err := s.conn.QueryRow(ctx, "SELECT count() FROM seocrawler.application_logs WHERE "+where, countArgs...).Scan(&total); err != nil {
+	if err := s.conn.QueryRow(ctx, "SELECT count() FROM crawlobserver.application_logs WHERE "+where, countArgs...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting logs: %w", err)
 	}
 
 	// Query
-	q := fmt.Sprintf("SELECT timestamp, level, component, message, context FROM seocrawler.application_logs WHERE %s ORDER BY timestamp DESC LIMIT %d OFFSET %d", where, limit, offset)
+	q := fmt.Sprintf("SELECT timestamp, level, component, message, context FROM crawlobserver.application_logs WHERE %s ORDER BY timestamp DESC LIMIT %d OFFSET %d", where, limit, offset)
 	rows, err := s.conn.Query(ctx, q, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("querying logs: %w", err)
@@ -2955,7 +2955,7 @@ func (s *Store) ListLogs(ctx context.Context, limit, offset int, level, componen
 
 // ExportLogs returns all logs (up to 7 days per TTL) for JSONL export.
 func (s *Store) ExportLogs(ctx context.Context) ([]applog.LogRow, error) {
-	rows, err := s.conn.Query(ctx, `SELECT timestamp, level, component, message, context FROM seocrawler.application_logs ORDER BY timestamp DESC`)
+	rows, err := s.conn.Query(ctx, `SELECT timestamp, level, component, message, context FROM crawlobserver.application_logs ORDER BY timestamp DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("exporting logs: %w", err)
 	}
@@ -2979,7 +2979,7 @@ func (s *Store) InsertProviderDomainMetrics(ctx context.Context, projectID strin
 		return nil
 	}
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.provider_domain_metrics (
+		INSERT INTO crawlobserver.provider_domain_metrics (
 			project_id, provider, domain, backlinks_total, refdomains_total, domain_rank,
 			organic_keywords, organic_traffic, organic_cost, fetched_at
 		)`)
@@ -3003,7 +3003,7 @@ func (s *Store) InsertProviderBacklinks(ctx context.Context, projectID string, r
 		return nil
 	}
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.provider_backlinks (
+		INSERT INTO crawlobserver.provider_backlinks (
 			project_id, provider, domain, source_url, target_url, anchor_text,
 			source_domain, link_type, domain_rank, page_rank, nofollow,
 			first_seen, last_seen, fetched_at
@@ -3029,7 +3029,7 @@ func (s *Store) InsertProviderRefDomains(ctx context.Context, projectID string, 
 		return nil
 	}
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.provider_refdomains (
+		INSERT INTO crawlobserver.provider_refdomains (
 			project_id, provider, domain, ref_domain, backlink_count, domain_rank,
 			first_seen, last_seen, fetched_at
 		)`)
@@ -3053,7 +3053,7 @@ func (s *Store) InsertProviderRankings(ctx context.Context, projectID string, ro
 		return nil
 	}
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.provider_rankings (
+		INSERT INTO crawlobserver.provider_rankings (
 			project_id, provider, domain, keyword, url, search_base,
 			position, search_volume, cpc, traffic, traffic_pct, fetched_at
 		)`)
@@ -3077,7 +3077,7 @@ func (s *Store) InsertProviderVisibility(ctx context.Context, projectID string, 
 		return nil
 	}
 	batch, err := s.conn.PrepareBatch(ctx, `
-		INSERT INTO seocrawler.provider_visibility (
+		INSERT INTO crawlobserver.provider_visibility (
 			project_id, provider, domain, search_base, date, visibility, keywords_count, fetched_at
 		)`)
 	if err != nil {
@@ -3099,7 +3099,7 @@ func (s *Store) ProviderDomainMetrics(ctx context.Context, projectID, provider s
 	err := s.conn.QueryRow(ctx, `
 		SELECT provider, domain, backlinks_total, refdomains_total, domain_rank,
 			organic_keywords, organic_traffic, organic_cost, fetched_at
-		FROM seocrawler.provider_domain_metrics FINAL
+		FROM crawlobserver.provider_domain_metrics FINAL
 		WHERE project_id = ? AND provider = ?
 		LIMIT 1`, projectID, provider).Scan(
 		&r.Provider, &r.Domain, &r.BacklinksTotal, &r.RefDomainsTotal, &r.DomainRank,
@@ -3114,7 +3114,7 @@ func (s *Store) ProviderDomainMetrics(ctx context.Context, projectID, provider s
 func (s *Store) ProviderBacklinks(ctx context.Context, projectID, provider string, limit, offset int) ([]ProviderBacklinkRow, int, error) {
 	var total uint64
 	if err := s.conn.QueryRow(ctx, `
-		SELECT count() FROM seocrawler.provider_backlinks FINAL
+		SELECT count() FROM crawlobserver.provider_backlinks FINAL
 		WHERE project_id = ? AND provider = ?`, projectID, provider).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting provider backlinks: %w", err)
 	}
@@ -3122,7 +3122,7 @@ func (s *Store) ProviderBacklinks(ctx context.Context, projectID, provider strin
 	rows, err := s.conn.Query(ctx, `
 		SELECT provider, domain, source_url, target_url, anchor_text, source_domain, link_type,
 			domain_rank, page_rank, nofollow, first_seen, last_seen, fetched_at
-		FROM seocrawler.provider_backlinks FINAL
+		FROM crawlobserver.provider_backlinks FINAL
 		WHERE project_id = ? AND provider = ?
 		ORDER BY domain_rank DESC
 		LIMIT ? OFFSET ?`, projectID, provider, limit, offset)
@@ -3150,14 +3150,14 @@ func (s *Store) ProviderBacklinks(ctx context.Context, projectID, provider strin
 func (s *Store) ProviderRefDomains(ctx context.Context, projectID, provider string, limit, offset int) ([]ProviderRefDomainRow, int, error) {
 	var total uint64
 	if err := s.conn.QueryRow(ctx, `
-		SELECT count() FROM seocrawler.provider_refdomains FINAL
+		SELECT count() FROM crawlobserver.provider_refdomains FINAL
 		WHERE project_id = ? AND provider = ?`, projectID, provider).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting provider refdomains: %w", err)
 	}
 
 	rows, err := s.conn.Query(ctx, `
 		SELECT provider, domain, ref_domain, backlink_count, domain_rank, first_seen, last_seen, fetched_at
-		FROM seocrawler.provider_refdomains FINAL
+		FROM crawlobserver.provider_refdomains FINAL
 		WHERE project_id = ? AND provider = ?
 		ORDER BY backlink_count DESC
 		LIMIT ? OFFSET ?`, projectID, provider, limit, offset)
@@ -3184,7 +3184,7 @@ func (s *Store) ProviderRefDomains(ctx context.Context, projectID, provider stri
 func (s *Store) ProviderRankings(ctx context.Context, projectID, provider string, limit, offset int) ([]ProviderRankingRow, int, error) {
 	var total uint64
 	if err := s.conn.QueryRow(ctx, `
-		SELECT count() FROM seocrawler.provider_rankings FINAL
+		SELECT count() FROM crawlobserver.provider_rankings FINAL
 		WHERE project_id = ? AND provider = ?`, projectID, provider).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting provider rankings: %w", err)
 	}
@@ -3192,7 +3192,7 @@ func (s *Store) ProviderRankings(ctx context.Context, projectID, provider string
 	rows, err := s.conn.Query(ctx, `
 		SELECT provider, domain, keyword, url, search_base, position,
 			search_volume, cpc, traffic, traffic_pct, fetched_at
-		FROM seocrawler.provider_rankings FINAL
+		FROM crawlobserver.provider_rankings FINAL
 		WHERE project_id = ? AND provider = ?
 		ORDER BY traffic DESC
 		LIMIT ? OFFSET ?`, projectID, provider, limit, offset)
@@ -3219,7 +3219,7 @@ func (s *Store) ProviderRankings(ctx context.Context, projectID, provider string
 func (s *Store) ProviderVisibilityHistory(ctx context.Context, projectID, provider string) ([]ProviderVisibilityRow, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT provider, domain, search_base, date, visibility, keywords_count, fetched_at
-		FROM seocrawler.provider_visibility FINAL
+		FROM crawlobserver.provider_visibility FINAL
 		WHERE project_id = ? AND provider = ?
 		ORDER BY date ASC`, projectID, provider)
 	if err != nil {
@@ -3251,7 +3251,7 @@ func (s *Store) DeleteProviderData(ctx context.Context, projectID, provider stri
 		"provider_visibility",
 	}
 	for _, table := range tables {
-		q := fmt.Sprintf("ALTER TABLE seocrawler.%s DELETE WHERE project_id = ? AND provider = ?", table)
+		q := fmt.Sprintf("ALTER TABLE crawlobserver.%s DELETE WHERE project_id = ? AND provider = ?", table)
 		if err := s.conn.Exec(ctx, q, projectID, provider); err != nil {
 			return fmt.Errorf("deleting from %s: %w", table, err)
 		}

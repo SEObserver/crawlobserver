@@ -1,4 +1,4 @@
-module github.com/SEObserver/seocrawler
+module github.com/SEObserver/crawlobserver
 
 go 1.25.7
 

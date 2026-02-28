@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/SEObserver/seocrawler/internal/apikeys"
-	"github.com/SEObserver/seocrawler/internal/applog"
-	"github.com/SEObserver/seocrawler/internal/gsc"
-	"github.com/SEObserver/seocrawler/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/apikeys"
+	"github.com/SEObserver/crawlobserver/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/gsc"
+	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
 func (s *Server) handleGSCAuthorize(w http.ResponseWriter, r *http.Request) {

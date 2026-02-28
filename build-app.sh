@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_NAME="SEOCrawler"
+APP_NAME="CrawlObserver"
 BUNDLE="build/${APP_NAME}.app"
 
 echo "==> Building frontend..."
@@ -10,7 +10,7 @@ rm -rf internal/server/frontend/dist
 cp -r frontend/dist internal/server/frontend/dist
 
 echo "==> Building binary..."
-CGO_LDFLAGS="-framework UniformTypeIdentifiers" go build -tags "desktop production" -o "${APP_NAME}" ./cmd/seocrawler
+CGO_LDFLAGS="-framework UniformTypeIdentifiers" go build -tags "desktop production" -o "${APP_NAME}" ./cmd/crawlobserver
 
 echo "==> Creating ${BUNDLE}..."
 rm -rf "${BUNDLE}"

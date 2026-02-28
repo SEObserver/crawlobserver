@@ -1,7 +1,7 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "SEOCrawler",
-  "outputfilename": "SEOCrawler",
+  "name": "CrawlObserver",
+  "outputfilename": "CrawlObserver",
   "frontend:install": "cd frontend && npm install",
   "frontend:build": "cd frontend && npm run build && cd .. && rm -rf internal/server/frontend/dist && cp -r frontend/dist internal/server/frontend/dist",
   "frontend:dev:watcher": "",

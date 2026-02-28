@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/SEObserver/seocrawler/internal/apikeys"
-	"github.com/SEObserver/seocrawler/internal/config"
-	"github.com/SEObserver/seocrawler/internal/server"
+	"github.com/SEObserver/crawlobserver/internal/apikeys"
+	"github.com/SEObserver/crawlobserver/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/server"
 	"github.com/spf13/cobra"
 )
 

@@ -6,7 +6,7 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"github.com/SEObserver/seocrawler/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
 // WriteExternalLinks writes an external links report.

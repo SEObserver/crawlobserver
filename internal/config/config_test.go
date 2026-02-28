@@ -16,8 +16,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Crawler.Workers != 10 {
 		t.Errorf("Workers = %d, want 10", cfg.Crawler.Workers)
 	}
-	if cfg.Crawler.UserAgent != "SEOCrawler/1.0" {
-		t.Errorf("UserAgent = %q, want SEOCrawler/1.0", cfg.Crawler.UserAgent)
+	if cfg.Crawler.UserAgent != "CrawlObserver/1.0" {
+		t.Errorf("UserAgent = %q, want CrawlObserver/1.0", cfg.Crawler.UserAgent)
 	}
 	if cfg.Crawler.MaxBodySize != 10*1024*1024 {
 		t.Errorf("MaxBodySize = %d, want 10MB", cfg.Crawler.MaxBodySize)

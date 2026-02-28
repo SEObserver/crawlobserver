@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/SEObserver/seocrawler/internal/customtests"
+	"github.com/SEObserver/crawlobserver/internal/customtests"
 )
 
 func (s *Server) handleListRulesets(w http.ResponseWriter, r *http.Request) {

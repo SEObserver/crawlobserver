@@ -5,11 +5,11 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleName</key>
-    <string>SEOCrawler</string>
+    <string>CrawlObserver</string>
     <key>CFBundleExecutable</key>
-    <string>SEOCrawler</string>
+    <string>CrawlObserver</string>
     <key>CFBundleIdentifier</key>
-    <string>com.seobserver.seocrawler</string>
+    <string>com.seobserver.crawlobserver</string>
     <key>CFBundleVersion</key>
     <string>1.0.0</string>
     <key>CFBundleShortVersionString</key>

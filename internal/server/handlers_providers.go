@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/SEObserver/seocrawler/internal/applog"
-	"github.com/SEObserver/seocrawler/internal/providers"
-	"github.com/SEObserver/seocrawler/internal/seobserver"
-	"github.com/SEObserver/seocrawler/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/providers"
+	"github.com/SEObserver/crawlobserver/internal/seobserver"
+	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
 func (s *Server) handleListProviderConnections(w http.ResponseWriter, r *http.Request) {

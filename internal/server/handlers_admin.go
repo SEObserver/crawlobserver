@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/SEObserver/seocrawler/internal/applog"
-	"github.com/SEObserver/seocrawler/internal/backup"
-	"github.com/SEObserver/seocrawler/internal/updater"
+	"github.com/SEObserver/crawlobserver/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/backup"
+	"github.com/SEObserver/crawlobserver/internal/updater"
 )
 
 func (s *Server) handleStorageStats(w http.ResponseWriter, r *http.Request) {

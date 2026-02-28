@@ -16,12 +16,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/SEObserver/seocrawler/internal/apikeys"
-	"github.com/SEObserver/seocrawler/internal/backup"
-	chmanaged "github.com/SEObserver/seocrawler/internal/clickhouse"
-	"github.com/SEObserver/seocrawler/internal/config"
-	"github.com/SEObserver/seocrawler/internal/server"
-	"github.com/SEObserver/seocrawler/internal/updater"
+	"github.com/SEObserver/crawlobserver/internal/apikeys"
+	"github.com/SEObserver/crawlobserver/internal/backup"
+	chmanaged "github.com/SEObserver/crawlobserver/internal/clickhouse"
+	"github.com/SEObserver/crawlobserver/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/server"
+	"github.com/SEObserver/crawlobserver/internal/updater"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wailsapp/wails/v2"
@@ -178,7 +178,7 @@ func runGUI(cmd *cobra.Command, args []string) error {
 		})
 	})
 
-	appName := "SEOCrawler"
+	appName := "CrawlObserver"
 	if cfg.Theme.AppName != "" {
 		appName = cfg.Theme.AppName
 	}
@@ -239,13 +239,13 @@ func findFreePort() (int, error) {
 	return port, nil
 }
 
-// appDataDir returns ~/Library/Application Support/SEOCrawler (macOS) or equivalent,
+// appDataDir returns ~/Library/Application Support/CrawlObserver (macOS) or equivalent,
 // creating it if needed.
 func appDataDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(home, "Library", "Application Support", "SEOCrawler")
+	dir := filepath.Join(home, "Library", "Application Support", "CrawlObserver")
 	return dir, os.MkdirAll(dir, 0755)
 }

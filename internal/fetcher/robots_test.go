@@ -11,7 +11,7 @@ import (
 func TestRobotsCacheAllowed(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `
-User-agent: SEOCrawler
+User-agent: CrawlObserver
 Disallow: /private/
 Disallow: /admin/
 Crawl-delay: 2
@@ -22,7 +22,7 @@ Disallow: /secret/
 	}))
 	defer server.Close()
 
-	rc := NewRobotsCache("SEOCrawler", 5*time.Second)
+	rc := NewRobotsCache("CrawlObserver", 5*time.Second)
 
 	tests := []struct {
 		path    string
@@ -49,14 +49,14 @@ Disallow: /secret/
 func TestRobotsCacheCrawlDelay(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `
-User-agent: SEOCrawler
+User-agent: CrawlObserver
 Crawl-delay: 3
 Disallow: /private/
 `)
 	}))
 	defer server.Close()
 
-	rc := NewRobotsCache("SEOCrawler", 5*time.Second)
+	rc := NewRobotsCache("CrawlObserver", 5*time.Second)
 
 	delay := rc.CrawlDelay(server.URL + "/page")
 	if delay != 3*time.Second {
@@ -70,7 +70,7 @@ func TestRobotsCacheNoRobotsTxt(t *testing.T) {
 	}))
 	defer server.Close()
 
-	rc := NewRobotsCache("SEOCrawler", 5*time.Second)
+	rc := NewRobotsCache("CrawlObserver", 5*time.Second)
 
 	// Should allow everything when robots.txt returns 404
 	if !rc.IsAllowed(server.URL + "/anything") {

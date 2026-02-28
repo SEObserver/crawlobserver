@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SEObserver/seocrawler/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
 func testLinks() []storage.LinkRow {

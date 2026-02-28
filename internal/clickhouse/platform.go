@@ -24,7 +24,7 @@ func DefaultDataDir() string {
 		return filepath.Join(appdata, "SeoCrawler")
 	default: // linux and others
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, ".local", "share", "seocrawler")
+		return filepath.Join(home, ".local", "share", "crawlobserver")
 	}
 }
 

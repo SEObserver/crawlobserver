@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"time"
 
-	chmanaged "github.com/SEObserver/seocrawler/internal/clickhouse"
-	"github.com/SEObserver/seocrawler/internal/config"
-	"github.com/SEObserver/seocrawler/internal/storage"
+	chmanaged "github.com/SEObserver/crawlobserver/internal/clickhouse"
+	"github.com/SEObserver/crawlobserver/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
 // setupClickHouse connects to ClickHouse, auto-detecting or managing a subprocess as needed.
-// It auto-runs migrations and returns a store connected to the seocrawler database.
+// It auto-runs migrations and returns a store connected to the crawlobserver database.
 // Returns the store, a cleanup function (stops managed CH if applicable),
 // the ManagedServer (nil for external mode), and any error.
 func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func(), *chmanaged.ManagedServer, error) {

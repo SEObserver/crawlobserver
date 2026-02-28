@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/SEObserver/seocrawler/internal/applog"
-	"github.com/SEObserver/seocrawler/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/config"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	searchconsole "google.golang.org/api/searchconsole/v1"

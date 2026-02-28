@@ -18,10 +18,10 @@ type Migration struct {
 
 // DDL statements for ClickHouse tables.
 
-const CreateDatabase = `CREATE DATABASE IF NOT EXISTS seocrawler`
+const CreateDatabase = `CREATE DATABASE IF NOT EXISTS crawlobserver`
 
 const CreateCrawlSessions = `
-CREATE TABLE IF NOT EXISTS seocrawler.crawl_sessions (
+CREATE TABLE IF NOT EXISTS crawlobserver.crawl_sessions (
     id UUID,
     started_at DateTime64(3),
     finished_at DateTime64(3),
@@ -35,7 +35,7 @@ ORDER BY (id)
 `
 
 const CreatePages = `
-CREATE TABLE IF NOT EXISTS seocrawler.pages (
+CREATE TABLE IF NOT EXISTS crawlobserver.pages (
     crawl_session_id UUID,
     url String,
     final_url String,
@@ -85,7 +85,7 @@ ORDER BY (crawl_session_id, url)
 `
 
 const CreateLinks = `
-CREATE TABLE IF NOT EXISTS seocrawler.links (
+CREATE TABLE IF NOT EXISTS crawlobserver.links (
     crawl_session_id UUID,
     source_url String,
     target_url String,
@@ -100,7 +100,7 @@ ORDER BY (crawl_session_id, source_url, target_url)
 
 // AlterPagesV2 adds new columns to existing pages table.
 const AlterPagesV2 = `
-ALTER TABLE seocrawler.pages
+ALTER TABLE crawlobserver.pages
     ADD COLUMN IF NOT EXISTS title_length UInt16 AFTER title,
     ADD COLUMN IF NOT EXISTS canonical_is_self Bool AFTER canonical,
     ADD COLUMN IF NOT EXISTS is_indexable Bool AFTER canonical_is_self,
@@ -123,17 +123,17 @@ ALTER TABLE seocrawler.pages
 `
 
 const AlterPagesV3 = `
-ALTER TABLE seocrawler.pages
+ALTER TABLE crawlobserver.pages
     ADD COLUMN IF NOT EXISTS pagerank Float64 DEFAULT 0 AFTER found_on
 `
 
 const AlterPagesV4 = `
-ALTER TABLE seocrawler.pages
+ALTER TABLE crawlobserver.pages
     ADD COLUMN IF NOT EXISTS body_truncated Bool DEFAULT false AFTER body_html
 `
 
 const CreateRobotsTxt = `
-CREATE TABLE IF NOT EXISTS seocrawler.robots_txt (
+CREATE TABLE IF NOT EXISTS crawlobserver.robots_txt (
     crawl_session_id UUID,
     host String,
     status_code UInt16,
@@ -144,12 +144,12 @@ ORDER BY (crawl_session_id, host)
 `
 
 const AlterSessionsV2 = `
-ALTER TABLE seocrawler.crawl_sessions
+ALTER TABLE crawlobserver.crawl_sessions
     ADD COLUMN IF NOT EXISTS project_id Nullable(String) DEFAULT NULL
 `
 
 const CreateSitemaps = `
-CREATE TABLE IF NOT EXISTS seocrawler.sitemaps (
+CREATE TABLE IF NOT EXISTS crawlobserver.sitemaps (
     crawl_session_id UUID,
     url String,
     type String,
@@ -162,7 +162,7 @@ ORDER BY (crawl_session_id, url)
 `
 
 const CreateSitemapURLs = `
-CREATE TABLE IF NOT EXISTS seocrawler.sitemap_urls (
+CREATE TABLE IF NOT EXISTS crawlobserver.sitemap_urls (
     crawl_session_id UUID,
     sitemap_url String,
     loc String,
@@ -175,7 +175,7 @@ ORDER BY (crawl_session_id, sitemap_url, loc)
 
 // DDL for v2 tables partitioned by crawl_session_id.
 const CreatePagesV2 = `
-CREATE TABLE IF NOT EXISTS seocrawler.pages_v2 (
+CREATE TABLE IF NOT EXISTS crawlobserver.pages_v2 (
     crawl_session_id UUID,
     url String,
     final_url String,
@@ -227,7 +227,7 @@ ORDER BY (crawl_session_id, url)
 `
 
 const CreateLinksV2 = `
-CREATE TABLE IF NOT EXISTS seocrawler.links_v2 (
+CREATE TABLE IF NOT EXISTS crawlobserver.links_v2 (
     crawl_session_id UUID,
     source_url String,
     target_url String,
@@ -242,7 +242,7 @@ ORDER BY (crawl_session_id, source_url, target_url)
 `
 
 const CreateRobotsTxtV2 = `
-CREATE TABLE IF NOT EXISTS seocrawler.robots_txt_v2 (
+CREATE TABLE IF NOT EXISTS crawlobserver.robots_txt_v2 (
     crawl_session_id UUID,
     host String,
     status_code UInt16,
@@ -254,7 +254,7 @@ ORDER BY (crawl_session_id, host)
 `
 
 const CreateSitemapsV2 = `
-CREATE TABLE IF NOT EXISTS seocrawler.sitemaps_v2 (
+CREATE TABLE IF NOT EXISTS crawlobserver.sitemaps_v2 (
     crawl_session_id UUID,
     url String,
     type String,
@@ -268,7 +268,7 @@ ORDER BY (crawl_session_id, url)
 `
 
 const CreateSitemapURLsV2 = `
-CREATE TABLE IF NOT EXISTS seocrawler.sitemap_urls_v2 (
+CREATE TABLE IF NOT EXISTS crawlobserver.sitemap_urls_v2 (
     crawl_session_id UUID,
     sitemap_url String,
     loc String,
@@ -281,7 +281,7 @@ ORDER BY (crawl_session_id, sitemap_url, loc)
 `
 
 const CreateGSCAnalytics = `
-CREATE TABLE IF NOT EXISTS seocrawler.gsc_analytics (
+CREATE TABLE IF NOT EXISTS crawlobserver.gsc_analytics (
     project_id String,
     date Date,
     query String,
@@ -299,7 +299,7 @@ ORDER BY (project_id, date, query, page, country, device)
 `
 
 const CreateGSCInspection = `
-CREATE TABLE IF NOT EXISTS seocrawler.gsc_inspection (
+CREATE TABLE IF NOT EXISTS crawlobserver.gsc_inspection (
     project_id String,
     url String,
     verdict String,
@@ -319,7 +319,7 @@ ORDER BY (project_id, url)
 `
 
 const CreateExternalLinkChecks = `
-CREATE TABLE IF NOT EXISTS seocrawler.external_link_checks (
+CREATE TABLE IF NOT EXISTS crawlobserver.external_link_checks (
     crawl_session_id UUID,
     url String,
     status_code UInt16,
@@ -334,7 +334,7 @@ ORDER BY (crawl_session_id, url)
 `
 
 const CreateProviderDomainMetrics = `
-CREATE TABLE IF NOT EXISTS seocrawler.provider_domain_metrics (
+CREATE TABLE IF NOT EXISTS crawlobserver.provider_domain_metrics (
     project_id String,
     provider String,
     domain String,
@@ -351,7 +351,7 @@ ORDER BY (project_id, provider, domain)
 `
 
 const CreateProviderBacklinks = `
-CREATE TABLE IF NOT EXISTS seocrawler.provider_backlinks (
+CREATE TABLE IF NOT EXISTS crawlobserver.provider_backlinks (
     project_id String,
     provider String,
     domain String,
@@ -372,7 +372,7 @@ ORDER BY (project_id, provider, domain, source_url, target_url)
 `
 
 const CreateProviderRefDomains = `
-CREATE TABLE IF NOT EXISTS seocrawler.provider_refdomains (
+CREATE TABLE IF NOT EXISTS crawlobserver.provider_refdomains (
     project_id String,
     provider String,
     domain String,
@@ -388,7 +388,7 @@ ORDER BY (project_id, provider, domain, ref_domain)
 `
 
 const CreateProviderRankings = `
-CREATE TABLE IF NOT EXISTS seocrawler.provider_rankings (
+CREATE TABLE IF NOT EXISTS crawlobserver.provider_rankings (
     project_id String,
     provider String,
     domain String,
@@ -407,7 +407,7 @@ ORDER BY (project_id, provider, domain, search_base, keyword)
 `
 
 const CreateProviderVisibility = `
-CREATE TABLE IF NOT EXISTS seocrawler.provider_visibility (
+CREATE TABLE IF NOT EXISTS crawlobserver.provider_visibility (
     project_id String,
     provider String,
     domain String,
@@ -422,7 +422,7 @@ ORDER BY (project_id, provider, domain, search_base, date)
 `
 
 const CreateApplicationLogs = `
-CREATE TABLE IF NOT EXISTS seocrawler.application_logs (
+CREATE TABLE IF NOT EXISTS crawlobserver.application_logs (
     timestamp DateTime64(3),
     level LowCardinality(String),
     component LowCardinality(String),
@@ -440,7 +440,7 @@ func repartitionTable(ctx context.Context, conn driver.Conn, table, createV2DDL 
 	// Check current partition expression
 	var partitionKey string
 	err := conn.QueryRow(ctx,
-		`SELECT partition_key FROM system.tables WHERE database = 'seocrawler' AND name = ?`, table,
+		`SELECT partition_key FROM system.tables WHERE database = 'crawlobserver' AND name = ?`, table,
 	).Scan(&partitionKey)
 	if err != nil {
 		// Table might not exist yet — skip
@@ -459,25 +459,25 @@ func repartitionTable(ctx context.Context, conn driver.Conn, table, createV2DDL 
 	}
 
 	// Copy data
-	copySQL := fmt.Sprintf("INSERT INTO seocrawler.%s_v2 SELECT * FROM seocrawler.%s", table, table)
+	copySQL := fmt.Sprintf("INSERT INTO crawlobserver.%s_v2 SELECT * FROM crawlobserver.%s", table, table)
 	if err := conn.Exec(ctx, copySQL); err != nil {
 		// Clean up v2 on failure
-		conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS seocrawler.%s_v2", table))
+		conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS crawlobserver.%s_v2", table))
 		return fmt.Errorf("copying data to %s_v2: %w", table, err)
 	}
 
 	// Atomic swap
 	renameSQL := fmt.Sprintf(
-		"RENAME TABLE seocrawler.%s TO seocrawler.%s_old, seocrawler.%s_v2 TO seocrawler.%s",
+		"RENAME TABLE crawlobserver.%s TO crawlobserver.%s_old, crawlobserver.%s_v2 TO crawlobserver.%s",
 		table, table, table, table,
 	)
 	if err := conn.Exec(ctx, renameSQL); err != nil {
-		conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS seocrawler.%s_v2", table))
+		conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS crawlobserver.%s_v2", table))
 		return fmt.Errorf("swapping %s: %w", table, err)
 	}
 
 	// Drop old table
-	if err := conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS seocrawler.%s_old", table)); err != nil {
+	if err := conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS crawlobserver.%s_old", table)); err != nil {
 		log.Printf("  warning: failed to drop %s_old: %v", table, err)
 	}
 

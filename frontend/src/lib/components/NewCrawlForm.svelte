@@ -19,7 +19,7 @@
   let starting = $state(false);
 
   const userAgentPresets = [
-    { label: 'Default (SEOCrawler)', value: '' },
+    { label: 'Default (CrawlObserver)', value: '' },
     { label: 'Googlebot Desktop', value: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' },
     { label: 'Googlebot Mobile', value: 'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.69 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' },
     { label: 'Bingbot', value: 'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)' },

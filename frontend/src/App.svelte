@@ -44,7 +44,7 @@
   let error = $state(null);
 
   // Theme
-  let theme = $state({ app_name: 'SEOCrawler', logo_url: '', accent_color: '#7c3aed', mode: 'light' });
+  let theme = $state({ app_name: 'CrawlObserver', logo_url: '', accent_color: '#7c3aed', mode: 'light' });
   let darkMode = $state(false);
 
   // Pagination

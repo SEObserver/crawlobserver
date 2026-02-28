@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/SEObserver/seocrawler/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/spf13/cobra"
 )
 

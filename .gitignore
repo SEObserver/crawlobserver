@@ -1,6 +1,6 @@
 # Binaries
-seocrawler
-/cmd/seocrawler/seocrawler
+crawlobserver
+/cmd/crawlobserver/crawlobserver
 *.exe
 *.dll
 *.so
@@ -41,3 +41,18 @@ internal/server/frontend/dist/
 
 # Code signing
 .codesign/
+
+# Reports
+RAPPORT_*.md
+
+# Build artifacts
+build/CrawlObserver.app/
+
+# GH CLI config
+.gh/
+
+# API discovery
+.crawlobserver-api.json
+
+# Docker config
+config.yaml.docker

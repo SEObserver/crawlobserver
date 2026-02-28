@@ -10,13 +10,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/SEObserver/seocrawler/internal/applog"
-	"github.com/SEObserver/seocrawler/internal/config"
-	"github.com/SEObserver/seocrawler/internal/fetcher"
-	"github.com/SEObserver/seocrawler/internal/frontier"
-	"github.com/SEObserver/seocrawler/internal/normalizer"
-	"github.com/SEObserver/seocrawler/internal/parser"
-	"github.com/SEObserver/seocrawler/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/fetcher"
+	"github.com/SEObserver/crawlobserver/internal/frontier"
+	"github.com/SEObserver/crawlobserver/internal/normalizer"
+	"github.com/SEObserver/crawlobserver/internal/parser"
+	"github.com/SEObserver/crawlobserver/internal/storage"
 	"golang.org/x/net/publicsuffix"
 )
 

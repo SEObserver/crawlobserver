@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/SEObserver/seocrawler/internal/config"
-	"github.com/SEObserver/seocrawler/internal/report"
-	"github.com/SEObserver/seocrawler/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/report"
+	"github.com/SEObserver/crawlobserver/internal/storage"
 	"github.com/spf13/cobra"
 )
 

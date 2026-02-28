@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/SEObserver/seocrawler/internal/updater"
+	"github.com/SEObserver/crawlobserver/internal/updater"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +18,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("seocrawler %s\n", updater.Version)
+		fmt.Printf("crawlobserver %s\n", updater.Version)
 	},
 }
 
@@ -61,6 +61,6 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("installing update: %w", err)
 	}
 
-	log.Printf("Updated to %s. Please restart seocrawler.", release.TagName)
+	log.Printf("Updated to %s. Please restart crawlobserver.", release.TagName)
 	return nil
 }

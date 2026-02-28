@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/SEObserver/seocrawler/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/applog"
 )
 
 // PageLinkInserter is the subset of Store used by Buffer for flushing data.

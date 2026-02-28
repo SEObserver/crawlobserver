@@ -1,4 +1,4 @@
-## SEOCrawler configuration
+## CrawlObserver configuration
 
 # Crawler settings
 crawler:
@@ -13,7 +13,7 @@ crawler:
   # Request timeout
   timeout: 30s
   # User-Agent string
-  user_agent: "SEOCrawler/1.0"
+  user_agent: "CrawlObserver/1.0"
   # Maximum response body size
   max_body_size: 10485760  # 10MB
   # Respect robots.txt
@@ -25,7 +25,7 @@ crawler:
 clickhouse:
   host: localhost
   port: 19000
-  database: seocrawler
+  database: crawlobserver
   username: default
   password: ""
 
@@ -49,12 +49,12 @@ server:
   port: 8899
   # Basic auth credentials (CHANGE THESE before exposing to the internet)
   username: admin
-  password: seocrawler
+  password: crawlobserver
 
 # Theme / branding
 theme:
   # Application name shown in sidebar
-  app_name: SEOCrawler
+  app_name: CrawlObserver
   # Logo URL (leave empty for default icon)
   logo_url: ""
   # Primary accent color (hex)

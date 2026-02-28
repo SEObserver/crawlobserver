@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/SEObserver/seocrawler/internal/normalizer"
+	"github.com/SEObserver/crawlobserver/internal/normalizer"
 	"golang.org/x/net/publicsuffix"
 )
 
