@@ -1839,12 +1839,10 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 	}
 
 	// Single mutation: update from temp table.
-	// Column names in the temp table (page_url, new_depth, new_found_on) differ
-	// from pages columns to avoid ambiguity — bare `url` in the subquery WHERE
-	// clause resolves to crawlobserver.pages.url in the ALTER TABLE context.
+	// Use pages.url to explicitly reference the outer table column in subqueries.
 	query := fmt.Sprintf(`ALTER TABLE crawlobserver.pages UPDATE
-		depth = (SELECT new_depth FROM %s WHERE page_url = url LIMIT 1),
-		found_on = (SELECT new_found_on FROM %s WHERE page_url = url LIMIT 1)
+		depth = (SELECT new_depth FROM %s WHERE page_url = pages.url LIMIT 1),
+		found_on = (SELECT new_found_on FROM %s WHERE page_url = pages.url LIMIT 1)
 		WHERE crawl_session_id = ? AND url IN (SELECT page_url FROM %s)`,
 		tmpTable, tmpTable, tmpTable)
 
