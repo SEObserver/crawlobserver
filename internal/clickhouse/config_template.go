@@ -23,8 +23,10 @@ const configXMLTemplate = `<clickhouse>
     <mark_cache_size>536870912</mark_cache_size>
     <profiles>
         <default>
-            <max_memory_usage>10000000000</max_memory_usage>
+            <max_memory_usage>4000000000</max_memory_usage>
             <max_execution_time>60</max_execution_time>
+            <max_bytes_before_external_group_by>500000000</max_bytes_before_external_group_by>
+            <max_bytes_before_external_sort>500000000</max_bytes_before_external_sort>
         </default>
     </profiles>
     <users>
