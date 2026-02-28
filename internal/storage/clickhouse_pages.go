@@ -546,47 +546,46 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		}
 	}
 
-	// 6. Write back to ClickHouse via batched ALTER TABLE UPDATE with multiIf
+	// 6. Write back via temp table + single mutation (avoids 100s of mutations)
 	if !isValidUUID(sessionID) {
 		return fmt.Errorf("invalid session ID: %s", sessionID)
 	}
 
-	const chunkSize = 500
+	tmpTable := fmt.Sprintf("crawlobserver.tmp_pagerank_%s", strings.ReplaceAll(sessionID, "-", ""))
+	if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
+		return fmt.Errorf("dropping old temp pagerank table: %w", err)
+	}
+	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (page_url String, new_pagerank Float64) ENGINE = Memory", tmpTable)); err != nil {
+		return fmt.Errorf("creating temp pagerank table: %w", err)
+	}
+	defer s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable))
+
+	const chunkSize = 5000
 	for i := 0; i < int(n); i += chunkSize {
 		end := i + chunkSize
 		if end > int(n) {
 			end = int(n)
 		}
-
-		// Build multiIf(url = ?, val, url = ?, val, ..., pagerank)
-		// Args order must match ? order in query: multiIf args, then sessionID, then IN list
-		var multiIfArgs []interface{}
-		var inArgs []interface{}
-		var conditions []string
-		var urlList []string
+		batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (page_url, new_pagerank)", tmpTable))
+		if err != nil {
+			return fmt.Errorf("preparing pagerank batch: %w", err)
+		}
 		for j := i; j < end; j++ {
-			conditions = append(conditions, "url = ?, ?")
-			multiIfArgs = append(multiIfArgs, idToURL[j], rank[j])
-			urlList = append(urlList, "?")
-			inArgs = append(inArgs, idToURL[j])
+			if err := batch.Append(idToURL[j], rank[j]); err != nil {
+				return fmt.Errorf("appending to pagerank batch: %w", err)
+			}
 		}
-
-		multiIfExpr := "multiIf(" + strings.Join(conditions, ", ") + ", pagerank)"
-		inList := strings.Join(urlList, ", ")
-
-		query := fmt.Sprintf(`ALTER TABLE crawlobserver.pages UPDATE
-			pagerank = %s
-			WHERE crawl_session_id = ? AND url IN (%s)`,
-			multiIfExpr, inList)
-
-		var args []interface{}
-		args = append(args, multiIfArgs...)
-		args = append(args, sessionID)
-		args = append(args, inArgs...)
-
-		if err := s.conn.Exec(ctx, query, args...); err != nil {
-			return fmt.Errorf("updating pagerank batch at offset %d: %w", i, err)
+		if err := batch.Send(); err != nil {
+			return fmt.Errorf("sending pagerank batch: %w", err)
 		}
+	}
+
+	query := fmt.Sprintf(`ALTER TABLE crawlobserver.pages UPDATE
+		pagerank = (SELECT new_pagerank FROM %s WHERE page_url = pages.url LIMIT 1)
+		WHERE crawl_session_id = ? AND url IN (SELECT page_url FROM %s)`,
+		tmpTable, tmpTable)
+	if err := s.conn.Exec(ctx, query, sessionID); err != nil {
+		return fmt.Errorf("updating pagerank from temp table: %w", err)
 	}
 
 	applog.Infof("storage", "ComputePageRank: computed for %d pages in session %s in %s", n, sessionID, time.Since(start))
