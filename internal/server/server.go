@@ -272,7 +272,7 @@ func (s *Server) Start() error {
 	url := fmt.Sprintf("http://%s", addr)
 	applog.Infof("server", "Web UI available at %s", url)
 
-	// s.writeAPIDiscoveryFile() // TODO: not yet implemented
+	s.writeAPIDiscoveryFile()
 
 	if !s.NoBrowserOpen {
 		go func() {

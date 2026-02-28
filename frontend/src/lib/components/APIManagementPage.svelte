@@ -1,8 +1,10 @@
 <script>
-  import { getProjects, createProject, renameProject, deleteProject, getAPIKeys, createAPIKey, deleteAPIKey } from '../api.js';
+  import { getProjects, createProject, renameProject, deleteProject, getAPIKeys, createAPIKey, deleteAPIKey, getServerInfo } from '../api.js';
   import { timeAgo, copyToClipboard } from '../utils.js';
 
   let { onerror, onprojectschanged } = $props();
+
+  let serverInfo = $state(null);
 
   let projects = $state([]);
   let apiKeys = $state([]);
@@ -70,8 +72,49 @@
     } catch (e) { onerror?.(e.message); }
   }
 
+  async function loadServerInfo() {
+    try { serverInfo = await getServerInfo(); } catch (e) { /* non-critical */ }
+  }
+
   loadAPIData();
+  loadServerInfo();
 </script>
+
+<!-- API Endpoint -->
+{#if serverInfo}
+  <div class="card" style="margin-bottom: 24px; border: 1px solid var(--border);">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+      <h3 style="margin: 0; font-size: 15px; font-weight: 600;">API Endpoint</h3>
+      <span class="badge badge-success" style="font-size: 11px;">Running</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+      <code style="flex: 1; padding: 8px 12px; background: var(--bg-secondary); border-radius: 6px; font-size: 13px; word-break: break-all;">{serverInfo.api_url}</code>
+      <button class="btn btn-sm" onclick={() => copyToClipboard(serverInfo.api_url)}>Copy</button>
+    </div>
+    {#if serverInfo.has_auth}
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+        Auth: Basic (<code>{serverInfo.username}</code>) or API key via <code>X-API-Key</code> header
+      </div>
+    {/if}
+    <details style="font-size: 12px; color: var(--text-muted);">
+      <summary style="cursor: pointer; user-select: none;">Usage examples</summary>
+      <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+        <div>
+          <strong>curl:</strong>
+          <code style="display: block; padding: 6px 10px; background: var(--bg-secondary); border-radius: 4px; margin-top: 4px; font-size: 12px; white-space: pre-wrap;">curl {serverInfo.has_auth ? `-u ${serverInfo.username}:PASSWORD ` : ''}{serverInfo.api_url}/sessions</code>
+        </div>
+        <div>
+          <strong>API key:</strong>
+          <code style="display: block; padding: 6px 10px; background: var(--bg-secondary); border-radius: 4px; margin-top: 4px; font-size: 12px; white-space: pre-wrap;">curl -H "X-API-Key: YOUR_KEY" {serverInfo.api_url}/sessions</code>
+        </div>
+        <div>
+          <strong>Discovery file:</strong>
+          <code style="display: block; padding: 6px 10px; background: var(--bg-secondary); border-radius: 4px; margin-top: 4px; font-size: 12px;">cat .seocrawler-api.json</code>
+        </div>
+      </div>
+    </details>
+  </div>
+{/if}
 
 <!-- Projects -->
 <div class="page-header">
