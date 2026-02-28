@@ -16,10 +16,6 @@ const (
 	defaultResourceWorkers = 3
 )
 
-func parseDuration(s string) (time.Duration, error) {
-	return time.ParseDuration(s)
-}
-
 // Manager manages running crawl engines.
 type Manager struct {
 	mu         sync.RWMutex
@@ -85,7 +81,7 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 		crawlerCfg.Workers = req.Workers
 	}
 	if req.Delay != "" {
-		if d, err := parseDuration(req.Delay); err == nil {
+		if d, err := time.ParseDuration(req.Delay); err == nil {
 			crawlerCfg.Delay = d
 		}
 	}
@@ -233,7 +229,7 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 			crawlerCfg.Workers = overrides.Workers
 		}
 		if overrides.Delay != "" {
-			if d, err := parseDuration(overrides.Delay); err == nil {
+			if d, err := time.ParseDuration(overrides.Delay); err == nil {
 				crawlerCfg.Delay = d
 			}
 		}
@@ -335,7 +331,7 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 			crawlerCfg.Workers = overrides.Workers
 		}
 		if overrides.Delay != "" {
-			if d, err := parseDuration(overrides.Delay); err == nil {
+			if d, err := time.ParseDuration(overrides.Delay); err == nil {
 				crawlerCfg.Delay = d
 			}
 		}

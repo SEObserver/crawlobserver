@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/SEObserver/crawlobserver/internal/applog"
 )
 
 // InsertSession inserts or updates a crawl session.
@@ -433,7 +435,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			WHERE crawl_session_id = ? AND title != ''
 			GROUP BY title HAVING cnt > 1
 		)`, sessionID)
-	_ = dupRow.Scan(&content.TitleDuplicates) // ignore error (may be 0 rows)
+	if err := dupRow.Scan(&content.TitleDuplicates); err != nil {
+		applog.Warnf("audit", "scan title duplicates: %v", err)
+	}
 	result.Content = content
 
 	// --- Technical audit ---
@@ -514,15 +518,21 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			countIf(internal_links_out > 100) AS pages_high_internal_out,
 			countIf(external_links_out = 0) AS pages_no_external
 		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
-	_ = pageDistRow.Scan(&links.PagesNoInternalOut, &links.PagesHighInternalOut, &links.PagesNoExternal)
+	if err := pageDistRow.Scan(&links.PagesNoInternalOut, &links.PagesHighInternalOut, &links.PagesNoExternal); err != nil {
+		applog.Warnf("audit", "scan link distribution: %v", err)
+	}
 
-	// Broken internal links
+	// Broken internal links (LEFT ANTI JOIN to avoid in-memory hash set on large datasets)
 	brokenRow := s.conn.QueryRow(ctx, `
-		SELECT count(DISTINCT target_url) FROM crawlobserver.links
-		WHERE crawl_session_id = ? AND is_internal = true
-		AND target_url NOT IN (SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?)`,
-		sessionID, sessionID)
-	_ = brokenRow.Scan(&links.BrokenInternal)
+		SELECT count(DISTINCT l.target_url)
+		FROM crawlobserver.links AS l
+		LEFT ANTI JOIN crawlobserver.pages AS p
+			ON p.crawl_session_id = l.crawl_session_id AND p.url = l.target_url
+		WHERE l.crawl_session_id = ? AND l.is_internal = true`,
+		sessionID)
+	if err := brokenRow.Scan(&links.BrokenInternal); err != nil {
+		applog.Warnf("audit", "scan broken internal links: %v", err)
+	}
 
 	// Top external domains
 	edRows, err := s.conn.Query(ctx, `
@@ -576,14 +586,19 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 		}
 	}
 
-	// Orphan pages (not targeted by any internal link)
+	// Orphan pages (LEFT ANTI JOIN to avoid in-memory hash set on large datasets)
 	orphanRow := s.conn.QueryRow(ctx, `
-		SELECT count() FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND url NOT IN (
-			SELECT DISTINCT target_url FROM crawlobserver.links
+		SELECT count()
+		FROM crawlobserver.pages AS p
+		LEFT ANTI JOIN (
+			SELECT DISTINCT target_url
+			FROM crawlobserver.links
 			WHERE crawl_session_id = ? AND is_internal = true
-		)`, sessionID, sessionID)
-	_ = orphanRow.Scan(&structure.OrphanPages)
+		) AS l ON p.url = l.target_url
+		WHERE p.crawl_session_id = ?`, sessionID, sessionID)
+	if err := orphanRow.Scan(&structure.OrphanPages); err != nil {
+		applog.Warnf("audit", "scan orphan pages: %v", err)
+	}
 	result.Structure = structure
 
 	// --- Sitemaps audit ---
@@ -591,32 +606,10 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	smRow := s.conn.QueryRow(ctx, `
 		SELECT count(DISTINCT url) FROM crawlobserver.sitemap_urls
 		WHERE crawl_session_id = ?`, sessionID)
-	_ = smRow.Scan(&sitemaps.TotalSitemapURLs)
-
-	if sitemaps.TotalSitemapURLs > 0 {
-		covRow := s.conn.QueryRow(ctx, `
-			SELECT
-				countIf(in_crawl AND in_sitemap) AS in_both,
-				countIf(in_crawl AND NOT in_sitemap) AS crawled_only,
-				countIf(NOT in_crawl AND in_sitemap) AS sitemap_only
-			FROM (
-				SELECT
-					url AS u,
-					url IN (SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?) AS in_crawl,
-					1 AS in_sitemap
-				FROM crawlobserver.sitemap_urls WHERE crawl_session_id = ?
-				UNION ALL
-				SELECT
-					url AS u,
-					1 AS in_crawl,
-					url IN (SELECT url FROM crawlobserver.sitemap_urls WHERE crawl_session_id = ?) AS in_sitemap
-				FROM crawlobserver.pages WHERE crawl_session_id = ?
-			) GROUP BY u
-			HAVING 1`, sessionID, sessionID, sessionID, sessionID)
-		// Simplified: just do two counts
-		_ = covRow.Scan(&sitemaps.InBoth, &sitemaps.CrawledOnly, &sitemaps.SitemapOnly)
+	if err := smRow.Scan(&sitemaps.TotalSitemapURLs); err != nil {
+		applog.Warnf("audit", "scan sitemap URL count: %v", err)
 	}
-	// Simpler coverage approach
+
 	if sitemaps.TotalSitemapURLs > 0 {
 		var inBoth uint64
 		ibRow := s.conn.QueryRow(ctx, `
@@ -629,7 +622,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			sitemaps.InBoth = inBoth
 			var totalCrawled uint64
 			tcRow := s.conn.QueryRow(ctx, `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
-			_ = tcRow.Scan(&totalCrawled)
+			if err := tcRow.Scan(&totalCrawled); err != nil {
+				applog.Warnf("audit", "scan total crawled for sitemap coverage: %v", err)
+			}
 			sitemaps.CrawledOnly = totalCrawled - inBoth
 			sitemaps.SitemapOnly = sitemaps.TotalSitemapURLs - inBoth
 		}
@@ -644,7 +639,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			countIf(lang != '') AS pages_with_lang,
 			countIf(length(schema_types) > 0) AS pages_with_schema
 		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
-	_ = intlRow.Scan(&intl.PagesWithHreflang, &intl.PagesWithLang, &intl.PagesWithSchema)
+	if err := intlRow.Scan(&intl.PagesWithHreflang, &intl.PagesWithLang, &intl.PagesWithSchema); err != nil {
+		applog.Warnf("audit", "scan international stats: %v", err)
+	}
 
 	// Lang distribution
 	langRows, err := s.conn.Query(ctx, `
