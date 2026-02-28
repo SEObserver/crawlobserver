@@ -4,11 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/SEObserver/crawlobserver/internal/customtests"
 )
+
+// safeRuleID matches only alphanumeric, hyphens, underscores (safe for SQL identifiers).
+var safeRuleID = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 // PageHTMLRow is a url+html pair streamed from ClickHouse.
 type PageHTMLRow struct {
@@ -16,10 +20,18 @@ type PageHTMLRow struct {
 	HTML string
 }
 
+// chEscapeString escapes a string for safe embedding in a ClickHouse single-quoted literal.
+// Backslashes must be escaped first, then single quotes.
+func chEscapeString(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	return s
+}
+
 // buildRuleExpr returns a ClickHouse SQL expression for a single rule.
 func buildRuleExpr(r customtests.TestRule) string {
-	v := strings.ReplaceAll(r.Value, "'", "\\'")
-	ex := strings.ReplaceAll(r.Extra, "'", "\\'")
+	v := chEscapeString(r.Value)
+	ex := chEscapeString(r.Extra)
 	switch r.Type {
 	case customtests.StringContains:
 		return fmt.Sprintf("position(body_html, '%s') > 0", v)
@@ -51,6 +63,9 @@ func (s *Store) RunCustomTestsSQL(ctx context.Context, sessionID string, rules [
 	var selects []string
 	selects = append(selects, "url")
 	for _, r := range rules {
+		if !safeRuleID.MatchString(r.ID) {
+			return nil, fmt.Errorf("invalid rule ID: %q", r.ID)
+		}
 		selects = append(selects, fmt.Sprintf("(%s) AS `%s`", buildRuleExpr(r), r.ID))
 	}
 
