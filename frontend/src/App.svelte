@@ -2,13 +2,15 @@
   import { onDestroy } from 'svelte';
   import { getSessions, getStats, getPages, getExternalLinks, getInternalLinks, getProgress,
     stopCrawl, deleteSession,
-    subscribeProgress, getTheme,
     getStorageStats, getGlobalStats, getSessionStorage, getSystemStats,
     getProjects, createProject, renameProject, deleteProject,
     getUpdateStatus, applyUpdate,
     createBackup, getSessionsPaginated } from './lib/api.js';
   import { statusBadge, fmt, fmtSize, fmtN, trunc, timeAgo, a11yKeydown } from './lib/utils.js';
   import { PAGE_SIZE, TAB_FILTERS, TABS } from './lib/tabColumns.js';
+  import { pushURL, parseRoute } from './lib/router.js';
+  import { createSSEManager } from './lib/sse.js';
+  import { applyTheme, loadThemeFromServer, saveDarkMode } from './lib/theme.js';
   import HtmlModal from './lib/components/HtmlModal.svelte';
   import ResumeModal from './lib/components/ResumeModal.svelte';
   import NewCrawlForm from './lib/components/NewCrawlForm.svelte';
@@ -103,7 +105,7 @@
 
   // --- Live progress ---
   let liveProgress = $state({});
-  let sseConnections = {};
+  const sse = createSSEManager();
   let statsRefreshTimer = null;
   let updatePollTimer = null;
   let systemStatsInterval = null;
@@ -217,35 +219,17 @@
   // --- Theme ---
   async function loadTheme() {
     try {
-      const t = await getTheme();
-      theme = t;
-      const saved = localStorage.getItem('darkMode');
-      darkMode = saved !== null ? saved === 'true' : t.mode === 'dark';
-      applyTheme();
+      const result = await loadThemeFromServer();
+      theme = result.theme;
+      darkMode = result.darkMode;
+      applyTheme(theme, darkMode);
     } catch {}
-  }
-
-  function applyTheme() {
-    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-    if (theme.accent_color) {
-      document.documentElement.style.setProperty('--accent', theme.accent_color);
-      // Generate a lighter version for backgrounds
-      const hex = theme.accent_color.replace('#', '');
-      const r = parseInt(hex.substr(0, 2), 16);
-      const g = parseInt(hex.substr(2, 2), 16);
-      const b = parseInt(hex.substr(4, 2), 16);
-      if (darkMode) {
-        document.documentElement.style.setProperty('--accent-light', `rgba(${r},${g},${b},0.15)`);
-      } else {
-        document.documentElement.style.setProperty('--accent-light', `rgba(${r},${g},${b},0.08)`);
-      }
-    }
   }
 
   function toggleDarkMode() {
     darkMode = !darkMode;
-    localStorage.setItem('darkMode', darkMode ? 'true' : 'false');
-    applyTheme();
+    saveDarkMode(darkMode);
+    applyTheme(theme, darkMode);
   }
 
   // --- Settings ---
@@ -262,11 +246,11 @@
       theme.app_name = saved.app_name;
       theme.logo_url = saved.logo_url;
       darkMode = saved.mode === 'dark';
-      applyTheme();
+      applyTheme(theme, darkMode);
     } else {
       theme = saved;
       darkMode = saved.mode === 'dark';
-      applyTheme();
+      applyTheme(theme, darkMode);
       currentView = 'home';
     }
   }
@@ -301,68 +285,6 @@
 
   function hasActiveFilters() {
     return Object.values(filters).some(v => v && v !== '');
-  }
-
-  // --- URL Routing ---
-  function pushURL(path, queryFilters = {}, offset = 0) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(queryFilters)) {
-      if (v !== '' && v != null) params.set(k, v);
-    }
-    if (offset > 0) params.set('offset', String(offset));
-    const qs = params.toString();
-    const full = qs ? `${path}?${qs}` : path;
-    if (window.location.pathname + window.location.search !== full) {
-      history.pushState(null, '', full);
-    }
-  }
-
-  function parseRoute() {
-    const path = window.location.pathname;
-    const search = window.location.search;
-
-    // Top-level pages
-    if (path === '/new-crawl') return { page: 'new-crawl' };
-    if (path === '/settings') return { page: 'settings' };
-    if (path === '/stats') return { page: 'stats' };
-    if (path === '/api') return { page: 'api' };
-    if (path === '/logs') return { page: 'logs' };
-    if (path === '/compare') {
-      const sp = new URLSearchParams(search);
-      return { page: 'compare', sessionA: sp.get('a') || '', sessionB: sp.get('b') || '' };
-    }
-
-    // All projects page
-    if (path === '/projects') return { page: 'all-projects' };
-
-    // Project view
-    const projMatch = path.match(/^\/projects\/([^/]+)(?:\/([^/]+)(?:\/([^/]+))?)?/);
-    if (projMatch) {
-      return { page: 'project', projectId: projMatch[1], projectTab: projMatch[2] || 'sessions', projectSubView: projMatch[3] || null };
-    }
-
-    // URL detail
-    const urlMatch = path.match(/^\/sessions\/([^/]+)\/url\/(.+)/);
-    if (urlMatch) {
-      return { sessionId: urlMatch[1], tab: 'url-detail', detailUrl: decodeURIComponent(urlMatch[2]), filters: {}, offset: 0 };
-    }
-    // Session detail
-    const m = path.match(/^\/sessions\/([^/]+)(?:\/([^/]+)(?:\/([^/]+))?)?/);
-    if (m) {
-      const sp = new URLSearchParams(search);
-      const routeFilters = {};
-      let routeOffset = 0;
-      for (const [k, v] of sp.entries()) {
-        if (k === 'offset') {
-          routeOffset = parseInt(v, 10) || 0;
-        } else if (k !== 'limit') {
-          routeFilters[k] = v;
-        }
-      }
-      return { sessionId: m[1], tab: m[2] || 'overview', subView: m[3] || null, filters: routeFilters, offset: routeOffset };
-    }
-    // Home
-    return { page: 'home' };
   }
 
   async function navigateTo(path, queryFilters = {}) {
@@ -501,10 +423,10 @@
       sessions = sessionsData || [];
       sessionStorageMap = storageData || {};
       for (const s of sessions) {
-        if (s.is_running && !sseConnections[s.ID]) {
-          sseConnections[s.ID] = subscribeProgress(s.ID,
+        if (s.is_running && !sse.isConnected(s.ID)) {
+          sse.connect(s.ID,
             (data) => { liveProgress[s.ID] = data; liveProgress = { ...liveProgress }; scheduleStatsRefresh(s.ID); },
-            () => { delete sseConnections[s.ID]; if (selectedSession?.ID === s.ID) { getStats(s.ID).then(st => stats = st).catch(() => {}); } loadSessions(); }
+            (id) => { if (selectedSession?.ID === id) { getStats(id).then(st => stats = st).catch(() => {}); } loadSessions(); }
           );
         }
       }
@@ -727,10 +649,7 @@
   onDestroy(() => {
     if (systemStatsInterval) clearInterval(systemStatsInterval);
     if (updatePollTimer) clearInterval(updatePollTimer);
-    for (const id of Object.keys(sseConnections)) {
-      sseConnections[id].close();
-      delete sseConnections[id];
-    }
+    sse.disconnectAll();
   });
 </script>
 
