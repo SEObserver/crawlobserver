@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -445,14 +446,15 @@ func (s *Server) handleRecomputeDepths(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.store.RecomputeDepths(r.Context(), sessionID, sess.SeedURLs); err != nil {
-		internalError(w, r, err)
-		return
-	}
+	go func() {
+		if err := s.store.RecomputeDepths(context.Background(), sessionID, sess.SeedURLs); err != nil {
+			applog.Errorf("server", "RecomputeDepths %s: %v", sessionID, err)
+		}
+	}()
 
 	writeJSON(w, map[string]string{
 		"status":  "ok",
-		"message": fmt.Sprintf("Depths recomputed for session %s", sessionID),
+		"message": fmt.Sprintf("Depth recomputation started for session %s", sessionID),
 	})
 }
 
@@ -462,14 +464,15 @@ func (s *Server) handleComputePageRank(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionID := r.PathValue("id")
 
-	if err := s.store.ComputePageRank(r.Context(), sessionID); err != nil {
-		internalError(w, r, err)
-		return
-	}
+	go func() {
+		if err := s.store.ComputePageRank(context.Background(), sessionID); err != nil {
+			applog.Errorf("server", "ComputePageRank %s: %v", sessionID, err)
+		}
+	}()
 
 	writeJSON(w, map[string]string{
 		"status":  "ok",
-		"message": fmt.Sprintf("PageRank computed for session %s", sessionID),
+		"message": fmt.Sprintf("PageRank computation started for session %s", sessionID),
 	})
 }
 
