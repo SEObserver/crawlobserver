@@ -18,6 +18,12 @@ const (
 	CSSNotExists      RuleType = "css_not_exists"
 	CSSExtractText    RuleType = "css_extract_text"
 	CSSExtractAttr    RuleType = "css_extract_attr"
+	CSSExtractAllText RuleType = "css_extract_all_text"
+	CSSExtractAllAttr RuleType = "css_extract_all_attr"
+	RegexExtract      RuleType = "regex_extract"
+	RegexExtractAll   RuleType = "regex_extract_all"
+	XPathExtract      RuleType = "xpath_extract"
+	XPathExtractAll   RuleType = "xpath_extract_all"
 )
 
 // IsClickHouseNative returns true if the rule can run as a ClickHouse SQL expression.

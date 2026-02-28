@@ -2,9 +2,18 @@ package customtests
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/antchfx/htmlquery"
+	"golang.org/x/net/html"
+)
+
+const (
+	maxExtractLen = 500
+	maxExtractAll = 20
 )
 
 // PageHTMLRow mirrors storage.PageHTMLRow to avoid circular imports.
@@ -21,12 +30,12 @@ type StorageInterface interface {
 
 // RunTests executes all rules from a ruleset against a crawl session.
 func RunTests(ctx context.Context, store StorageInterface, sessionID string, ruleset *Ruleset) (*TestRunResult, error) {
-	var chRules, cssRules []TestRule
+	var chRules, goRules []TestRule
 	for _, r := range ruleset.Rules {
 		if r.Type.IsClickHouseNative() {
 			chRules = append(chRules, r)
 		} else {
-			cssRules = append(cssRules, r)
+			goRules = append(goRules, r)
 		}
 	}
 
@@ -49,8 +58,8 @@ func RunTests(ctx context.Context, store StorageInterface, sessionID string, rul
 		}
 	}
 
-	// 2. Run CSS rules by streaming HTML
-	if len(cssRules) > 0 {
+	// 2. Run Go-evaluated rules by streaming HTML
+	if len(goRules) > 0 {
 		ch, err := store.StreamPagesHTML(ctx, sessionID)
 		if err != nil {
 			return nil, err
@@ -60,11 +69,16 @@ func RunTests(ctx context.Context, store StorageInterface, sessionID string, rul
 			if err != nil {
 				continue
 			}
+			// Parse HTML node once, shared between goquery and htmlquery
+			var htmlNode *html.Node
+			if doc.Selection != nil && len(doc.Selection.Nodes) > 0 {
+				htmlNode = doc.Selection.Nodes[0]
+			}
 			if merged[row.URL] == nil {
 				merged[row.URL] = make(map[string]string)
 			}
-			for _, r := range cssRules {
-				merged[row.URL][r.ID] = evalCSS(doc, r)
+			for _, r := range goRules {
+				merged[row.URL][r.ID] = evalGoRule(doc, htmlNode, row.HTML, r)
 			}
 		}
 	}
@@ -102,23 +116,108 @@ func RunTests(ctx context.Context, store StorageInterface, sessionID string, rul
 	return result, nil
 }
 
-func evalCSS(doc *goquery.Document, r TestRule) string {
-	sel := doc.Find(r.Value)
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "…"
+}
+
+func joinExtracted(items []string) string {
+	if len(items) <= maxExtractAll {
+		return strings.Join(items, " | ")
+	}
+	extra := len(items) - maxExtractAll
+	return strings.Join(items[:maxExtractAll], " | ") + fmt.Sprintf(" … (+%d more)", extra)
+}
+
+func evalGoRule(doc *goquery.Document, htmlNode *html.Node, rawHTML string, r TestRule) string {
 	switch r.Type {
+	// --- Existing CSS rules ---
 	case CSSExists:
-		if sel.Length() > 0 {
+		if doc.Find(r.Value).Length() > 0 {
 			return "pass"
 		}
 		return "fail"
 	case CSSNotExists:
-		if sel.Length() == 0 {
+		if doc.Find(r.Value).Length() == 0 {
 			return "pass"
 		}
 		return "fail"
 	case CSSExtractText:
-		return sel.First().Text()
+		return truncate(doc.Find(r.Value).First().Text(), maxExtractLen)
 	case CSSExtractAttr:
-		return sel.First().AttrOr(r.Extra, "")
+		return truncate(doc.Find(r.Value).First().AttrOr(r.Extra, ""), maxExtractLen)
+
+	// --- CSS extract all ---
+	case CSSExtractAllText:
+		var items []string
+		doc.Find(r.Value).Each(func(_ int, s *goquery.Selection) {
+			items = append(items, truncate(s.Text(), maxExtractLen))
+		})
+		return joinExtracted(items)
+	case CSSExtractAllAttr:
+		var items []string
+		doc.Find(r.Value).Each(func(_ int, s *goquery.Selection) {
+			if v, ok := s.Attr(r.Extra); ok {
+				items = append(items, truncate(v, maxExtractLen))
+			}
+		})
+		return joinExtracted(items)
+
+	// --- Regex extract ---
+	case RegexExtract:
+		re, err := regexp.Compile(r.Value)
+		if err != nil {
+			return ""
+		}
+		m := re.FindStringSubmatch(rawHTML)
+		if len(m) > 1 {
+			return truncate(m[1], maxExtractLen)
+		}
+		if len(m) == 1 {
+			return truncate(m[0], maxExtractLen)
+		}
+		return ""
+	case RegexExtractAll:
+		re, err := regexp.Compile(r.Value)
+		if err != nil {
+			return ""
+		}
+		matches := re.FindAllStringSubmatch(rawHTML, -1)
+		var items []string
+		for _, m := range matches {
+			if len(m) > 1 {
+				items = append(items, truncate(m[1], maxExtractLen))
+			} else {
+				items = append(items, truncate(m[0], maxExtractLen))
+			}
+		}
+		return joinExtracted(items)
+
+	// --- XPath extract ---
+	case XPathExtract:
+		if htmlNode == nil {
+			return ""
+		}
+		node, err := htmlquery.Query(htmlNode, r.Value)
+		if err != nil || node == nil {
+			return ""
+		}
+		return truncate(htmlquery.InnerText(node), maxExtractLen)
+	case XPathExtractAll:
+		if htmlNode == nil {
+			return ""
+		}
+		nodes, err := htmlquery.QueryAll(htmlNode, r.Value)
+		if err != nil {
+			return ""
+		}
+		var items []string
+		for _, n := range nodes {
+			items = append(items, truncate(htmlquery.InnerText(n), maxExtractLen))
+		}
+		return joinExtracted(items)
 	}
 	return ""
 }

@@ -2,6 +2,8 @@ package customtests
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -150,6 +152,162 @@ func TestRunTests_MixedRules(t *testing.T) {
 	}
 }
 
+func TestCSSExtractAll(t *testing.T) {
+	store := &mockStorage{
+		htmlPages: []PageHTMLRow{
+			{URL: "https://example.com/", HTML: `<html><body><ul><li class="item">A</li><li class="item">B</li><li class="item">C</li></ul><a href="/1" class="link">L1</a><a href="/2" class="link">L2</a></body></html>`},
+		},
+	}
+	ruleset := &Ruleset{
+		ID:   "p-all",
+		Name: "Extract All",
+		Rules: []TestRule{
+			{ID: "r1", Type: CSSExtractAllText, Name: "All items", Value: "li.item"},
+			{ID: "r2", Type: CSSExtractAllAttr, Name: "All hrefs", Value: "a.link", Extra: "href"},
+		},
+	}
+
+	result, err := RunTests(context.Background(), store, "s1", ruleset)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	page := result.Pages[0]
+	if page.Results["r1"] != "A | B | C" {
+		t.Errorf("r1: expected 'A | B | C', got %q", page.Results["r1"])
+	}
+	if page.Results["r2"] != "/1 | /2" {
+		t.Errorf("r2: expected '/1 | /2', got %q", page.Results["r2"])
+	}
+}
+
+func TestRegexExtract(t *testing.T) {
+	store := &mockStorage{
+		htmlPages: []PageHTMLRow{
+			{URL: "https://example.com/", HTML: `<html><body>GTM-ABC123 and GTM-DEF456 and GTM-GHI789</body></html>`},
+		},
+	}
+	ruleset := &Ruleset{
+		ID:   "p-regex",
+		Name: "Regex",
+		Rules: []TestRule{
+			{ID: "r1", Type: RegexExtract, Name: "First GTM", Value: `GTM-([A-Z0-9]+)`},
+			{ID: "r2", Type: RegexExtractAll, Name: "All GTMs", Value: `GTM-([A-Z0-9]+)`},
+		},
+	}
+
+	result, err := RunTests(context.Background(), store, "s1", ruleset)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	page := result.Pages[0]
+	if page.Results["r1"] != "ABC123" {
+		t.Errorf("r1: expected 'ABC123', got %q", page.Results["r1"])
+	}
+	if page.Results["r2"] != "ABC123 | DEF456 | GHI789" {
+		t.Errorf("r2: expected 'ABC123 | DEF456 | GHI789', got %q", page.Results["r2"])
+	}
+}
+
+func TestXPathExtract(t *testing.T) {
+	store := &mockStorage{
+		htmlPages: []PageHTMLRow{
+			{URL: "https://example.com/", HTML: `<html><head><title>XPath Test</title></head><body><div class="content"><p>First</p><p>Second</p></div></body></html>`},
+		},
+	}
+	ruleset := &Ruleset{
+		ID:   "p-xpath",
+		Name: "XPath",
+		Rules: []TestRule{
+			{ID: "r1", Type: XPathExtract, Name: "Title", Value: `//title`},
+			{ID: "r2", Type: XPathExtractAll, Name: "All p", Value: `//div[@class="content"]/p`},
+		},
+	}
+
+	result, err := RunTests(context.Background(), store, "s1", ruleset)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	page := result.Pages[0]
+	if page.Results["r1"] != "XPath Test" {
+		t.Errorf("r1: expected 'XPath Test', got %q", page.Results["r1"])
+	}
+	if page.Results["r2"] != "First | Second" {
+		t.Errorf("r2: expected 'First | Second', got %q", page.Results["r2"])
+	}
+}
+
+func TestExtractTruncation(t *testing.T) {
+	longText := strings.Repeat("x", 600)
+	store := &mockStorage{
+		htmlPages: []PageHTMLRow{
+			{URL: "https://example.com/", HTML: `<html><body><p>` + longText + `</p></body></html>`},
+		},
+	}
+	ruleset := &Ruleset{
+		ID:   "p-trunc",
+		Name: "Truncation",
+		Rules: []TestRule{
+			{ID: "r1", Type: CSSExtractText, Name: "Long text", Value: "p"},
+		},
+	}
+
+	result, err := RunTests(context.Background(), store, "s1", ruleset)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	val := result.Pages[0].Results["r1"]
+	if len(val) > 510 { // 500 + "…" (multi-byte)
+		t.Errorf("expected truncated value, got len=%d", len(val))
+	}
+	if !strings.HasSuffix(val, "…") {
+		t.Errorf("expected truncated suffix '…', got %q", val[len(val)-5:])
+	}
+}
+
+func TestExtractAllLimit(t *testing.T) {
+	var items string
+	for i := 0; i < 25; i++ {
+		items += fmt.Sprintf(`<li class="x">item%d</li>`, i)
+	}
+	store := &mockStorage{
+		htmlPages: []PageHTMLRow{
+			{URL: "https://example.com/", HTML: `<html><body><ul>` + items + `</ul></body></html>`},
+		},
+	}
+	ruleset := &Ruleset{
+		ID:   "p-limit",
+		Name: "Limit",
+		Rules: []TestRule{
+			{ID: "r1", Type: CSSExtractAllText, Name: "Items", Value: "li.x"},
+		},
+	}
+
+	result, err := RunTests(context.Background(), store, "s1", ruleset)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	val := result.Pages[0].Results["r1"]
+	if !strings.Contains(val, "(+5 more)") {
+		t.Errorf("expected '+5 more' suffix, got %q", val)
+	}
+	// Should contain first 20 items
+	if !strings.Contains(val, "item0") || !strings.Contains(val, "item19") {
+		t.Errorf("expected items 0-19 in result")
+	}
+	// Should NOT contain item20
+	parts := strings.Split(val, " | ")
+	for _, p := range parts[:20] {
+		if p == "item20" {
+			t.Errorf("item20 should not be in first 20 items")
+		}
+	}
+}
+
 func TestIsClickHouseNative(t *testing.T) {
 	nativeTypes := []RuleType{StringContains, StringNotContains, RegexMatch, RegexNotMatch, HeaderExists, HeaderNotExists, HeaderContains, HeaderRegex}
 	for _, rt := range nativeTypes {
@@ -157,8 +315,8 @@ func TestIsClickHouseNative(t *testing.T) {
 			t.Errorf("%s should be ClickHouse-native", rt)
 		}
 	}
-	cssTypes := []RuleType{CSSExists, CSSNotExists, CSSExtractText, CSSExtractAttr}
-	for _, rt := range cssTypes {
+	goTypes := []RuleType{CSSExists, CSSNotExists, CSSExtractText, CSSExtractAttr, CSSExtractAllText, CSSExtractAllAttr, RegexExtract, RegexExtractAll, XPathExtract, XPathExtractAll}
+	for _, rt := range goTypes {
 		if rt.IsClickHouseNative() {
 			t.Errorf("%s should NOT be ClickHouse-native", rt)
 		}

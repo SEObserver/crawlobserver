@@ -16,15 +16,21 @@
     { value: 'css_not_exists', label: 'CSS selector not exists', target: 'HTML/CSS' },
     { value: 'css_extract_text', label: 'CSS extract text', target: 'HTML/CSS' },
     { value: 'css_extract_attr', label: 'CSS extract attribute', target: 'HTML/CSS' },
+    { value: 'css_extract_all_text', label: 'CSS extract ALL text', target: 'HTML/CSS' },
+    { value: 'css_extract_all_attr', label: 'CSS extract ALL attributes', target: 'HTML/CSS' },
+    { value: 'regex_extract', label: 'Regex capture group', target: 'HTML' },
+    { value: 'regex_extract_all', label: 'Regex capture ALL', target: 'HTML' },
+    { value: 'xpath_extract', label: 'XPath extract', target: 'HTML/XPath' },
+    { value: 'xpath_extract_all', label: 'XPath extract ALL', target: 'HTML/XPath' },
   ];
 
   function needsExtra(type) {
-    return ['header_contains', 'header_regex', 'css_extract_attr'].includes(type);
+    return ['header_contains', 'header_regex', 'css_extract_attr', 'css_extract_all_attr'].includes(type);
   }
 
   function extraLabel(type) {
     if (type === 'header_contains' || type === 'header_regex') return 'Header value';
-    if (type === 'css_extract_attr') return 'Attribute name';
+    if (type === 'css_extract_attr' || type === 'css_extract_all_attr') return 'Attribute name';
     return 'Extra';
   }
 
@@ -32,7 +38,12 @@
     if (type.startsWith('header_')) return 'Header name';
     if (type.startsWith('css_')) return 'CSS selector';
     if (type.startsWith('regex_')) return 'Regex pattern';
+    if (type.startsWith('xpath_')) return 'XPath expression';
     return 'Search string';
+  }
+
+  function isAllRule(type) {
+    return type.includes('_all_') || type.endsWith('_all');
   }
 
   // State
@@ -209,6 +220,12 @@
     </div>
 
     <div style="padding: 16px 20px;">
+      {#if editRules.some(r => isAllRule(r.type))}
+        <div style="background: #fff3cd; color: #856404; border: 1px solid #ffc107; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px;">
+          <strong>Warning:</strong> "Extract ALL" rules may produce large results on pages with many matching elements (capped at 20 items per page).
+        </div>
+      {/if}
+
       <table class="data-table" style="margin-bottom: 12px;">
         <thead>
           <tr>
@@ -285,7 +302,7 @@
         {@const count = testResult.summary[rule.id] ?? 0}
         {@const total = testResult.total_pages}
         {@const pct = total > 0 ? Math.round(count / total * 100) : 0}
-        {@const isExtract = rule.type === 'css_extract_text' || rule.type === 'css_extract_attr'}
+        {@const isExtract = rule.type.includes('extract')}
         <div style="background: var(--bg-secondary); border-radius: 8px; padding: 10px 14px; min-width: 140px;">
           <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">{rule.name}</div>
           {#if isExtract}
