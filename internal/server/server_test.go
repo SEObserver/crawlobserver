@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -118,6 +119,14 @@ func (m *mockStore) SessionAudit(_ context.Context, _ string) (*storage.AuditRes
 		return m.auditResult, m.err
 	}
 	return &storage.AuditResult{}, m.err
+}
+
+func (m *mockStore) ExportSession(_ context.Context, _ string, _ io.Writer, _ bool) error {
+	return m.err
+}
+
+func (m *mockStore) ImportSession(_ context.Context, _ io.Reader) (*storage.CrawlSession, error) {
+	return &storage.CrawlSession{}, m.err
 }
 
 func (m *mockStore) GetPageHTML(_ context.Context, _, _ string) (string, error) {

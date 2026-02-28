@@ -88,6 +88,12 @@ func BuildWhereClause(filters []ParsedFilter) (string, []interface{}, error) {
 			args = append(args, "%"+val+"%")
 
 		case FilterUint:
+			// Support range syntax: "100-300" → col >= 100 AND col <= 300
+			if lo, hi, ok := parseUintRange(val); ok {
+				clauses = append(clauses, fmt.Sprintf("%s >= ? AND %s <= ?", f.Def.Column, f.Def.Column))
+				args = append(args, lo, hi)
+				continue
+			}
 			op, numStr := parseUintOp(val)
 			n, err := strconv.ParseUint(numStr, 10, 64)
 			if err != nil {
@@ -115,6 +121,24 @@ func BuildWhereClause(filters []ParsedFilter) (string, []interface{}, error) {
 		return "", nil, nil
 	}
 	return strings.Join(clauses, " AND "), args, nil
+}
+
+// parseUintRange tries to parse "N-M" range syntax. Returns lo, hi, ok.
+func parseUintRange(val string) (uint64, uint64, bool) {
+	// Avoid matching operator prefixes like ">100"
+	if len(val) > 0 && (val[0] == '>' || val[0] == '<' || val[0] == '=') {
+		return 0, 0, false
+	}
+	parts := strings.SplitN(val, "-", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return 0, 0, false
+	}
+	lo, err1 := strconv.ParseUint(strings.TrimSpace(parts[0]), 10, 64)
+	hi, err2 := strconv.ParseUint(strings.TrimSpace(parts[1]), 10, 64)
+	if err1 != nil || err2 != nil {
+		return 0, 0, false
+	}
+	return lo, hi, true
 }
 
 // parseUintOp extracts a comparison operator prefix from a value string.
