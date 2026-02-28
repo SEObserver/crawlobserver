@@ -60,6 +60,8 @@ type Server struct {
 	StopClickHouse  func()           // stops managed CH (nil if external)
 	StartClickHouse func() error     // restarts managed CH (nil if external)
 
+	rateLimiter *rateLimitMiddleware
+
 	gscFetchMu      sync.Mutex
 	gscFetchStatus  map[string]*gscFetchStatus // projectID -> status
 
@@ -242,6 +244,11 @@ func (s *Server) buildHandler() (http.Handler, error) {
 		applog.Warn("server", "No authentication configured. Set server.username and server.password in config.")
 	}
 
+	if s.cfg.Server.RateLimit.Enabled {
+		s.rateLimiter = newRateLimitMiddleware(s.cfg.Server.RateLimit)
+		handler = s.rateLimiter.Handler(handler)
+	}
+
 	handler = securityHeaders(handler)
 	return handler, nil
 }
@@ -297,6 +304,9 @@ func openBrowser(url string) {
 
 // Stop gracefully shuts down the server.
 func (s *Server) Stop(ctx context.Context) error {
+	if s.rateLimiter != nil {
+		s.rateLimiter.Stop()
+	}
 	s.removeAPIDiscoveryFile()
 	applog.Close()
 	if s.server != nil {

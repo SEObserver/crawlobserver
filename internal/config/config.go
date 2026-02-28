@@ -72,11 +72,19 @@ type ResourcesConfig struct {
 }
 
 type ServerConfig struct {
-	Host       string `mapstructure:"host"`
-	Port       int    `mapstructure:"port"`
-	Username   string `mapstructure:"username"`
-	Password   string `mapstructure:"password"`
-	SQLitePath string `mapstructure:"sqlite_path"`
+	Host       string          `mapstructure:"host"`
+	Port       int             `mapstructure:"port"`
+	Username   string          `mapstructure:"username"`
+	Password   string          `mapstructure:"password"`
+	SQLitePath string          `mapstructure:"sqlite_path"`
+	RateLimit  RateLimitConfig `mapstructure:"rate_limit"`
+}
+
+type RateLimitConfig struct {
+	Enabled            bool    `mapstructure:"enabled"`
+	RequestsPerSecond  float64 `mapstructure:"requests_per_second"`
+	Burst              int     `mapstructure:"burst"`
+	AuthRequestsPerMin int     `mapstructure:"auth_requests_per_minute"`
 }
 
 type ThemeConfig struct {
@@ -130,6 +138,10 @@ func SetDefaults() {
 	viper.SetDefault("server.username", "admin")
 	viper.SetDefault("server.password", "")
 	viper.SetDefault("server.sqlite_path", "crawlobserver.db")
+	viper.SetDefault("server.rate_limit.enabled", false)
+	viper.SetDefault("server.rate_limit.requests_per_second", 10)
+	viper.SetDefault("server.rate_limit.burst", 20)
+	viper.SetDefault("server.rate_limit.auth_requests_per_minute", 20)
 
 	viper.SetDefault("theme.app_name", "CrawlObserver")
 	viper.SetDefault("theme.logo_url", "")
