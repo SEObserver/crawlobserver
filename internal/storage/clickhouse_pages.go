@@ -405,6 +405,8 @@ func isValidUUID(s string) bool {
 
 // ComputePageRank computes internal PageRank for all pages in a session.
 // Uses uint32 IDs for memory efficiency and iterative power method.
+// URL→ID mapping is done in ClickHouse via a Join-engine temp table,
+// so only uint32 pairs are transferred for the link graph.
 func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 	start := time.Now()
 	if !isValidUUID(sessionID) {
@@ -435,43 +437,70 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		return nil
 	}
 
-	// 2. Load internal links as adjacency list (outgoing edges by source ID)
-	linkRows, err := s.conn.Query(ctx, `
-		SELECT source_url, target_url FROM crawlobserver.links
-		WHERE crawl_session_id = ? AND is_internal = true`, sessionID)
+	applog.Infof("storage", "PageRank: loaded %d URLs in %s", n, time.Since(start))
+
+	// 2. Build URL→ID temp table in ClickHouse for server-side ID resolution
+	idTable := fmt.Sprintf("crawlobserver.tmp_urlids_%s", strings.ReplaceAll(sessionID, "-", ""))
+	s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", idTable))
+	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (url String, id UInt32) ENGINE = Join(ANY, LEFT, url)", idTable)); err != nil {
+		return fmt.Errorf("creating URL ID table: %w", err)
+	}
+	defer s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", idTable))
+
+	// Insert URL→ID mappings
+	const idChunk = 10000
+	for i := 0; i < int(n); i += idChunk {
+		end := i + idChunk
+		if end > int(n) {
+			end = int(n)
+		}
+		batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (url, id)", idTable))
+		if err != nil {
+			return fmt.Errorf("preparing URL ID batch: %w", err)
+		}
+		for j := i; j < end; j++ {
+			if err := batch.Append(idToURL[j], uint32(j)); err != nil {
+				return fmt.Errorf("appending URL ID: %w", err)
+			}
+		}
+		if err := batch.Send(); err != nil {
+			return fmt.Errorf("sending URL ID batch: %w", err)
+		}
+	}
+
+	// Free the Go-side map — no longer needed
+	urlToID = nil
+
+	// 3. Load deduplicated internal links as uint32 ID pairs (resolved in ClickHouse)
+	t2 := time.Now()
+	linkRows, err := s.conn.Query(ctx, fmt.Sprintf(`
+		SELECT
+			joinGet('%s', 'id', source_url) AS src_id,
+			joinGet('%s', 'id', target_url) AS tgt_id
+		FROM crawlobserver.links
+		WHERE crawl_session_id = ? AND is_internal = true
+			AND source_url IN (SELECT url FROM %s)
+			AND target_url IN (SELECT url FROM %s)
+		GROUP BY src_id, tgt_id
+		HAVING src_id != tgt_id`,
+		idTable, idTable, idTable, idTable), sessionID)
 	if err != nil {
 		return fmt.Errorf("querying links: %w", err)
 	}
 	defer linkRows.Close()
 
 	outLinks := make([][]uint32, n)
+	var edgeCount int
 	for linkRows.Next() {
-		var src, tgt string
-		if err := linkRows.Scan(&src, &tgt); err != nil {
-			return fmt.Errorf("scanning link: %w", err)
+		var srcID, tgtID uint32
+		if err := linkRows.Scan(&srcID, &tgtID); err != nil {
+			return fmt.Errorf("scanning link IDs: %w", err)
 		}
-		srcID, srcOK := urlToID[src]
-		tgtID, tgtOK := urlToID[tgt]
-		if srcOK && tgtOK && srcID != tgtID {
-			outLinks[srcID] = append(outLinks[srcID], tgtID)
-		}
+		outLinks[srcID] = append(outLinks[srcID], tgtID)
+		edgeCount++
 	}
 
-	// 3. Deduplicate outgoing links per node
-	for i := range outLinks {
-		if len(outLinks[i]) > 1 {
-			seen := make(map[uint32]bool, len(outLinks[i]))
-			j := 0
-			for _, id := range outLinks[i] {
-				if !seen[id] {
-					seen[id] = true
-					outLinks[i][j] = id
-					j++
-				}
-			}
-			outLinks[i] = outLinks[i][:j]
-		}
-	}
+	applog.Infof("storage", "PageRank: loaded %d unique edges in %s", edgeCount, time.Since(t2))
 
 	// 4. PageRank iteration (power method)
 	const damping = 0.85

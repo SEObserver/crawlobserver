@@ -241,7 +241,11 @@ func (s *Server) buildHandler() (http.Handler, error) {
 		handler = basicAuth(mux, s.cfg.Server.Username, s.cfg.Server.Password)
 		applog.Info("server", "Basic authentication enabled")
 	} else {
-		applog.Warn("server", "No authentication configured. Set server.username and server.password in config.")
+		if s.cfg.Server.Host == "0.0.0.0" || (s.cfg.Server.Host != "127.0.0.1" && s.cfg.Server.Host != "localhost") {
+			applog.Errorf("server", "WARNING: No authentication configured and server is listening on %s. The API is publicly accessible! Set server.username and server.password in config.", s.cfg.Server.Host)
+		} else {
+			applog.Warn("server", "No authentication configured. Set server.username and server.password in config.")
+		}
 	}
 
 	if s.cfg.Server.RateLimit.Enabled {

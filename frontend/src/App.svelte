@@ -1,4 +1,20 @@
 <script>
+  // TODO: Refactor monolithic components into smaller sub-components:
+  //   - ComparePage (542 lines) → ComparePagesTab, CompareLinksTab
+  //   - GSCTab (538 lines) → GSCOverview, GSCQueries, GSCPages, etc.
+  //   - ProvidersTab (498 lines) → ProviderCard, ProviderDetail
+  //   - Sidebar (479 lines) → ProjectList, SessionsList, ProjectSearch
+  //   - PageRankTab (469 lines) → PageRankTop, PageRankDirectory, PageRankDistribution
+  //   - SessionDetailPage (437 lines) → extract tab state + data loading
+  //   - Extract shared patterns: useAsyncData, usePagination utilities
+  //   - Consider a lightweight store to reduce prop drilling from App.svelte
+
+  // TODO: Increase test coverage (frontend + backend):
+  //   - Frontend: add tests for Sidebar, SessionDetailPage, ComparePage, NewCrawlForm
+  //   - Frontend: add E2E tests with Playwright
+  //   - Backend: add tests for engine shutdown/cancellation, buffer overflow, rate limiting
+  //   - Backend: add tests for SSRF protection edge cases, auth middleware
+
   import { onDestroy } from 'svelte';
   import { getSessions, getStats,  getProgress,
     stopCrawl, deleteSession,

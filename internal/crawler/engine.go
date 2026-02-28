@@ -169,6 +169,23 @@ func (e *Engine) isInScope(targetURL string) bool {
 
 // Run starts the crawl with the given seed URLs.
 func (e *Engine) Run(seeds []string) error {
+	if err := e.initCrawl(seeds); err != nil {
+		return err
+	}
+	e.seedFrontier(seeds)
+	e.prefetchRobots()
+
+	fetchCh, shutdown := e.startWorkers()
+
+	// Dispatcher blocks until frontier is drained or context is cancelled
+	e.dispatcher(fetchCh)
+
+	shutdown()
+	return nil
+}
+
+// initCrawl prepares the session, buffer, and persists the session row.
+func (e *Engine) initCrawl(seeds []string) error {
 	if e.session == nil {
 		e.session = NewSession(seeds, e.cfg)
 	} else {
@@ -185,15 +202,17 @@ func (e *Engine) Run(seeds []string) error {
 		e.Stop()
 	})
 
-	// Save session to ClickHouse
 	if err := e.store.InsertSession(e.ctx, e.session.ToStorageRow()); err != nil {
 		return fmt.Errorf("inserting session: %w", err)
 	}
 
 	applog.Infof("crawler", "Starting crawl session %s with %d seed(s), %d workers",
 		e.session.ID, len(seeds), e.cfg.Crawler.Workers)
+	return nil
+}
 
-	// Seed the frontier
+// seedFrontier normalizes seed URLs and adds them to the frontier queue.
+func (e *Engine) seedFrontier(seeds []string) {
 	for i, seed := range seeds {
 		normalized, err := normalizer.Normalize(seed)
 		if err != nil {
@@ -206,34 +225,34 @@ func (e *Engine) Run(seeds []string) error {
 			Depth:    0,
 		})
 	}
+}
 
-	// Pre-fetch robots.txt for all seed hosts so we have sitemap directives
+// prefetchRobots fetches robots.txt for all seed hosts and discovers sitemaps.
+func (e *Engine) prefetchRobots() {
 	for _, seed := range e.session.SeedURLs {
 		e.robots.IsAllowed(seed) // triggers fetch + cache
 	}
-
-	// Discover and persist sitemaps (before workers start)
 	e.discoverAndPersistSitemaps()
+}
 
-	// Channels
+// startWorkers launches all worker goroutines and returns the pipeline channels
+// along with a shutdown function that must be called after the dispatcher returns.
+func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 	fetchCh := make(chan *frontier.CrawlURL, e.cfg.Crawler.Workers)
 	parseCh := make(chan *fetcher.FetchResult, e.cfg.Crawler.Workers)
 
-	var wg sync.WaitGroup
-
-	// Fetch workers
+	var fetchWg sync.WaitGroup
 	numFetchWorkers := e.cfg.Crawler.Workers
 	for i := 0; i < numFetchWorkers; i++ {
-		wg.Add(1)
+		fetchWg.Add(1)
 		go func(id int) {
-			defer wg.Done()
+			defer fetchWg.Done()
 			e.fetchWorker(id, fetchCh, parseCh)
 		}(i)
 	}
 
-	// Parse workers
-	numParseWorkers := max(1, numFetchWorkers/2)
 	var parseWg sync.WaitGroup
+	numParseWorkers := max(1, numFetchWorkers/2)
 	for i := 0; i < numParseWorkers; i++ {
 		parseWg.Add(1)
 		go func(id int) {
@@ -242,16 +261,14 @@ func (e *Engine) Run(seeds []string) error {
 		}(i)
 	}
 
-	// Retry dispatcher: polls retryQueue and sends ready items to fetchCh
 	var retryWg sync.WaitGroup
-	retryCtx, retryCancel := context.WithCancel(context.Background())
+	retryCtx, retryCancel := context.WithCancel(e.ctx)
 	retryWg.Add(1)
 	go func() {
 		defer retryWg.Done()
 		e.retryDispatcher(retryCtx, fetchCh)
 	}()
 
-	// External link check workers
 	var extWg sync.WaitGroup
 	if e.checkExternal {
 		e.externalCh = make(chan string, 1000)
@@ -269,7 +286,6 @@ func (e *Engine) Run(seeds []string) error {
 		applog.Infof("crawler", "Started %d external link check workers", numExtWorkers)
 	}
 
-	// Page resource check workers
 	var resWg sync.WaitGroup
 	if e.checkResources {
 		e.resourceCh = make(chan resourceCheckItem, 1000)
@@ -287,53 +303,44 @@ func (e *Engine) Run(seeds []string) error {
 		applog.Infof("crawler", "Started %d resource check workers", numResWorkers)
 	}
 
-	// Dispatcher: feeds URLs from frontier to fetch workers
-	e.dispatcher(fetchCh)
+	shutdown := func() {
+		// Stop retry dispatcher, then close fetch channel
+		retryCancel()
+		retryWg.Wait()
+		close(fetchCh)
 
-	// Dispatcher returned — cancel retry dispatcher, wait for it, then close fetchCh
-	retryCancel()
-	retryWg.Wait()
-	close(fetchCh)
+		// Wait for pipeline to drain
+		fetchWg.Wait()
+		close(parseCh)
+		parseWg.Wait()
 
-	// Wait for fetch workers to finish
-	wg.Wait()
-	close(parseCh)
+		// Shutdown optional workers
+		if e.checkExternal && e.externalCh != nil {
+			close(e.externalCh)
+			extWg.Wait()
+			e.flushExternalChecks()
+		}
+		if e.checkResources && e.resourceCh != nil {
+			close(e.resourceCh)
+			resWg.Wait()
+			e.flushResourceChecks()
+			e.flushResourceRefs()
+		}
 
-	// Wait for parse workers to finish
-	parseWg.Wait()
+		// Final buffer flush
+		e.buffer.Close()
 
-	// Shutdown external check workers
-	if e.checkExternal && e.externalCh != nil {
-		close(e.externalCh)
-		extWg.Wait()
-		e.flushExternalChecks()
+		bufState := e.buffer.ErrorState()
+		if bufState.LostPages > 0 || bufState.LostLinks > 0 {
+			applog.Warnf("crawler", "[%s] Crawl ended with data loss: %d pages, %d links dropped",
+				e.session.ID, bufState.LostPages, bufState.LostLinks)
+		}
+
+		e.persistRobotsData()
+		e.finalizeSession(bufState)
 	}
 
-	// Shutdown resource check workers
-	if e.checkResources && e.resourceCh != nil {
-		close(e.resourceCh)
-		resWg.Wait()
-		e.flushResourceChecks()
-		e.flushResourceRefs()
-	}
-
-	// Final flush
-	e.buffer.Close()
-
-	// Check for data loss
-	bufState := e.buffer.ErrorState()
-	if bufState.LostPages > 0 || bufState.LostLinks > 0 {
-		applog.Warnf("crawler", "[%s] Crawl ended with data loss: %d pages, %d links dropped",
-			e.session.ID, bufState.LostPages, bufState.LostLinks)
-	}
-
-	// Persist robots.txt data
-	e.persistRobotsData()
-
-	// Finalize session (recompute depths, PageRank, update status)
-	e.finalizeSession(bufState)
-
-	return nil
+	return fetchCh, shutdown
 }
 
 // BufferState returns the current buffer error state for monitoring.
@@ -788,7 +795,7 @@ func (e *Engine) bufferExternalCheck(check storage.ExternalLinkCheck) {
 		batch := e.externalCheckBuf
 		e.externalCheckBuf = nil
 		e.externalCheckMu.Unlock()
-		if err := e.store.InsertExternalLinkChecks(context.Background(), batch); err != nil {
+		if err := e.store.InsertExternalLinkChecks(e.ctx, batch); err != nil {
 			applog.Warnf("crawler", "failed to insert external link checks: %v", err)
 		}
 		return
@@ -802,7 +809,7 @@ func (e *Engine) flushExternalChecks() {
 	e.externalCheckBuf = nil
 	e.externalCheckMu.Unlock()
 	if len(batch) > 0 {
-		if err := e.store.InsertExternalLinkChecks(context.Background(), batch); err != nil {
+		if err := e.store.InsertExternalLinkChecks(e.ctx, batch); err != nil {
 			applog.Warnf("crawler", "failed to flush external link checks: %v", err)
 		} else {
 			applog.Infof("crawler", "Flushed %d external link checks", len(batch))
@@ -853,7 +860,7 @@ func (e *Engine) bufferResourceCheck(check storage.PageResourceCheck) {
 		batch := e.resourceCheckBuf
 		e.resourceCheckBuf = nil
 		e.resourceCheckMu.Unlock()
-		if err := e.store.InsertPageResourceChecks(context.Background(), batch); err != nil {
+		if err := e.store.InsertPageResourceChecks(e.ctx, batch); err != nil {
 			applog.Warnf("crawler", "failed to insert page resource checks: %v", err)
 		}
 		return
@@ -867,7 +874,7 @@ func (e *Engine) flushResourceChecks() {
 	e.resourceCheckBuf = nil
 	e.resourceCheckMu.Unlock()
 	if len(batch) > 0 {
-		if err := e.store.InsertPageResourceChecks(context.Background(), batch); err != nil {
+		if err := e.store.InsertPageResourceChecks(e.ctx, batch); err != nil {
 			applog.Warnf("crawler", "failed to flush page resource checks: %v", err)
 		} else {
 			applog.Infof("crawler", "Flushed %d page resource checks", len(batch))
@@ -882,7 +889,7 @@ func (e *Engine) bufferResourceRef(ref storage.PageResourceRef) {
 		batch := e.resourceRefBuf
 		e.resourceRefBuf = nil
 		e.resourceRefMu.Unlock()
-		if err := e.store.InsertPageResourceRefs(context.Background(), batch); err != nil {
+		if err := e.store.InsertPageResourceRefs(e.ctx, batch); err != nil {
 			applog.Warnf("crawler", "failed to insert page resource refs: %v", err)
 		}
 		return
@@ -896,7 +903,7 @@ func (e *Engine) flushResourceRefs() {
 	e.resourceRefBuf = nil
 	e.resourceRefMu.Unlock()
 	if len(batch) > 0 {
-		if err := e.store.InsertPageResourceRefs(context.Background(), batch); err != nil {
+		if err := e.store.InsertPageResourceRefs(e.ctx, batch); err != nil {
 			applog.Warnf("crawler", "failed to flush page resource refs: %v", err)
 		} else {
 			applog.Infof("crawler", "Flushed %d page resource refs", len(batch))
@@ -948,10 +955,10 @@ func (e *Engine) discoverAndPersistSitemaps() {
 		}
 	}
 
-	if err := e.store.InsertSitemaps(context.Background(), sitemapRows); err != nil {
+	if err := e.store.InsertSitemaps(e.ctx, sitemapRows); err != nil {
 		applog.Warnf("crawler", "failed to persist sitemaps: %v", err)
 	}
-	if err := e.store.InsertSitemapURLs(context.Background(), sitemapURLRows); err != nil {
+	if err := e.store.InsertSitemapURLs(e.ctx, sitemapURLRows); err != nil {
 		applog.Warnf("crawler", "failed to persist sitemap URLs: %v", err)
 	}
 	if len(sitemapRows) > 0 {
@@ -990,7 +997,9 @@ func (e *Engine) persistRobotsData() {
 			FetchedAt:      entry.FetchedAt,
 		})
 	}
-	if err := e.store.InsertRobotsData(context.Background(), robotsRows); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := e.store.InsertRobotsData(ctx, robotsRows); err != nil {
 		applog.Warnf("crawler", "failed to persist robots.txt data: %v", err)
 	} else {
 		applog.Infof("crawler", "Persisted robots.txt for %d hosts", len(robotsRows))
@@ -998,11 +1007,15 @@ func (e *Engine) persistRobotsData() {
 }
 
 // finalizeSession recomputes depths and PageRank, then updates the session status.
+// Uses a dedicated context because the crawl context (e.ctx) may already be cancelled.
 func (e *Engine) finalizeSession(bufState storage.BufferErrorState) {
-	if err := e.store.RecomputeDepths(context.Background(), e.session.ID, e.session.SeedURLs); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if err := e.store.RecomputeDepths(ctx, e.session.ID, e.session.SeedURLs); err != nil {
 		applog.Warnf("crawler", "depth recomputation failed: %v", err)
 	}
-	if err := e.store.ComputePageRank(context.Background(), e.session.ID); err != nil {
+	if err := e.store.ComputePageRank(ctx, e.session.ID); err != nil {
 		applog.Warnf("crawler", "PageRank computation failed: %v", err)
 	}
 
@@ -1011,14 +1024,14 @@ func (e *Engine) finalizeSession(bufState storage.BufferErrorState) {
 	} else {
 		e.session.Status = "completed"
 	}
-	if total, err := e.store.CountPages(context.Background(), e.session.ID); err == nil {
+	if total, err := e.store.CountPages(ctx, e.session.ID); err == nil {
 		e.session.Pages = total
 	} else {
 		e.session.Pages = uint64(e.pagesCrawled.Load())
 	}
 	row := e.session.ToStorageRow()
 	row.FinishedAt = time.Now()
-	if err := e.store.InsertSession(context.Background(), row); err != nil {
+	if err := e.store.InsertSession(ctx, row); err != nil {
 		applog.Errorf("crawler", "updating session: %v", err)
 	}
 
