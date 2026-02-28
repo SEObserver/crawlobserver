@@ -1047,8 +1047,9 @@
             </DataTable>
 
           {:else if tab === 'ext-checks'}
-            <ExternalChecksTab sessionId={selectedSession.ID} initialSubView={extChecksSubView}
+            <ExternalChecksTab sessionId={selectedSession.ID} initialSubView={extChecksSubView} initialFilters={filters}
               onpushurl={(u) => pushURL(u)}
+              onnavigate={(t, f) => navigateTo(`/sessions/${selectedSession.ID}/${t}`, f)}
               onerror={(msg) => error = msg} />
 
           {:else if tab === 'pagerank'}

@@ -1,7 +1,7 @@
 <script>
   import { getExternalLinkChecks, getExternalLinkCheckDomains } from '../api.js';
 
-  let { sessionId, initialSubView = 'domains', onpushurl, onerror } = $props();
+  let { sessionId, initialSubView = 'domains', initialFilters = {}, onpushurl, onnavigate, onerror } = $props();
 
   let view = $state(initialSubView); // 'domains' | 'urls'
   let domains = $state([]);
@@ -11,9 +11,19 @@
   let checksOffset = $state(0);
   let hasMoreDomains = $state(false);
   let hasMoreChecks = $state(false);
-  let domainFilter = $state('');
-  let urlFilters = $state({});
+  let domainFilter = $state(initialFilters.domain || '');
+  let urlFilters = $state({ url: initialFilters.url || '', status_code: initialFilters.status_code || '' });
   const PAGE_SIZE = 100;
+
+  function pushFilters() {
+    const base = `/sessions/${sessionId}/ext-checks/${view}`;
+    const params = new URLSearchParams();
+    if (view === 'domains' && domainFilter) params.set('domain', domainFilter);
+    if (view === 'urls' && urlFilters.url) params.set('url', urlFilters.url);
+    if (view === 'urls' && urlFilters.status_code) params.set('status_code', urlFilters.status_code);
+    const qs = params.toString();
+    onpushurl?.(qs ? `${base}?${qs}` : base);
+  }
 
   async function loadDomains() {
     loading = true;
@@ -43,18 +53,22 @@
   }
 
   function switchToUrls(domain) {
-    urlFilters = domain ? { url: domain } : {};
+    urlFilters = domain ? { url: domain } : { url: '', status_code: '' };
     checksOffset = 0;
     view = 'urls';
-    onpushurl?.(`/sessions/${sessionId}/ext-checks/urls`);
+    pushFilters();
     loadChecks();
   }
 
   function switchToDomains() {
     domainsOffset = 0;
     view = 'domains';
-    onpushurl?.(`/sessions/${sessionId}/ext-checks/domains`);
+    pushFilters();
     loadDomains();
+  }
+
+  function viewSources(extUrl) {
+    onnavigate?.('external', { target_url: extUrl });
   }
 
   function statusClass(code) {
@@ -92,9 +106,9 @@
         onkeydown={(e) => { if (e.key === 'Enter') { domainsOffset = 0; loadDomains(); } }} />
     {:else}
       <input type="text" class="ext-filter-input" placeholder="Filter URLs..." bind:value={urlFilters.url}
-        onkeydown={(e) => { if (e.key === 'Enter') { checksOffset = 0; loadChecks(); } }} />
+        onkeydown={(e) => { if (e.key === 'Enter') { checksOffset = 0; pushFilters(); loadChecks(); } }} />
       <select class="ext-filter-select" bind:value={urlFilters.status_code}
-        onchange={() => { checksOffset = 0; loadChecks(); }}>
+        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}>
         <option value="">All status</option>
         <option value="0">Dead (0)</option>
         <option value="200-299">2xx OK</option>
@@ -166,6 +180,7 @@
           <th>Redirect</th>
           <th>Error</th>
           <th>Time (ms)</th>
+          <th>Sources</th>
         </tr>
       </thead>
       <tbody>
@@ -177,10 +192,11 @@
             <td class="cell-url">{c.redirect_url || '-'}</td>
             <td class="cell-error" title={c.error}>{c.error ? c.error.substring(0, 60) : '-'}</td>
             <td class="num">{c.response_time_ms}</td>
+            <td><button class="link-btn" onclick={() => viewSources(c.url)} title="View pages linking to this URL">View</button></td>
           </tr>
         {/each}
         {#if checks.length === 0}
-          <tr><td colspan="6" class="ext-empty">No checks found</td></tr>
+          <tr><td colspan="7" class="ext-empty">No checks found</td></tr>
         {/if}
       </tbody>
     </table>
