@@ -126,8 +126,9 @@ export async function computePageRank(sessionId) {
   return fetchJSON(`/sessions/${sessionId}/compute-pagerank`, { method: 'POST' });
 }
 
-export async function retryFailed(sessionId) {
-  return fetchJSON(`/sessions/${sessionId}/retry-failed`, { method: 'POST' });
+export async function retryFailed(sessionId, statusCode = 0) {
+  const qs = statusCode ? `?status_code=${statusCode}` : '';
+  return fetchJSON(`/sessions/${sessionId}/retry-failed${qs}`, { method: 'POST' });
 }
 
 export async function getPageRankDistribution(sessionId, buckets = 20) {

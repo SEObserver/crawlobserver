@@ -16,6 +16,7 @@
   let recomputing = $state(false);
   let computingPR = $state(false);
   let retryingFailed = $state(false);
+  let retryingStatus = $state(null);
 
   async function handleRecomputeDepths() {
     recomputing = true;
@@ -43,6 +44,39 @@
     } catch (e) { onerror?.(e.message); }
     finally { retryingFailed = false; }
   }
+
+  async function handleRetryStatus(code) {
+    retryingStatus = code;
+    try {
+      await retryFailed(session.ID, code);
+      setTimeout(() => onrefresh?.(), 2000);
+    } catch (e) { onerror?.(e.message); }
+    finally { retryingStatus = null; }
+  }
+
+  function retryableStatusCodes() {
+    if (!stats?.status_codes) return [];
+    return Object.entries(stats.status_codes)
+      .filter(([code, count]) => +code >= 400 && count > 0)
+      .sort((a, b) => +a[0] - +b[0]);
+  }
+
+  function elapsed() {
+    if (!session.StartedAt || session.StartedAt === '1970-01-01T00:00:00Z') return '';
+    const start = new Date(session.StartedAt);
+    const end = session.FinishedAt && session.FinishedAt !== '1970-01-01T00:00:00Z' ? new Date(session.FinishedAt) : new Date();
+    const secs = Math.floor((end - start) / 1000);
+    if (secs < 60) return `${secs}s`;
+    if (secs < 3600) return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    return `${h}h ${m}m`;
+  }
+
+  function fmtDate(d) {
+    if (!d || d === '1970-01-01T00:00:00Z') return '';
+    return new Date(d).toLocaleString();
+  }
 </script>
 
 <div class="action-bar">
@@ -52,9 +86,15 @@
         &middot; {fmtN(liveProgress[session.ID].pages_crawled)} pages &middot; {fmtN(liveProgress[session.ID].queue_size)} in queue
       {/if}
     </span>
+    {#if session.StartedAt && session.StartedAt !== '1970-01-01T00:00:00Z'}
+      <span class="action-bar-meta">Started {fmtDate(session.StartedAt)} &middot; {elapsed()}</span>
+    {/if}
     <button class="btn btn-sm btn-danger" onclick={() => onstop?.(session.ID)}>Stop</button>
   {:else}
     <span class="badge" class:badge-success={session.Status==='completed'} class:badge-error={session.Status==='failed'} class:badge-warning={session.Status==='stopped'}>{session.Status}</span>
+    {#if session.StartedAt && session.StartedAt !== '1970-01-01T00:00:00Z'}
+      <span class="action-bar-meta">{fmtDate(session.StartedAt)} &middot; {elapsed()}</span>
+    {/if}
     <button class="btn btn-sm" onclick={() => onresume?.(session.ID)}>Resume</button>
     <button class="btn btn-sm" onclick={handleRecomputeDepths} disabled={recomputing}>
       {recomputing ? 'Recomputing...' : 'Recompute Depths'}
@@ -67,6 +107,11 @@
         {retryingFailed ? 'Retrying...' : `Retry Failed (${stats.status_codes[0]})`}
       </button>
     {/if}
+    {#each retryableStatusCodes() as [code, count]}
+      <button class="btn btn-sm" onclick={() => handleRetryStatus(+code)} disabled={retryingStatus === +code} title="Retry {count} pages with status {code}">
+        {retryingStatus === +code ? 'Retrying...' : `Retry ${code} (${fmtN(count)})`}
+      </button>
+    {/each}
     <button class="btn btn-sm" onclick={() => showExportDialog = true} title="Export session as JSONL.gz">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Export
@@ -109,3 +154,11 @@
     </div>
   </div>
 {/if}
+
+<style>
+  .action-bar-meta {
+    font-size: 12px;
+    color: var(--fg-muted);
+    white-space: nowrap;
+  }
+</style>
