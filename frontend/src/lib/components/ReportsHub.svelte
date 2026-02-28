@@ -46,6 +46,11 @@
       loadAudit();
     }
   }
+
+  // Auto-load audit if initial sub-view requires it
+  if (initialSubView !== 'overview') {
+    loadAudit();
+  }
 </script>
 
 <div class="pr-container">
