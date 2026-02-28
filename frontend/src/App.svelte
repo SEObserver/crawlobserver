@@ -94,6 +94,9 @@
   // Reports tab
   let reportsSubView = $state('overview');
 
+  // External checks tab
+  let extChecksSubView = $state('domains');
+
   // Live progress
   let liveProgress = $state({});
   let sseConnections = {};
@@ -414,6 +417,12 @@
           reportsSubView = route.subView;
         } else {
           reportsSubView = 'overview';
+        }
+      } else if (tab === 'ext-checks') {
+        if (route.subView && ['domains', 'urls'].includes(route.subView)) {
+          extChecksSubView = route.subView;
+        } else {
+          extChecksSubView = 'domains';
         }
       } else if (tab !== 'robots' && tab !== 'sitemaps') {
         await loadTabData();
@@ -1038,7 +1047,9 @@
             </DataTable>
 
           {:else if tab === 'ext-checks'}
-            <ExternalChecksTab sessionId={selectedSession.ID} onerror={(msg) => error = msg} />
+            <ExternalChecksTab sessionId={selectedSession.ID} initialSubView={extChecksSubView}
+              onpushurl={(u) => pushURL(u)}
+              onerror={(msg) => error = msg} />
 
           {:else if tab === 'pagerank'}
             <PageRankTab sessionId={selectedSession.ID} initialSubView={prSubView}
