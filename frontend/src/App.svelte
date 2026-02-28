@@ -230,7 +230,7 @@
       theme = result.theme;
       darkMode = result.darkMode;
       applyTheme(theme, darkMode);
-    } catch {}
+    } catch (e) { console.warn('Failed to load theme:', e); }
   }
 
   function toggleDarkMode() {
@@ -452,7 +452,7 @@
       if (selectedSession?.ID === sessionId) {
         try {
           stats = await getStats(sessionId);
-        } catch (_) {}
+        } catch (e) { console.warn('Stats refresh failed:', e); }
       }
     }, STATS_REFRESH_MS);
   }
@@ -630,13 +630,13 @@
   async function loadStorageStats() {
     try {
       storageStats = await getStorageStats();
-    } catch {}
+    } catch (e) { console.warn('Failed to load storage stats:', e); }
   }
 
   async function loadSystemStats() {
     try {
       systemStats = await getSystemStats();
-    } catch {}
+    } catch (e) { console.warn('Failed to load system stats:', e); }
   }
 
   function startSystemStatsPolling() {
