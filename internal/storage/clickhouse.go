@@ -193,8 +193,8 @@ func (s *Store) ListSessions(ctx context.Context, projectID ...string) ([]CrawlS
 }
 
 // GetSession retrieves a single crawl session by ID.
-func (s *Store) GetSession(sessionID string) (*CrawlSession, error) {
-	row := s.conn.QueryRow(context.Background(), `
+func (s *Store) GetSession(ctx context.Context, sessionID string) (*CrawlSession, error) {
+	row := s.conn.QueryRow(ctx, `
 		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id
 		FROM seocrawler.crawl_sessions FINAL
 		WHERE id = ?
@@ -213,7 +213,7 @@ func (s *Store) GetSession(sessionID string) (*CrawlSession, error) {
 
 // UpdateSessionProject re-inserts a session with a new project_id (ReplacingMergeTree pattern).
 func (s *Store) UpdateSessionProject(ctx context.Context, sessionID string, projectID *string) error {
-	sess, err := s.GetSession(sessionID)
+	sess, err := s.GetSession(ctx, sessionID)
 	if err != nil {
 		return err
 	}
@@ -527,8 +527,7 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 }
 
 // UncrawledURLs returns internal link targets that were discovered but not crawled in a session.
-func (s *Store) UncrawledURLs(sessionID string) ([]string, error) {
-	ctx := context.Background()
+func (s *Store) UncrawledURLs(ctx context.Context, sessionID string) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT DISTINCT target_url
 		FROM seocrawler.links
@@ -555,8 +554,7 @@ func (s *Store) UncrawledURLs(sessionID string) ([]string, error) {
 }
 
 // CrawledURLs returns all URLs already crawled in a session (for dedup on resume).
-func (s *Store) CrawledURLs(sessionID string) ([]string, error) {
-	ctx := context.Background()
+func (s *Store) CrawledURLs(ctx context.Context, sessionID string) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?
 	`, sessionID)
@@ -1404,8 +1402,7 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 }
 
 // FailedURLs returns URLs with status_code = 0 (fetch errors) for a session.
-func (s *Store) FailedURLs(sessionID string) ([]string, error) {
-	ctx := context.Background()
+func (s *Store) FailedURLs(ctx context.Context, sessionID string) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT url FROM seocrawler.pages
 		WHERE crawl_session_id = ? AND status_code = 0
@@ -1510,6 +1507,29 @@ func (s *Store) GetRobotsContent(ctx context.Context, sessionID, host string) (*
 		return nil, fmt.Errorf("querying robots content: %w", err)
 	}
 	return &r, nil
+}
+
+// GetURLsByHost returns all distinct URLs for a given host in a session.
+func (s *Store) GetURLsByHost(ctx context.Context, sessionID, host string) ([]string, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT DISTINCT url
+		FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND url LIKE ?
+		ORDER BY url`, sessionID, host+"/%")
+	if err != nil {
+		return nil, fmt.Errorf("querying urls by host: %w", err)
+	}
+	defer rows.Close()
+
+	var urls []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, fmt.Errorf("scanning url: %w", err)
+		}
+		urls = append(urls, u)
+	}
+	return urls, nil
 }
 
 // InsertSitemaps inserts sitemap rows.

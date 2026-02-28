@@ -103,6 +103,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("POST /api/sessions/{id}/compute-pagerank", s.handleComputePageRank)
 	mux.HandleFunc("POST /api/sessions/{id}/retry-failed", s.handleRetryFailed)
 	mux.HandleFunc("POST /api/sessions/{id}/robots-test", s.handleRobotsTest)
+	mux.HandleFunc("POST /api/sessions/{id}/robots-simulate", s.handleRobotsSimulate)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
 
 	// Update & backup routes (desktop mode)
@@ -761,14 +762,14 @@ func (s *Server) handleRecomputeDepths(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionID := r.PathValue("id")
 
-	sess, err := s.store.GetSession(sessionID)
+	sess, err := s.store.GetSession(r.Context(), sessionID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "session not found: "+err.Error())
+		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
 
 	if err := s.store.RecomputeDepths(r.Context(), sessionID, sess.SeedURLs); err != nil {
-		writeError(w, http.StatusInternalServerError, "recompute failed: "+err.Error())
+		internalError(w, r, err)
 		return
 	}
 
@@ -955,6 +956,114 @@ func (s *Server) handleRobotsTest(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"results": results})
 }
 
+func (s *Server) handleRobotsSimulate(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	sessionID := r.PathValue("id")
+
+	var req struct {
+		Host       string `json:"host"`
+		UserAgent  string `json:"user_agent"`
+		NewContent string `json:"new_content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Host == "" || req.NewContent == "" {
+		writeError(w, http.StatusBadRequest, "host and new_content are required")
+		return
+	}
+	if req.UserAgent == "" {
+		req.UserAgent = "*"
+	}
+
+	// Load current robots.txt
+	row, err := s.store.GetRobotsContent(r.Context(), sessionID, req.Host)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+
+	// Load all URLs for this host
+	urls, err := s.store.GetURLsByHost(r.Context(), sessionID, "https://"+req.Host)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	// Also try http://
+	httpURLs, err := s.store.GetURLsByHost(r.Context(), sessionID, "http://"+req.Host)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	urls = append(urls, httpURLs...)
+
+	// Parse current and new robots.txt
+	currentRobots, err := robotstxt.FromBytes([]byte(row.Content))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "failed to parse current robots.txt: "+err.Error())
+		return
+	}
+	newRobots, err := robotstxt.FromBytes([]byte(req.NewContent))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "failed to parse new robots.txt: "+err.Error())
+		return
+	}
+
+	currentGroup := currentRobots.FindGroup(req.UserAgent)
+	newGroup := newRobots.FindGroup(req.UserAgent)
+
+	type urlEntry struct {
+		URL string `json:"url"`
+	}
+
+	var (
+		currentlyAllowed int
+		currentlyBlocked int
+		newlyBlocked     []urlEntry
+		newlyAllowed     []urlEntry
+	)
+
+	for _, u := range urls {
+		path := u
+		if parsed, parseErr := url.Parse(u); parseErr == nil {
+			path = parsed.Path
+			if path == "" {
+				path = "/"
+			}
+		}
+
+		currentAllowed := currentGroup.Test(path)
+		newAllowed := newGroup.Test(path)
+
+		if currentAllowed {
+			currentlyAllowed++
+		} else {
+			currentlyBlocked++
+		}
+
+		if currentAllowed && !newAllowed {
+			newlyBlocked = append(newlyBlocked, urlEntry{URL: u})
+		} else if !currentAllowed && newAllowed {
+			newlyAllowed = append(newlyAllowed, urlEntry{URL: u})
+		}
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"total_urls":        len(urls),
+		"currently_allowed": currentlyAllowed,
+		"currently_blocked": currentlyBlocked,
+		"newly_blocked":     newlyBlocked,
+		"newly_allowed":     newlyAllowed,
+		"summary": map[string]int{
+			"will_block": len(newlyBlocked),
+			"will_allow": len(newlyAllowed),
+		},
+	})
+}
+
 func (s *Server) handleSitemaps(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
 	if !s.requireSessionAccess(w, r, sessionID) {
@@ -1011,7 +1120,7 @@ func (s *Server) requireSessionAccess(w http.ResponseWriter, r *http.Request, se
 	if auth == nil || auth.ProjectID == nil {
 		return true
 	}
-	sess, err := s.store.GetSession(sessionID)
+	sess, err := s.store.GetSession(r.Context(), sessionID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "session not found")
 		return false
@@ -1362,7 +1471,8 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-src 'self' blob:")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-src 'self' blob:; base-uri 'self'; form-action 'self'; object-src 'none'")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		next.ServeHTTP(w, r)
 	})
 }

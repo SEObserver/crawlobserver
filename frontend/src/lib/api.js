@@ -160,6 +160,14 @@ export async function testRobotsUrls(sessionId, host, userAgent, urls) {
   });
 }
 
+export async function simulateRobots(sessionId, host, userAgent, newContent) {
+  return fetchJSON(`/sessions/${sessionId}/robots-simulate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ host, user_agent: userAgent, new_content: newContent }),
+  });
+}
+
 // --- Projects ---
 
 export async function getProjects() {
@@ -250,7 +258,7 @@ export function subscribeProgress(sessionId, onMessage, onDone) {
   source.onmessage = (e) => {
     try {
       onMessage(JSON.parse(e.data));
-    } catch (err) { console.warn('SSE parse error:', err.message) }
+    } catch (_) { /* ignore malformed SSE frames */ }
   };
   source.addEventListener('done', () => {
     source.close();

@@ -149,7 +149,7 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 	}
 
 	// Get uncrawled URLs from storage
-	uncrawled, err := m.store.UncrawledURLs(sessionID)
+	uncrawled, err := m.store.UncrawledURLs(context.Background(), sessionID)
 	if err != nil {
 		return "", fmt.Errorf("fetching uncrawled URLs: %w", err)
 	}
@@ -158,13 +158,13 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 	}
 
 	// Get already crawled URLs to pre-seed dedup
-	crawled, err := m.store.CrawledURLs(sessionID)
+	crawled, err := m.store.CrawledURLs(context.Background(), sessionID)
 	if err != nil {
 		return "", fmt.Errorf("fetching crawled URLs: %w", err)
 	}
 
 	// Get original session info to preserve seed URLs
-	originalSession, err := m.store.GetSession(sessionID)
+	originalSession, err := m.store.GetSession(context.Background(), sessionID)
 	if err != nil {
 		return "", fmt.Errorf("fetching original session: %w", err)
 	}
@@ -230,7 +230,7 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 	}
 
 	// Get failed URLs
-	failedURLs, err := m.store.FailedURLs(sessionID)
+	failedURLs, err := m.store.FailedURLs(context.Background(), sessionID)
 	if err != nil {
 		return 0, fmt.Errorf("fetching failed URLs: %w", err)
 	}
@@ -245,13 +245,13 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 	}
 
 	// Get already crawled URLs (minus the deleted ones) for dedup
-	crawled, err := m.store.CrawledURLs(sessionID)
+	crawled, err := m.store.CrawledURLs(context.Background(), sessionID)
 	if err != nil {
 		return 0, fmt.Errorf("fetching crawled URLs: %w", err)
 	}
 
 	// Get original session
-	originalSession, err := m.store.GetSession(sessionID)
+	originalSession, err := m.store.GetSession(context.Background(), sessionID)
 	if err != nil {
 		return 0, fmt.Errorf("fetching original session: %w", err)
 	}

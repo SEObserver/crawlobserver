@@ -65,7 +65,7 @@ func (m *mockStore) ListSessions(_ context.Context, projectID ...string) ([]stor
 	return m.sessions, nil
 }
 
-func (m *mockStore) GetSession(sessionID string) (*storage.CrawlSession, error) {
+func (m *mockStore) GetSession(_ context.Context, sessionID string) (*storage.CrawlSession, error) {
 	if m.getSessionByID != nil {
 		if s, ok := m.getSessionByID[sessionID]; ok {
 			return s, nil
@@ -180,6 +180,10 @@ func (m *mockStore) GetSitemaps(_ context.Context, _ string) ([]storage.SitemapR
 
 func (m *mockStore) GetSitemapURLs(_ context.Context, _, _ string, _, _ int) ([]storage.SitemapURLRow, error) {
 	return m.sitemapURLs, m.err
+}
+
+func (m *mockStore) GetURLsByHost(_ context.Context, _, _ string) ([]string, error) {
+	return nil, m.err
 }
 
 // ---------------------------------------------------------------------------

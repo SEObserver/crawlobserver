@@ -10,7 +10,7 @@ import (
 // StorageService is the subset of storage.Store used by the HTTP server.
 type StorageService interface {
 	ListSessions(ctx context.Context, projectID ...string) ([]storage.CrawlSession, error)
-	GetSession(sessionID string) (*storage.CrawlSession, error)
+	GetSession(ctx context.Context, sessionID string) (*storage.CrawlSession, error)
 	DeleteSession(ctx context.Context, sessionID string) error
 	UpdateSessionProject(ctx context.Context, sessionID string, projectID *string) error
 	ListPages(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.PageRow, error)
@@ -30,6 +30,7 @@ type StorageService interface {
 	PageRankTop(ctx context.Context, sessionID string, limit, offset int, directory string) (*storage.PageRankTopResult, error)
 	GetRobotsHosts(ctx context.Context, sessionID string) ([]storage.RobotsRow, error)
 	GetRobotsContent(ctx context.Context, sessionID, host string) (*storage.RobotsRow, error)
+	GetURLsByHost(ctx context.Context, sessionID, host string) ([]string, error)
 	GetSitemaps(ctx context.Context, sessionID string) ([]storage.SitemapRow, error)
 	GetSitemapURLs(ctx context.Context, sessionID, sitemapURL string, limit, offset int) ([]storage.SitemapURLRow, error)
 }
