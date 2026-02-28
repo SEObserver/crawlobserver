@@ -347,6 +347,7 @@ func (s *Server) handlePageDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing url parameter")
 		return
 	}
+	outLimit, outOffset := clampPagination(queryInt(r, "out_limit", 100), queryInt(r, "out_offset", 0))
 	inLimit, inOffset := clampPagination(queryInt(r, "in_limit", 100), queryInt(r, "in_offset", 0))
 
 	page, err := s.store.GetPage(r.Context(), sessionID, url)
@@ -354,7 +355,7 @@ func (s *Server) handlePageDetail(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, err)
 		return
 	}
-	links, err := s.store.GetPageLinks(r.Context(), sessionID, url, inLimit, inOffset)
+	links, err := s.store.GetPageLinks(r.Context(), sessionID, url, outLimit, outOffset, inLimit, inOffset)
 	if err != nil {
 		internalError(w, r, err)
 		return

@@ -24,7 +24,7 @@ type StorageService interface {
 	SessionAudit(ctx context.Context, sessionID string) (*storage.AuditResult, error)
 	GetPageHTML(ctx context.Context, sessionID, url string) (string, error)
 	GetPage(ctx context.Context, sessionID, url string) (*storage.PageRow, error)
-	GetPageLinks(ctx context.Context, sessionID, url string, inLimit, inOffset int) (*storage.PageLinksResult, error)
+	GetPageLinks(ctx context.Context, sessionID, url string, outLimit, outOffset, inLimit, inOffset int) (*storage.PageLinksResult, error)
 	StorageStats(ctx context.Context) (*storage.StorageStatsResult, error)
 	SessionStorageStats(ctx context.Context) (map[string]uint64, error)
 	GlobalStats(ctx context.Context) ([]storage.GlobalSessionStats, *storage.StorageStatsResult, error)

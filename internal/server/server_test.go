@@ -162,7 +162,7 @@ func (m *mockStore) GetPage(_ context.Context, _, _ string) (*storage.PageRow, e
 	return m.page, m.err
 }
 
-func (m *mockStore) GetPageLinks(_ context.Context, _, _ string, _, _ int) (*storage.PageLinksResult, error) {
+func (m *mockStore) GetPageLinks(_ context.Context, _, _ string, _, _, _, _ int) (*storage.PageLinksResult, error) {
 	return m.pageLinks, m.err
 }
 

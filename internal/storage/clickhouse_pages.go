@@ -206,8 +206,8 @@ type PageLinksResult struct {
 	InLinksCount  uint64    `json:"in_links_count"`
 }
 
-// GetPageLinks retrieves outbound and inbound links for a URL with inbound pagination.
-func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string, inLimit, inOffset int) (*PageLinksResult, error) {
+// GetPageLinks retrieves outbound and inbound links for a URL with pagination.
+func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string, outLimit, outOffset, inLimit, inOffset int) (*PageLinksResult, error) {
 	result := &PageLinksResult{}
 
 	// Counts
@@ -220,13 +220,13 @@ func (s *Store) GetPageLinks(ctx context.Context, sessionID, url string, inLimit
 		return nil, fmt.Errorf("querying link counts: %w", err)
 	}
 
-	// Outbound links (all, capped at 1000)
+	// Outbound links (paginated)
 	outRows, err := s.conn.Query(ctx, `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
 		FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND source_url = ?
 		ORDER BY target_url
-		LIMIT 1000`, sessionID, url)
+		LIMIT ? OFFSET ?`, sessionID, url, outLimit, outOffset)
 	if err != nil {
 		return nil, fmt.Errorf("querying outbound links: %w", err)
 	}

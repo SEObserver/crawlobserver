@@ -194,12 +194,14 @@ export async function getPageHTML(sessionId, url) {
 /**
  * @param {string} sessionId
  * @param {string} url
+ * @param {number} outLimit
+ * @param {number} outOffset
  * @param {number} inLimit
  * @param {number} inOffset
  * @returns {Promise<Object>}
  */
-export async function getPageDetail(sessionId, url, inLimit = DEFAULT_LIMIT, inOffset = 0) {
-  return fetchJSON(`/sessions/${sessionId}/page-detail?url=${encodeURIComponent(url)}&in_limit=${inLimit}&in_offset=${inOffset}`);
+export async function getPageDetail(sessionId, url, outLimit = DEFAULT_LIMIT, outOffset = 0, inLimit = DEFAULT_LIMIT, inOffset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/page-detail?url=${encodeURIComponent(url)}&out_limit=${outLimit}&out_offset=${outOffset}&in_limit=${inLimit}&in_offset=${inOffset}`);
 }
 
 /** @returns {Promise<Object>} */

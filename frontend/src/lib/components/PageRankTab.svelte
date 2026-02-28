@@ -79,7 +79,7 @@
   </div>
 
   {#if prLoading}
-    <p style="color: var(--text-muted); padding: 40px 0; text-align: center;">Loading...</p>
+    <p class="loading-msg">Loading...</p>
 
   {:else if prSubView === 'top'}
     {#if prTopData?.pages?.length > 0}
@@ -90,16 +90,15 @@
           <option value={50}>50</option>
           <option value={100}>100</option>
         </select>
-        <span style="color: var(--text-muted); font-size: 12px;">of {fmtN(prTopData.total)} pages with PR</span>
+        <span class="text-muted text-xs">of {fmtN(prTopData.total)} pages with PR</span>
       </div>
       {@const maxPR = prTopData.pages[0]?.pagerank || 1}
       {#each prTopData.pages as p, i}
-        <div class="pr-top-row" role="button" tabindex="0"
+        <div class="pr-top-row pr-top-row-clickable" role="button" tabindex="0"
           onclick={() => goToUrlDetail({preventDefault:()=>{}}, p.url)}
           onkeydown={a11yKeydown(() => goToUrlDetail({preventDefault:()=>{}}, p.url))}
           onmouseenter={(e) => { prTooltip = { x: e.clientX, y: e.clientY, url: p.url, pr: p.pagerank, depth: p.depth, intLinks: p.internal_links_out, extLinks: p.external_links_out, words: p.word_count }; }}
-          onmouseleave={() => { prTooltip = null; }}
-          style="cursor: pointer;">
+          onmouseleave={() => { prTooltip = null; }}>
           <span class="pr-top-rank">{prTopOffset + i + 1}</span>
           <span class="pr-top-url">{p.url.replace(/^https?:\/\/[^/]+/, '') || '/'}</span>
           <div>
@@ -139,7 +138,7 @@
           <option value={10}>10</option>
           <option value={25}>25</option>
         </select>
-        <span style="color: var(--text-muted); font-size: 12px;">{prTreemapData.length} directories</span>
+        <span class="text-muted text-xs">{prTreemapData.length} directories</span>
       </div>
       {@const treemapItems = prTreemapData.map(d => ({ ...d, value: d.total_pr }))}
       {@const treemapRects = squarify(treemapItems, 0, 0, 100, 100)}
@@ -170,7 +169,7 @@
 
   {:else if prSubView === 'distribution'}
     {#if prDistData && prDistData.total_with_pr > 0}
-      <div class="stats-grid" style="margin-bottom: 20px;">
+      <div class="stats-grid pr-stats-grid">
         <div class="stat-card"><div class="stat-value">{fmtN(prDistData.total_with_pr)}</div><div class="stat-label">Pages with PR</div></div>
         <div class="stat-card"><div class="stat-value">{prDistData.avg.toFixed(2)}</div><div class="stat-label">Mean</div></div>
         <div class="stat-card"><div class="stat-value">{prDistData.median.toFixed(2)}</div><div class="stat-label">Median</div></div>
@@ -187,12 +186,12 @@
       {@const barGap = 1}
       {@const barW = distBuckets.length > 0 ? (plotW - (distBuckets.length - 1) * barGap) / distBuckets.length : 0}
       {@const logMax = Math.log10(distMaxCount + 1)}
-      <svg viewBox="0 0 {histW} {histH}" style="width: 100%; max-width: 700px; height: auto;">
+      <svg viewBox="0 0 {histW} {histH}" class="pr-hist-svg">
         {#each [1, 10, 100, 1000, 10000, 100000] as tick}
           {#if tick <= distMaxCount * 1.5}
             {@const ty = histMargin.top + plotH - (logMax > 0 ? (Math.log10(tick + 1) / logMax) * plotH : 0)}
             <line x1={histMargin.left} y1={ty} x2={histW - histMargin.right} y2={ty} stroke="var(--border)" stroke-dasharray="3,3" />
-            <text x={histMargin.left - 8} y={ty + 4} text-anchor="end" style="font-size: 10px; fill: var(--text-muted);">{tick >= 1000 ? (tick/1000) + 'k' : tick}</text>
+            <text x={histMargin.left - 8} y={ty + 4} text-anchor="end" class="pr-axis-tick">{tick >= 1000 ? (tick/1000) + 'k' : tick}</text>
           {/if}
         {/each}
         {#each distBuckets as bucket, i}
@@ -206,11 +205,11 @@
             onclick={() => prDrillHistToTable(bucket.min, bucket.max)}
             onkeydown={a11yKeydown(() => prDrillHistToTable(bucket.min, bucket.max))} />
           {#if distBuckets.length <= 25 || i % Math.ceil(distBuckets.length / 10) === 0}
-            <text x={bx + barW / 2} y={histH - histMargin.bottom + 16} text-anchor="middle" style="font-size: 9px; fill: var(--text-muted);">{bucket.min.toFixed(0)}</text>
+            <text x={bx + barW / 2} y={histH - histMargin.bottom + 16} text-anchor="middle" class="pr-axis-label-sm">{bucket.min.toFixed(0)}</text>
           {/if}
         {/each}
-        <text x={histW / 2} y={histH - 4} text-anchor="middle" style="font-size: 11px; fill: var(--text-muted);">PageRank Score</text>
-        <text x={14} y={histH / 2} text-anchor="middle" transform="rotate(-90, 14, {histH / 2})" style="font-size: 11px; fill: var(--text-muted);">Pages (log)</text>
+        <text x={histW / 2} y={histH - 4} text-anchor="middle" class="pr-axis-label">PageRank Score</text>
+        <text x={14} y={histH / 2} text-anchor="middle" transform="rotate(-90, 14, {histH / 2})" class="pr-axis-label">Pages (log)</text>
       </svg>
     {:else}
       <p class="chart-empty">No PageRank data available. Compute PageRank first.</p>
@@ -225,7 +224,7 @@
         {#if prTableDir}
           <button class="btn btn-sm" onclick={() => { prTableDir = ''; prTableOffset = 0; loadPRSubView('table'); }}>Clear</button>
         {/if}
-        <span style="color: var(--text-muted); font-size: 12px;">{fmtN(prTableData.total)} pages</span>
+        <span class="text-muted text-xs">{fmtN(prTableData.total)} pages</span>
       </div>
       <table>
         <thead>
@@ -234,9 +233,9 @@
         <tbody>
           {#each prTableData.pages || [] as p, i}
             <tr>
-              <td style="color: var(--text-muted); font-size: 12px;">{prTableOffset + i + 1}</td>
+              <td class="row-num">{prTableOffset + i + 1}</td>
               <td class="cell-url"><a href="#detail" onclick={(e) => goToUrlDetail(e, p.url)}>{p.url}</a></td>
-              <td style="color: var(--accent); font-weight: 600;">{p.pagerank.toFixed(1)}</td>
+              <td class="text-accent font-semibold">{p.pagerank.toFixed(1)}</td>
               <td>{p.depth}</td>
               <td>{fmtN(p.internal_links_out)}</td>
               <td>{fmtN(p.external_links_out)}</td>
@@ -443,5 +442,28 @@
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-light);
+  }
+  .pr-top-row-clickable {
+    cursor: pointer;
+  }
+  .pr-stats-grid {
+    margin-bottom: 20px;
+  }
+  .pr-hist-svg {
+    width: 100%;
+    max-width: 700px;
+    height: auto;
+  }
+  .pr-axis-tick {
+    font-size: 10px;
+    fill: var(--text-muted);
+  }
+  .pr-axis-label-sm {
+    font-size: 9px;
+    fill: var(--text-muted);
+  }
+  .pr-axis-label {
+    font-size: 11px;
+    fill: var(--text-muted);
   }
 </style>
