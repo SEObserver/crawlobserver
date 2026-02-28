@@ -46,6 +46,7 @@ type mockStore struct {
 	comparePagesResult   *storage.PageDiffResult
 	compareLinksResult   *storage.LinkDiffResult
 	auditResult          *storage.AuditResult
+	expiredDomainsResult *storage.ExpiredDomainsResult
 	err                  error
 	deleteCalls          []string
 	updateProjectCalls   []updateProjectCall
@@ -308,7 +309,18 @@ func (m *mockStore) GetExternalLinkCheckDomains(_ context.Context, _ string, _, 
 	return []storage.ExternalDomainCheck{}, m.err
 }
 func (m *mockStore) GetExpiredDomains(_ context.Context, _ string, _, _ int) (*storage.ExpiredDomainsResult, error) {
+	if m.expiredDomainsResult != nil {
+		return m.expiredDomainsResult, m.err
+	}
 	return &storage.ExpiredDomainsResult{Domains: []storage.ExpiredDomain{}, Total: 0}, m.err
+}
+
+// Page Resource Checks mock methods
+func (m *mockStore) GetPageResourceChecks(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter) ([]storage.PageResourceCheck, error) {
+	return []storage.PageResourceCheck{}, m.err
+}
+func (m *mockStore) GetPageResourceTypeSummary(_ context.Context, _ string) ([]storage.ResourceTypeSummary, error) {
+	return []storage.ResourceTypeSummary{}, m.err
 }
 
 // Application Logs mock methods
@@ -2154,6 +2166,135 @@ func TestResume_ProjectKeyBlocked(t *testing.T) {
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("expected 403 for project key resume, got %d", rec.Code)
+	}
+}
+
+// =========================================================================
+// Expired Domains endpoint tests
+// =========================================================================
+
+func TestExpiredDomains_EmptyResult(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+	ms := srv.store.(*mockStore)
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-1": {ID: "sess-1", Status: "completed"},
+	}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-1/external-checks/expired-domains", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var result storage.ExpiredDomainsResult
+	decodeJSON(t, rec, &result)
+	if result.Total != 0 {
+		t.Errorf("expected total 0, got %d", result.Total)
+	}
+	if len(result.Domains) != 0 {
+		t.Errorf("expected 0 domains, got %d", len(result.Domains))
+	}
+}
+
+func TestExpiredDomains_WithResults(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+	ms := srv.store.(*mockStore)
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-1": {ID: "sess-1", Status: "completed"},
+	}
+	ms.expiredDomainsResult = &storage.ExpiredDomainsResult{
+		Total: 2,
+		Domains: []storage.ExpiredDomain{
+			{
+				RegistrableDomain: "expired.com",
+				DeadURLsChecked:   3,
+				Sources: []storage.ExpiredDomainSource{
+					{SourceURL: "https://site-a.com/page1", TargetURL: "https://www.expired.com/res"},
+					{SourceURL: "https://site-b.com/links", TargetURL: "https://expired.com/page"},
+				},
+			},
+			{
+				RegistrableDomain: "gone-domain.org",
+				DeadURLsChecked:   1,
+				Sources: []storage.ExpiredDomainSource{
+					{SourceURL: "https://site-a.com/page2", TargetURL: "https://gone-domain.org/x"},
+				},
+			},
+		},
+	}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-1/external-checks/expired-domains?limit=50&offset=0", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var result storage.ExpiredDomainsResult
+	decodeJSON(t, rec, &result)
+	if result.Total != 2 {
+		t.Errorf("expected total 2, got %d", result.Total)
+	}
+	if len(result.Domains) != 2 {
+		t.Fatalf("expected 2 domains, got %d", len(result.Domains))
+	}
+	if result.Domains[0].RegistrableDomain != "expired.com" {
+		t.Errorf("expected first domain expired.com, got %s", result.Domains[0].RegistrableDomain)
+	}
+	if result.Domains[0].DeadURLsChecked != 3 {
+		t.Errorf("expected 3 dead URLs, got %d", result.Domains[0].DeadURLsChecked)
+	}
+	if len(result.Domains[0].Sources) != 2 {
+		t.Errorf("expected 2 sources, got %d", len(result.Domains[0].Sources))
+	}
+}
+
+func TestExpiredDomains_StorageError(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+	ms := srv.store.(*mockStore)
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-1": {ID: "sess-1", Status: "completed"},
+	}
+	ms.err = fmt.Errorf("clickhouse timeout")
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-1/external-checks/expired-domains", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", rec.Code)
+	}
+}
+
+func TestExpiredDomains_NoAuth(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	req := httptest.NewRequest("GET", "/api/sessions/sess-1/external-checks/expired-domains", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", rec.Code)
+	}
+}
+
+func TestExpiredDomains_DefaultPagination(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+	ms := srv.store.(*mockStore)
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-1": {ID: "sess-1", Status: "completed"},
+	}
+
+	// No limit/offset params — should use defaults (100, 0)
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-1/external-checks/expired-domains", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 }
 
