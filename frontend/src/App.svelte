@@ -34,6 +34,7 @@
   import AllProjectsPage from './lib/components/AllProjectsPage.svelte';
   import UrlDetailView from './lib/components/UrlDetailView.svelte';
   import DataTable from './lib/components/DataTable.svelte';
+  import ConfirmModal from './lib/components/ConfirmModal.svelte';
 
   // --- Named constants ---
   const STATS_REFRESH_MS = 5000;
@@ -45,6 +46,10 @@
 
   /** @param {HTMLElement} node */
   function focusOnMount(node) { node.focus(); }
+
+  function showConfirm(message, onConfirm, opts = {}) {
+    confirmState = { message, onConfirm, ...opts };
+  }
 
   // --- Crawl state ---
   let sessions = $state([]);
@@ -69,6 +74,7 @@
   let resumeSessionId = $state(null);
   let showHtmlModal = $state(false);
   let htmlModalUrl = $state('');
+  let confirmState = $state(null);
   let globalStats = $state(null);
   let compareSessionA = $state('');
   let compareSessionB = $state('');
@@ -158,13 +164,14 @@
     } catch (e) { error = e.message; }
   }
 
-  async function handleDeleteProject(id) {
-    if (!confirm(`Delete project "${selectedProject?.name}"? Sessions will be unassigned.`)) return;
-    try {
-      await deleteProject(id);
-      projects = await getProjects();
-      goHome();
-    } catch (e) { error = e.message; }
+  function handleDeleteProject(id) {
+    showConfirm(`Delete project "${selectedProject?.name}"? Sessions will be unassigned.`, async () => {
+      try {
+        await deleteProject(id);
+        projects = await getProjects();
+        goHome();
+      } catch (e) { error = e.message; }
+    }, { danger: true, confirmLabel: 'Delete' });
   }
 
   let renamingProject = $state(false);
@@ -586,15 +593,16 @@
     }
   }
 
-  async function handleDelete(id) {
+  function handleDelete(id) {
     const sizeBytes = sessionStorageMap[id];
     const sizeText = sizeBytes ? ` and free ${fmtSize(sizeBytes)}` : '';
-    if (!confirm(`Delete this session${sizeText}?`)) return;
-    try {
-      await deleteSession(id);
-      if (selectedSession?.ID === id) { selectedSession = null; pushURL('/'); }
-      loadSessions();
-    } catch (e) { error = e.message; }
+    showConfirm(`Delete this session${sizeText}?`, async () => {
+      try {
+        await deleteSession(id);
+        if (selectedSession?.ID === id) { selectedSession = null; pushURL('/'); }
+        loadSessions();
+      } catch (e) { error = e.message; }
+    }, { danger: true, confirmLabel: 'Delete' });
   }
 
 
@@ -1051,6 +1059,16 @@
 
 {#if showHtmlModal}
   <HtmlModal sessionId={selectedSession.ID} url={htmlModalUrl} onclose={closeHtmlModal} onerror={(msg) => error = msg} />
+{/if}
+
+{#if confirmState}
+  <ConfirmModal
+    message={confirmState.message}
+    danger={confirmState.danger}
+    confirmLabel={confirmState.confirmLabel}
+    onconfirm={() => { confirmState.onConfirm(); confirmState = null; }}
+    oncancel={() => confirmState = null}
+  />
 {/if}
 
 <style>
