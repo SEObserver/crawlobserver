@@ -849,6 +849,10 @@ func isValidUUID(s string) bool {
 // ComputePageRank computes internal PageRank for all pages in a session.
 // Uses uint32 IDs for memory efficiency and iterative power method.
 func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
+	if !isValidUUID(sessionID) {
+		return fmt.Errorf("invalid session ID: %s", sessionID)
+	}
+
 	// 1. Load all crawled URLs and assign numeric IDs
 	urlRows, err := s.conn.Query(ctx, `
 		SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
@@ -1022,10 +1026,10 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 	// Single mutation: update from temp table (requires ClickHouse 22.8+)
 	query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
 		pagerank = (SELECT pr FROM %s WHERE url = seocrawler.pages.url LIMIT 1)
-		WHERE crawl_session_id = '%s' AND url IN (SELECT url FROM %s)`,
-		tmpTable, sessionID, tmpTable)
+		WHERE crawl_session_id = ? AND url IN (SELECT url FROM %s)`,
+		tmpTable, tmpTable)
 
-	if err := s.conn.Exec(ctx, query); err != nil {
+	if err := s.conn.Exec(ctx, query, sessionID); err != nil {
 		return fmt.Errorf("updating pagerank from temp table: %w", err)
 	}
 
@@ -1201,10 +1205,10 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 	query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
 		depth = (SELECT d FROM %s WHERE url = seocrawler.pages.url LIMIT 1),
 		found_on = (SELECT found_on FROM %s WHERE url = seocrawler.pages.url LIMIT 1)
-		WHERE crawl_session_id = '%s' AND url IN (SELECT url FROM %s)`,
-		tmpTable, tmpTable, sessionID, tmpTable)
+		WHERE crawl_session_id = ? AND url IN (SELECT url FROM %s)`,
+		tmpTable, tmpTable, tmpTable)
 
-	if err := s.conn.Exec(ctx, query); err != nil {
+	if err := s.conn.Exec(ctx, query, sessionID); err != nil {
 		return fmt.Errorf("updating depths from temp table: %w", err)
 	}
 
@@ -1290,6 +1294,9 @@ type PageRankTreemapEntry struct {
 
 // PageRankTreemap returns PageRank aggregated by URL directory prefix.
 func (s *Store) PageRankTreemap(ctx context.Context, sessionID string, depth, minPages int) ([]PageRankTreemapEntry, error) {
+	if !isValidUUID(sessionID) {
+		return nil, fmt.Errorf("invalid session ID: %s", sessionID)
+	}
 	if depth <= 0 {
 		depth = 2
 	}
@@ -1305,12 +1312,12 @@ func (s *Store) PageRankTreemap(ctx context.Context, sessionID string, depth, mi
 			avg(pagerank) AS avg_pr,
 			max(pagerank) AS max_pr
 		FROM seocrawler.pages
-		WHERE crawl_session_id = '%s' AND pagerank > 0
+		WHERE crawl_session_id = ? AND pagerank > 0
 		GROUP BY dir_path
 		HAVING page_count >= %d
 		ORDER BY total_pr DESC
-		LIMIT 200`, depth, strings.ReplaceAll(sessionID, "'", "\\'"), minPages)
-	rows, err := s.conn.Query(ctx, query)
+		LIMIT 200`, depth, minPages)
+	rows, err := s.conn.Query(ctx, query, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("querying pagerank treemap: %w", err)
 	}

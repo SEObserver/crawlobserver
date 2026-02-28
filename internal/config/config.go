@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"log"
+	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -145,7 +145,7 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("generating random password: %w", err)
 		}
 		cfg.Server.Password = hex.EncodeToString(b)
-		log.Printf("No password configured. Generated random password: %s", cfg.Server.Password)
+		fmt.Fprintf(os.Stderr, "\n  *** No password configured. Generated random password: %s ***\n  *** Set server.password in config.yaml to silence this message. ***\n\n", cfg.Server.Password)
 	}
 
 	return &cfg, nil

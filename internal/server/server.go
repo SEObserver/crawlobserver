@@ -286,7 +286,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		sessions, err = s.store.ListSessions(r.Context())
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 
@@ -350,7 +350,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 	stats, err := s.store.SessionStats(r.Context(), sessionID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, stats)
@@ -496,7 +496,7 @@ func (s *Server) handlePageHTML(w http.ResponseWriter, r *http.Request) {
 	}
 	html, err := s.store.GetPageHTML(r.Context(), sessionID, url)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, map[string]string{"url": url, "body_html": html})
@@ -517,12 +517,12 @@ func (s *Server) handlePageDetail(w http.ResponseWriter, r *http.Request) {
 
 	page, err := s.store.GetPage(r.Context(), sessionID, url)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	links, err := s.store.GetPageLinks(r.Context(), sessionID, url, inLimit, inOffset)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, map[string]interface{}{
@@ -537,7 +537,7 @@ func (s *Server) handleStorageStats(w http.ResponseWriter, r *http.Request) {
 	}
 	stats, err := s.store.StorageStats(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, stats)
@@ -549,7 +549,7 @@ func (s *Server) handleSessionStorage(w http.ResponseWriter, r *http.Request) {
 	}
 	stats, err := s.store.SessionStorageStats(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, stats)
@@ -562,7 +562,7 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 
 	sessionStats, storageResult, err := s.store.GlobalStats(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 
@@ -577,7 +577,7 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 	// Load sessions
 	sessions, err := s.store.ListSessions(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 
@@ -748,7 +748,7 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.store.DeleteSession(r.Context(), sessionID); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, map[string]string{"status": "deleted"})
@@ -821,7 +821,7 @@ func (s *Server) handlePageRankDistribution(w http.ResponseWriter, r *http.Reque
 	buckets := queryInt(r, "buckets", 20)
 	result, err := s.store.PageRankDistribution(r.Context(), sessionID, buckets)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, result)
@@ -836,7 +836,7 @@ func (s *Server) handlePageRankTreemap(w http.ResponseWriter, r *http.Request) {
 	minPages := queryInt(r, "min_pages", 1)
 	result, err := s.store.PageRankTreemap(r.Context(), sessionID, depth, minPages)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, result)
@@ -852,7 +852,7 @@ func (s *Server) handlePageRankTop(w http.ResponseWriter, r *http.Request) {
 	directory := r.URL.Query().Get("directory")
 	result, err := s.store.PageRankTop(r.Context(), sessionID, limit, offset, directory)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, result)
@@ -865,7 +865,7 @@ func (s *Server) handleRobotsHosts(w http.ResponseWriter, r *http.Request) {
 	}
 	hosts, err := s.store.GetRobotsHosts(r.Context(), sessionID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	if hosts == nil {
@@ -886,7 +886,7 @@ func (s *Server) handleRobotsContent(w http.ResponseWriter, r *http.Request) {
 	}
 	row, err := s.store.GetRobotsContent(r.Context(), sessionID, host)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, row)
@@ -918,7 +918,7 @@ func (s *Server) handleRobotsTest(w http.ResponseWriter, r *http.Request) {
 	// Load robots.txt content from DB
 	row, err := s.store.GetRobotsContent(r.Context(), sessionID, req.Host)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 
@@ -961,7 +961,7 @@ func (s *Server) handleSitemaps(w http.ResponseWriter, r *http.Request) {
 	}
 	sitemaps, err := s.store.GetSitemaps(r.Context(), sessionID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	if sitemaps == nil {
@@ -985,7 +985,7 @@ func (s *Server) handleSitemapURLs(w http.ResponseWriter, r *http.Request) {
 
 	urls, err := s.store.GetSitemapURLs(r.Context(), sessionID, sitemapURL, limit, offset)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	if urls == nil {
@@ -1027,7 +1027,7 @@ func (s *Server) requireSessionAccess(w http.ResponseWriter, r *http.Request, se
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 	projects, err := s.keyStore.ListProjects()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, projects)
@@ -1097,7 +1097,7 @@ func (s *Server) handleAssociateSession(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := s.store.UpdateSessionProject(r.Context(), sid, &pid); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, map[string]string{"status": "associated"})
@@ -1109,7 +1109,7 @@ func (s *Server) handleDisassociateSession(w http.ResponseWriter, r *http.Reques
 	}
 	sid := r.PathValue("sid")
 	if err := s.store.UpdateSessionProject(r.Context(), sid, nil); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, map[string]string{"status": "disassociated"})
@@ -1123,7 +1123,7 @@ func (s *Server) handleListAPIKeys(w http.ResponseWriter, r *http.Request) {
 	}
 	keys, err := s.keyStore.ListAPIKeys()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, keys)
@@ -1223,7 +1223,7 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request) {
 	}
 	backups, err := backup.ListBackups(s.BackupOpts.BackupDir)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	if backups == nil {
@@ -1334,7 +1334,7 @@ func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	archivePath := filepath.Join(s.BackupOpts.BackupDir, name)
 	if err := backup.DeleteBackup(archivePath); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, map[string]string{"status": "deleted"})
@@ -1386,6 +1386,12 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+// internalError logs the real error server-side and returns a generic message to the client.
+func internalError(w http.ResponseWriter, r *http.Request, err error) {
+	log.Printf("ERROR %s %s: %v", r.Method, r.URL.Path, err)
+	writeError(w, http.StatusInternalServerError, "internal server error")
 }
 
 // parseFilters extracts filter parameters from the request query string.
