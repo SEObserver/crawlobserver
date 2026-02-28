@@ -2088,6 +2088,46 @@ func (s *Store) DeleteFailedPages(ctx context.Context, sessionID string) (int, e
 	return int(cnt), nil
 }
 
+// DeletePagesByStatus deletes pages with a specific status code and returns the count deleted.
+func (s *Store) DeletePagesByStatus(ctx context.Context, sessionID string, statusCode int) (int, error) {
+	var cnt uint64
+	row := s.conn.QueryRow(ctx, `
+		SELECT count() FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND status_code = ?`, sessionID, statusCode)
+	if err := row.Scan(&cnt); err != nil {
+		return 0, fmt.Errorf("counting pages with status %d: %w", statusCode, err)
+	}
+	if cnt == 0 {
+		return 0, nil
+	}
+	if err := s.conn.Exec(ctx, `
+		ALTER TABLE seocrawler.pages DELETE
+		WHERE crawl_session_id = ? AND status_code = ?`, sessionID, statusCode); err != nil {
+		return 0, fmt.Errorf("deleting pages with status %d: %w", statusCode, err)
+	}
+	return int(cnt), nil
+}
+
+// URLsByStatus returns URLs with a specific status code for a session.
+func (s *Store) URLsByStatus(ctx context.Context, sessionID string, statusCode int) ([]string, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT url FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND status_code = ?`, sessionID, statusCode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var urls []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		urls = append(urls, u)
+	}
+	return urls, nil
+}
+
 // InsertRobotsData batch inserts robots.txt rows.
 func (s *Store) InsertRobotsData(ctx context.Context, rows []RobotsRow) error {
 	if len(rows) == 0 {

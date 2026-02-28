@@ -34,14 +34,17 @@ func NewManager(cfg *config.Config, store *storage.Store) *Manager {
 
 // CrawlRequest holds parameters for starting a new crawl.
 type CrawlRequest struct {
-	Seeds      []string `json:"seeds"`
-	MaxPages   int      `json:"max_pages"`
-	MaxDepth   int      `json:"max_depth"`
-	Workers    int      `json:"workers"`
-	Delay      string   `json:"delay"`
-	StoreHTML  bool     `json:"store_html"`
-	CrawlScope string   `json:"crawl_scope"`
-	ProjectID  *string  `json:"project_id"`
+	Seeds               []string `json:"seeds"`
+	MaxPages            int      `json:"max_pages"`
+	MaxDepth            int      `json:"max_depth"`
+	Workers             int      `json:"workers"`
+	Delay               string   `json:"delay"`
+	StoreHTML           bool     `json:"store_html"`
+	CrawlScope          string   `json:"crawl_scope"`
+	ProjectID           *string  `json:"project_id"`
+	CheckExternalLinks  *bool    `json:"check_external_links"`
+	ExternalLinkWorkers int      `json:"external_link_workers"`
+	RetryStatusCode     int      `json:"retry_status_code"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -76,6 +79,13 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	engine := NewEngine(&cfg, m.store)
 	sessionID := engine.SessionID(req.Seeds)
 	engine.session.ProjectID = req.ProjectID
+
+	// External link checking: default true
+	engine.checkExternal = req.CheckExternalLinks == nil || *req.CheckExternalLinks
+	engine.externalWorkers = req.ExternalLinkWorkers
+	if engine.externalWorkers <= 0 {
+		engine.externalWorkers = 3
+	}
 
 	m.mu.Lock()
 	m.engines[sessionID] = engine
@@ -219,9 +229,14 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 	return sessionID, nil
 }
 
-// RetryFailed retries pages with status_code = 0 (fetch errors).
+// RetryFailed retries pages with status_code = 0 (fetch errors) or a specific status code.
 // Deletes the failed rows, then runs a mini-crawl with those URLs.
 func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, error) {
+	statusCode := 0
+	if overrides != nil && overrides.RetryStatusCode > 0 {
+		statusCode = overrides.RetryStatusCode
+	}
+
 	m.mu.RLock()
 	_, running := m.engines[sessionID]
 	m.mu.RUnlock()
@@ -229,19 +244,36 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 		return 0, fmt.Errorf("session %s is already running", sessionID)
 	}
 
-	// Get failed URLs
-	failedURLs, err := m.store.FailedURLs(context.Background(), sessionID)
-	if err != nil {
-		return 0, fmt.Errorf("fetching failed URLs: %w", err)
-	}
-	if len(failedURLs) == 0 {
-		return 0, fmt.Errorf("no failed pages (status 0) found for session %s", sessionID)
-	}
+	var failedURLs []string
+	var deleted int
+	var err error
 
-	// Delete failed page rows so they can be re-inserted
-	deleted, err := m.store.DeleteFailedPages(context.Background(), sessionID)
-	if err != nil {
-		return 0, fmt.Errorf("deleting failed pages: %w", err)
+	if statusCode == 0 {
+		// Original behavior: retry status_code=0
+		failedURLs, err = m.store.FailedURLs(context.Background(), sessionID)
+		if err != nil {
+			return 0, fmt.Errorf("fetching failed URLs: %w", err)
+		}
+		if len(failedURLs) == 0 {
+			return 0, fmt.Errorf("no failed pages (status 0) found for session %s", sessionID)
+		}
+		deleted, err = m.store.DeleteFailedPages(context.Background(), sessionID)
+		if err != nil {
+			return 0, fmt.Errorf("deleting failed pages: %w", err)
+		}
+	} else {
+		// Retry pages with specific status code
+		failedURLs, err = m.store.URLsByStatus(context.Background(), sessionID, statusCode)
+		if err != nil {
+			return 0, fmt.Errorf("fetching URLs with status %d: %w", statusCode, err)
+		}
+		if len(failedURLs) == 0 {
+			return 0, fmt.Errorf("no pages with status %d found for session %s", statusCode, sessionID)
+		}
+		deleted, err = m.store.DeletePagesByStatus(context.Background(), sessionID, statusCode)
+		if err != nil {
+			return 0, fmt.Errorf("deleting pages with status %d: %w", statusCode, err)
+		}
 	}
 
 	// Get already crawled URLs (minus the deleted ones) for dedup

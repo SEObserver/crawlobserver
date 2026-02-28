@@ -16,6 +16,7 @@
   import RobotsTab from './lib/components/RobotsTab.svelte';
   import SitemapsTab from './lib/components/SitemapsTab.svelte';
   import GSCTab from './lib/components/GSCTab.svelte';
+  import ProvidersTab from './lib/components/ProvidersTab.svelte';
   import GlobalStatsPage from './lib/components/GlobalStatsPage.svelte';
   import SettingsPage from './lib/components/SettingsPage.svelte';
   import APIManagementPage from './lib/components/APIManagementPage.svelte';
@@ -115,6 +116,7 @@
   let selectedProject = $state(null);
   let projectTab = $state('sessions');
   let gscSubView = $state('overview');
+  let providerSubView = $state('overview');
 
   // --- Project view ---
   function selectProject(proj) {
@@ -351,7 +353,8 @@
       if (route.page === 'project') {
         selectedProject = projects.find(p => p.id === route.projectId) || null;
         projectTab = route.projectTab || 'sessions';
-        gscSubView = route.projectSubView || 'overview';
+        gscSubView = route.projectTab === 'gsc' ? (route.projectSubView || 'overview') : 'overview';
+        providerSubView = route.projectTab === 'providers' ? (route.projectSubView || 'overview') : 'overview';
         showSettings = false; showGlobalStats = false; showAPI = false; showNewCrawl = false; showCompare = false; showLogs = false;
         if (!selectedProject && projects.length === 0) {
           getProjects().then(p => { projects = p; selectedProject = p.find(pr => pr.id === route.projectId) || null; }).catch(() => {});
@@ -467,8 +470,8 @@
       for (const s of sessions) {
         if (s.is_running && !sseConnections[s.ID]) {
           sseConnections[s.ID] = subscribeProgress(s.ID,
-            (data) => { liveProgress[s.ID] = data; liveProgress = { ...liveProgress }; },
-            () => { delete sseConnections[s.ID]; loadSessions(); }
+            (data) => { liveProgress[s.ID] = data; liveProgress = { ...liveProgress }; scheduleStatsRefresh(s.ID); },
+            () => { delete sseConnections[s.ID]; if (selectedSession?.ID === s.ID) { getStats(s.ID).then(st => stats = st).catch(() => {}); } loadSessions(); }
           );
         }
       }
@@ -477,6 +480,20 @@
     } finally {
       loading = false;
     }
+  }
+
+  // --- Live stats refresh (throttled) ---
+  let statsRefreshTimer = null;
+  function scheduleStatsRefresh(sessionId) {
+    if (statsRefreshTimer) return; // already scheduled
+    statsRefreshTimer = setTimeout(async () => {
+      statsRefreshTimer = null;
+      if (selectedSession?.ID === sessionId) {
+        try {
+          stats = await getStats(sessionId);
+        } catch (_) {}
+      }
+    }, 2000);
   }
 
   // --- Update check polling ---
@@ -752,6 +769,7 @@
         <div class="tab-bar">
           <button class="tab" class:tab-active={projectTab === 'sessions'} onclick={() => switchProjectTab('sessions')}>Sessions</button>
           <button class="tab" class:tab-active={projectTab === 'gsc'} onclick={() => switchProjectTab('gsc')}>Search Console</button>
+          <button class="tab" class:tab-active={projectTab === 'providers'} onclick={() => switchProjectTab('providers')}>SEO Data</button>
         </div>
 
         <div class="card card-flush" style="border-top-left-radius: 0; border-top-right-radius: 0; border-top: none;">
@@ -799,6 +817,8 @@
             {/if}
           {:else if projectTab === 'gsc'}
             <GSCTab projectId={selectedProject.id} initialSubView={gscSubView} onerror={(msg) => error = msg} onpushurl={(u) => pushURL(u)} />
+          {:else if projectTab === 'providers'}
+            <ProvidersTab projectId={selectedProject.id} initialSubView={providerSubView} onerror={(msg) => error = msg} onpushurl={(u) => pushURL(u)} />
           {/if}
         </div>
 

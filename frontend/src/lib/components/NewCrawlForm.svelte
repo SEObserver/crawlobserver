@@ -11,6 +11,8 @@
   let storeHtml = $state(false);
   let crawlScope = $state('host');
   let crawlProjectId = $state('');
+  let checkExternalLinks = $state(true);
+  let externalLinkWorkers = $state(3);
   let starting = $state(false);
 
   async function handleStartCrawl() {
@@ -18,7 +20,7 @@
     if (seeds.length === 0) return;
     starting = true;
     try {
-      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null });
+      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null, check_external_links: checkExternalLinks, external_link_workers: externalLinkWorkers });
       onstart?.();
     } catch (e) {
       onerror?.(e.message);
@@ -51,6 +53,12 @@
     <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
       <input id="storehtml" type="checkbox" bind:checked={storeHtml} /><label for="storehtml" style="margin: 0;">Store raw HTML</label>
     </div>
+    <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding-top: 24px;">
+      <input id="checkext" type="checkbox" bind:checked={checkExternalLinks} /><label for="checkext" style="margin: 0;">Check external links</label>
+    </div>
+    {#if checkExternalLinks}
+      <div class="form-group"><label for="extworkers">External link workers</label><input id="extworkers" type="number" bind:value={externalLinkWorkers} min="1" max="20" /></div>
+    {/if}
     {#if projects.length > 0}
       <div class="form-group">
         <label for="crawl-project">Project (optional)</label>

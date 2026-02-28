@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/SEObserver/seocrawler/internal/apikeys"
+	"github.com/SEObserver/seocrawler/internal/applog"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/crawler"
 	"github.com/SEObserver/seocrawler/internal/customtests"
@@ -282,6 +283,60 @@ func (m *mockStore) StreamPagesHTML(_ context.Context, _ string) (<-chan storage
 		ch <- storage.PageHTMLRow{URL: "https://example.com/", HTML: "<html><head><title>Test</title></head><body><h1>Hello</h1></body></html>"}
 	}()
 	return ch, m.err
+}
+
+// External Link Check mock methods
+func (m *mockStore) GetExternalLinkChecks(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter) ([]storage.ExternalLinkCheck, error) {
+	return []storage.ExternalLinkCheck{}, m.err
+}
+func (m *mockStore) GetExternalLinkCheckDomains(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter) ([]storage.ExternalDomainCheck, error) {
+	return []storage.ExternalDomainCheck{}, m.err
+}
+
+// Application Logs mock methods
+func (m *mockStore) InsertLogs(_ context.Context, _ []applog.LogRow) error {
+	return m.err
+}
+func (m *mockStore) ListLogs(_ context.Context, _, _ int, _, _, _ string) ([]applog.LogRow, int, error) {
+	return []applog.LogRow{}, 0, m.err
+}
+func (m *mockStore) ExportLogs(_ context.Context) ([]applog.LogRow, error) {
+	return []applog.LogRow{}, m.err
+}
+
+// Provider mock methods
+func (m *mockStore) InsertProviderDomainMetrics(_ context.Context, _ string, _ []storage.ProviderDomainMetricsRow) error {
+	return m.err
+}
+func (m *mockStore) InsertProviderBacklinks(_ context.Context, _ string, _ []storage.ProviderBacklinkRow) error {
+	return m.err
+}
+func (m *mockStore) InsertProviderRefDomains(_ context.Context, _ string, _ []storage.ProviderRefDomainRow) error {
+	return m.err
+}
+func (m *mockStore) InsertProviderRankings(_ context.Context, _ string, _ []storage.ProviderRankingRow) error {
+	return m.err
+}
+func (m *mockStore) InsertProviderVisibility(_ context.Context, _ string, _ []storage.ProviderVisibilityRow) error {
+	return m.err
+}
+func (m *mockStore) ProviderDomainMetrics(_ context.Context, _, _ string) (*storage.ProviderDomainMetricsRow, error) {
+	return &storage.ProviderDomainMetricsRow{}, m.err
+}
+func (m *mockStore) ProviderBacklinks(_ context.Context, _, _ string, _, _ int) ([]storage.ProviderBacklinkRow, int, error) {
+	return []storage.ProviderBacklinkRow{}, 0, m.err
+}
+func (m *mockStore) ProviderRefDomains(_ context.Context, _, _ string, _, _ int) ([]storage.ProviderRefDomainRow, int, error) {
+	return []storage.ProviderRefDomainRow{}, 0, m.err
+}
+func (m *mockStore) ProviderRankings(_ context.Context, _, _ string, _, _ int) ([]storage.ProviderRankingRow, int, error) {
+	return []storage.ProviderRankingRow{}, 0, m.err
+}
+func (m *mockStore) ProviderVisibilityHistory(_ context.Context, _, _ string) ([]storage.ProviderVisibilityRow, error) {
+	return []storage.ProviderVisibilityRow{}, m.err
+}
+func (m *mockStore) DeleteProviderData(_ context.Context, _, _ string) error {
+	return m.err
 }
 
 // ---------------------------------------------------------------------------

@@ -67,6 +67,20 @@ var LinkFilters = map[string]FilterDef{
 	"tag":          {Column: "tag", Type: FilterLike},
 }
 
+// ExternalCheckFilters defines the allowed filter columns for the external_link_checks table.
+var ExternalCheckFilters = map[string]FilterDef{
+	"url":          {Column: "url", Type: FilterLike},
+	"status_code":  {Column: "status_code", Type: FilterUint},
+	"error":        {Column: "error", Type: FilterLike},
+	"content_type": {Column: "content_type", Type: FilterLike},
+	"redirect_url": {Column: "redirect_url", Type: FilterLike},
+}
+
+// ExternalDomainCheckFilters defines the allowed filter columns for domain-level external checks.
+var ExternalDomainCheckFilters = map[string]FilterDef{
+	"domain": {Column: "domain", Type: FilterLike},
+}
+
 // BuildWhereClause generates a SQL WHERE clause fragment and arguments from parsed filters.
 func BuildWhereClause(filters []ParsedFilter) (string, []interface{}, error) {
 	if len(filters) == 0 {

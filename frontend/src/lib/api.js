@@ -420,6 +420,62 @@ export function exportLogs() {
   window.open(`${BASE}/logs/export`, '_blank');
 }
 
+// --- External Data Providers ---
+
+export async function getProviderConnections(projectId) {
+  return fetchJSON(`/projects/${projectId}/providers`);
+}
+
+export async function connectProvider(projectId, provider, apiKey, domain) {
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/connect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_key: apiKey || '', domain }),
+  });
+}
+
+export async function disconnectProvider(projectId, provider) {
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/disconnect`, { method: 'DELETE' });
+}
+
+export async function getProviderStatus(projectId, provider) {
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/status`);
+}
+
+export async function fetchProviderData(projectId, provider, dataTypes = []) {
+  const body = {};
+  if (dataTypes.length > 0) body.data_types = dataTypes;
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/fetch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function stopProviderFetch(projectId, provider) {
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/stop`, { method: 'POST' });
+}
+
+export async function getProviderMetrics(projectId, provider) {
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/metrics`);
+}
+
+export async function getProviderBacklinks(projectId, provider, limit = 100, offset = 0) {
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/backlinks?limit=${limit}&offset=${offset}`);
+}
+
+export async function getProviderRefDomains(projectId, provider, limit = 100, offset = 0) {
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/refdomains?limit=${limit}&offset=${offset}`);
+}
+
+export async function getProviderRankings(projectId, provider, limit = 100, offset = 0) {
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/rankings?limit=${limit}&offset=${offset}`);
+}
+
+export async function getProviderVisibility(projectId, provider) {
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/visibility`);
+}
+
 // SSE for live progress
 export function subscribeProgress(sessionId, onMessage, onDone) {
   const source = new EventSource(`${BASE}/sessions/${sessionId}/events`);

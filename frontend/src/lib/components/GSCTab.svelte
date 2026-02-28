@@ -1,12 +1,13 @@
 <script>
-  import { getGSCStatus, startGSCAuthorize, fetchGSCData, disconnectGSC,
+  import { onDestroy } from 'svelte';
+  import { getGSCStatus, startGSCAuthorize, fetchGSCData, stopGSCFetch, disconnectGSC,
     getGSCOverview, getGSCQueries, getGSCPages, getGSCCountries, getGSCDevices,
     getGSCTimeline, getGSCInspection } from '../api.js';
   import { fmtN } from '../utils.js';
 
-  let { sessionId, projectId, onerror } = $props();
+  let { projectId, initialSubView = 'overview', onerror, onpushurl } = $props();
 
-  let subView = $state('overview');
+  let subView = $state(initialSubView);
   let loading = $state(false);
   let status = $state(null);
   let overview = $state(null);
@@ -20,17 +21,51 @@
   let inspection = $state(null);
   let inspectionOffset = $state(0);
   let fetchingData = $state(false);
+  let fetchStatus = $state(null);
   let selectedProperty = $state('');
+  let pollTimer = null;
   const PAGE_LIMIT = 100;
 
   async function loadStatus() {
     if (!projectId) return;
     try {
       status = await getGSCStatus(projectId);
+      // Track fetch status from server
+      if (status.fetch_status?.fetching) {
+        fetchingData = true;
+        fetchStatus = status.fetch_status;
+        startPolling();
+      } else if (fetchingData && !status.fetch_status?.fetching) {
+        // Fetch just completed
+        fetchingData = false;
+        fetchStatus = null;
+        stopPolling();
+        loadSubView(subView);
+      }
     } catch (e) {
       status = { connected: false };
     }
   }
+
+  function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(async () => {
+      await loadStatus();
+      // Refresh data view while fetching
+      if (fetchingData) {
+        await loadSubView(subView);
+      }
+    }, 5000);
+  }
+
+  function stopPolling() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  onDestroy(() => stopPolling());
 
   async function authorize() {
     try {
@@ -43,16 +78,14 @@
 
   async function doFetch(propertyUrl = '') {
     fetchingData = true;
+    fetchStatus = { fetching: true, rows_so_far: 0 };
     try {
       await fetchGSCData(projectId, propertyUrl);
-      // Wait a moment then reload
-      setTimeout(() => {
-        loadSubView(subView);
-        fetchingData = false;
-      }, 2000);
+      startPolling();
     } catch (e) {
       onerror?.(e.message);
       fetchingData = false;
+      fetchStatus = null;
     }
   }
 
@@ -62,10 +95,25 @@
     await loadStatus();
   }
 
+  async function doStop() {
+    try {
+      await stopGSCFetch(projectId);
+      fetchingData = false;
+      fetchStatus = null;
+      stopPolling();
+      loadSubView(subView);
+    } catch (e) {
+      onerror?.(e.message);
+    }
+  }
+
   async function doDisconnect() {
     try {
       await disconnectGSC(projectId);
+      stopPolling();
       status = { connected: false };
+      fetchingData = false;
+      fetchStatus = null;
       overview = null;
       queries = null;
       pages = null;
@@ -75,28 +123,28 @@
   }
 
   async function loadSubView(view) {
-    loading = true;
+    if (!fetchingData) loading = true;
     try {
       if (view === 'overview') {
         const [ov, tl] = await Promise.all([
-          getGSCOverview(sessionId),
-          getGSCTimeline(sessionId),
+          getGSCOverview(projectId),
+          getGSCTimeline(projectId),
         ]);
         overview = ov;
         timeline = tl;
       } else if (view === 'queries') {
-        queries = await getGSCQueries(sessionId, PAGE_LIMIT, queriesOffset);
+        queries = await getGSCQueries(projectId, PAGE_LIMIT, queriesOffset);
       } else if (view === 'pages') {
-        pages = await getGSCPages(sessionId, PAGE_LIMIT, pagesOffset);
+        pages = await getGSCPages(projectId, PAGE_LIMIT, pagesOffset);
       } else if (view === 'countries') {
         const [c, d] = await Promise.all([
-          getGSCCountries(sessionId),
-          getGSCDevices(sessionId),
+          getGSCCountries(projectId),
+          getGSCDevices(projectId),
         ]);
         countries = c;
         devices = d;
       } else if (view === 'inspection') {
-        inspection = await getGSCInspection(sessionId, PAGE_LIMIT, inspectionOffset);
+        inspection = await getGSCInspection(projectId, PAGE_LIMIT, inspectionOffset);
       }
     } catch (e) {
       // No data yet is OK
@@ -111,12 +159,13 @@
     if (view === 'queries') queriesOffset = 0;
     if (view === 'pages') pagesOffset = 0;
     if (view === 'inspection') inspectionOffset = 0;
+    onpushurl?.(`/projects/${projectId}/gsc/${view}`);
     loadSubView(view);
   }
 
   // Init
   loadStatus();
-  if (projectId) loadSubView('overview');
+  if (projectId) loadSubView(subView);
 </script>
 
 <div class="pr-container">
@@ -168,11 +217,17 @@
       <span style="font-size: 13px; color: var(--text-secondary);">
         Property: <strong>{status.property_url}</strong>
       </span>
-      <div style="display: flex; gap: 8px;">
-        <button class="btn btn-sm" onclick={() => doFetch()} disabled={fetchingData}>
-          {fetchingData ? 'Fetching...' : 'Refresh Data'}
-        </button>
-        <button class="btn btn-sm" style="color: var(--danger);" onclick={doDisconnect}>Disconnect</button>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        {#if fetchingData}
+          <span class="fetch-indicator">
+            <span class="fetch-spinner"></span>
+            Fetching{fetchStatus?.rows_so_far ? ` — ${fmtN(fetchStatus.rows_so_far)} rows` : '...'}
+          </span>
+          <button class="btn btn-sm" style="color: var(--danger);" onclick={doStop}>Stop</button>
+        {:else}
+          <button class="btn btn-sm" onclick={() => doFetch()}>Refresh Data</button>
+        {/if}
+        <button class="btn btn-sm" style="color: var(--text-muted);" onclick={doDisconnect}>Disconnect</button>
       </div>
     </div>
 
@@ -236,7 +291,7 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
           <div>
             <h4 style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Top Queries (by clicks)</h4>
-            {#await getGSCQueries(sessionId, 10, 0) then data}
+            {#await getGSCQueries(projectId, 10, 0) then data}
               {#if data.rows?.length > 0}
                 <table>
                   <thead><tr><th>Query</th><th>Clicks</th><th>Impressions</th><th>CTR</th><th>Pos</th></tr></thead>
@@ -257,7 +312,7 @@
           </div>
           <div>
             <h4 style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">Top Pages (by clicks)</h4>
-            {#await getGSCPages(sessionId, 10, 0) then data}
+            {#await getGSCPages(projectId, 10, 0) then data}
               {#if data.rows?.length > 0}
                 <table>
                   <thead><tr><th>Page</th><th>Clicks</th><th>Impressions</th><th>CTR</th><th>Pos</th></tr></thead>
@@ -439,4 +494,21 @@
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .badge-success { background: #22c55e22; color: #16a34a; }
   .badge-danger { background: #ef444422; color: #dc2626; }
+  .fetch-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .fetch-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--accent);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>

@@ -174,3 +174,92 @@ type LinkDiffResult struct {
 	TotalAdded   uint64        `json:"total_added"`
 	TotalRemoved uint64        `json:"total_removed"`
 }
+
+// ExternalLinkCheck represents a single external URL check result.
+type ExternalLinkCheck struct {
+	CrawlSessionID string    `json:"crawl_session_id"`
+	URL            string    `json:"url"`
+	StatusCode     uint16    `json:"status_code"`
+	Error          string    `json:"error"`
+	ContentType    string    `json:"content_type"`
+	RedirectURL    string    `json:"redirect_url"`
+	ResponseTimeMs uint32   `json:"response_time_ms"`
+	CheckedAt      time.Time `json:"checked_at"`
+}
+
+// ExternalDomainCheck represents aggregated external check stats per domain.
+type ExternalDomainCheck struct {
+	Domain        string `json:"domain"`
+	TotalURLs     uint64 `json:"total_urls"`
+	OK            uint64 `json:"ok"`
+	Redirects     uint64 `json:"redirects"`
+	ClientErrors  uint64 `json:"client_errors"`
+	ServerErrors  uint64 `json:"server_errors"`
+	Unreachable   uint64 `json:"unreachable"`
+	AvgResponseMs uint32 `json:"avg_response_ms"`
+}
+
+// --- Provider Data Models ---
+
+type ProviderDomainMetricsRow struct {
+	Provider        string  `json:"provider"`
+	Domain          string  `json:"domain"`
+	BacklinksTotal  int64   `json:"backlinks_total"`
+	RefDomainsTotal int64   `json:"refdomains_total"`
+	DomainRank      float64 `json:"domain_rank"`
+	OrganicKeywords int64   `json:"organic_keywords"`
+	OrganicTraffic  int64   `json:"organic_traffic"`
+	OrganicCost     float64 `json:"organic_cost"`
+	FetchedAt       time.Time `json:"fetched_at"`
+}
+
+type ProviderBacklinkRow struct {
+	Provider     string  `json:"provider"`
+	Domain       string  `json:"domain"`
+	SourceURL    string  `json:"source_url"`
+	TargetURL    string  `json:"target_url"`
+	AnchorText   string  `json:"anchor_text"`
+	SourceDomain string  `json:"source_domain"`
+	LinkType     string  `json:"link_type"`
+	DomainRank   float64 `json:"domain_rank"`
+	PageRank     float64 `json:"page_rank"`
+	Nofollow     bool    `json:"nofollow"`
+	FirstSeen    time.Time `json:"first_seen"`
+	LastSeen     time.Time `json:"last_seen"`
+	FetchedAt    time.Time `json:"fetched_at"`
+}
+
+type ProviderRefDomainRow struct {
+	Provider      string  `json:"provider"`
+	Domain        string  `json:"domain"`
+	RefDomain     string  `json:"ref_domain"`
+	BacklinkCount int64   `json:"backlink_count"`
+	DomainRank    float64 `json:"domain_rank"`
+	FirstSeen     time.Time `json:"first_seen"`
+	LastSeen      time.Time `json:"last_seen"`
+	FetchedAt     time.Time `json:"fetched_at"`
+}
+
+type ProviderRankingRow struct {
+	Provider     string  `json:"provider"`
+	Domain       string  `json:"domain"`
+	Keyword      string  `json:"keyword"`
+	URL          string  `json:"url"`
+	SearchBase   string  `json:"search_base"`
+	Position     uint16  `json:"position"`
+	SearchVolume int64   `json:"search_volume"`
+	CPC          float64 `json:"cpc"`
+	Traffic      float64 `json:"traffic"`
+	TrafficPct   float64 `json:"traffic_pct"`
+	FetchedAt    time.Time `json:"fetched_at"`
+}
+
+type ProviderVisibilityRow struct {
+	Provider      string  `json:"provider"`
+	Domain        string  `json:"domain"`
+	SearchBase    string  `json:"search_base"`
+	Date          time.Time `json:"date"`
+	Visibility    float64 `json:"visibility"`
+	KeywordsCount int64   `json:"keywords_count"`
+	FetchedAt     time.Time `json:"fetched_at"`
+}

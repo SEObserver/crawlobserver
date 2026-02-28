@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/SEObserver/seocrawler/internal/customtests"
+	"github.com/SEObserver/seocrawler/internal/providers"
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 )
@@ -132,6 +133,22 @@ func NewStore(dbPath string) (*Store, error) {
 	`); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("creating rules table: %w", err)
+	}
+
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS provider_connections (
+			id TEXT PRIMARY KEY,
+			project_id TEXT NOT NULL,
+			provider TEXT NOT NULL,
+			domain TEXT NOT NULL,
+			api_key TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(project_id, provider),
+			FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+		)
+	`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("creating provider_connections table: %w", err)
 	}
 
 	return &Store{db: db}, nil
@@ -516,4 +533,65 @@ func (s *Store) DeleteRuleset(id string) error {
 		return fmt.Errorf("ruleset not found")
 	}
 	return nil
+}
+
+// --- Provider Connections ---
+
+func (s *Store) SaveProviderConnection(conn *providers.ProviderConnection) error {
+	if conn.ID == "" {
+		conn.ID = uuid.New().String()
+	}
+	_, err := s.db.Exec(`
+		INSERT INTO provider_connections (id, project_id, provider, domain, api_key, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(project_id, provider) DO UPDATE SET
+			domain = excluded.domain,
+			api_key = excluded.api_key`,
+		conn.ID, conn.ProjectID, conn.Provider, conn.Domain, conn.APIKey, time.Now().UTC())
+	return err
+}
+
+func (s *Store) GetProviderConnection(projectID, provider string) (*providers.ProviderConnection, error) {
+	var c providers.ProviderConnection
+	err := s.db.QueryRow(`
+		SELECT id, project_id, provider, domain, api_key, created_at
+		FROM provider_connections WHERE project_id = ? AND provider = ?`, projectID, provider).
+		Scan(&c.ID, &c.ProjectID, &c.Provider, &c.Domain, &c.APIKey, &c.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (s *Store) DeleteProviderConnection(projectID, provider string) error {
+	res, err := s.db.Exec(`DELETE FROM provider_connections WHERE project_id = ? AND provider = ?`, projectID, provider)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("provider connection not found")
+	}
+	return nil
+}
+
+func (s *Store) ListProviderConnections(projectID string) ([]providers.ProviderConnection, error) {
+	rows, err := s.db.Query(`SELECT id, project_id, provider, domain, api_key, created_at FROM provider_connections WHERE project_id = ? ORDER BY created_at DESC`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var conns []providers.ProviderConnection
+	for rows.Next() {
+		var c providers.ProviderConnection
+		if err := rows.Scan(&c.ID, &c.ProjectID, &c.Provider, &c.Domain, &c.APIKey, &c.CreatedAt); err != nil {
+			return nil, err
+		}
+		conns = append(conns, c)
+	}
+	if conns == nil {
+		conns = []providers.ProviderConnection{}
+	}
+	return conns, nil
 }

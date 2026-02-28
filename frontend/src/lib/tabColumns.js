@@ -22,10 +22,10 @@ export const TABS = [
   { id: 'response', label: 'Response' },
   { id: 'internal', label: 'Internal Links' },
   { id: 'external', label: 'External Links' },
+  { id: 'ext-checks', label: 'Ext. Checks' },
   { id: 'pagerank', label: 'PageRank' },
   { id: 'robots', label: 'Robots.txt' },
   { id: 'sitemaps', label: 'Sitemaps' },
-  { id: 'gsc', label: 'Search Console' },
   { id: 'reports', label: 'Reports' },
   { id: 'tests', label: 'Tests' },
 ];
