@@ -25,6 +25,5 @@ volumes:
   # This named volume lives inside Docker Desktop's virtual disk (60GB by default).
   # Large crawls can fill it up. Increase via Docker Desktop > Settings > Resources > Disk.
   crawlobserver_clickhouse_data:
-    # Use existing volume from before the rename. Remove this block for fresh installs.
-    name: seocrawler_seocrawler_clickhouse_data
+    name: crawlobserver_clickhouse_data
     external: true
