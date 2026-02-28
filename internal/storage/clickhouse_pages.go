@@ -555,7 +555,7 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 	if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
 		return fmt.Errorf("dropping old temp pagerank table: %w", err)
 	}
-	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (page_url String, new_pagerank Float64) ENGINE = Memory", tmpTable)); err != nil {
+	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (page_url String, new_pagerank Float64) ENGINE = Join(ANY, LEFT, page_url)", tmpTable)); err != nil {
 		return fmt.Errorf("creating temp pagerank table: %w", err)
 	}
 	defer s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable))
@@ -580,12 +580,15 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		}
 	}
 
+	// Use joinGet to look up pagerank from the Join-engine temp table.
+	// Single mutation, no data copy, no correlated subquery.
 	query := fmt.Sprintf(`ALTER TABLE crawlobserver.pages UPDATE
-		pagerank = (SELECT new_pagerank FROM %s WHERE page_url = pages.url LIMIT 1)
-		WHERE crawl_session_id = ? AND url IN (SELECT page_url FROM %s)`,
-		tmpTable, tmpTable)
+		pagerank = joinGet('%s', 'new_pagerank', url)
+		WHERE crawl_session_id = ?
+		SETTINGS mutations_sync = 1`,
+		tmpTable)
 	if err := s.conn.Exec(ctx, query, sessionID); err != nil {
-		return fmt.Errorf("updating pagerank from temp table: %w", err)
+		return fmt.Errorf("updating pagerank via joinGet: %w", err)
 	}
 
 	applog.Infof("storage", "ComputePageRank: computed for %d pages in session %s in %s", n, sessionID, time.Since(start))
@@ -725,7 +728,7 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 	if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
 		return fmt.Errorf("dropping old temp depths table: %w", err)
 	}
-	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (page_url String, new_depth UInt16, new_found_on String) ENGINE = Memory", tmpTable)); err != nil {
+	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (page_url String, new_depth UInt16, new_found_on String) ENGINE = Join(ANY, LEFT, page_url)", tmpTable)); err != nil {
 		return fmt.Errorf("creating temp depths table: %w", err)
 	}
 	defer s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable))
@@ -756,16 +759,17 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 		}
 	}
 
-	// Single mutation: update from temp table.
-	// Use pages.url to explicitly reference the outer table column in subqueries.
+	// Use joinGet to look up depth/found_on from the Join-engine temp table.
+	// Single mutation, no data copy, no correlated subquery.
 	query := fmt.Sprintf(`ALTER TABLE crawlobserver.pages UPDATE
-		depth = (SELECT new_depth FROM %s WHERE page_url = pages.url LIMIT 1),
-		found_on = (SELECT new_found_on FROM %s WHERE page_url = pages.url LIMIT 1)
-		WHERE crawl_session_id = ? AND url IN (SELECT page_url FROM %s)`,
-		tmpTable, tmpTable, tmpTable)
+		depth = joinGet('%s', 'new_depth', url),
+		found_on = joinGet('%s', 'new_found_on', url)
+		WHERE crawl_session_id = ?
+		SETTINGS mutations_sync = 1`,
+		tmpTable, tmpTable)
 
 	if err := s.conn.Exec(ctx, query, sessionID); err != nil {
-		return fmt.Errorf("updating depths from temp table: %w", err)
+		return fmt.Errorf("updating depths via joinGet: %w", err)
 	}
 
 	applog.Infof("storage", "RecomputeDepths: updated %d URLs for session %s", len(depths), sessionID)

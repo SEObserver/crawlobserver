@@ -10,8 +10,8 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
-// StorageService is the subset of storage.Store used by the HTTP server.
-type StorageService interface {
+// CrawlStore handles core crawl data: sessions, pages, links, stats, and analysis.
+type CrawlStore interface {
 	ListSessions(ctx context.Context, projectID ...string) ([]storage.CrawlSession, error)
 	ListSessionsPaginated(ctx context.Context, limit, offset int, projectID, search string) ([]storage.CrawlSession, int, error)
 	GetSession(ctx context.Context, sessionID string) (*storage.CrawlSession, error)
@@ -38,17 +38,22 @@ type StorageService interface {
 	GetURLsByHost(ctx context.Context, sessionID, host string) ([]string, error)
 	GetSitemaps(ctx context.Context, sessionID string) ([]storage.SitemapRow, error)
 	GetSitemapURLs(ctx context.Context, sessionID, sitemapURL string, limit, offset int) ([]storage.SitemapURLRow, error)
-
-	// Export / Import
 	ExportSession(ctx context.Context, sessionID string, w io.Writer, includeHTML bool) error
 	ImportSession(ctx context.Context, r io.Reader) (*storage.CrawlSession, error)
-
-	// Compare
 	CompareStats(ctx context.Context, sessionA, sessionB string) (*storage.CompareStatsResult, error)
 	ComparePages(ctx context.Context, sessionA, sessionB, diffType string, limit, offset int) (*storage.PageDiffResult, error)
 	CompareLinks(ctx context.Context, sessionA, sessionB, diffType string, limit, offset int) (*storage.LinkDiffResult, error)
+	GetExternalLinkChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.ExternalLinkCheck, error)
+	GetExternalLinkCheckDomains(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.ExternalDomainCheck, error)
+	GetExpiredDomains(ctx context.Context, sessionID string, limit, offset int) (*storage.ExpiredDomainsResult, error)
+	GetPageResourceChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.PageResourceCheck, error)
+	GetPageResourceTypeSummary(ctx context.Context, sessionID string) ([]storage.ResourceTypeSummary, error)
+	RunCustomTestsSQL(ctx context.Context, sessionID string, rules []customtests.TestRule) (map[string]map[string]string, error)
+	StreamPagesHTML(ctx context.Context, sessionID string) (<-chan storage.PageHTMLRow, error)
+}
 
-	// GSC
+// GSCStore handles Google Search Console data.
+type GSCStore interface {
 	InsertGSCAnalytics(ctx context.Context, projectID string, rows []storage.GSCAnalyticsInsertRow) error
 	InsertGSCInspection(ctx context.Context, projectID string, rows []storage.GSCInspectionInsertRow) error
 	GSCOverview(ctx context.Context, projectID string) (*storage.GSCOverviewStats, error)
@@ -59,26 +64,10 @@ type StorageService interface {
 	GSCTimeline(ctx context.Context, projectID string) ([]storage.GSCTimelineRow, error)
 	GSCInspectionResults(ctx context.Context, projectID string, limit, offset int) ([]storage.GSCInspectionRow, int, error)
 	DeleteGSCData(ctx context.Context, projectID string) error
+}
 
-	// Custom Tests
-	RunCustomTestsSQL(ctx context.Context, sessionID string, rules []customtests.TestRule) (map[string]map[string]string, error)
-	StreamPagesHTML(ctx context.Context, sessionID string) (<-chan storage.PageHTMLRow, error)
-
-	// External Link Checks
-	GetExternalLinkChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.ExternalLinkCheck, error)
-	GetExternalLinkCheckDomains(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.ExternalDomainCheck, error)
-	GetExpiredDomains(ctx context.Context, sessionID string, limit, offset int) (*storage.ExpiredDomainsResult, error)
-
-	// Page Resource Checks
-	GetPageResourceChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.PageResourceCheck, error)
-	GetPageResourceTypeSummary(ctx context.Context, sessionID string) ([]storage.ResourceTypeSummary, error)
-
-	// Application Logs
-	InsertLogs(ctx context.Context, logs []applog.LogRow) error
-	ListLogs(ctx context.Context, limit, offset int, level, component, search string) ([]applog.LogRow, int, error)
-	ExportLogs(ctx context.Context) ([]applog.LogRow, error)
-
-	// Provider Data
+// ProviderStore handles third-party provider data (SEObserver, etc.).
+type ProviderStore interface {
 	InsertProviderDomainMetrics(ctx context.Context, projectID string, rows []storage.ProviderDomainMetricsRow) error
 	InsertProviderBacklinks(ctx context.Context, projectID string, rows []storage.ProviderBacklinkRow) error
 	InsertProviderRefDomains(ctx context.Context, projectID string, rows []storage.ProviderRefDomainRow) error
@@ -90,6 +79,22 @@ type StorageService interface {
 	ProviderRankings(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderRankingRow, int, error)
 	ProviderVisibilityHistory(ctx context.Context, projectID, provider string) ([]storage.ProviderVisibilityRow, error)
 	DeleteProviderData(ctx context.Context, projectID, provider string) error
+}
+
+// LogStore handles application logs.
+type LogStore interface {
+	InsertLogs(ctx context.Context, logs []applog.LogRow) error
+	ListLogs(ctx context.Context, limit, offset int, level, component, search string) ([]applog.LogRow, int, error)
+	ExportLogs(ctx context.Context) ([]applog.LogRow, error)
+}
+
+// StorageService is the full storage interface used by the HTTP server.
+// It composes domain-specific interfaces for clearer API boundaries.
+type StorageService interface {
+	CrawlStore
+	GSCStore
+	ProviderStore
+	LogStore
 }
 
 // CrawlService is the subset of crawler.Manager used by the HTTP server.

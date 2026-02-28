@@ -213,70 +213,7 @@ func (e *Engine) Run(seeds []string) error {
 	}
 
 	// Discover and persist sitemaps (before workers start)
-	sitemapURLs := e.robots.SitemapURLs()
-	if len(sitemapURLs) > 0 {
-		now := time.Now()
-		sitemapEntries := fetcher.DiscoverSitemaps(e.fetch.Client(), e.cfg.Crawler.UserAgent, sitemapURLs)
-
-		parentMap := make(map[string]string)
-		for _, entry := range sitemapEntries {
-			if entry.Type == "index" {
-				for _, child := range entry.Sitemaps {
-					parentMap[child] = entry.URL
-				}
-			}
-		}
-
-		var sitemapRows []storage.SitemapRow
-		var sitemapURLRows []storage.SitemapURLRow
-
-		for _, entry := range sitemapEntries {
-			sitemapRows = append(sitemapRows, storage.SitemapRow{
-				CrawlSessionID: e.session.ID,
-				URL:            entry.URL,
-				Type:           entry.Type,
-				URLCount:       uint32(len(entry.URLs)),
-				ParentURL:      parentMap[entry.URL],
-				StatusCode:     uint16(entry.StatusCode),
-				FetchedAt:      now,
-			})
-			for _, u := range entry.URLs {
-				sitemapURLRows = append(sitemapURLRows, storage.SitemapURLRow{
-					CrawlSessionID: e.session.ID,
-					SitemapURL:     entry.URL,
-					Loc:            u.Loc,
-					LastMod:        u.LastMod,
-					ChangeFreq:     u.ChangeFreq,
-					Priority:       u.Priority,
-				})
-			}
-		}
-
-		if err := e.store.InsertSitemaps(context.Background(), sitemapRows); err != nil {
-			applog.Warnf("crawler", "failed to persist sitemaps: %v", err)
-		}
-		if err := e.store.InsertSitemapURLs(context.Background(), sitemapURLRows); err != nil {
-			applog.Warnf("crawler", "failed to persist sitemap URLs: %v", err)
-		}
-		if len(sitemapRows) > 0 {
-			applog.Infof("crawler", "Persisted %d sitemaps (%d URLs total)", len(sitemapRows), len(sitemapURLRows))
-		}
-
-		if e.sitemapOnly && len(sitemapURLRows) > 0 {
-			added := 0
-			for _, su := range sitemapURLRows {
-				norm, err := normalizer.Normalize(su.Loc)
-				if err != nil {
-					continue
-				}
-				if e.isInScope(norm) {
-					e.front.Add(frontier.CrawlURL{URL: norm, Priority: 1, Depth: 1})
-					added++
-				}
-			}
-			applog.Infof("crawler", "Sitemap-only mode: enqueued %d URLs from sitemaps", added)
-		}
-	}
+	e.discoverAndPersistSitemaps()
 
 	// Channels
 	fetchCh := make(chan *frontier.CrawlURL, e.cfg.Crawler.Workers)
@@ -391,54 +328,10 @@ func (e *Engine) Run(seeds []string) error {
 	}
 
 	// Persist robots.txt data
-	entries := e.robots.Entries()
-	if len(entries) > 0 {
-		var robotsRows []storage.RobotsRow
-		for host, entry := range entries {
-			robotsRows = append(robotsRows, storage.RobotsRow{
-				CrawlSessionID: e.session.ID,
-				Host:           host,
-				StatusCode:     uint16(entry.StatusCode),
-				Content:        entry.Content,
-				FetchedAt:      entry.FetchedAt,
-			})
-		}
-		if err := e.store.InsertRobotsData(context.Background(), robotsRows); err != nil {
-			applog.Warnf("crawler", "failed to persist robots.txt data: %v", err)
-		} else {
-			applog.Infof("crawler", "Persisted robots.txt for %d hosts", len(robotsRows))
-		}
-	}
+	e.persistRobotsData()
 
-	// Recompute depths via BFS
-	if err := e.store.RecomputeDepths(context.Background(), e.session.ID, e.session.SeedURLs); err != nil {
-		applog.Warnf("crawler", "depth recomputation failed: %v", err)
-	}
-
-	// Compute internal PageRank
-	if err := e.store.ComputePageRank(context.Background(), e.session.ID); err != nil {
-		applog.Warnf("crawler", "PageRank computation failed: %v", err)
-	}
-
-	// Update session status with actual page count from storage
-	if bufState.LostPages > 0 || bufState.LostLinks > 0 {
-		e.session.Status = "completed_with_errors"
-	} else {
-		e.session.Status = "completed"
-	}
-	if total, err := e.store.CountPages(context.Background(), e.session.ID); err == nil {
-		e.session.Pages = total
-	} else {
-		e.session.Pages = uint64(e.pagesCrawled.Load())
-	}
-	row := e.session.ToStorageRow()
-	row.FinishedAt = time.Now()
-	if err := e.store.InsertSession(context.Background(), row); err != nil {
-		applog.Errorf("crawler", "updating session: %v", err)
-	}
-
-	applog.Infof("crawler", "Crawl complete: %d pages crawled, session %s",
-		e.pagesCrawled.Load(), e.session.ID)
+	// Finalize session (recompute depths, PageRank, update status)
+	e.finalizeSession(bufState)
 
 	return nil
 }
@@ -744,38 +637,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 			}
 		}
 
-		// Ensure arrays are not nil for ClickHouse
-		if pageRow.H1 == nil {
-			pageRow.H1 = []string{}
-		}
-		if pageRow.H2 == nil {
-			pageRow.H2 = []string{}
-		}
-		if pageRow.H3 == nil {
-			pageRow.H3 = []string{}
-		}
-		if pageRow.H4 == nil {
-			pageRow.H4 = []string{}
-		}
-		if pageRow.H5 == nil {
-			pageRow.H5 = []string{}
-		}
-		if pageRow.H6 == nil {
-			pageRow.H6 = []string{}
-		}
-		if pageRow.Headers == nil {
-			pageRow.Headers = map[string]string{}
-		}
-		if pageRow.RedirectChain == nil {
-			pageRow.RedirectChain = []storage.RedirectHopRow{}
-		}
-		if pageRow.Hreflang == nil {
-			pageRow.Hreflang = []storage.HreflangRow{}
-		}
-		if pageRow.SchemaTypes == nil {
-			pageRow.SchemaTypes = []string{}
-		}
-
+		ensureNonNilArrays(&pageRow)
 		e.buffer.AddPage(pageRow)
 	}
 }
@@ -887,18 +749,7 @@ func computeIndexability(statusCode uint16, metaRobots, xRobotsTag, canonical, f
 
 // externalCheckWorker checks external URLs and buffers the results.
 func (e *Engine) externalCheckWorker() {
-	client := &http.Client{
-		Timeout: 15 * time.Second,
-		Transport: &http.Transport{
-			DialContext: fetcher.SafeDialContext(e.cfg.Crawler.AllowPrivateIPs),
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= 10 {
-				return http.ErrUseLastResponse
-			}
-			return nil
-		},
-	}
+	client := e.newCheckClient()
 	for rawURL := range e.externalCh {
 		start := time.Now()
 		check := storage.ExternalLinkCheck{
@@ -961,18 +812,7 @@ func (e *Engine) flushExternalChecks() {
 
 // resourceCheckWorker checks resource URLs and buffers the results.
 func (e *Engine) resourceCheckWorker() {
-	client := &http.Client{
-		Timeout: 15 * time.Second,
-		Transport: &http.Transport{
-			DialContext: fetcher.SafeDialContext(e.cfg.Crawler.AllowPrivateIPs),
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= 10 {
-				return http.ErrUseLastResponse
-			}
-			return nil
-		},
-	}
+	client := e.newCheckClient()
 	for item := range e.resourceCh {
 		start := time.Now()
 		check := storage.PageResourceCheck{
@@ -1061,5 +901,177 @@ func (e *Engine) flushResourceRefs() {
 		} else {
 			applog.Infof("crawler", "Flushed %d page resource refs", len(batch))
 		}
+	}
+}
+
+// discoverAndPersistSitemaps fetches sitemaps from robots.txt directives and persists them.
+func (e *Engine) discoverAndPersistSitemaps() {
+	sitemapURLs := e.robots.SitemapURLs()
+	if len(sitemapURLs) == 0 {
+		return
+	}
+
+	now := time.Now()
+	sitemapEntries := fetcher.DiscoverSitemaps(e.fetch.Client(), e.cfg.Crawler.UserAgent, sitemapURLs)
+
+	parentMap := make(map[string]string)
+	for _, entry := range sitemapEntries {
+		if entry.Type == "index" {
+			for _, child := range entry.Sitemaps {
+				parentMap[child] = entry.URL
+			}
+		}
+	}
+
+	var sitemapRows []storage.SitemapRow
+	var sitemapURLRows []storage.SitemapURLRow
+
+	for _, entry := range sitemapEntries {
+		sitemapRows = append(sitemapRows, storage.SitemapRow{
+			CrawlSessionID: e.session.ID,
+			URL:            entry.URL,
+			Type:           entry.Type,
+			URLCount:       uint32(len(entry.URLs)),
+			ParentURL:      parentMap[entry.URL],
+			StatusCode:     uint16(entry.StatusCode),
+			FetchedAt:      now,
+		})
+		for _, u := range entry.URLs {
+			sitemapURLRows = append(sitemapURLRows, storage.SitemapURLRow{
+				CrawlSessionID: e.session.ID,
+				SitemapURL:     entry.URL,
+				Loc:            u.Loc,
+				LastMod:        u.LastMod,
+				ChangeFreq:     u.ChangeFreq,
+				Priority:       u.Priority,
+			})
+		}
+	}
+
+	if err := e.store.InsertSitemaps(context.Background(), sitemapRows); err != nil {
+		applog.Warnf("crawler", "failed to persist sitemaps: %v", err)
+	}
+	if err := e.store.InsertSitemapURLs(context.Background(), sitemapURLRows); err != nil {
+		applog.Warnf("crawler", "failed to persist sitemap URLs: %v", err)
+	}
+	if len(sitemapRows) > 0 {
+		applog.Infof("crawler", "Persisted %d sitemaps (%d URLs total)", len(sitemapRows), len(sitemapURLRows))
+	}
+
+	if e.sitemapOnly && len(sitemapURLRows) > 0 {
+		added := 0
+		for _, su := range sitemapURLRows {
+			norm, err := normalizer.Normalize(su.Loc)
+			if err != nil {
+				continue
+			}
+			if e.isInScope(norm) {
+				e.front.Add(frontier.CrawlURL{URL: norm, Priority: 1, Depth: 1})
+				added++
+			}
+		}
+		applog.Infof("crawler", "Sitemap-only mode: enqueued %d URLs from sitemaps", added)
+	}
+}
+
+// persistRobotsData saves cached robots.txt data to storage.
+func (e *Engine) persistRobotsData() {
+	entries := e.robots.Entries()
+	if len(entries) == 0 {
+		return
+	}
+	var robotsRows []storage.RobotsRow
+	for host, entry := range entries {
+		robotsRows = append(robotsRows, storage.RobotsRow{
+			CrawlSessionID: e.session.ID,
+			Host:           host,
+			StatusCode:     uint16(entry.StatusCode),
+			Content:        entry.Content,
+			FetchedAt:      entry.FetchedAt,
+		})
+	}
+	if err := e.store.InsertRobotsData(context.Background(), robotsRows); err != nil {
+		applog.Warnf("crawler", "failed to persist robots.txt data: %v", err)
+	} else {
+		applog.Infof("crawler", "Persisted robots.txt for %d hosts", len(robotsRows))
+	}
+}
+
+// finalizeSession recomputes depths and PageRank, then updates the session status.
+func (e *Engine) finalizeSession(bufState storage.BufferErrorState) {
+	if err := e.store.RecomputeDepths(context.Background(), e.session.ID, e.session.SeedURLs); err != nil {
+		applog.Warnf("crawler", "depth recomputation failed: %v", err)
+	}
+	if err := e.store.ComputePageRank(context.Background(), e.session.ID); err != nil {
+		applog.Warnf("crawler", "PageRank computation failed: %v", err)
+	}
+
+	if bufState.LostPages > 0 || bufState.LostLinks > 0 {
+		e.session.Status = "completed_with_errors"
+	} else {
+		e.session.Status = "completed"
+	}
+	if total, err := e.store.CountPages(context.Background(), e.session.ID); err == nil {
+		e.session.Pages = total
+	} else {
+		e.session.Pages = uint64(e.pagesCrawled.Load())
+	}
+	row := e.session.ToStorageRow()
+	row.FinishedAt = time.Now()
+	if err := e.store.InsertSession(context.Background(), row); err != nil {
+		applog.Errorf("crawler", "updating session: %v", err)
+	}
+
+	applog.Infof("crawler", "Crawl complete: %d pages crawled, session %s",
+		e.pagesCrawled.Load(), e.session.ID)
+}
+
+// newCheckClient creates an HTTP client for external/resource check workers.
+func (e *Engine) newCheckClient() *http.Client {
+	return &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			DialContext: fetcher.SafeDialContext(e.cfg.Crawler.AllowPrivateIPs),
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return http.ErrUseLastResponse
+			}
+			return nil
+		},
+	}
+}
+
+// ensureNonNilArrays replaces nil slices/maps with empty values for ClickHouse compatibility.
+func ensureNonNilArrays(row *storage.PageRow) {
+	if row.H1 == nil {
+		row.H1 = []string{}
+	}
+	if row.H2 == nil {
+		row.H2 = []string{}
+	}
+	if row.H3 == nil {
+		row.H3 = []string{}
+	}
+	if row.H4 == nil {
+		row.H4 = []string{}
+	}
+	if row.H5 == nil {
+		row.H5 = []string{}
+	}
+	if row.H6 == nil {
+		row.H6 = []string{}
+	}
+	if row.Headers == nil {
+		row.Headers = map[string]string{}
+	}
+	if row.RedirectChain == nil {
+		row.RedirectChain = []storage.RedirectHopRow{}
+	}
+	if row.Hreflang == nil {
+		row.Hreflang = []storage.HreflangRow{}
+	}
+	if row.SchemaTypes == nil {
+		row.SchemaTypes = []string{}
 	}
 }

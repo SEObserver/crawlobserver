@@ -12,23 +12,24 @@ import (
 var ErrPrivateIP = errors.New("connection to private/reserved IP address is blocked")
 
 // privateRanges contains all RFC-defined private and reserved IPv4/IPv6 ranges.
-var privateRanges []*net.IPNet
+var privateRanges = []*net.IPNet{
+	mustParseCIDR("127.0.0.0/8"),    // IPv4 loopback
+	mustParseCIDR("10.0.0.0/8"),     // RFC1918
+	mustParseCIDR("172.16.0.0/12"),  // RFC1918
+	mustParseCIDR("192.168.0.0/16"), // RFC1918
+	mustParseCIDR("169.254.0.0/16"), // Link-local
+	mustParseCIDR("0.0.0.0/8"),      // Current network
+	mustParseCIDR("::1/128"),        // IPv6 loopback
+	mustParseCIDR("fc00::/7"),       // IPv6 unique local
+	mustParseCIDR("fe80::/10"),      // IPv6 link-local
+}
 
-func init() {
-	for _, cidr := range []string{
-		"127.0.0.0/8",    // IPv4 loopback
-		"10.0.0.0/8",     // RFC1918
-		"172.16.0.0/12",  // RFC1918
-		"192.168.0.0/16", // RFC1918
-		"169.254.0.0/16", // Link-local
-		"0.0.0.0/8",      // Current network
-		"::1/128",         // IPv6 loopback
-		"fc00::/7",        // IPv6 unique local
-		"fe80::/10",       // IPv6 link-local
-	} {
-		_, ipNet, _ := net.ParseCIDR(cidr)
-		privateRanges = append(privateRanges, ipNet)
+func mustParseCIDR(s string) *net.IPNet {
+	_, ipNet, err := net.ParseCIDR(s)
+	if err != nil {
+		panic(fmt.Sprintf("invalid CIDR %q: %v", s, err))
 	}
+	return ipNet
 }
 
 // IsPrivateIP checks if an IP address belongs to a private or reserved range.
