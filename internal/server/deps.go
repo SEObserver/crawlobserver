@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"io"
 
 	"github.com/SEObserver/seocrawler/internal/crawler"
 	"github.com/SEObserver/seocrawler/internal/storage"
@@ -34,6 +35,10 @@ type StorageService interface {
 	GetURLsByHost(ctx context.Context, sessionID, host string) ([]string, error)
 	GetSitemaps(ctx context.Context, sessionID string) ([]storage.SitemapRow, error)
 	GetSitemapURLs(ctx context.Context, sessionID, sitemapURL string, limit, offset int) ([]storage.SitemapURLRow, error)
+
+	// Export / Import
+	ExportSession(ctx context.Context, sessionID string, w io.Writer, includeHTML bool) error
+	ImportSession(ctx context.Context, r io.Reader) (*storage.CrawlSession, error)
 
 	// Compare
 	CompareStats(ctx context.Context, sessionA, sessionB string) (*storage.CompareStatsResult, error)
