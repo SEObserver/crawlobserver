@@ -1,7 +1,15 @@
 <script>
   import { updateTheme, getBackups, createBackup, restoreBackup, deleteBackup } from '../api.js';
+  import { fmtSize } from '../utils.js';
+  import ConfirmModal from './ConfirmModal.svelte';
 
   let { initialTheme, onerror, onsave, oncancel } = $props();
+
+  let confirmState = $state(null);
+
+  function showConfirm(message, onConfirm, opts = {}) {
+    confirmState = { message, onConfirm, ...opts };
+  }
 
   let editTheme = $state({ ...initialTheme });
   let savingTheme = $state(false);
@@ -54,37 +62,30 @@
     }
   }
 
-  async function doRestoreBackup(filename) {
-    if (!confirm(`Restore from ${filename}? The application should be restarted after restore.`)) return;
-    restoringBackup = filename;
-    backupMessage = '';
-    try {
-      const result = await restoreBackup(filename);
-      backupMessage = result.message || 'Restore complete. Restart to apply.';
-    } catch (e) {
-      backupMessage = 'Restore failed: ' + e.message;
-    } finally {
-      restoringBackup = null;
-    }
+  function doRestoreBackup(filename) {
+    showConfirm(`Restore from ${filename}? The application should be restarted after restore.`, async () => {
+      restoringBackup = filename;
+      backupMessage = '';
+      try {
+        const result = await restoreBackup(filename);
+        backupMessage = result.message || 'Restore complete. Restart to apply.';
+      } catch (e) {
+        backupMessage = 'Restore failed: ' + e.message;
+      } finally {
+        restoringBackup = null;
+      }
+    }, { danger: true, confirmLabel: 'Restore' });
   }
 
-  async function doDeleteBackup(name) {
-    if (!confirm(`Delete backup ${name}?`)) return;
-    try {
-      await deleteBackup(name);
-      await loadBackups();
-    } catch (e) {
-      backupMessage = 'Delete failed: ' + e.message;
-    }
-  }
-
-  function formatBytes(bytes) {
-    if (!bytes) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let i = 0;
-    let val = bytes;
-    while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
-    return val.toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
+  function doDeleteBackup(name) {
+    showConfirm(`Delete backup ${name}?`, async () => {
+      try {
+        await deleteBackup(name);
+        await loadBackups();
+      } catch (e) {
+        backupMessage = 'Delete failed: ' + e.message;
+      }
+    }, { danger: true, confirmLabel: 'Delete' });
   }
 
   loadBackups();
@@ -168,7 +169,7 @@
             <td class="cell-url">{b.filename}</td>
             <td>{b.version || '-'}</td>
             <td>{new Date(b.created_at).toLocaleString()}</td>
-            <td>{formatBytes(b.size)}</td>
+            <td>{fmtSize(b.size)}</td>
             <td class="nowrap">
               <button class="btn btn-sm" onclick={() => doRestoreBackup(b.filename)}
                 disabled={restoringBackup === b.filename}>
@@ -182,6 +183,8 @@
     </table>
   {/if}
 </div>
+
+{#if confirmState}<ConfirmModal message={confirmState.message} danger={confirmState.danger} confirmLabel={confirmState.confirmLabel} onconfirm={() => { confirmState.onConfirm(); confirmState = null; }} oncancel={() => confirmState = null} />{/if}
 
 <style>
   .full-width {
