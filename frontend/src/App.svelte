@@ -1,21 +1,29 @@
 <script>
   import { onDestroy } from 'svelte';
   import { getSessions, getStats, getPages, getExternalLinks, getInternalLinks, getProgress,
-    stopCrawl, deleteSession, recomputeDepths, computePageRank, retryFailed,
-    subscribeProgress, getTheme, updateTheme,
-    getStorageStats, getGlobalStats, getSessionStorage, getPageDetail, getSystemStats,
-    getProjects, createProject, renameProject, deleteProject,
-    associateSession, disassociateSession,
-    getAPIKeys, createAPIKey, deleteAPIKey,
+    stopCrawl, deleteSession,
+    subscribeProgress, getTheme,
+    getStorageStats, getGlobalStats, getSessionStorage, getSystemStats,
+    getProjects,
     getUpdateStatus, applyUpdate,
-    getBackups, createBackup, restoreBackup, deleteBackup } from './lib/api.js';
-  import { statusBadge, fmt, fmtSize, fmtN, trunc, timeAgo, a11yKeydown, copyToClipboard } from './lib/utils.js';
+    createBackup } from './lib/api.js';
+  import { statusBadge, fmt, fmtSize, fmtN, trunc, timeAgo, a11yKeydown } from './lib/utils.js';
+  import { PAGE_SIZE, TAB_FILTERS, TABS } from './lib/tabColumns.js';
   import HtmlModal from './lib/components/HtmlModal.svelte';
   import ResumeModal from './lib/components/ResumeModal.svelte';
   import NewCrawlForm from './lib/components/NewCrawlForm.svelte';
   import PageRankTab from './lib/components/PageRankTab.svelte';
   import RobotsTab from './lib/components/RobotsTab.svelte';
   import SitemapsTab from './lib/components/SitemapsTab.svelte';
+  import GlobalStatsPage from './lib/components/GlobalStatsPage.svelte';
+  import SettingsPage from './lib/components/SettingsPage.svelte';
+  import APIManagementPage from './lib/components/APIManagementPage.svelte';
+  import SessionsList from './lib/components/SessionsList.svelte';
+  import Sidebar from './lib/components/Sidebar.svelte';
+  import SessionActionBar from './lib/components/SessionActionBar.svelte';
+  import SessionStatsTab from './lib/components/SessionStatsTab.svelte';
+  import UrlDetailView from './lib/components/UrlDetailView.svelte';
+  import DataTable from './lib/components/DataTable.svelte';
 
   let sessions = $state([]);
   let selectedSession = $state(null);
@@ -25,6 +33,7 @@
   let extLinks = $state([]);
   let intLinks = $state([]);
   let tab = $state('overview');
+  let detailUrl = $state('');
   let loading = $state(true);
   let error = $state(null);
 
@@ -33,7 +42,6 @@
   let darkMode = $state(false);
 
   // Pagination
-  const PAGE_SIZE = 100;
   let pagesOffset = $state(0);
   let extLinksOffset = $state(0);
   let intLinksOffset = $state(0);
@@ -44,22 +52,9 @@
   // Global filters
   let filters = $state({});
 
-  const TAB_FILTERS = {
-    overview:     ['url', 'status_code', 'title', 'word_count', 'internal_links_out', 'external_links_out', 'body_size', 'fetch_duration_ms', 'depth', 'pagerank'],
-    titles:       ['url', 'title', 'title_length', 'h1'],
-    meta:         ['url', 'meta_description', 'meta_desc_length', 'meta_keywords', 'og_title'],
-    headings:     ['url', 'h1', 'h2'],
-    images:       ['url', 'images_count', 'images_no_alt', 'title', 'word_count'],
-    indexability: ['url', 'is_indexable', 'index_reason', 'meta_robots', 'canonical', 'canonical_is_self'],
-    response:     ['url', 'status_code', 'content_type', 'content_encoding', 'body_size', 'fetch_duration_ms'],
-    internal:     ['source_url', 'target_url', 'anchor_text', 'tag'],
-    external:     ['source_url', 'target_url', 'anchor_text', 'rel'],
-  };
 
   // Settings
   let showSettings = $state(false);
-  let editTheme = $state({ app_name: '', logo_url: '', accent_color: '#7c3aed', mode: 'light' });
-  let savingTheme = $state(false);
 
   // Update
   let updateInfo = $state(null);
@@ -67,12 +62,6 @@
   let updatingApp = $state(false);
   let updateMessage = $state('');
 
-  // Backups
-  let backups = $state([]);
-  let loadingBackups = $state(false);
-  let creatingBackup = $state(false);
-  let restoringBackup = $state(null);
-  let backupMessage = $state('');
 
   // New crawl form
   let showNewCrawl = $state(false);
@@ -92,9 +81,6 @@
   let systemStats = $state(null);
   let systemStatsInterval = null;
 
-  // Page detail
-  let pageDetail = $state(null);
-  let pageDetailLoading = $state(false);
 
   // PageRank tab
   let prSubView = $state('top');
@@ -106,33 +92,19 @@
   // Global Stats
   let showGlobalStats = $state(false);
   let globalStats = $state(null);
-  let globalStatsLoading = $state(false);
 
   // API page
   let showAPI = $state(false);
   let projects = $state([]);
-  let apiKeys = $state([]);
-  let newProjectName = $state('');
-  let newKeyName = $state('');
-  let newKeyType = $state('general');
-  let newKeyProjectId = $state('');
-  let createdKeyFull = $state(null);
-  let renamingProject = $state(null);
-  let renameValue = $state('');
 
   // --- Global Stats ---
-  async function openGlobalStats() {
+  function openGlobalStats() {
     showGlobalStats = true;
     showSettings = false;
     showAPI = false;
     showNewCrawl = false;
     selectedSession = null;
     pushURL('/stats');
-    globalStatsLoading = true;
-    try {
-      globalStats = await getGlobalStats();
-    } catch (e) { error = e.message; }
-    globalStatsLoading = false;
   }
 
   // --- API page ---
@@ -143,62 +115,6 @@
     showNewCrawl = false;
     selectedSession = null;
     pushURL('/api');
-    loadAPIData();
-  }
-
-  async function loadAPIData() {
-    try {
-      projects = await getProjects();
-      apiKeys = await getAPIKeys();
-    } catch (e) { error = e.message; }
-  }
-
-  async function handleCreateProject() {
-    if (!newProjectName.trim()) return;
-    try {
-      await createProject(newProjectName.trim());
-      newProjectName = '';
-      await loadAPIData();
-    } catch (e) { error = e.message; }
-  }
-
-  async function handleRenameProject(id) {
-    if (!renameValue.trim()) return;
-    try {
-      await renameProject(id, renameValue.trim());
-      renamingProject = null;
-      renameValue = '';
-      await loadAPIData();
-    } catch (e) { error = e.message; }
-  }
-
-  async function handleDeleteProject(id) {
-    if (!confirm('Delete this project? Associated API keys will also be deleted.')) return;
-    try {
-      await deleteProject(id);
-      await loadAPIData();
-    } catch (e) { error = e.message; }
-  }
-
-  async function handleCreateAPIKey() {
-    if (!newKeyName.trim() || !newKeyType) return;
-    try {
-      const pid = newKeyType === 'project' && newKeyProjectId ? newKeyProjectId : null;
-      const result = await createAPIKey(newKeyName.trim(), newKeyType, pid);
-      createdKeyFull = result.key;
-      newKeyName = '';
-      newKeyType = 'general';
-      newKeyProjectId = '';
-      await loadAPIData();
-    } catch (e) { error = e.message; }
-  }
-
-  async function handleDeleteAPIKey(id) {
-    if (!confirm('Revoke this API key?')) return;
-    try {
-      await deleteAPIKey(id);
-      await loadAPIData();
-    } catch (e) { error = e.message; }
   }
 
 
@@ -238,41 +154,30 @@
 
   // --- Settings ---
   function openSettings() {
-    editTheme = { ...theme };
     showSettings = true;
     selectedSession = null;
     showNewCrawl = false;
     showAPI = false;
     showGlobalStats = false;
     pushURL('/settings');
-    loadBackups();
   }
 
-  function previewTheme() {
-    theme.accent_color = editTheme.accent_color;
-    theme.app_name = editTheme.app_name;
-    theme.logo_url = editTheme.logo_url;
-    darkMode = editTheme.mode === 'dark';
-    applyTheme();
-  }
-
-  async function saveTheme() {
-    savingTheme = true;
-    try {
-      const saved = await updateTheme(editTheme);
+  function handleSettingsSave(saved, isPreview) {
+    if (isPreview) {
+      theme.accent_color = saved.accent_color;
+      theme.app_name = saved.app_name;
+      theme.logo_url = saved.logo_url;
+      darkMode = saved.mode === 'dark';
+      applyTheme();
+    } else {
       theme = saved;
       darkMode = saved.mode === 'dark';
       applyTheme();
       showSettings = false;
-    } catch (e) {
-      error = e.message;
-    } finally {
-      savingTheme = false;
     }
   }
 
-  function cancelSettings() {
-    // Revert to saved theme
+  function handleSettingsCancel() {
     loadTheme();
     showSettings = false;
   }
@@ -364,7 +269,6 @@
     if (route.page) {
       selectedSession = null;
       stats = null;
-      pageDetail = null;
       filters = {};
       loading = false;
       showSettings = route.page === 'settings';
@@ -373,9 +277,9 @@
       showNewCrawl = route.page === 'new-crawl';
 
       if (sessions.length === 0) loadSessions();
-      if (route.page === 'stats') { globalStatsLoading = true; try { globalStats = await getGlobalStats(); } catch(e) { error = e.message; } globalStatsLoading = false; }
-      if (route.page === 'api') await loadAPIData();
-      if (route.page === 'settings') { editTheme = { ...theme }; loadBackups(); }
+      // GlobalStatsPage handles its own data loading
+      // APIManagementPage handles its own data loading
+      // SettingsPage handles its own state
       if (route.page === 'new-crawl') getProjects().then(p => projects = p).catch(() => {});
       return;
     }
@@ -399,12 +303,10 @@
     }
     if (route.tab === 'url-detail') {
       tab = 'url-detail';
+      detailUrl = route.detailUrl;
       filters = {};
-      pageDetail = null;
-      await loadPageDetail(route.sessionId, route.detailUrl);
     } else {
       tab = route.tab;
-      pageDetail = null;
       filters = route.filters || {};
       const off = route.offset || 0;
       if (['internal'].includes(tab)) { intLinksOffset = off; }
@@ -518,63 +420,6 @@
     }
   }
 
-  async function loadBackups() {
-    loadingBackups = true;
-    try {
-      backups = await getBackups();
-    } catch (e) {
-      backupMessage = e.message;
-    } finally {
-      loadingBackups = false;
-    }
-  }
-
-  async function doCreateBackup() {
-    creatingBackup = true;
-    backupMessage = '';
-    try {
-      await createBackup();
-      backupMessage = 'Backup created successfully.';
-      await loadBackups();
-    } catch (e) {
-      backupMessage = 'Backup failed: ' + e.message;
-    } finally {
-      creatingBackup = false;
-    }
-  }
-
-  async function doRestoreBackup(filename) {
-    if (!confirm(`Restore from ${filename}? The application should be restarted after restore.`)) return;
-    restoringBackup = filename;
-    backupMessage = '';
-    try {
-      const result = await restoreBackup(filename);
-      backupMessage = result.message || 'Restore complete. Restart to apply.';
-    } catch (e) {
-      backupMessage = 'Restore failed: ' + e.message;
-    } finally {
-      restoringBackup = null;
-    }
-  }
-
-  async function doDeleteBackup(name) {
-    if (!confirm(`Delete backup ${name}?`)) return;
-    try {
-      await deleteBackup(name);
-      await loadBackups();
-    } catch (e) {
-      backupMessage = 'Delete failed: ' + e.message;
-    }
-  }
-
-  function formatBytes(bytes) {
-    if (!bytes) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let i = 0;
-    let val = bytes;
-    while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
-    return val.toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
-  }
 
   async function loadTabData() {
     if (!selectedSession) return;
@@ -631,16 +476,6 @@
     if (tab === 'external') return extLinksOffset;
     return pagesOffset;
   }
-  function currentData() {
-    if (tab === 'internal') return intLinks;
-    if (tab === 'external') return extLinks;
-    return pages;
-  }
-  function hasMore() {
-    if (tab === 'internal') return hasMoreIntLinks;
-    if (tab === 'external') return hasMoreExtLinks;
-    return hasMorePages;
-  }
 
   function onCrawlStarted() {
     showNewCrawl = false;
@@ -691,38 +526,6 @@
     } catch (e) { error = e.message; }
   }
 
-  let retryingFailed = $state(false);
-  async function handleRetryFailed(id) {
-    retryingFailed = true;
-    error = null;
-    try {
-      const result = await retryFailed(id);
-      setTimeout(() => { loadSessions(); if (selectedSession) selectSession(selectedSession); }, 2000);
-    } catch (e) { error = e.message; }
-    finally { retryingFailed = false; }
-  }
-
-  let recomputing = $state(false);
-  async function handleRecomputeDepths(id) {
-    recomputing = true;
-    error = null;
-    try {
-      await recomputeDepths(id);
-      await selectSession(selectedSession);
-    } catch (e) { error = e.message; }
-    finally { recomputing = false; }
-  }
-
-  let computingPR = $state(false);
-  async function handleComputePageRank(id) {
-    computingPR = true;
-    error = null;
-    try {
-      await computePageRank(id);
-      await selectSession(selectedSession);
-    } catch (e) { error = e.message; }
-    finally { computingPR = false; }
-  }
 
   function openHtmlModal(url) {
     htmlModalUrl = url;
@@ -734,29 +537,6 @@
     htmlModalUrl = '';
   }
 
-  let inLinksPage = $state(0);
-  const IN_LINKS_PER_PAGE = 100;
-
-  async function loadPageDetail(sessionId, url, inOffset = 0) {
-    pageDetailLoading = true;
-    try {
-      pageDetail = await getPageDetail(sessionId, url, IN_LINKS_PER_PAGE, inOffset);
-      inLinksPage = Math.floor(inOffset / IN_LINKS_PER_PAGE);
-    } catch (e) {
-      error = e.message;
-    } finally {
-      pageDetailLoading = false;
-    }
-  }
-
-  async function loadInLinksPage(offset) {
-    if (!pageDetail?.page || !selectedSession) return;
-    try {
-      const data = await getPageDetail(selectedSession.ID, pageDetail.page.URL, IN_LINKS_PER_PAGE, offset);
-      pageDetail = { ...pageDetail, links: { ...pageDetail.links, in_links: data.links.in_links } };
-      inLinksPage = Math.floor(offset / IN_LINKS_PER_PAGE);
-    } catch (e) { error = e.message; }
-  }
 
   function urlDetailHref(url) {
     if (!selectedSession) return '#';
@@ -786,21 +566,6 @@
     systemStatsInterval = setInterval(loadSystemStats, 3000);
   }
 
-  const TABS = [
-    { id: 'overview', label: 'All Pages' },
-    { id: 'titles', label: 'Titles' },
-    { id: 'meta', label: 'Meta' },
-    { id: 'headings', label: 'H1/H2' },
-    { id: 'images', label: 'Images' },
-    { id: 'indexability', label: 'Indexability' },
-    { id: 'response', label: 'Response' },
-    { id: 'internal', label: 'Internal Links' },
-    { id: 'external', label: 'External Links' },
-    { id: 'pagerank', label: 'PageRank' },
-    { id: 'robots', label: 'Robots.txt' },
-    { id: 'sitemaps', label: 'Sitemaps' },
-    { id: 'stats', label: 'Stats' },
-  ];
 
   // Boot
   loadTheme();
@@ -822,136 +587,11 @@
 
 <div class="layout">
   <div class="drag-bar"><span class="drag-bar-title">{theme.app_name}</span></div>
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      {#if theme.logo_url}
-        <img class="sidebar-logo" src={theme.logo_url} alt="Logo" />
-      {:else}
-        <div class="sidebar-logo-placeholder">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        </div>
-      {/if}
-      <span class="sidebar-app-name">{theme.app_name}</span>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-section-title">Main Menu</div>
-      <nav class="sidebar-nav">
-        <button class="sidebar-link" class:active={!selectedSession && !showNewCrawl && !showSettings && !showGlobalStats && !showAPI} onclick={() => goHome()}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-          Dashboard
-        </button>
-        <button class="sidebar-link" class:active={showNewCrawl && !selectedSession} onclick={() => navigateTo('/new-crawl')}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-          New Crawl
-        </button>
-      </nav>
-    </div>
-
-    {#if projects.length > 0}
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">Projects</div>
-        <nav class="sidebar-nav">
-          {#each projects as proj}
-            {@const projStats = globalStats?.projects?.find(p => p.project_id === proj.id)}
-            {@const projSessions = sessions.filter(s => s.ProjectID === proj.id)}
-            <div class="sidebar-project">
-              <button class="sidebar-link sidebar-project-header" class:active={selectedSession && projSessions.some(s => s.ID === selectedSession.ID)} onclick={() => { const s = projSessions[0]; if (s) selectSession(s); }}>
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">{proj.name}</span>
-                {#if projStats}
-                  <span class="sidebar-badge">{fmtN(projStats.total_pages)}</span>
-                {/if}
-              </button>
-            </div>
-          {/each}
-        </nav>
-      </div>
-    {/if}
-
-    {#if sessions.filter(s => !s.ProjectID).length > 0}
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">Unassigned Sessions</div>
-        <nav class="sidebar-nav">
-          {#each sessions.filter(s => !s.ProjectID).slice(0, 5) as s}
-            <button class="sidebar-link" class:active={selectedSession?.ID === s.ID} onclick={() => selectSession(s)}>
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                {#if s.is_running}
-                  <span style="color: var(--info);">{new URL(s.SeedURLs?.[0] || 'https://unknown').hostname}</span>
-                {:else}
-                  {new URL(s.SeedURLs?.[0] || 'https://unknown').hostname}
-                {/if}
-              </span>
-            </button>
-          {/each}
-        </nav>
-      </div>
-    {/if}
-
-    {#if systemStats}
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">System</div>
-        <div class="sidebar-stats">
-          <div class="sidebar-stat">
-            <span class="sidebar-stat-label">Memory</span>
-            <span class="sidebar-stat-value">{fmtSize(systemStats.mem_alloc)}</span>
-          </div>
-          <div class="sidebar-stat">
-            <span class="sidebar-stat-label">Heap</span>
-            <span class="sidebar-stat-value">{fmtSize(systemStats.mem_heap_inuse)}</span>
-          </div>
-          <div class="sidebar-stat">
-            <span class="sidebar-stat-label">Sys</span>
-            <span class="sidebar-stat-value">{fmtSize(systemStats.mem_sys)}</span>
-          </div>
-          <div class="sidebar-stat">
-            <span class="sidebar-stat-label">Goroutines</span>
-            <span class="sidebar-stat-value">{fmtN(systemStats.num_goroutines)}</span>
-          </div>
-          <div class="sidebar-stat">
-            <span class="sidebar-stat-label">GC cycles</span>
-            <span class="sidebar-stat-value">{fmtN(systemStats.num_gc)}</span>
-          </div>
-        </div>
-      </div>
-    {/if}
-
-    <div class="sidebar-section" style="margin-top: auto;">
-      <div class="sidebar-section-title">General</div>
-      <nav class="sidebar-nav">
-        <button class="sidebar-link" class:active={showGlobalStats} onclick={openGlobalStats}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          Stats
-        </button>
-        <button class="sidebar-link" class:active={showSettings} onclick={openSettings}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Settings
-        </button>
-        <button class="sidebar-link" class:active={showAPI} onclick={openAPI}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-          API
-        </button>
-      </nav>
-    </div>
-
-    <div class="sidebar-footer">
-      <button class="theme-toggle" onclick={toggleDarkMode}>
-        {#if darkMode}
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-          Light mode
-        {:else}
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          Dark mode
-        {/if}
-      </button>
-      <a class="sidebar-branding" href="https://www.seobserver.com" target="_blank" rel="noopener">
-        <svg viewBox="-2 -2 228 228" width="16" height="16"><circle fill="#FF8F00" cx="9.167" cy="37.5" r="9.167"/><circle fill="#FF8F00" cx="13.167" cy="11.5" r="8.167"/><circle fill="#FF8F00" cx="40.75" cy="50.916" r="15.75"/><ellipse fill="#FFA300" cx="102" cy="97" rx="74" ry="74"/><path fill="#3D3D3D" d="M219.674,199.824l-42.065-42.065C190.988,141.132,199,120.003,199,97c0-53.572-43.429-97-97-97C76.821,0,53.884,9.595,36.642,25.327C37.953,25.115,39.296,25,40.667,25c6.546,0,12.502,2.519,16.959,6.637C70.275,23.033,85.548,18,102,18c43.631,0,79,35.37,79,79c0,43.631-35.369,79-79,79s-79-35.369-79-79c0-9.056,1.543-17.746,4.349-25.847C20.996,67.145,16.572,60.36,15.792,52.5C8.897,65.828,5,80.958,5,97c0,53.572,43.429,97,97,97c19.921,0,38.438-6.009,53.842-16.309l42.982,42.982c3.905,3.904,11.516,2.625,16.999-2.857l0.993-0.993C222.299,211.34,223.578,203.729,219.674,199.824z"/></svg>
-        by SEObserver
-      </a>
-    </div>
-  </aside>
+  <Sidebar {theme} {darkMode} {sessions} {projects} {globalStats} {systemStats}
+    {selectedSession} {showNewCrawl} {showSettings} {showGlobalStats} {showAPI} {liveProgress}
+    ontoggledarkmmode={toggleDarkMode} onselectsession={selectSession}
+    onnavigate={navigateTo} onopensettings={openSettings}
+    onopenstats={openGlobalStats} onopenapi={openAPI} ongohome={goHome} />
 
   <!-- Main Content -->
   <main class="main">
@@ -981,374 +621,23 @@
       {/if}
 
       {#if showSettings}
-        <!-- Settings -->
-        <div class="page-header">
-          <h1>Settings</h1>
-        </div>
-        <div class="card">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="set-appname">App Name</label>
-              <input id="set-appname" type="text" bind:value={editTheme.app_name} oninput={previewTheme} />
-            </div>
-            <div class="form-group">
-              <label for="set-logo">Logo URL</label>
-              <input id="set-logo" type="text" bind:value={editTheme.logo_url} oninput={previewTheme} placeholder="https://example.com/logo.png" />
-            </div>
-            {#if editTheme.logo_url}
-              <div class="form-group" style="grid-column: 1 / -1;">
-                <span style="font-weight: 500; font-size: 0.85rem; color: var(--text-secondary);">Logo Preview</span>
-                <img src={editTheme.logo_url} alt="Logo preview" style="max-height: 48px; border-radius: 6px; background: var(--bg-card);" />
-              </div>
-            {/if}
-            <div class="form-group">
-              <label for="set-accent">Accent Color</label>
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <input id="set-accent" type="color" value={editTheme.accent_color} oninput={(e) => { editTheme.accent_color = e.target.value; previewTheme(); }} style="width: 48px; height: 36px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; padding: 2px;" />
-                <span style="font-family: monospace; color: var(--text-secondary);">{editTheme.accent_color}</span>
-              </div>
-            </div>
-            <div class="form-group">
-              <span style="font-weight: 500; font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Mode</span>
-              <div style="display: flex; gap: 8px;">
-                <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'light'} onclick={() => { editTheme.mode = 'light'; previewTheme(); }}>Light</button>
-                <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'dark'} onclick={() => { editTheme.mode = 'dark'; previewTheme(); }}>Dark</button>
-              </div>
-            </div>
-          </div>
-          <div style="display: flex; gap: 8px; margin-top: 20px;">
-            <button class="btn btn-primary" onclick={saveTheme} disabled={savingTheme}>
-              {savingTheme ? 'Saving...' : 'Save'}
-            </button>
-            <button class="btn" onclick={cancelSettings}>Cancel</button>
-          </div>
-        </div>
-
-        <!-- Backups -->
-        <div class="page-header" style="margin-top:32px">
-          <h1>Backups</h1>
-          <button class="btn btn-sm btn-primary" onclick={doCreateBackup} disabled={creatingBackup}>
-            {creatingBackup ? 'Creating...' : 'Create Backup'}
-          </button>
-        </div>
-        {#if backupMessage}
-          <div class="alert alert-info" style="margin-bottom:16px">
-            <span>{backupMessage}</span>
-            <button class="btn btn-sm btn-ghost" onclick={() => backupMessage = ''}>Dismiss</button>
-          </div>
-        {/if}
-        <div class="card card-flush">
-          {#if loadingBackups}
-            <div style="padding:20px;color:var(--text-muted)">Loading backups...</div>
-          {:else if backups.length === 0}
-            <div style="padding:20px;color:var(--text-muted)">No backups yet.</div>
-          {:else}
-            <table>
-              <thead>
-                <tr>
-                  <th>Filename</th>
-                  <th>Version</th>
-                  <th>Date</th>
-                  <th>Size</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each backups as b}
-                  <tr>
-                    <td class="cell-url">{b.filename}</td>
-                    <td>{b.version || '-'}</td>
-                    <td>{new Date(b.created_at).toLocaleString()}</td>
-                    <td>{formatBytes(b.size)}</td>
-                    <td style="white-space:nowrap">
-                      <button class="btn btn-sm" onclick={() => doRestoreBackup(b.filename)}
-                        disabled={restoringBackup === b.filename}>
-                        {restoringBackup === b.filename ? 'Restoring...' : 'Restore'}
-                      </button>
-                      <button class="btn btn-sm btn-danger" onclick={() => doDeleteBackup(b.filename)}>Delete</button>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          {/if}
-        </div>
+        <SettingsPage initialTheme={theme} onerror={(msg) => error = msg} onsave={handleSettingsSave} oncancel={handleSettingsCancel} />
 
       {:else if showGlobalStats}
-        <!-- Global Stats -->
-        <div class="page-header">
-          <h1>Global Stats</h1>
-          <button class="btn btn-sm" onclick={openGlobalStats} disabled={globalStatsLoading}>
-            {globalStatsLoading ? 'Loading...' : 'Refresh'}
-          </button>
-        </div>
-
-        {#if globalStatsLoading && !globalStats}
-          <div class="loading">Loading global stats...</div>
-        {:else if globalStats}
-          <div class="stats-grid" style="margin-bottom: 24px;">
-            <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_pages)}</div><div class="stat-label">Total Pages</div></div>
-            <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_links)}</div><div class="stat-label">Total Links</div></div>
-            <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_errors)}</div><div class="stat-label">Total Errors</div></div>
-            <div class="stat-card"><div class="stat-value">{globalStats.avg_fetch_ms?.toFixed(0) || 0}ms</div><div class="stat-label">Avg Response</div></div>
-            <div class="stat-card"><div class="stat-value">{fmtSize(globalStats.total_storage)}</div><div class="stat-label">Total Storage</div></div>
-            <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_sessions)}</div><div class="stat-label">Sessions</div></div>
-          </div>
-
-          {#if globalStats.projects?.length > 0}
-            <div class="card" style="overflow-x: auto;">
-              <h3 style="margin: 0 0 16px 0; font-size: 1rem;">Stats by Project</h3>
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Project</th>
-                    <th style="text-align: right;">Sessions</th>
-                    <th style="text-align: right;">Pages</th>
-                    <th style="text-align: right;">Links</th>
-                    <th style="text-align: right;">Errors</th>
-                    <th style="text-align: right;">Avg Response</th>
-                    <th style="text-align: right;">Storage</th>
-                    <th style="min-width: 120px;">Proportion</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each [...globalStats.projects].sort((a, b) => b.storage_bytes - a.storage_bytes) as p}
-                    <tr>
-                      <td><strong>{p.project_name}</strong></td>
-                      <td style="text-align: right;">{fmtN(p.sessions)}</td>
-                      <td style="text-align: right;">{fmtN(p.total_pages)}</td>
-                      <td style="text-align: right;">{fmtN(p.total_links)}</td>
-                      <td style="text-align: right;">{fmtN(p.error_count)}</td>
-                      <td style="text-align: right;">{p.avg_fetch_ms?.toFixed(0) || 0}ms</td>
-                      <td style="text-align: right;">{fmtSize(p.storage_bytes)}</td>
-                      <td>
-                        <div style="background: var(--bg-secondary); border-radius: 4px; height: 8px; overflow: hidden;">
-                          <div style="background: var(--accent); height: 100%; width: {globalStats.total_storage > 0 ? (p.storage_bytes / globalStats.total_storage * 100) : 0}%; border-radius: 4px; transition: width 0.3s;"></div>
-                        </div>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-
-          {#if globalStats.storage_tables?.length > 0}
-            <div class="card" style="margin-top: 16px;">
-              <h3 style="margin: 0 0 16px 0; font-size: 1rem;">Storage by Table</h3>
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Table</th>
-                    <th style="text-align: right;">Rows</th>
-                    <th style="text-align: right;">Disk Usage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each globalStats.storage_tables as t}
-                    <tr>
-                      <td><code>{t.name}</code></td>
-                      <td style="text-align: right;">{fmtN(t.rows)}</td>
-                      <td style="text-align: right;">{fmtSize(t.bytes_on_disk)}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-        {/if}
+        <GlobalStatsPage onerror={(msg) => error = msg} />
 
       {:else if showAPI && !selectedSession}
-        <!-- API Management -->
-        <div class="page-header">
-          <h1>Projects</h1>
-        </div>
-
-        <!-- Create Project -->
-        <div class="card">
-          <div class="form-grid">
-            <div class="form-group" style="grid-column: 1 / -1;">
-              <label for="new-project">New project</label>
-              <div style="display: flex; gap: 8px;">
-                <input id="new-project" type="text" bind:value={newProjectName} placeholder="Project name" onkeydown={(e) => e.key === 'Enter' && handleCreateProject()} />
-                <button class="btn btn-primary" onclick={handleCreateProject} disabled={!newProjectName.trim()}>Create</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Projects List -->
-        {#if projects.length === 0}
-          <div class="card" style="text-align: center; color: var(--text-muted); padding: 32px;">No projects yet.</div>
-        {:else}
-          <div class="card card-flush">
-            {#each projects as p}
-              <div class="session-row">
-                <div class="session-info">
-                  {#if renamingProject === p.id}
-                    <div style="display: flex; gap: 8px; align-items: center; flex: 1;">
-                      <input type="text" bind:value={renameValue} style="flex: 1;" onkeydown={(e) => e.key === 'Enter' && handleRenameProject(p.id)} />
-                      <button class="btn btn-sm btn-primary" onclick={() => handleRenameProject(p.id)}>Save</button>
-                      <button class="btn btn-sm" onclick={() => renamingProject = null}>Cancel</button>
-                    </div>
-                  {:else}
-                    <div class="session-seed">{p.name}</div>
-                    <div class="session-meta">
-                      <span>{new Date(p.created_at).toLocaleDateString()}</span>
-                    </div>
-                  {/if}
-                </div>
-                {#if renamingProject !== p.id}
-                  <div class="session-actions">
-                    <button class="btn btn-sm" onclick={() => { renamingProject = p.id; renameValue = p.name; }}>Rename</button>
-                    <button class="btn btn-sm btn-danger" onclick={() => handleDeleteProject(p.id)}>Delete</button>
-                  </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        {/if}
-
-        <!-- API Keys Header -->
-        <div class="page-header" style="margin-top: 32px;">
-          <h1>API Keys</h1>
-        </div>
-
-        {#if createdKeyFull}
-          <div class="card" style="border: 1px solid var(--success); background: var(--success-bg);">
-            <div style="display: flex; align-items: flex-start; gap: 12px;">
-              <div style="flex: 1;">
-                <strong>API Key created!</strong> Copy it now — it won't be shown again:<br/>
-                <code style="font-size: 0.85rem; word-break: break-all; margin-top: 6px; display: inline-block;">{createdKeyFull}</code>
-              </div>
-              <div style="display: flex; gap: 6px; flex-shrink: 0;">
-                <button class="btn btn-sm" onclick={() => copyToClipboard(createdKeyFull)}>Copy</button>
-                <button class="btn btn-sm" onclick={() => createdKeyFull = null}>Dismiss</button>
-              </div>
-            </div>
-          </div>
-        {/if}
-
-        <!-- Create API Key -->
-        <div class="card">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="key-name">Key name</label>
-              <input id="key-name" type="text" bind:value={newKeyName} placeholder="My API key" />
-            </div>
-            <div class="form-group">
-              <label for="key-type">Type</label>
-              <select id="key-type" bind:value={newKeyType}>
-                <option value="general">General (full access)</option>
-                <option value="project">Project (read-only)</option>
-              </select>
-            </div>
-            {#if newKeyType === 'project'}
-              <div class="form-group">
-                <label for="key-project">Project</label>
-                <select id="key-project" bind:value={newKeyProjectId}>
-                  <option value="">Select project...</option>
-                  {#each projects as p}
-                    <option value={p.id}>{p.name}</option>
-                  {/each}
-                </select>
-              </div>
-            {/if}
-          </div>
-          <div style="margin-top: 16px;">
-            <button class="btn btn-primary" onclick={handleCreateAPIKey} disabled={!newKeyName.trim() || (newKeyType === 'project' && !newKeyProjectId)}>Create Key</button>
-          </div>
-        </div>
-
-        <!-- API Keys List -->
-        {#if apiKeys.length === 0}
-          <div class="card" style="text-align: center; color: var(--text-muted); padding: 32px;">No API keys yet.</div>
-        {:else}
-          <div class="card card-flush">
-            {#each apiKeys as k}
-              <div class="session-row">
-                <div class="session-info">
-                  <div class="session-seed">{k.name}</div>
-                  <div class="session-meta">
-                    <span class="badge" class:badge-info={k.type === 'general'} class:badge-warning={k.type === 'project'}>{k.type}</span>
-                    {#if k.project_id}
-                      <span class="badge" style="background: var(--accent-light); color: var(--accent);">{projects.find(p => p.id === k.project_id)?.name || k.project_id}</span>
-                    {/if}
-                    <code style="font-size: 0.8rem;">{k.key_prefix}</code>
-                    <span>{new Date(k.created_at).toLocaleDateString()}</span>
-                    <span>{k.last_used_at ? 'Used ' + timeAgo(k.last_used_at) : 'Never used'}</span>
-                  </div>
-                </div>
-                <div class="session-actions">
-                  <button class="btn btn-sm btn-danger" onclick={() => handleDeleteAPIKey(k.id)}>Revoke</button>
-                </div>
-              </div>
-            {/each}
-          </div>
-        {/if}
+        <APIManagementPage onerror={(msg) => error = msg} onprojectschanged={(p) => projects = p} />
 
       {:else if showNewCrawl && !selectedSession}
         <NewCrawlForm {projects} onstart={onCrawlStarted} oncancel={() => navigateTo('/')} onerror={(msg) => error = msg} />
 
       {:else if !selectedSession}
-        <!-- Sessions List -->
-        <div class="page-header">
-          <h1>Crawl Sessions</h1>
-          <button class="btn btn-primary" onclick={() => navigateTo('/new-crawl')}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            New Crawl
-          </button>
-        </div>
-
-        {#if loading}
-          <p style="color: var(--text-muted); padding: 40px 0;">Loading...</p>
-        {:else if sessions.length === 0}
-          <div class="empty-state">
-            <h2>No crawl sessions yet</h2>
-            <p>Start your first crawl to begin analyzing your site.</p>
-            <button class="btn btn-primary" style="margin-top: 16px;" onclick={() => navigateTo('/new-crawl')}>Start a Crawl</button>
-          </div>
-        {:else}
-          <div class="card card-flush">
-            {#each sessions as s}
-              <div class="session-row">
-                <div class="session-info">
-                  <div class="session-seed">{s.SeedURLs?.[0] || 'Unknown'}</div>
-                  <div class="session-meta">
-                    {#if s.is_running}
-                      <span class="badge badge-info">
-                        Running
-                        {#if liveProgress[s.ID]}
-                          &middot; {fmtN(liveProgress[s.ID].pages_crawled)} pages &middot; {fmtN(liveProgress[s.ID].queue_size)} queued
-                        {/if}
-                      </span>
-                    {:else}
-                      <span class="badge" class:badge-success={s.Status==='completed'} class:badge-error={s.Status==='failed'} class:badge-warning={s.Status==='stopped'}>{s.Status}</span>
-                    {/if}
-                    {#if s.ProjectID}
-                      <span class="badge" style="background: var(--accent-light); color: var(--accent);">{projects.find(p => p.id === s.ProjectID)?.name || 'Project'}</span>
-                    {/if}
-                    <span>{fmtN(s.PagesCrawled)} pages</span>
-                    {#if sessionStorageMap[s.ID]}<span>{fmtSize(sessionStorageMap[s.ID])}</span>{/if}
-                    <span>{timeAgo(s.StartedAt)}</span>
-                  </div>
-                </div>
-                <div class="session-actions">
-                  <button class="btn btn-sm" onclick={() => selectSession(s)}>View</button>
-                  {#if s.is_running}
-                    <button class="btn btn-sm btn-danger" onclick={() => handleStop(s.ID)}>Stop</button>
-                  {:else}
-                    <button class="btn btn-sm" onclick={() => openResumeModal(s.ID)}>Resume</button>
-                    <button class="btn btn-sm btn-danger" onclick={() => handleDelete(s.ID)}>Delete</button>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-        {/if}
+        <SessionsList {sessions} {projects} {liveProgress} {sessionStorageMap} {loading}
+          onselectsession={selectSession} onstop={handleStop} onresume={openResumeModal}
+          ondelete={handleDelete} onnewcrawl={() => navigateTo('/new-crawl')} />
 
       {:else if tab === 'url-detail' && selectedSession}
-        <!-- URL Detail View -->
         <div class="breadcrumb">
           <a href="/" onclick={(e) => { e.preventDefault(); goHome(); }}>Sessions</a>
           <span>/</span>
@@ -1356,240 +645,11 @@
           <span>/</span>
           <span style="color: var(--text);">URL Detail</span>
         </div>
-
-        {#if pageDetailLoading}
-          <p style="color: var(--text-muted); padding: 40px 0;">Loading...</p>
-        {:else if pageDetail?.page}
-          {@const pg = pageDetail.page}
-          {@const outLinks = pageDetail.links?.out_links || []}
-          {@const inLinks = pageDetail.links?.in_links || []}
-          {@const outLinksCount = pageDetail.links?.out_links_count || 0}
-          {@const inLinksCount = pageDetail.links?.in_links_count || 0}
-
-          <!-- Header -->
-          <div class="page-header" style="gap: 12px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
-              <button class="btn btn-sm" onclick={() => navigateTo(`/sessions/${selectedSession.ID}/overview`)} title="Back">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-              </button>
-              <h1 style="font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={pg.URL}>{pg.URL}</h1>
-              <span class="badge {statusBadge(pg.StatusCode)}">{pg.StatusCode}</span>
-            </div>
-            <div style="display: flex; gap: 6px;">
-              <a class="btn btn-sm" href={pg.URL} target="_blank" rel="noopener">Open URL</a>
-              {#if pg.BodySize > 0}
-                <button class="btn btn-sm" onclick={() => openHtmlModal(pg.URL)}>View HTML</button>
-              {/if}
-            </div>
-          </div>
-
-          <!-- Summary Cards -->
-          <div class="stats-grid">
-            <div class="stat-card"><div class="stat-value"><span class="badge {statusBadge(pg.StatusCode)}" style="font-size: 1.2rem;">{pg.StatusCode}</span></div><div class="stat-label">Status Code</div></div>
-            <div class="stat-card"><div class="stat-value" style="font-size: 0.95rem;">{pg.ContentType || '-'}</div><div class="stat-label">Content-Type</div></div>
-            <div class="stat-card"><div class="stat-value">{fmtSize(pg.BodySize)}</div><div class="stat-label">Size</div></div>
-            <div class="stat-card"><div class="stat-value">{fmt(pg.FetchDurationMs)}</div><div class="stat-label">Response Time</div></div>
-            <div class="stat-card"><div class="stat-value">{pg.Depth}</div><div class="stat-label">Depth</div></div>
-            {#if pg.PageRank > 0}
-              <div class="stat-card"><div class="stat-value" style="color: var(--accent)">{pg.PageRank.toFixed(1)}</div><div class="stat-label">PageRank</div></div>
-            {/if}
-            {#if pg.FoundOn}
-              <div class="stat-card"><div class="stat-value" style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><a href={urlDetailHref(pg.FoundOn)} onclick={(e) => goToUrlDetail(e, pg.FoundOn)} style="color: var(--accent);">{pg.FoundOn}</a></div><div class="stat-label">Found On</div></div>
-            {/if}
-            <div class="stat-card"><div class="stat-value" style="font-size: 0.8rem;">{new Date(pg.CrawledAt).toLocaleString()}</div><div class="stat-label">Crawled At</div></div>
-          </div>
-
-          {#if pg.Error}
-            <div class="alert alert-error" style="margin-bottom: 16px;">
-              <strong>Error:</strong> {pg.Error}
-            </div>
-          {/if}
-
-          <!-- Response Headers -->
-          {#if pg.Headers && Object.keys(pg.Headers).length > 0}
-            <div class="card" style="margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Response Headers</h3>
-              <table>
-                <thead><tr><th>Header</th><th>Value</th></tr></thead>
-                <tbody>
-                  {#each Object.entries(pg.Headers).sort((a,b) => a[0].localeCompare(b[0])) as [key, val]}
-                    <tr><td style="font-weight: 500; white-space: nowrap;">{key}</td><td style="word-break: break-all;">{val}</td></tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-
-          <!-- SEO -->
-          <div class="card" style="margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">SEO</h3>
-            <table>
-              <tbody>
-                <tr><td style="font-weight: 500; width: 160px;">Title</td><td>{pg.Title || '-'} <span style="color: var(--text-muted);">({pg.TitleLength} chars)</span></td></tr>
-                <tr><td style="font-weight: 500;">Meta Description</td><td>{pg.MetaDescription || '-'} <span style="color: var(--text-muted);">({pg.MetaDescLength} chars)</span></td></tr>
-                {#if pg.MetaKeywords}<tr><td style="font-weight: 500;">Meta Keywords</td><td>{pg.MetaKeywords}</td></tr>{/if}
-                <tr><td style="font-weight: 500;">Meta Robots</td><td>{pg.MetaRobots || '-'}</td></tr>
-                {#if pg.XRobotsTag}<tr><td style="font-weight: 500;">X-Robots-Tag</td><td>{pg.XRobotsTag}</td></tr>{/if}
-                <tr><td style="font-weight: 500;">Canonical</td><td>{pg.Canonical || '-'} {#if pg.CanonicalIsSelf}<span class="badge badge-success" style="font-size: 0.7rem;">self</span>{/if}</td></tr>
-                <tr><td style="font-weight: 500;">Indexable</td><td><span class="badge" class:badge-success={pg.IsIndexable} class:badge-error={!pg.IsIndexable}>{pg.IsIndexable ? 'Yes' : 'No'}</span> {#if pg.IndexReason}<span style="color: var(--text-muted);">({pg.IndexReason})</span>{/if}</td></tr>
-                {#if pg.Lang}<tr><td style="font-weight: 500;">Language</td><td>{pg.Lang}</td></tr>{/if}
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Open Graph -->
-          {#if pg.OGTitle || pg.OGDescription || pg.OGImage}
-            <div class="card" style="margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Open Graph</h3>
-              <table>
-                <tbody>
-                  {#if pg.OGTitle}<tr><td style="font-weight: 500; width: 160px;">OG Title</td><td>{pg.OGTitle}</td></tr>{/if}
-                  {#if pg.OGDescription}<tr><td style="font-weight: 500;">OG Description</td><td>{pg.OGDescription}</td></tr>{/if}
-                  {#if pg.OGImage}
-                    <tr><td style="font-weight: 500;">OG Image</td><td><a href={pg.OGImage} target="_blank" rel="noopener">{pg.OGImage}</a></td></tr>
-                    <tr><td></td><td><img src={pg.OGImage} alt="OG preview" style="max-width: 300px; max-height: 200px; border-radius: 6px; border: 1px solid var(--border); margin-top: 4px;" /></td></tr>
-                  {/if}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-
-          <!-- Headings -->
-          {#if pg.H1?.length || pg.H2?.length || pg.H3?.length || pg.H4?.length || pg.H5?.length || pg.H6?.length}
-            <div class="card" style="margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Headings</h3>
-              {#each [['H1', pg.H1], ['H2', pg.H2], ['H3', pg.H3], ['H4', pg.H4], ['H5', pg.H5], ['H6', pg.H6]] as [label, items]}
-                {#if items?.length}
-                  <div style="margin-bottom: 8px;">
-                    <strong style="font-size: 0.85rem;">{label}</strong> <span style="color: var(--text-muted);">({items.length})</span>
-                    <ul style="margin: 4px 0 0 20px; padding: 0;">
-                      {#each items as h}<li style="font-size: 0.85rem; color: var(--text-secondary);">{h}</li>{/each}
-                    </ul>
-                  </div>
-                {/if}
-              {/each}
-            </div>
-          {/if}
-
-          <!-- Redirect Chain -->
-          {#if pg.RedirectChain?.length}
-            <div class="card" style="margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Redirect Chain</h3>
-              <table>
-                <thead><tr><th>#</th><th>URL</th><th>Status</th></tr></thead>
-                <tbody>
-                  {#each pg.RedirectChain as hop, i}
-                    <tr>
-                      <td>{i + 1}</td>
-                      <td class="cell-url">{hop.URL}</td>
-                      <td><span class="badge {statusBadge(hop.StatusCode)}">{hop.StatusCode}</span></td>
-                    </tr>
-                  {/each}
-                  <tr>
-                    <td>{pg.RedirectChain.length + 1}</td>
-                    <td class="cell-url" style="font-weight: 500;">{pg.FinalURL || pg.URL}</td>
-                    <td><span class="badge {statusBadge(pg.StatusCode)}">{pg.StatusCode}</span></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          {/if}
-
-          <!-- Hreflang -->
-          {#if pg.Hreflang?.length}
-            <div class="card" style="margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Hreflang</h3>
-              <table>
-                <thead><tr><th>Language</th><th>URL</th></tr></thead>
-                <tbody>
-                  {#each pg.Hreflang as h}
-                    <tr><td style="font-weight: 500;">{h.Lang}</td><td class="cell-url">{h.URL}</td></tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-
-          <!-- Schema.org -->
-          {#if pg.SchemaTypes?.length}
-            <div class="card" style="margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Schema.org</h3>
-              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                {#each pg.SchemaTypes as t}
-                  <span class="badge badge-info">{t}</span>
-                {/each}
-              </div>
-            </div>
-          {/if}
-
-          <!-- Content -->
-          <div class="card" style="margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Content</h3>
-            <div class="stats-grid">
-              <div class="stat-card"><div class="stat-value">{fmtN(pg.WordCount)}</div><div class="stat-label">Words</div></div>
-              <div class="stat-card"><div class="stat-value">{pg.ImagesCount}</div><div class="stat-label">Images</div></div>
-              <div class="stat-card"><div class="stat-value" style={pg.ImagesNoAlt > 0 ? 'color: var(--warning)' : ''}>{pg.ImagesNoAlt}</div><div class="stat-label">Images without alt</div></div>
-              <div class="stat-card"><div class="stat-value">{fmtN(pg.InternalLinksOut)}</div><div class="stat-label">Internal Links Out</div></div>
-              <div class="stat-card"><div class="stat-value">{fmtN(pg.ExternalLinksOut)}</div><div class="stat-label">External Links Out</div></div>
-            </div>
-          </div>
-
-          <!-- Outbound Links -->
-          {#if outLinks.length > 0}
-            <div class="card" style="margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Outbound Links <span style="color: var(--text-muted);">({fmtN(outLinksCount)})</span></h3>
-              <table>
-                <thead><tr><th>Target URL</th><th>Anchor</th><th>Type</th><th>Tag</th><th>Rel</th></tr></thead>
-                <tbody>
-                  {#each outLinks as l}
-                    <tr>
-                      <td class="cell-url">
-                        {#if l.IsInternal}
-                          <a href={urlDetailHref(l.TargetURL)} onclick={(e) => goToUrlDetail(e, l.TargetURL)}>{l.TargetURL}</a>
-                        {:else}
-                          <a href={l.TargetURL} target="_blank" rel="noopener">{l.TargetURL}</a>
-                        {/if}
-                      </td>
-                      <td class="cell-title">{l.AnchorText || '-'}</td>
-                      <td><span class="badge" class:badge-success={l.IsInternal} class:badge-warning={!l.IsInternal}>{l.IsInternal ? 'Internal' : 'External'}</span></td>
-                      <td>{l.Tag || '-'}</td>
-                      <td>{l.Rel || '-'}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-
-          <!-- Inbound Links -->
-          {#if inLinksCount > 0}
-            <div class="card" style="margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px 0; font-size: 0.95rem;">Inbound Links <span style="color: var(--text-muted);">({fmtN(inLinksCount)})</span></h3>
-              <table>
-                <thead><tr><th>Source URL</th><th>Anchor</th><th>Tag</th><th>Rel</th></tr></thead>
-                <tbody>
-                  {#each inLinks as l}
-                    <tr>
-                      <td class="cell-url"><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}>{l.SourceURL}</a></td>
-                      <td class="cell-title">{l.AnchorText || '-'}</td>
-                      <td>{l.Tag || '-'}</td>
-                      <td>{l.Rel || '-'}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-              {#if inLinksCount > IN_LINKS_PER_PAGE}
-                <div style="display: flex; gap: 8px; align-items: center; margin-top: 12px; justify-content: center;">
-                  <button class="btn btn-sm" disabled={inLinksPage === 0} onclick={() => loadInLinksPage((inLinksPage - 1) * IN_LINKS_PER_PAGE)}>Prev</button>
-                  <span style="color: var(--text-muted); font-size: 0.85rem;">{inLinksPage * IN_LINKS_PER_PAGE + 1}–{Math.min((inLinksPage + 1) * IN_LINKS_PER_PAGE, inLinksCount)} of {fmtN(inLinksCount)}</span>
-                  <button class="btn btn-sm" disabled={(inLinksPage + 1) * IN_LINKS_PER_PAGE >= inLinksCount} onclick={() => loadInLinksPage((inLinksPage + 1) * IN_LINKS_PER_PAGE)}>Next</button>
-                </div>
-              {/if}
-            </div>
-          {/if}
-        {:else}
-          <p style="color: var(--text-muted); padding: 40px 0;">Page not found.</p>
-        {/if}
+        {#key detailUrl}
+          <UrlDetailView sessionId={selectedSession.ID} url={detailUrl}
+            onerror={(msg) => error = msg} onnavigate={navigateTo}
+            onopenhtml={openHtmlModal} />
+        {/key}
 
       {:else}
         <!-- Session Detail -->
@@ -1599,35 +659,9 @@
           <span style="color: var(--text);">{selectedSession.SeedURLs?.[0] || selectedSession.ID}</span>
         </div>
 
-        <div class="action-bar">
-          {#if selectedSession.is_running}
-            <span class="badge badge-info">Running
-              {#if liveProgress[selectedSession.ID]}
-                &middot; {fmtN(liveProgress[selectedSession.ID].pages_crawled)} pages
-              {/if}
-            </span>
-            <button class="btn btn-sm btn-danger" onclick={() => handleStop(selectedSession.ID)}>Stop</button>
-          {:else}
-            <span class="badge" class:badge-success={selectedSession.Status==='completed'} class:badge-error={selectedSession.Status==='failed'} class:badge-warning={selectedSession.Status==='stopped'}>{selectedSession.Status}</span>
-            <button class="btn btn-sm" onclick={() => openResumeModal(selectedSession.ID)}>Resume</button>
-            <button class="btn btn-sm" onclick={() => handleRecomputeDepths(selectedSession.ID)} disabled={recomputing}>
-              {recomputing ? 'Recomputing...' : 'Recompute Depths'}
-            </button>
-            <button class="btn btn-sm" onclick={() => handleComputePageRank(selectedSession.ID)} disabled={computingPR}>
-              {computingPR ? 'Computing...' : 'Compute PageRank'}
-            </button>
-            {#if stats?.status_codes?.[0] > 0}
-              <button class="btn btn-sm" onclick={() => handleRetryFailed(selectedSession.ID)} disabled={retryingFailed} title="Retry {stats.status_codes[0]} failed pages (status 0)">
-                {retryingFailed ? 'Retrying...' : `Retry Failed (${stats.status_codes[0]})`}
-              </button>
-            {/if}
-            <button class="btn btn-sm btn-danger" onclick={() => handleDelete(selectedSession.ID)}>Delete</button>
-          {/if}
-          <button class="btn btn-sm" onclick={() => selectSession(selectedSession)}>
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            Refresh
-          </button>
-        </div>
+        <SessionActionBar session={selectedSession} {stats} {liveProgress}
+          onerror={(msg) => error = msg} onstop={handleStop} onresume={openResumeModal}
+          ondelete={handleDelete} onrefresh={() => selectSession(selectedSession)} />
 
         {#if stats}
           {@const non200 = stats.status_codes ? Object.entries(stats.status_codes).filter(([k]) => k !== '200').reduce((a, [, v]) => a + v, 0) : stats.error_count}
@@ -1663,226 +697,154 @@
         <div class="card card-flush" style="border-top-left-radius: 0; border-top-right-radius: 0; border-top: none;">
 
           {#if tab === 'overview'}
-            <table>
-              <thead>
-                <tr><th>URL</th><th>Status</th><th>Title</th><th>Words</th><th>Int Out</th><th>Ext Out</th><th>Size</th><th>Time</th><th>Depth</th><th>PR</th><th></th></tr>
-                <tr class="filter-row">
-                  {#each TAB_FILTERS.overview as key}
-                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
-                  {/each}
-                  <td>{#if hasActiveFilters()}<button class="btn-filter-clear" title="Clear filters" onclick={clearFilters}><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>{/if}</td>
+            <DataTable columns={[{label:'URL'},{label:'Status'},{label:'Title'},{label:'Words'},{label:'Int Out'},{label:'Ext Out'},{label:'Size'},{label:'Time'},{label:'Depth'},{label:'PR'},{label:''}]}
+              filterKeys={TAB_FILTERS.overview} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
+              hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
+              onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
+              {#snippet row(p)}
+                <tr>
+                  <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
+                  <td><span class="badge {statusBadge(p.StatusCode)}">{p.StatusCode}</span></td>
+                  <td class="cell-title">{trunc(p.Title, 60)}</td>
+                  <td>{fmtN(p.WordCount)}</td>
+                  <td>{fmtN(p.InternalLinksOut)}</td>
+                  <td>{fmtN(p.ExternalLinksOut)}</td>
+                  <td>{fmtSize(p.BodySize)}</td>
+                  <td>{fmt(p.FetchDurationMs)}</td>
+                  <td>{p.Depth}</td>
+                  <td style="color: var(--accent); font-weight: 500;">{p.PageRank > 0 ? p.PageRank.toFixed(1) : '-'}</td>
+                  <td>{#if p.BodySize > 0}<button class="btn-html" title="View HTML" onclick={() => openHtmlModal(p.URL)}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>{/if}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {#each pages as p}
-                  <tr>
-                    <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
-                    <td><span class="badge {statusBadge(p.StatusCode)}">{p.StatusCode}</span></td>
-                    <td class="cell-title">{trunc(p.Title, 60)}</td>
-                    <td>{fmtN(p.WordCount)}</td>
-                    <td>{fmtN(p.InternalLinksOut)}</td>
-                    <td>{fmtN(p.ExternalLinksOut)}</td>
-                    <td>{fmtSize(p.BodySize)}</td>
-                    <td>{fmt(p.FetchDurationMs)}</td>
-                    <td>{p.Depth}</td>
-                    <td style="color: var(--accent); font-weight: 500;">{p.PageRank > 0 ? p.PageRank.toFixed(1) : '-'}</td>
-                    <td>
-                      {#if p.BodySize > 0}
-                        <button class="btn-html" title="View HTML" onclick={() => openHtmlModal(p.URL)}>
-                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-                        </button>
-                      {/if}
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+              {/snippet}
+            </DataTable>
 
           {:else if tab === 'titles'}
-            <table>
-              <thead>
-                <tr><th>URL</th><th>Title</th><th>Length</th><th>H1</th></tr>
-                <tr class="filter-row">
-                  {#each TAB_FILTERS.titles as key}
-                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
-                  {/each}
+            <DataTable columns={[{label:'URL'},{label:'Title'},{label:'Length'},{label:'H1'}]}
+              filterKeys={TAB_FILTERS.titles} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
+              hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
+              onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
+              {#snippet row(p)}
+                <tr>
+                  <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
+                  <td class="cell-title" class:cell-warn={p.TitleLength === 0 || p.TitleLength > 60}>{p.Title || '-'}</td>
+                  <td class:cell-warn={p.TitleLength === 0 || p.TitleLength > 60}>{p.TitleLength}</td>
+                  <td class="cell-title">{p.H1?.[0] || '-'}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {#each pages as p}
-                  <tr>
-                    <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
-                    <td class="cell-title" class:cell-warn={p.TitleLength === 0 || p.TitleLength > 60}>{p.Title || '-'}</td>
-                    <td class:cell-warn={p.TitleLength === 0 || p.TitleLength > 60}>{p.TitleLength}</td>
-                    <td class="cell-title">{p.H1?.[0] || '-'}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+              {/snippet}
+            </DataTable>
 
           {:else if tab === 'meta'}
-            <table>
-              <thead>
-                <tr><th>URL</th><th>Meta Description</th><th>Length</th><th>Meta Keywords</th><th>OG Title</th></tr>
-                <tr class="filter-row">
-                  {#each TAB_FILTERS.meta as key}
-                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
-                  {/each}
+            <DataTable columns={[{label:'URL'},{label:'Meta Description'},{label:'Length'},{label:'Meta Keywords'},{label:'OG Title'}]}
+              filterKeys={TAB_FILTERS.meta} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
+              hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
+              onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
+              {#snippet row(p)}
+                <tr>
+                  <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
+                  <td class="cell-title" class:cell-warn={p.MetaDescLength === 0 || p.MetaDescLength > 160}>{trunc(p.MetaDescription, 80)}</td>
+                  <td class:cell-warn={p.MetaDescLength === 0 || p.MetaDescLength > 160}>{p.MetaDescLength}</td>
+                  <td class="cell-title">{trunc(p.MetaKeywords, 60)}</td>
+                  <td class="cell-title">{trunc(p.OGTitle, 60)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {#each pages as p}
-                  <tr>
-                    <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
-                    <td class="cell-title" class:cell-warn={p.MetaDescLength === 0 || p.MetaDescLength > 160}>{trunc(p.MetaDescription, 80)}</td>
-                    <td class:cell-warn={p.MetaDescLength === 0 || p.MetaDescLength > 160}>{p.MetaDescLength}</td>
-                    <td class="cell-title">{trunc(p.MetaKeywords, 60)}</td>
-                    <td class="cell-title">{trunc(p.OGTitle, 60)}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+              {/snippet}
+            </DataTable>
 
           {:else if tab === 'headings'}
-            <table>
-              <thead>
-                <tr><th>URL</th><th>H1</th><th>H1 Count</th><th>H2</th><th>H2 Count</th></tr>
-                <tr class="filter-row">
-                  {#each TAB_FILTERS.headings as key}
-                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
-                  {/each}
-                  <td></td><td></td>
+            <DataTable columns={[{label:'URL'},{label:'H1'},{label:'H1 Count'},{label:'H2'},{label:'H2 Count'}]}
+              filterKeys={TAB_FILTERS.headings} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
+              hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
+              onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
+              {#snippet row(p)}
+                <tr>
+                  <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
+                  <td class="cell-title" class:cell-warn={!p.H1?.length || p.H1.length > 1}>{p.H1?.[0] || '-'}</td>
+                  <td class:cell-warn={!p.H1?.length || p.H1.length > 1}>{p.H1?.length || 0}</td>
+                  <td class="cell-title">{p.H2?.[0] || '-'}</td>
+                  <td>{p.H2?.length || 0}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {#each pages as p}
-                  <tr>
-                    <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
-                    <td class="cell-title" class:cell-warn={!p.H1?.length || p.H1.length > 1}>{p.H1?.[0] || '-'}</td>
-                    <td class:cell-warn={!p.H1?.length || p.H1.length > 1}>{p.H1?.length || 0}</td>
-                    <td class="cell-title">{p.H2?.[0] || '-'}</td>
-                    <td>{p.H2?.length || 0}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+              {/snippet}
+            </DataTable>
 
           {:else if tab === 'images'}
-            <table>
-              <thead>
-                <tr><th>URL</th><th>Images</th><th>Without Alt</th><th>Title</th><th>Words</th></tr>
-                <tr class="filter-row">
-                  {#each TAB_FILTERS.images as key}
-                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
-                  {/each}
+            <DataTable columns={[{label:'URL'},{label:'Images'},{label:'Without Alt'},{label:'Title'},{label:'Words'}]}
+              filterKeys={TAB_FILTERS.images} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
+              hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
+              onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
+              {#snippet row(p)}
+                <tr>
+                  <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
+                  <td>{p.ImagesCount}</td>
+                  <td class:cell-warn={p.ImagesNoAlt > 0}>{p.ImagesNoAlt}</td>
+                  <td class="cell-title">{trunc(p.Title, 50)}</td>
+                  <td>{fmtN(p.WordCount)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {#each pages as p}
-                  <tr>
-                    <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
-                    <td>{p.ImagesCount}</td>
-                    <td class:cell-warn={p.ImagesNoAlt > 0}>{p.ImagesNoAlt}</td>
-                    <td class="cell-title">{trunc(p.Title, 50)}</td>
-                    <td>{fmtN(p.WordCount)}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+              {/snippet}
+            </DataTable>
 
           {:else if tab === 'indexability'}
-            <table>
-              <thead>
-                <tr><th>URL</th><th>Indexable</th><th>Reason</th><th>Meta Robots</th><th>Canonical</th><th>Self</th></tr>
-                <tr class="filter-row">
-                  {#each TAB_FILTERS.indexability as key}
-                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
-                  {/each}
+            <DataTable columns={[{label:'URL'},{label:'Indexable'},{label:'Reason'},{label:'Meta Robots'},{label:'Canonical'},{label:'Self'}]}
+              filterKeys={TAB_FILTERS.indexability} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
+              hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
+              onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
+              {#snippet row(p)}
+                <tr>
+                  <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
+                  <td><span class="badge" class:badge-success={p.IsIndexable} class:badge-error={!p.IsIndexable}>{p.IsIndexable ? 'Yes' : 'No'}</span></td>
+                  <td>{p.IndexReason || '-'}</td>
+                  <td>{p.MetaRobots || '-'}</td>
+                  <td class="cell-url">{trunc(p.Canonical, 60)}</td>
+                  <td>{p.CanonicalIsSelf ? 'Yes' : '-'}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {#each pages as p}
-                  <tr>
-                    <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
-                    <td><span class="badge" class:badge-success={p.IsIndexable} class:badge-error={!p.IsIndexable}>{p.IsIndexable ? 'Yes' : 'No'}</span></td>
-                    <td>{p.IndexReason || '-'}</td>
-                    <td>{p.MetaRobots || '-'}</td>
-                    <td class="cell-url">{trunc(p.Canonical, 60)}</td>
-                    <td>{p.CanonicalIsSelf ? 'Yes' : '-'}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+              {/snippet}
+            </DataTable>
 
           {:else if tab === 'response'}
-            <table>
-              <thead>
-                <tr><th>URL</th><th>Status</th><th>Content Type</th><th>Encoding</th><th>Size</th><th>Time</th><th>Redirects</th></tr>
-                <tr class="filter-row">
-                  {#each TAB_FILTERS.response as key}
-                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
-                  {/each}
-                  <td></td>
+            <DataTable columns={[{label:'URL'},{label:'Status'},{label:'Content Type'},{label:'Encoding'},{label:'Size'},{label:'Time'},{label:'Redirects'}]}
+              filterKeys={TAB_FILTERS.response} {filters} data={pages} offset={pagesOffset} pageSize={PAGE_SIZE}
+              hasMore={hasMorePages} hasActiveFilters={hasActiveFilters()}
+              onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
+              {#snippet row(p)}
+                <tr>
+                  <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
+                  <td><span class="badge {statusBadge(p.StatusCode)}">{p.StatusCode}</span></td>
+                  <td>{p.ContentType || '-'}</td>
+                  <td>{p.ContentEncoding || '-'}</td>
+                  <td>{fmtSize(p.BodySize)}</td>
+                  <td>{fmt(p.FetchDurationMs)}</td>
+                  <td>{p.FinalURL !== p.URL ? p.FinalURL : '-'}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {#each pages as p}
-                  <tr>
-                    <td class="cell-url"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td>
-                    <td><span class="badge {statusBadge(p.StatusCode)}">{p.StatusCode}</span></td>
-                    <td>{p.ContentType || '-'}</td>
-                    <td>{p.ContentEncoding || '-'}</td>
-                    <td>{fmtSize(p.BodySize)}</td>
-                    <td>{fmt(p.FetchDurationMs)}</td>
-                    <td>{p.FinalURL !== p.URL ? p.FinalURL : '-'}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+              {/snippet}
+            </DataTable>
 
           {:else if tab === 'internal'}
-            <table>
-              <thead>
-                <tr><th>Source</th><th>Target</th><th>Anchor Text</th><th>Tag</th></tr>
-                <tr class="filter-row">
-                  {#each TAB_FILTERS.internal as key}
-                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
-                  {/each}
+            <DataTable columns={[{label:'Source'},{label:'Target'},{label:'Anchor Text'},{label:'Tag'}]}
+              filterKeys={TAB_FILTERS.internal} {filters} data={intLinks} offset={intLinksOffset} pageSize={PAGE_SIZE}
+              hasMore={hasMoreIntLinks} hasActiveFilters={hasActiveFilters()}
+              onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
+              {#snippet row(l)}
+                <tr>
+                  <td class="cell-url"><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}>{l.SourceURL}</a></td>
+                  <td class="cell-url"><a href={urlDetailHref(l.TargetURL)} onclick={(e) => goToUrlDetail(e, l.TargetURL)}>{l.TargetURL}</a></td>
+                  <td class="cell-title">{l.AnchorText || '-'}</td>
+                  <td>{l.Tag}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {#each intLinks as l}
-                  <tr>
-                    <td class="cell-url"><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}>{l.SourceURL}</a></td>
-                    <td class="cell-url"><a href={urlDetailHref(l.TargetURL)} onclick={(e) => goToUrlDetail(e, l.TargetURL)}>{l.TargetURL}</a></td>
-                    <td class="cell-title">{l.AnchorText || '-'}</td>
-                    <td>{l.Tag}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+              {/snippet}
+            </DataTable>
 
           {:else if tab === 'external'}
-            <table>
-              <thead>
-                <tr><th>Source</th><th>Target</th><th>Anchor Text</th><th>Rel</th></tr>
-                <tr class="filter-row">
-                  {#each TAB_FILTERS.external as key}
-                    <td><input class="filter-input" placeholder={key} value={filters[key] || ''} oninput={(e) => setFilter(key, e.target.value)} onkeydown={(e) => e.key === 'Enter' && applyFilters()} /></td>
-                  {/each}
+            <DataTable columns={[{label:'Source'},{label:'Target'},{label:'Anchor Text'},{label:'Rel'}]}
+              filterKeys={TAB_FILTERS.external} {filters} data={extLinks} offset={extLinksOffset} pageSize={PAGE_SIZE}
+              hasMore={hasMoreExtLinks} hasActiveFilters={hasActiveFilters()}
+              onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
+              {#snippet row(l)}
+                <tr>
+                  <td class="cell-url"><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}>{l.SourceURL}</a></td>
+                  <td class="cell-url"><a href={l.TargetURL} target="_blank" rel="noopener">{l.TargetURL}</a></td>
+                  <td class="cell-title">{l.AnchorText || '-'}</td>
+                  <td>{l.Rel || '-'}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {#each extLinks as l}
-                  <tr>
-                    <td class="cell-url"><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}>{l.SourceURL}</a></td>
-                    <td class="cell-url"><a href={l.TargetURL} target="_blank" rel="noopener">{l.TargetURL}</a></td>
-                    <td class="cell-title">{l.AnchorText || '-'}</td>
-                    <td>{l.Rel || '-'}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+              {/snippet}
+            </DataTable>
 
           {:else if tab === 'pagerank'}
             <PageRankTab sessionId={selectedSession.ID} initialSubView={prSubView}
@@ -1896,66 +858,7 @@
           {:else if tab === 'sitemaps'}
             <SitemapsTab sessionId={selectedSession.ID} onerror={(msg) => error = msg} />
           {:else if tab === 'stats'}
-            <div class="charts-container">
-              {#if stats?.depth_distribution && Object.keys(stats.depth_distribution).length > 0}
-                {@const depthEntries = Object.entries(stats.depth_distribution).map(([k, v]) => [Number(k), v]).sort((a, b) => a[0] - b[0])}
-                {@const depthMax = Math.max(...depthEntries.map(e => e[1]))}
-                {@const depthBarH = 32}
-                {@const depthGap = 6}
-                {@const depthSvgH = depthEntries.length * (depthBarH + depthGap)}
-                <div class="chart-section">
-                  <h3 class="chart-title">Depth Distribution</h3>
-                  <svg class="chart-svg" viewBox="0 0 600 {depthSvgH}" preserveAspectRatio="xMinYMin meet">
-                    {#each depthEntries as [depth, count], i}
-                      {@const barW = depthMax > 0 ? (count / depthMax) * 440 : 0}
-                      {@const y = i * (depthBarH + depthGap)}
-                      {@const opacity = 0.5 + (0.5 * (1 - i / Math.max(depthEntries.length - 1, 1)))}
-                      <g class="chart-bar-clickable" role="button" tabindex="0" style="cursor:pointer" onclick={() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {depth: String(depth)})} onkeydown={a11yKeydown(() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {depth: String(depth)}))}>
-                        <text x="30" y={y + depthBarH / 2 + 5} text-anchor="end" class="chart-label">{depth}</text>
-                        <rect x="40" y={y} width={Math.max(barW, 2)} height={depthBarH} rx="4" class="chart-bar chart-bar-accent" style="opacity: {opacity}" />
-                        <text x={44 + barW} y={y + depthBarH / 2 + 5} class="chart-value">{fmtN(count)}</text>
-                      </g>
-                    {/each}
-                  </svg>
-                </div>
-              {:else}
-                <p class="chart-empty">No depth data available.</p>
-              {/if}
-
-              {#if stats?.status_codes && Object.keys(stats.status_codes).length > 0}
-                {@const scEntries = Object.entries(stats.status_codes).map(([k, v]) => [Number(k), v]).sort((a, b) => a[0] - b[0])}
-                {@const scMax = Math.max(...scEntries.map(e => e[1]))}
-                {@const scBarH = 32}
-                {@const scGap = 6}
-                {@const scSvgH = scEntries.length * (scBarH + scGap)}
-                <div class="chart-section">
-                  <h3 class="chart-title">Status Code Distribution</h3>
-                  <svg class="chart-svg" viewBox="0 0 600 {scSvgH}" preserveAspectRatio="xMinYMin meet">
-                    {#each scEntries as [code, count], i}
-                      {@const barW = scMax > 0 ? (count / scMax) * 440 : 0}
-                      {@const y = i * (scBarH + scGap)}
-                      {@const colorClass = code >= 200 && code < 300 ? 'chart-bar-success' : code >= 300 && code < 400 ? 'chart-bar-info' : code >= 400 && code < 500 ? 'chart-bar-warning' : 'chart-bar-error'}
-                      <g class="chart-bar-clickable" role="button" tabindex="0" style="cursor:pointer" onclick={() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {status_code: String(code)})} onkeydown={a11yKeydown(() => navigateTo(`/sessions/${selectedSession.ID}/overview`, {status_code: String(code)}))}>
-                        <text x="30" y={y + scBarH / 2 + 5} text-anchor="end" class="chart-label">{code}</text>
-                        <rect x="40" y={y} width={Math.max(barW, 2)} height={scBarH} rx="4" class={`chart-bar ${colorClass}`} />
-                        <text x={44 + barW} y={y + scBarH / 2 + 5} class="chart-value">{fmtN(count)}</text>
-                      </g>
-                    {/each}
-                  </svg>
-                </div>
-              {:else}
-                <p class="chart-empty">No status code data available.</p>
-              {/if}
-
-            </div>
-          {/if}
-
-          {#if currentData().length > 0}
-            <div class="pagination">
-              <button class="btn btn-sm" onclick={prevPage} disabled={currentOffset() === 0}>Previous</button>
-              <span class="pagination-info">{currentOffset() + 1} - {currentOffset() + currentData().length}</span>
-              <button class="btn btn-sm" onclick={nextPage} disabled={!hasMore()}>Next</button>
-            </div>
+            <SessionStatsTab {stats} sessionId={selectedSession.ID} onnavigate={navigateTo} />
           {/if}
         </div>
       {/if}
