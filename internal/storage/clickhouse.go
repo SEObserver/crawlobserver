@@ -1808,7 +1808,7 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 	if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
 		return fmt.Errorf("dropping old temp depths table: %w", err)
 	}
-	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (url String, d UInt16, found_on String) ENGINE = Memory", tmpTable)); err != nil {
+	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (page_url String, new_depth UInt16, new_found_on String) ENGINE = Memory", tmpTable)); err != nil {
 		return fmt.Errorf("creating temp depths table: %w", err)
 	}
 	defer s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable))
@@ -1825,7 +1825,7 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 			end = len(urls)
 		}
 
-		batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (url, d, found_on)", tmpTable))
+		batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (page_url, new_depth, new_found_on)", tmpTable))
 		if err != nil {
 			return fmt.Errorf("preparing depths batch: %w", err)
 		}
@@ -1839,11 +1839,14 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 		}
 	}
 
-	// Single mutation: update from temp table (requires ClickHouse 22.8+)
+	// Single mutation: update from temp table.
+	// Column names in the temp table (page_url, new_depth, new_found_on) differ
+	// from pages columns to avoid ambiguity — bare `url` in the subquery WHERE
+	// clause resolves to seocrawler.pages.url in the ALTER TABLE context.
 	query := fmt.Sprintf(`ALTER TABLE seocrawler.pages UPDATE
-		depth = (SELECT d FROM %s WHERE url = seocrawler.pages.url LIMIT 1),
-		found_on = (SELECT found_on FROM %s WHERE url = seocrawler.pages.url LIMIT 1)
-		WHERE crawl_session_id = ? AND url IN (SELECT url FROM %s)`,
+		depth = (SELECT new_depth FROM %s WHERE page_url = url LIMIT 1),
+		found_on = (SELECT new_found_on FROM %s WHERE page_url = url LIMIT 1)
+		WHERE crawl_session_id = ? AND url IN (SELECT page_url FROM %s)`,
 		tmpTable, tmpTable, tmpTable)
 
 	if err := s.conn.Exec(ctx, query, sessionID); err != nil {
@@ -2924,7 +2927,7 @@ func (s *Store) ListLogs(ctx context.Context, limit, offset int, level, componen
 	}
 
 	// Count
-	var total int
+	var total uint64
 	countArgs := make([]any, len(args))
 	copy(countArgs, args)
 	if err := s.conn.QueryRow(ctx, "SELECT count() FROM seocrawler.application_logs WHERE "+where, countArgs...).Scan(&total); err != nil {
@@ -2947,7 +2950,7 @@ func (s *Store) ListLogs(ctx context.Context, limit, offset int, level, componen
 		}
 		results = append(results, r)
 	}
-	return results, total, nil
+	return results, int(total), nil
 }
 
 // ExportLogs returns all logs (up to 7 days per TTL) for JSONL export.
