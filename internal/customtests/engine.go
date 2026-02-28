@@ -19,10 +19,10 @@ type StorageInterface interface {
 	StreamPagesHTML(ctx context.Context, sessionID string) (<-chan PageHTMLRow, error)
 }
 
-// RunTests executes all rules from a profile against a crawl session.
-func RunTests(ctx context.Context, store StorageInterface, sessionID string, profile *TestProfile) (*TestRunResult, error) {
+// RunTests executes all rules from a ruleset against a crawl session.
+func RunTests(ctx context.Context, store StorageInterface, sessionID string, ruleset *Ruleset) (*TestRunResult, error) {
 	var chRules, cssRules []TestRule
-	for _, r := range profile.Rules {
+	for _, r := range ruleset.Rules {
 		if r.Type.IsClickHouseNative() {
 			chRules = append(chRules, r)
 		} else {
@@ -71,11 +71,11 @@ func RunTests(ctx context.Context, store StorageInterface, sessionID string, pro
 
 	// Build result
 	result := &TestRunResult{
-		ProfileID:   profile.ID,
-		ProfileName: profile.Name,
+		RulesetID:   ruleset.ID,
+		RulesetName: ruleset.Name,
 		SessionID:   sessionID,
 		TotalPages:  len(merged),
-		Rules:       profile.Rules,
+		Rules:       ruleset.Rules,
 		Summary:     make(map[string]int),
 	}
 
@@ -84,7 +84,7 @@ func RunTests(ctx context.Context, store StorageInterface, sessionID string, pro
 	}
 
 	// Compute summary
-	for _, r := range profile.Rules {
+	for _, r := range ruleset.Rules {
 		count := 0
 		for _, p := range result.Pages {
 			v := p.Results[r.ID]

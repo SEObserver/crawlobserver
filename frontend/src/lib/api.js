@@ -342,41 +342,41 @@ export async function getCompareLinks(a, b, type = 'added', limit = 100, offset 
   return fetchJSON(`/compare/links?a=${a}&b=${b}&type=${type}&limit=${limit}&offset=${offset}`);
 }
 
-// --- Custom Test Profiles ---
+// --- Rulesets (Custom Tests) ---
 
-export async function getTestProfiles() {
-  return fetchJSON('/test-profiles');
+export async function getRulesets() {
+  return fetchJSON('/rulesets');
 }
 
-export async function getTestProfile(id) {
-  return fetchJSON(`/test-profiles/${id}`);
+export async function getRuleset(id) {
+  return fetchJSON(`/rulesets/${id}`);
 }
 
-export async function createTestProfile(name, rules) {
-  return fetchJSON('/test-profiles', {
+export async function createRuleset(name, rules) {
+  return fetchJSON('/rulesets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, rules }),
   });
 }
 
-export async function updateTestProfile(id, name, rules) {
-  return fetchJSON(`/test-profiles/${id}`, {
+export async function updateRuleset(id, name, rules) {
+  return fetchJSON(`/rulesets/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, rules }),
   });
 }
 
-export async function deleteTestProfile(id) {
-  return fetchJSON(`/test-profiles/${id}`, { method: 'DELETE' });
+export async function deleteRuleset(id) {
+  return fetchJSON(`/rulesets/${id}`, { method: 'DELETE' });
 }
 
-export async function runTests(sessionId, profileId) {
+export async function runTests(sessionId, rulesetId) {
   return fetchJSON(`/sessions/${sessionId}/run-tests`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ profile_id: profileId }),
+    body: JSON.stringify({ ruleset_id: rulesetId }),
   });
 }
 

@@ -147,12 +147,12 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/sessions/{id}/gsc/timeline", s.handleGSCTimeline)
 	mux.HandleFunc("GET /api/sessions/{id}/gsc/inspection", s.handleGSCInspection)
 
-	// Custom Test Profiles routes
-	mux.HandleFunc("GET /api/test-profiles", s.handleListTestProfiles)
-	mux.HandleFunc("POST /api/test-profiles", s.handleCreateTestProfile)
-	mux.HandleFunc("GET /api/test-profiles/{id}", s.handleGetTestProfile)
-	mux.HandleFunc("PUT /api/test-profiles/{id}", s.handleUpdateTestProfile)
-	mux.HandleFunc("DELETE /api/test-profiles/{id}", s.handleDeleteTestProfile)
+	// Custom Tests / Rulesets routes
+	mux.HandleFunc("GET /api/rulesets", s.handleListRulesets)
+	mux.HandleFunc("POST /api/rulesets", s.handleCreateRuleset)
+	mux.HandleFunc("GET /api/rulesets/{id}", s.handleGetRuleset)
+	mux.HandleFunc("PUT /api/rulesets/{id}", s.handleUpdateRuleset)
+	mux.HandleFunc("DELETE /api/rulesets/{id}", s.handleDeleteRuleset)
 	mux.HandleFunc("POST /api/sessions/{id}/run-tests", s.handleRunTests)
 
 	// Static frontend files with SPA fallback
@@ -1684,21 +1684,21 @@ func internalError(w http.ResponseWriter, r *http.Request, err error) {
 
 // --- Custom Tests Handlers ---
 
-func (s *Server) handleListTestProfiles(w http.ResponseWriter, r *http.Request) {
-	profiles, err := s.keyStore.ListTestProfiles()
+func (s *Server) handleListRulesets(w http.ResponseWriter, r *http.Request) {
+	rulesets, err := s.keyStore.ListRulesets()
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	writeJSON(w, profiles)
+	writeJSON(w, rulesets)
 }
 
-func (s *Server) handleCreateTestProfile(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleCreateRuleset(w http.ResponseWriter, r *http.Request) {
 	if !requireFullAccess(w, r) {
 		return
 	}
 	var req struct {
-		Name  string              `json:"name"`
+		Name  string                 `json:"name"`
 		Rules []customtests.TestRule `json:"rules"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1709,32 +1709,32 @@ func (s *Server) handleCreateTestProfile(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	profile, err := s.keyStore.CreateTestProfile(req.Name, req.Rules)
+	ruleset, err := s.keyStore.CreateRuleset(req.Name, req.Rules)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	writeJSON(w, profile)
+	writeJSON(w, ruleset)
 }
 
-func (s *Server) handleGetTestProfile(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetRuleset(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	profile, err := s.keyStore.GetTestProfile(id)
+	ruleset, err := s.keyStore.GetRuleset(id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "test profile not found")
+		writeError(w, http.StatusNotFound, "ruleset not found")
 		return
 	}
-	writeJSON(w, profile)
+	writeJSON(w, ruleset)
 }
 
-func (s *Server) handleUpdateTestProfile(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleUpdateRuleset(w http.ResponseWriter, r *http.Request) {
 	if !requireFullAccess(w, r) {
 		return
 	}
 	id := r.PathValue("id")
 	var req struct {
-		Name  string              `json:"name"`
+		Name  string                 `json:"name"`
 		Rules []customtests.TestRule `json:"rules"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1745,24 +1745,24 @@ func (s *Server) handleUpdateTestProfile(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	if err := s.keyStore.UpdateTestProfile(id, req.Name, req.Rules); err != nil {
+	if err := s.keyStore.UpdateRuleset(id, req.Name, req.Rules); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	profile, err := s.keyStore.GetTestProfile(id)
+	ruleset, err := s.keyStore.GetRuleset(id)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	writeJSON(w, profile)
+	writeJSON(w, ruleset)
 }
 
-func (s *Server) handleDeleteTestProfile(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleDeleteRuleset(w http.ResponseWriter, r *http.Request) {
 	if !requireFullAccess(w, r) {
 		return
 	}
 	id := r.PathValue("id")
-	if err := s.keyStore.DeleteTestProfile(id); err != nil {
+	if err := s.keyStore.DeleteRuleset(id); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
@@ -1776,26 +1776,25 @@ func (s *Server) handleRunTests(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		ProfileID string `json:"profile_id"`
+		RulesetID string `json:"ruleset_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.ProfileID == "" {
-		writeError(w, http.StatusBadRequest, "profile_id is required")
+	if req.RulesetID == "" {
+		writeError(w, http.StatusBadRequest, "ruleset_id is required")
 		return
 	}
 
-	profile, err := s.keyStore.GetTestProfile(req.ProfileID)
+	ruleset, err := s.keyStore.GetRuleset(req.RulesetID)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "test profile not found")
+		writeError(w, http.StatusBadRequest, "ruleset not found")
 		return
 	}
 
-	// Wrap StorageService into the customtests.StorageInterface adapter
 	adapter := &customTestsStorageAdapter{store: s.store}
-	result, err := customtests.RunTests(r.Context(), adapter, sessionID, profile)
+	result, err := customtests.RunTests(r.Context(), adapter, sessionID, ruleset)
 	if err != nil {
 		internalError(w, r, err)
 		return

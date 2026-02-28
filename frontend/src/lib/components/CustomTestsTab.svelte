@@ -1,5 +1,5 @@
 <script>
-  import { getTestProfiles, getTestProfile, createTestProfile, updateTestProfile, deleteTestProfile, runTests } from '../api.js';
+  import { getRulesets, getRuleset, createRuleset, updateRuleset, deleteRuleset, runTests } from '../api.js';
 
   let { sessionId, onerror } = $props();
 
@@ -37,7 +37,7 @@
 
   // State
   let view = $state('list'); // 'list' | 'editor' | 'results'
-  let profiles = $state([]);
+  let rulesets = $state([]);
   let loading = $state(false);
 
   // Editor state
@@ -47,14 +47,14 @@
 
   // Results state
   let testResult = $state(null);
-  let runningProfileId = $state(null);
+  let runningRulesetId = $state(null);
   let resultsPage = $state(0);
   const RESULTS_PAGE_SIZE = 100;
 
-  async function loadProfiles() {
+  async function loadRulesets() {
     loading = true;
     try {
-      profiles = await getTestProfiles();
+      rulesets = await getRulesets();
     } catch (e) {
       onerror?.(e.message);
     } finally {
@@ -62,20 +62,20 @@
     }
   }
 
-  function newProfile() {
+  function newRuleset() {
     editId = null;
     editName = '';
     editRules = [{ type: 'string_contains', name: '', value: '', extra: '' }];
     view = 'editor';
   }
 
-  async function editProfile(id) {
+  async function editRulesetById(id) {
     loading = true;
     try {
-      const p = await getTestProfile(id);
-      editId = p.id;
-      editName = p.name;
-      editRules = p.rules.map(r => ({ type: r.type, name: r.name, value: r.value, extra: r.extra || '' }));
+      const rs = await getRuleset(id);
+      editId = rs.id;
+      editName = rs.name;
+      editRules = rs.rules.map(r => ({ type: r.type, name: r.name, value: r.value, extra: r.extra || '' }));
       if (editRules.length === 0) editRules = [{ type: 'string_contains', name: '', value: '', extra: '' }];
       view = 'editor';
     } catch (e) {
@@ -85,19 +85,19 @@
     }
   }
 
-  async function saveProfile() {
+  async function saveRuleset() {
     const rules = editRules.filter(r => r.name && r.value);
-    if (!editName.trim()) { onerror?.('Profile name is required'); return; }
+    if (!editName.trim()) { onerror?.('Ruleset name is required'); return; }
     if (rules.length === 0) { onerror?.('At least one rule is required'); return; }
 
     loading = true;
     try {
       if (editId) {
-        await updateTestProfile(editId, editName, rules);
+        await updateRuleset(editId, editName, rules);
       } else {
-        await createTestProfile(editName, rules);
+        await createRuleset(editName, rules);
       }
-      await loadProfiles();
+      await loadRulesets();
       view = 'list';
     } catch (e) {
       onerror?.(e.message);
@@ -106,28 +106,28 @@
     }
   }
 
-  async function removeProfile(id) {
-    if (!confirm('Delete this test profile?')) return;
+  async function removeRuleset(id) {
+    if (!confirm('Delete this ruleset?')) return;
     try {
-      await deleteTestProfile(id);
-      await loadProfiles();
+      await deleteRuleset(id);
+      await loadRulesets();
     } catch (e) {
       onerror?.(e.message);
     }
   }
 
-  async function runProfile(profileId) {
-    runningProfileId = profileId;
+  async function runRuleset(rulesetId) {
+    runningRulesetId = rulesetId;
     loading = true;
     try {
-      testResult = await runTests(sessionId, profileId);
+      testResult = await runTests(sessionId, rulesetId);
       resultsPage = 0;
       view = 'results';
     } catch (e) {
       onerror?.(e.message);
     } finally {
       loading = false;
-      runningProfileId = null;
+      runningRulesetId = null;
     }
   }
 
@@ -148,21 +148,21 @@
   );
 
   // Load on mount
-  loadProfiles();
+  loadRulesets();
 </script>
 
 {#if view === 'list'}
   <div class="card" style="margin-top: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border);">
-      <h3 style="margin: 0; font-size: 15px; font-weight: 600;">Test Profiles</h3>
-      <button class="btn btn-primary btn-sm" onclick={newProfile}>+ New Profile</button>
+      <h3 style="margin: 0; font-size: 15px; font-weight: 600;">Rulesets</h3>
+      <button class="btn btn-primary btn-sm" onclick={newRuleset}>+ New Ruleset</button>
     </div>
 
     {#if loading}
       <div style="padding: 40px; text-align: center; color: var(--text-muted);">Loading...</div>
-    {:else if profiles.length === 0}
+    {:else if rulesets.length === 0}
       <div style="padding: 40px; text-align: center; color: var(--text-muted);">
-        No test profiles yet. Create one to start testing pages.
+        No rulesets yet. Create one to start testing pages.
       </div>
     {:else}
       <table class="data-table">
@@ -175,18 +175,18 @@
           </tr>
         </thead>
         <tbody>
-          {#each profiles as p}
+          {#each rulesets as rs}
             <tr>
-              <td><strong>{p.name}</strong></td>
-              <td>{p.rules?.length ?? 0} rules</td>
-              <td style="color: var(--text-muted); font-size: 13px;">{new Date(p.updated_at).toLocaleDateString()}</td>
+              <td><strong>{rs.name}</strong></td>
+              <td>{rs.rules?.length ?? 0} rules</td>
+              <td style="color: var(--text-muted); font-size: 13px;">{new Date(rs.updated_at).toLocaleDateString()}</td>
               <td>
-                <button class="btn btn-sm" onclick={() => editProfile(p.id)}>Edit</button>
-                <button class="btn btn-primary btn-sm" onclick={() => runProfile(p.id)}
-                  disabled={runningProfileId === p.id}>
-                  {runningProfileId === p.id ? 'Running...' : 'Run'}
+                <button class="btn btn-sm" onclick={() => editRulesetById(rs.id)}>Edit</button>
+                <button class="btn btn-primary btn-sm" onclick={() => runRuleset(rs.id)}
+                  disabled={runningRulesetId === rs.id}>
+                  {runningRulesetId === rs.id ? 'Running...' : 'Run'}
                 </button>
-                <button class="btn btn-sm btn-danger" onclick={() => removeProfile(p.id)}>Delete</button>
+                <button class="btn btn-sm btn-danger" onclick={() => removeRuleset(rs.id)}>Delete</button>
               </td>
             </tr>
           {/each}
@@ -199,11 +199,11 @@
   <div class="card" style="margin-top: 16px;">
     <div style="padding: 16px 20px; border-bottom: 1px solid var(--border);">
       <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600;">
-        {editId ? 'Edit Profile' : 'New Profile'}
+        {editId ? 'Edit Ruleset' : 'New Ruleset'}
       </h3>
       <div style="display: flex; gap: 8px; align-items: center;">
         <label style="font-size: 13px; font-weight: 500;">Name:</label>
-        <input type="text" bind:value={editName} placeholder="Profile name"
+        <input type="text" bind:value={editName} placeholder="Ruleset name"
           style="flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px;" />
       </div>
     </div>
@@ -260,8 +260,8 @@
         <button class="btn btn-sm" onclick={addRule}>+ Add Rule</button>
         <div style="flex: 1;"></div>
         <button class="btn btn-sm" onclick={() => { view = 'list'; }}>Cancel</button>
-        <button class="btn btn-primary btn-sm" onclick={saveProfile} disabled={loading}>
-          {loading ? 'Saving...' : 'Save Profile'}
+        <button class="btn btn-primary btn-sm" onclick={saveRuleset} disabled={loading}>
+          {loading ? 'Saving...' : 'Save Ruleset'}
         </button>
       </div>
     </div>
@@ -272,11 +272,11 @@
     <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border);">
       <div>
         <h3 style="margin: 0; font-size: 15px; font-weight: 600;">
-          Results: {testResult.profile_name}
+          Results: {testResult.ruleset_name}
         </h3>
         <span style="font-size: 13px; color: var(--text-muted);">{testResult.total_pages} pages tested</span>
       </div>
-      <button class="btn btn-sm" onclick={() => { view = 'list'; }}>Back to Profiles</button>
+      <button class="btn btn-sm" onclick={() => { view = 'list'; }}>Back to Rulesets</button>
     </div>
 
     <!-- Summary -->

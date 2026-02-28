@@ -1347,18 +1347,17 @@ func TestAudit_Success(t *testing.T) {
 // Custom Tests tests
 // =========================================================================
 
-func TestListTestProfiles_Success(t *testing.T) {
+func TestListRulesets_Success(t *testing.T) {
 	_, handler, ks := newTestServer(t)
 
-	// Create a profile first
-	_, err := ks.CreateTestProfile("My Profile", []customtests.TestRule{
+	_, err := ks.CreateRuleset("My Ruleset", []customtests.TestRule{
 		{Type: customtests.StringContains, Name: "Has GTM", Value: "GTM-XXXX"},
 	})
 	if err != nil {
-		t.Fatalf("creating profile: %v", err)
+		t.Fatalf("creating ruleset: %v", err)
 	}
 
-	req := authRequest(httptest.NewRequest("GET", "/api/test-profiles", nil))
+	req := authRequest(httptest.NewRequest("GET", "/api/rulesets", nil))
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -1366,17 +1365,17 @@ func TestListTestProfiles_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var profiles []customtests.TestProfile
-	decodeJSON(t, rec, &profiles)
-	if len(profiles) != 1 {
-		t.Fatalf("expected 1 profile, got %d", len(profiles))
+	var rulesets []customtests.Ruleset
+	decodeJSON(t, rec, &rulesets)
+	if len(rulesets) != 1 {
+		t.Fatalf("expected 1 ruleset, got %d", len(rulesets))
 	}
-	if profiles[0].Name != "My Profile" {
-		t.Errorf("expected name 'My Profile', got %q", profiles[0].Name)
+	if rulesets[0].Name != "My Ruleset" {
+		t.Errorf("expected name 'My Ruleset', got %q", rulesets[0].Name)
 	}
 }
 
-func TestCreateTestProfile_Success(t *testing.T) {
+func TestCreateRuleset_Success(t *testing.T) {
 	_, handler, _ := newTestServer(t)
 
 	body := jsonBody(t, map[string]interface{}{
@@ -1386,7 +1385,7 @@ func TestCreateTestProfile_Success(t *testing.T) {
 			{"type": "header_exists", "name": "Has X-Frame", "value": "X-Frame-Options"},
 		},
 	})
-	req := authRequest(httptest.NewRequest("POST", "/api/test-profiles", body))
+	req := authRequest(httptest.NewRequest("POST", "/api/rulesets", body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
@@ -1395,32 +1394,30 @@ func TestCreateTestProfile_Success(t *testing.T) {
 		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var profile customtests.TestProfile
-	decodeJSON(t, rec, &profile)
-	if profile.Name != "SEO Checks" {
-		t.Errorf("expected name 'SEO Checks', got %q", profile.Name)
+	var ruleset customtests.Ruleset
+	decodeJSON(t, rec, &ruleset)
+	if ruleset.Name != "SEO Checks" {
+		t.Errorf("expected name 'SEO Checks', got %q", ruleset.Name)
 	}
-	if len(profile.Rules) != 2 {
-		t.Errorf("expected 2 rules, got %d", len(profile.Rules))
+	if len(ruleset.Rules) != 2 {
+		t.Errorf("expected 2 rules, got %d", len(ruleset.Rules))
 	}
 }
 
 func TestRunTests_Success(t *testing.T) {
 	srv, handler, ks := newTestServer(t)
 
-	// Seed a session so requireSessionAccess works
 	ms := srv.store.(*mockStore)
 	ms.sessions = []storage.CrawlSession{{ID: "sess-1"}}
 
-	// Create a profile with a CH-native rule
-	profile, err := ks.CreateTestProfile("Test", []customtests.TestRule{
+	ruleset, err := ks.CreateRuleset("Test", []customtests.TestRule{
 		{Type: customtests.StringContains, Name: "Has GTM", Value: "GTM-XXXX"},
 	})
 	if err != nil {
-		t.Fatalf("creating profile: %v", err)
+		t.Fatalf("creating ruleset: %v", err)
 	}
 
-	body := jsonBody(t, map[string]string{"profile_id": profile.ID})
+	body := jsonBody(t, map[string]string{"ruleset_id": ruleset.ID})
 	req := authRequest(httptest.NewRequest("POST", "/api/sessions/sess-1/run-tests", body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -1432,20 +1429,20 @@ func TestRunTests_Success(t *testing.T) {
 
 	var result customtests.TestRunResult
 	decodeJSON(t, rec, &result)
-	if result.ProfileName != "Test" {
-		t.Errorf("expected profile name 'Test', got %q", result.ProfileName)
+	if result.RulesetName != "Test" {
+		t.Errorf("expected ruleset name 'Test', got %q", result.RulesetName)
 	}
 	if len(result.Pages) == 0 {
 		t.Error("expected at least one page in results")
 	}
 }
 
-func TestRunTests_MissingProfile(t *testing.T) {
+func TestRunTests_MissingRuleset(t *testing.T) {
 	srv, handler, _ := newTestServer(t)
 	ms := srv.store.(*mockStore)
 	ms.sessions = []storage.CrawlSession{{ID: "sess-1"}}
 
-	body := jsonBody(t, map[string]string{"profile_id": ""})
+	body := jsonBody(t, map[string]string{"ruleset_id": ""})
 	req := authRequest(httptest.NewRequest("POST", "/api/sessions/sess-1/run-tests", body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()

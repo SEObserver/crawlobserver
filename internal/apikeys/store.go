@@ -108,7 +108,7 @@ func NewStore(dbPath string) (*Store, error) {
 	}
 
 	if _, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS test_profiles (
+		CREATE TABLE IF NOT EXISTS rulesets (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -116,13 +116,13 @@ func NewStore(dbPath string) (*Store, error) {
 		)
 	`); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("creating test_profiles table: %w", err)
+		return nil, fmt.Errorf("creating rulesets table: %w", err)
 	}
 
 	if _, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS test_rules (
+		CREATE TABLE IF NOT EXISTS rules (
 			id TEXT PRIMARY KEY,
-			profile_id TEXT NOT NULL REFERENCES test_profiles(id) ON DELETE CASCADE,
+			ruleset_id TEXT NOT NULL REFERENCES rulesets(id) ON DELETE CASCADE,
 			type TEXT NOT NULL,
 			name TEXT NOT NULL,
 			value TEXT NOT NULL,
@@ -131,7 +131,7 @@ func NewStore(dbPath string) (*Store, error) {
 		)
 	`); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("creating test_rules table: %w", err)
+		return nil, fmt.Errorf("creating rules table: %w", err)
 	}
 
 	return &Store{db: db}, nil
@@ -388,38 +388,38 @@ func (s *Store) ValidateKey(rawKey string) *KeyLookupResult {
 	return &result
 }
 
-// --- Test Profiles ---
+// --- Rulesets ---
 
-func (s *Store) ListTestProfiles() ([]customtests.TestProfile, error) {
-	rows, err := s.db.Query(`SELECT id, name, created_at, updated_at FROM test_profiles ORDER BY created_at DESC`)
+func (s *Store) ListRulesets() ([]customtests.Ruleset, error) {
+	rows, err := s.db.Query(`SELECT id, name, created_at, updated_at FROM rulesets ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var profiles []customtests.TestProfile
+	var rulesets []customtests.Ruleset
 	for rows.Next() {
-		var p customtests.TestProfile
-		if err := rows.Scan(&p.ID, &p.Name, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		var rs customtests.Ruleset
+		if err := rows.Scan(&rs.ID, &rs.Name, &rs.CreatedAt, &rs.UpdatedAt); err != nil {
 			return nil, err
 		}
-		profiles = append(profiles, p)
+		rulesets = append(rulesets, rs)
 	}
-	if profiles == nil {
-		profiles = []customtests.TestProfile{}
+	if rulesets == nil {
+		rulesets = []customtests.Ruleset{}
 	}
-	return profiles, nil
+	return rulesets, nil
 }
 
-func (s *Store) GetTestProfile(id string) (*customtests.TestProfile, error) {
-	var p customtests.TestProfile
-	err := s.db.QueryRow(`SELECT id, name, created_at, updated_at FROM test_profiles WHERE id = ?`, id).
-		Scan(&p.ID, &p.Name, &p.CreatedAt, &p.UpdatedAt)
+func (s *Store) GetRuleset(id string) (*customtests.Ruleset, error) {
+	var rs customtests.Ruleset
+	err := s.db.QueryRow(`SELECT id, name, created_at, updated_at FROM rulesets WHERE id = ?`, id).
+		Scan(&rs.ID, &rs.Name, &rs.CreatedAt, &rs.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := s.db.Query(`SELECT id, profile_id, type, name, value, extra, sort_order FROM test_rules WHERE profile_id = ? ORDER BY sort_order`, id)
+	rows, err := s.db.Query(`SELECT id, ruleset_id, type, name, value, extra, sort_order FROM rules WHERE ruleset_id = ? ORDER BY sort_order`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -427,20 +427,20 @@ func (s *Store) GetTestProfile(id string) (*customtests.TestProfile, error) {
 
 	for rows.Next() {
 		var r customtests.TestRule
-		if err := rows.Scan(&r.ID, &r.ProfileID, &r.Type, &r.Name, &r.Value, &r.Extra, &r.SortOrder); err != nil {
+		if err := rows.Scan(&r.ID, &r.RulesetID, &r.Type, &r.Name, &r.Value, &r.Extra, &r.SortOrder); err != nil {
 			return nil, err
 		}
-		p.Rules = append(p.Rules, r)
+		rs.Rules = append(rs.Rules, r)
 	}
-	if p.Rules == nil {
-		p.Rules = []customtests.TestRule{}
+	if rs.Rules == nil {
+		rs.Rules = []customtests.TestRule{}
 	}
-	return &p, nil
+	return &rs, nil
 }
 
-func (s *Store) CreateTestProfile(name string, rules []customtests.TestRule) (*customtests.TestProfile, error) {
+func (s *Store) CreateRuleset(name string, rules []customtests.TestRule) (*customtests.Ruleset, error) {
 	now := time.Now().UTC()
-	p := &customtests.TestProfile{
+	rs := &customtests.Ruleset{
 		ID:        uuid.New().String(),
 		Name:      name,
 		CreatedAt: now,
@@ -453,67 +453,67 @@ func (s *Store) CreateTestProfile(name string, rules []customtests.TestRule) (*c
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.Exec(`INSERT INTO test_profiles (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)`,
-		p.ID, p.Name, p.CreatedAt, p.UpdatedAt); err != nil {
-		return nil, fmt.Errorf("inserting test profile: %w", err)
+	if _, err := tx.Exec(`INSERT INTO rulesets (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+		rs.ID, rs.Name, rs.CreatedAt, rs.UpdatedAt); err != nil {
+		return nil, fmt.Errorf("inserting ruleset: %w", err)
 	}
 
 	for i, r := range rules {
 		r.ID = uuid.New().String()
-		r.ProfileID = p.ID
+		r.RulesetID = rs.ID
 		r.SortOrder = i
-		if _, err := tx.Exec(`INSERT INTO test_rules (id, profile_id, type, name, value, extra, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			r.ID, r.ProfileID, r.Type, r.Name, r.Value, r.Extra, r.SortOrder); err != nil {
-			return nil, fmt.Errorf("inserting test rule: %w", err)
+		if _, err := tx.Exec(`INSERT INTO rules (id, ruleset_id, type, name, value, extra, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			r.ID, r.RulesetID, r.Type, r.Name, r.Value, r.Extra, r.SortOrder); err != nil {
+			return nil, fmt.Errorf("inserting rule: %w", err)
 		}
-		p.Rules = append(p.Rules, r)
+		rs.Rules = append(rs.Rules, r)
 	}
-	if p.Rules == nil {
-		p.Rules = []customtests.TestRule{}
+	if rs.Rules == nil {
+		rs.Rules = []customtests.TestRule{}
 	}
 
-	return p, tx.Commit()
+	return rs, tx.Commit()
 }
 
-func (s *Store) UpdateTestProfile(id, name string, rules []customtests.TestRule) error {
+func (s *Store) UpdateRuleset(id, name string, rules []customtests.TestRule) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec(`UPDATE test_profiles SET name = ?, updated_at = ? WHERE id = ?`, name, time.Now().UTC(), id)
+	res, err := tx.Exec(`UPDATE rulesets SET name = ?, updated_at = ? WHERE id = ?`, name, time.Now().UTC(), id)
 	if err != nil {
 		return err
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return fmt.Errorf("test profile not found")
+		return fmt.Errorf("ruleset not found")
 	}
 
-	if _, err := tx.Exec(`DELETE FROM test_rules WHERE profile_id = ?`, id); err != nil {
+	if _, err := tx.Exec(`DELETE FROM rules WHERE ruleset_id = ?`, id); err != nil {
 		return err
 	}
 
 	for i, r := range rules {
 		rID := uuid.New().String()
-		if _, err := tx.Exec(`INSERT INTO test_rules (id, profile_id, type, name, value, extra, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		if _, err := tx.Exec(`INSERT INTO rules (id, ruleset_id, type, name, value, extra, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			rID, id, r.Type, r.Name, r.Value, r.Extra, i); err != nil {
-			return fmt.Errorf("inserting test rule: %w", err)
+			return fmt.Errorf("inserting rule: %w", err)
 		}
 	}
 
 	return tx.Commit()
 }
 
-func (s *Store) DeleteTestProfile(id string) error {
-	res, err := s.db.Exec(`DELETE FROM test_profiles WHERE id = ?`, id)
+func (s *Store) DeleteRuleset(id string) error {
+	res, err := s.db.Exec(`DELETE FROM rulesets WHERE id = ?`, id)
 	if err != nil {
 		return err
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return fmt.Errorf("test profile not found")
+		return fmt.Errorf("ruleset not found")
 	}
 	return nil
 }

@@ -37,7 +37,7 @@ func (m *mockStorage) StreamPagesHTML(_ context.Context, _ string) (<-chan PageH
 
 func TestRunTests_CHNativeOnly(t *testing.T) {
 	store := &mockStorage{}
-	profile := &TestProfile{
+	profile := &Ruleset{
 		ID:   "prof-1",
 		Name: "Test",
 		Rules: []TestRule{
@@ -65,7 +65,7 @@ func TestRunTests_CSSOnly(t *testing.T) {
 			{URL: "https://example.com/about", HTML: `<html><head><title>About</title></head><body><p>No heading</p></body></html>`},
 		},
 	}
-	profile := &TestProfile{
+	profile := &Ruleset{
 		ID:   "prof-2",
 		Name: "CSS Test",
 		Rules: []TestRule{
@@ -118,7 +118,7 @@ func TestRunTests_MixedRules(t *testing.T) {
 			{URL: "https://example.com/", HTML: `<html><body><div class="test">found</div></body></html>`},
 		},
 	}
-	profile := &TestProfile{
+	profile := &Ruleset{
 		ID:   "prof-3",
 		Name: "Mixed",
 		Rules: []TestRule{

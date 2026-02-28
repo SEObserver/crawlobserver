@@ -30,10 +30,10 @@ func (r RuleType) IsClickHouseNative() bool {
 	return false
 }
 
-// TestRule is a single test rule within a profile.
+// TestRule is a single test rule within a ruleset.
 type TestRule struct {
 	ID        string   `json:"id"`
-	ProfileID string   `json:"profile_id"`
+	RulesetID string   `json:"ruleset_id"`
 	Type      RuleType `json:"type"`
 	Name      string   `json:"name"`
 	Value     string   `json:"value"`
@@ -41,8 +41,8 @@ type TestRule struct {
 	SortOrder int      `json:"sort_order"`
 }
 
-// TestProfile groups test rules under a named profile.
-type TestProfile struct {
+// Ruleset groups test rules under a named set.
+type Ruleset struct {
 	ID        string     `json:"id"`
 	Name      string     `json:"name"`
 	CreatedAt time.Time  `json:"created_at"`
@@ -56,10 +56,10 @@ type PageTestResult struct {
 	Results map[string]string `json:"results"` // rule_id → "pass"/"fail"/extracted_value
 }
 
-// TestRunResult is the full output of running a test profile against a session.
+// TestRunResult is the full output of running a ruleset against a session.
 type TestRunResult struct {
-	ProfileID   string           `json:"profile_id"`
-	ProfileName string           `json:"profile_name"`
+	RulesetID   string           `json:"ruleset_id"`
+	RulesetName string           `json:"ruleset_name"`
 	SessionID   string           `json:"session_id"`
 	TotalPages  int              `json:"total_pages"`
 	Rules       []TestRule       `json:"rules"`
