@@ -684,7 +684,7 @@
           <div class="stats-secondary" style="margin-top: 10px;">
             {#if stats.pages_per_second > 0}<span>{stats.pages_per_second.toFixed(1)} pages/sec</span>{/if}
             {#if stats.crawl_duration_sec > 0}<span>{stats.crawl_duration_sec < 60 ? stats.crawl_duration_sec.toFixed(0) + 's' : (stats.crawl_duration_sec / 60).toFixed(1) + 'min'}</span>{/if}
-            {#if storageStats?.tables?.length}<span>{fmtSize(storageStats.tables.reduce((a, t) => a + t.bytes_on_disk, 0))} storage</span>{/if}
+            {#if sessionStorageMap[selectedSession.ID]}<span>{fmtSize(sessionStorageMap[selectedSession.ID])} storage</span>{/if}
           </div>
         {/if}
 

@@ -102,7 +102,7 @@
           style="cursor: pointer;">
           <span class="pr-top-rank">{prTopOffset + i + 1}</span>
           <span class="pr-top-url">{p.url.replace(/^https?:\/\/[^/]+/, '') || '/'}</span>
-          <div class="pr-top-bar-wrap">
+          <div>
             <div class="pr-top-bar" style="width: {(p.pagerank / maxPR) * 100}%; opacity: {0.4 + 0.6 * (p.pagerank / maxPR)};"></div>
           </div>
           <span class="pr-top-score">{p.pagerank.toFixed(1)}</span>

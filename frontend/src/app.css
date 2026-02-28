@@ -862,7 +862,8 @@ tr:hover td { background: var(--bg-hover); }
 }
 
 .pr-top-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 36px 1fr 200px 50px 90px;
   align-items: center;
   gap: 10px;
   padding: 6px 0;
@@ -873,16 +874,13 @@ tr:hover td { background: var(--bg-hover); }
 .pr-top-row:hover { background: var(--bg-hover); }
 
 .pr-top-rank {
-  width: 36px;
   text-align: right;
   font-weight: 700;
   color: var(--text-muted);
   font-size: 12px;
-  flex-shrink: 0;
 }
 
 .pr-top-url {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -892,11 +890,6 @@ tr:hover td { background: var(--bg-hover); }
 }
 .pr-top-url:hover { color: var(--accent-hover); }
 
-.pr-top-bar-wrap {
-  width: 200px;
-  flex-shrink: 0;
-}
-
 .pr-top-bar {
   height: 22px;
   border-radius: 4px;
@@ -905,18 +898,15 @@ tr:hover td { background: var(--bg-hover); }
 }
 
 .pr-top-score {
-  width: 50px;
   text-align: right;
   font-weight: 600;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
 }
 
 .pr-top-badges {
   display: flex;
   gap: 4px;
-  flex-shrink: 0;
 }
 
 .pr-top-badge {
