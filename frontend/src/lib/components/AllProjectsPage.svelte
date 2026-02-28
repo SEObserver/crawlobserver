@@ -1,0 +1,143 @@
+<script>
+  import { getProjectsPaginated } from '../api.js';
+  import { timeAgo } from '../utils.js';
+
+  let { onerror, onselectproject, oncreateproject } = $props();
+
+  let projects = $state([]);
+  let total = $state(0);
+  let loading = $state(false);
+  let offset = $state(0);
+  const limit = 30;
+
+  let searchInput = $state('');
+  let search = $state('');
+
+  async function loadProjects() {
+    loading = true;
+    try {
+      const res = await getProjectsPaginated(limit, offset, search);
+      projects = res.projects || [];
+      total = res.total || 0;
+    } catch (e) { onerror?.(e.message); }
+    loading = false;
+  }
+
+  function applySearch() {
+    search = searchInput;
+    offset = 0;
+    loadProjects();
+  }
+
+  function prevPage() {
+    if (offset >= limit) { offset -= limit; loadProjects(); }
+  }
+
+  function nextPage() {
+    if (offset + limit < total) { offset += limit; loadProjects(); }
+  }
+
+  loadProjects();
+</script>
+
+<div class="page-header">
+  <h1>All Projects</h1>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="btn btn-sm" onclick={loadProjects} disabled={loading}>
+      {loading ? 'Loading...' : 'Refresh'}
+    </button>
+    <button class="btn btn-sm btn-primary" onclick={() => oncreateproject?.()}>New Project</button>
+  </div>
+</div>
+
+<div class="projects-filters">
+  <form class="projects-search-form" onsubmit={(e) => { e.preventDefault(); applySearch(); }}>
+    <input class="projects-search" type="text" placeholder="Search projects..." bind:value={searchInput} />
+    <button class="btn btn-sm" type="submit">Search</button>
+  </form>
+  <span class="projects-count">{total} project{total !== 1 ? 's' : ''}</span>
+</div>
+
+{#if loading && projects.length === 0}
+  <div class="loading">Loading projects...</div>
+{:else}
+  <div class="card card-flush">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th style="width:180px">Created</th>
+          <th style="width:100px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each projects as proj}
+          <tr>
+            <td>
+              <a href={`/projects/${proj.id}`} onclick={(e) => { e.preventDefault(); onselectproject?.(proj); }}>
+                {proj.name}
+              </a>
+            </td>
+            <td style="white-space:nowrap;color:var(--text-muted);font-size:13px">
+              {proj.created_at ? timeAgo(proj.created_at) : '-'}
+            </td>
+            <td>
+              <button class="btn btn-sm" onclick={() => onselectproject?.(proj)}>View</button>
+            </td>
+          </tr>
+        {:else}
+          <tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-muted)">No projects found</td></tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+
+  {#if total > limit}
+    <div class="pagination">
+      <button class="btn btn-sm" onclick={prevPage} disabled={offset === 0}>Previous</button>
+      <span class="pagination-info">{offset + 1}-{Math.min(offset + limit, total)} of {total}</span>
+      <button class="btn btn-sm" onclick={nextPage} disabled={offset + limit >= total}>Next</button>
+    </div>
+  {/if}
+{/if}
+
+<style>
+  .projects-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .projects-search-form {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+    min-width: 200px;
+  }
+  .projects-search {
+    flex: 1;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+  }
+  .projects-count {
+    font-size: 13px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .pagination-info {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+</style>

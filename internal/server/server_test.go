@@ -88,6 +88,13 @@ func (m *mockStore) ListSessions(_ context.Context, projectID ...string) ([]stor
 	return m.sessions, nil
 }
 
+func (m *mockStore) ListSessionsPaginated(_ context.Context, limit, offset int, projectID, search string) ([]storage.CrawlSession, int, error) {
+	if m.err != nil {
+		return nil, 0, m.err
+	}
+	return m.sessions, len(m.sessions), nil
+}
+
 func (m *mockStore) GetSession(_ context.Context, sessionID string) (*storage.CrawlSession, error) {
 	if m.getSessionByID != nil {
 		if s, ok := m.getSessionByID[sessionID]; ok {

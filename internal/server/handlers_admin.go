@@ -220,6 +220,27 @@ func (s *Server) handleGlobalStats(w http.ResponseWriter, r *http.Request) {
 // --- Project handlers ---
 
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
+	// Paginated mode if ?limit= is present
+	if r.URL.Query().Get("limit") != "" {
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		if limit <= 0 {
+			limit = 30
+		}
+		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+		search := r.URL.Query().Get("search")
+
+		projects, total, err := s.keyStore.ListProjectsPaginated(limit, offset, search)
+		if err != nil {
+			internalError(w, r, err)
+			return
+		}
+		writeJSON(w, map[string]any{
+			"projects": projects,
+			"total":    total,
+		})
+		return
+	}
+
 	projects, err := s.keyStore.ListProjects()
 	if err != nil {
 		internalError(w, r, err)

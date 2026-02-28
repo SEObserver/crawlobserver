@@ -16,6 +16,50 @@ import (
 )
 
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
+	// Paginated mode if ?limit= is present
+	if r.URL.Query().Get("limit") != "" {
+		limit := queryInt(r, "limit", 30)
+		offset := queryInt(r, "offset", 0)
+		projectID := r.URL.Query().Get("project_id")
+		search := r.URL.Query().Get("search")
+
+		// If project API key, force project filter
+		auth := apikeys.FromContext(r.Context())
+		if auth != nil && auth.ProjectID != nil {
+			projectID = *auth.ProjectID
+		}
+
+		sessions, total, err := s.store.ListSessionsPaginated(r.Context(), limit, offset, projectID, search)
+		if err != nil {
+			internalError(w, r, err)
+			return
+		}
+
+		var resp []map[string]interface{}
+		for _, sess := range sessions {
+			resp = append(resp, map[string]interface{}{
+				"ID":           sess.ID,
+				"StartedAt":    sess.StartedAt,
+				"FinishedAt":   sess.FinishedAt,
+				"Status":       sess.Status,
+				"SeedURLs":     sess.SeedURLs,
+				"Config":       sess.Config,
+				"PagesCrawled": sess.PagesCrawled,
+				"UserAgent":    sess.UserAgent,
+				"ProjectID":    sess.ProjectID,
+				"is_running":   s.manager.IsRunning(sess.ID),
+			})
+		}
+		if resp == nil {
+			resp = []map[string]interface{}{}
+		}
+		writeJSON(w, map[string]interface{}{
+			"sessions": resp,
+			"total":    total,
+		})
+		return
+	}
+
 	var sessions []storage.CrawlSession
 	var err error
 

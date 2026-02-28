@@ -13,6 +13,7 @@ import (
 // StorageService is the subset of storage.Store used by the HTTP server.
 type StorageService interface {
 	ListSessions(ctx context.Context, projectID ...string) ([]storage.CrawlSession, error)
+	ListSessionsPaginated(ctx context.Context, limit, offset int, projectID, search string) ([]storage.CrawlSession, int, error)
 	GetSession(ctx context.Context, sessionID string) (*storage.CrawlSession, error)
 	DeleteSession(ctx context.Context, sessionID string) error
 	UpdateSessionProject(ctx context.Context, sessionID string, projectID *string) error

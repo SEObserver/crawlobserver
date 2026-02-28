@@ -181,6 +181,43 @@ func (s *Store) ListProjects() ([]Project, error) {
 	return projects, nil
 }
 
+func (s *Store) ListProjectsPaginated(limit, offset int, search string) ([]Project, int, error) {
+	where := ""
+	var args []interface{}
+	if search != "" {
+		where = " WHERE name LIKE ?"
+		args = append(args, "%"+search+"%")
+	}
+
+	var total int
+	countArgs := make([]interface{}, len(args))
+	copy(countArgs, args)
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM projects`+where, countArgs...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	query := `SELECT id, name, created_at FROM projects` + where + ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var projects []Project
+	for rows.Next() {
+		var p Project
+		if err := rows.Scan(&p.ID, &p.Name, &p.CreatedAt); err != nil {
+			return nil, 0, err
+		}
+		projects = append(projects, p)
+	}
+	if projects == nil {
+		projects = []Project{}
+	}
+	return projects, total, nil
+}
+
 func (s *Store) CreateProject(name string) (*Project, error) {
 	p := &Project{
 		ID:        uuid.New().String(),
