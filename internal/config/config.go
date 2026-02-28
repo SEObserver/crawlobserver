@@ -17,6 +17,7 @@ type Config struct {
 	Resources  ResourcesConfig  `mapstructure:"resources"`
 	Server     ServerConfig     `mapstructure:"server"`
 	Theme      ThemeConfig      `mapstructure:"theme"`
+	GSC        GSCConfig        `mapstructure:"gsc"`
 }
 
 type CrawlerConfig struct {
@@ -82,6 +83,12 @@ type ThemeConfig struct {
 	Mode        string `mapstructure:"mode" json:"mode"` // "light" or "dark"
 }
 
+type GSCConfig struct {
+	ClientID     string `mapstructure:"client_id"`
+	ClientSecret string `mapstructure:"client_secret"`
+	RedirectURI  string `mapstructure:"redirect_uri"`
+}
+
 func SetDefaults() {
 	viper.SetDefault("crawler.workers", 10)
 	viper.SetDefault("crawler.delay", "1s")
@@ -124,6 +131,10 @@ func SetDefaults() {
 	viper.SetDefault("theme.logo_url", "")
 	viper.SetDefault("theme.accent_color", "#7c3aed")
 	viper.SetDefault("theme.mode", "light")
+
+	viper.SetDefault("gsc.client_id", "")
+	viper.SetDefault("gsc.client_secret", "")
+	viper.SetDefault("gsc.redirect_uri", "http://127.0.0.1:8899/api/gsc/callback")
 }
 
 func Load() (*Config, error) {

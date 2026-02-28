@@ -22,6 +22,7 @@ import (
 	"github.com/SEObserver/seocrawler/internal/backup"
 	"github.com/SEObserver/seocrawler/internal/config"
 	"github.com/SEObserver/seocrawler/internal/crawler"
+	"github.com/SEObserver/seocrawler/internal/gsc"
 	"github.com/SEObserver/seocrawler/internal/storage"
 	"github.com/SEObserver/seocrawler/internal/updater"
 	"github.com/spf13/viper"
@@ -76,6 +77,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/sessions/{id}/links", s.handleLinks)
 	mux.HandleFunc("GET /api/sessions/{id}/internal-links", s.handleInternalLinks)
 	mux.HandleFunc("GET /api/sessions/{id}/stats", s.handleStats)
+	mux.HandleFunc("GET /api/sessions/{id}/audit", s.handleAudit)
 	mux.HandleFunc("GET /api/sessions/{id}/progress", s.handleProgress)
 	mux.HandleFunc("GET /api/sessions/{id}/events", s.handleSSE)
 	mux.HandleFunc("GET /api/sessions/{id}/page-html", s.handlePageHTML)
@@ -93,6 +95,9 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/system-stats", s.handleSystemStats)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/theme", s.handleTheme)
+	mux.HandleFunc("GET /api/compare/stats", s.handleCompareStats)
+	mux.HandleFunc("GET /api/compare/pages", s.handleComparePages)
+	mux.HandleFunc("GET /api/compare/links", s.handleCompareLinks)
 
 	// API routes - write
 	mux.HandleFunc("PUT /api/theme", s.handleUpdateTheme)
@@ -124,6 +129,20 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/api-keys", s.handleListAPIKeys)
 	mux.HandleFunc("POST /api/api-keys", s.handleCreateAPIKey)
 	mux.HandleFunc("DELETE /api/api-keys/{id}", s.handleDeleteAPIKey)
+
+	// GSC (Google Search Console) routes
+	mux.HandleFunc("GET /api/gsc/authorize", s.handleGSCAuthorize)
+	mux.HandleFunc("GET /api/gsc/callback", s.handleGSCCallback)
+	mux.HandleFunc("GET /api/projects/{id}/gsc/status", s.handleGSCStatus)
+	mux.HandleFunc("POST /api/projects/{id}/gsc/fetch", s.handleGSCFetch)
+	mux.HandleFunc("DELETE /api/projects/{id}/gsc/disconnect", s.handleGSCDisconnect)
+	mux.HandleFunc("GET /api/sessions/{id}/gsc/overview", s.handleGSCOverview)
+	mux.HandleFunc("GET /api/sessions/{id}/gsc/queries", s.handleGSCQueries)
+	mux.HandleFunc("GET /api/sessions/{id}/gsc/pages", s.handleGSCPages)
+	mux.HandleFunc("GET /api/sessions/{id}/gsc/countries", s.handleGSCCountries)
+	mux.HandleFunc("GET /api/sessions/{id}/gsc/devices", s.handleGSCDevices)
+	mux.HandleFunc("GET /api/sessions/{id}/gsc/timeline", s.handleGSCTimeline)
+	mux.HandleFunc("GET /api/sessions/{id}/gsc/inspection", s.handleGSCInspection)
 
 	// Static frontend files with SPA fallback
 	distFS, err := fs.Sub(frontendFS, "frontend/dist")
@@ -356,6 +375,19 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, stats)
+}
+
+func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	audit, err := s.store.SessionAudit(r.Context(), sessionID)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, audit)
 }
 
 func (s *Server) handleInternalLinks(w http.ResponseWriter, r *http.Request) {
@@ -986,19 +1018,31 @@ func (s *Server) handleRobotsSimulate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load all URLs for this host
-	urls, err := s.store.GetURLsByHost(r.Context(), sessionID, "https://"+req.Host)
+	// Load all URLs for this host.
+	// The host field from robots_txt may already include the scheme (e.g. "https://example.com").
+	// We need to match URLs in the pages table that start with this host.
+	host := req.Host
+	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+		host = "https://" + host
+	}
+	urls, err := s.store.GetURLsByHost(r.Context(), sessionID, host)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	// Also try http://
-	httpURLs, err := s.store.GetURLsByHost(r.Context(), sessionID, "http://"+req.Host)
+	// Also try the other scheme
+	var altHost string
+	if strings.HasPrefix(host, "https://") {
+		altHost = "http://" + strings.TrimPrefix(host, "https://")
+	} else {
+		altHost = "https://" + strings.TrimPrefix(host, "http://")
+	}
+	altURLs, err := s.store.GetURLsByHost(r.Context(), sessionID, altHost)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	urls = append(urls, httpURLs...)
+	urls = append(urls, altURLs...)
 
 	// Parse current and new robots.txt
 	currentRobots, err := robotstxt.FromBytes([]byte(row.Content))
@@ -1130,6 +1174,80 @@ func (s *Server) requireSessionAccess(w http.ResponseWriter, r *http.Request, se
 		return false
 	}
 	return true
+}
+
+// --- Compare handlers ---
+
+func (s *Server) handleCompareStats(w http.ResponseWriter, r *http.Request) {
+	a := r.URL.Query().Get("a")
+	b := r.URL.Query().Get("b")
+	if a == "" || b == "" {
+		writeError(w, http.StatusBadRequest, "both 'a' and 'b' session IDs are required")
+		return
+	}
+	if !s.requireSessionAccess(w, r, a) || !s.requireSessionAccess(w, r, b) {
+		return
+	}
+	result, err := s.store.CompareStats(r.Context(), a, b)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
+func (s *Server) handleComparePages(w http.ResponseWriter, r *http.Request) {
+	a := r.URL.Query().Get("a")
+	b := r.URL.Query().Get("b")
+	if a == "" || b == "" {
+		writeError(w, http.StatusBadRequest, "both 'a' and 'b' session IDs are required")
+		return
+	}
+	if !s.requireSessionAccess(w, r, a) || !s.requireSessionAccess(w, r, b) {
+		return
+	}
+	diffType := r.URL.Query().Get("type")
+	switch diffType {
+	case "added", "removed", "changed":
+	default:
+		writeError(w, http.StatusBadRequest, "type must be one of: added, removed, changed")
+		return
+	}
+	limit := queryInt(r, "limit", 100)
+	offset := queryInt(r, "offset", 0)
+	result, err := s.store.ComparePages(r.Context(), a, b, diffType, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
+func (s *Server) handleCompareLinks(w http.ResponseWriter, r *http.Request) {
+	a := r.URL.Query().Get("a")
+	b := r.URL.Query().Get("b")
+	if a == "" || b == "" {
+		writeError(w, http.StatusBadRequest, "both 'a' and 'b' session IDs are required")
+		return
+	}
+	if !s.requireSessionAccess(w, r, a) || !s.requireSessionAccess(w, r, b) {
+		return
+	}
+	diffType := r.URL.Query().Get("type")
+	switch diffType {
+	case "added", "removed":
+	default:
+		writeError(w, http.StatusBadRequest, "type must be one of: added, removed")
+		return
+	}
+	limit := queryInt(r, "limit", 100)
+	offset := queryInt(r, "offset", 0)
+	result, err := s.store.CompareLinks(r.Context(), a, b, diffType, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
 }
 
 // --- Project handlers ---
@@ -1504,6 +1622,332 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 func internalError(w http.ResponseWriter, r *http.Request, err error) {
 	log.Printf("ERROR %s %s: %v", r.Method, r.URL.Path, err)
 	writeError(w, http.StatusInternalServerError, "internal server error")
+}
+
+// --- GSC Handlers ---
+
+// resolveProjectID resolves a session ID to its project ID.
+func (s *Server) resolveProjectID(ctx context.Context, sessionID string) (string, error) {
+	sess, err := s.store.GetSession(ctx, sessionID)
+	if err != nil {
+		return "", fmt.Errorf("session not found: %w", err)
+	}
+	if sess.ProjectID == nil || *sess.ProjectID == "" {
+		return "", fmt.Errorf("session has no project")
+	}
+	return *sess.ProjectID, nil
+}
+
+func (s *Server) handleGSCAuthorize(w http.ResponseWriter, r *http.Request) {
+	projectID := r.URL.Query().Get("project_id")
+	if projectID == "" {
+		writeError(w, http.StatusBadRequest, "project_id required")
+		return
+	}
+	if s.cfg.GSC.ClientID == "" || s.cfg.GSC.ClientSecret == "" {
+		writeError(w, http.StatusBadRequest, "GSC not configured: set gsc.client_id and gsc.client_secret in config.yaml")
+		return
+	}
+	url := gsc.AuthorizeURL(&s.cfg.GSC, projectID)
+	writeJSON(w, map[string]string{"url": url})
+}
+
+func (s *Server) handleGSCCallback(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state") // project_id
+	if code == "" || state == "" {
+		writeError(w, http.StatusBadRequest, "missing code or state")
+		return
+	}
+
+	token, err := gsc.ExchangeCode(r.Context(), &s.cfg.GSC, code)
+	if err != nil {
+		log.Printf("GSC OAuth exchange error: %v", err)
+		writeError(w, http.StatusBadRequest, "failed to exchange code")
+		return
+	}
+
+	conn := &apikeys.GSCConnection{
+		ProjectID:    state,
+		PropertyURL:  "", // will be set when user selects property
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		TokenExpiry:  token.Expiry,
+	}
+	if err := s.keyStore.SaveGSCConnection(conn); err != nil {
+		log.Printf("GSC save connection error: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to save connection")
+		return
+	}
+
+	// Redirect to frontend with connected status
+	redirectURL := fmt.Sprintf("/?gsc_connected=%s", url.QueryEscape(state))
+	http.Redirect(w, r, redirectURL, http.StatusFound)
+}
+
+func (s *Server) handleGSCStatus(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("id")
+
+	conn, err := s.keyStore.GetGSCConnection(projectID)
+	if err != nil {
+		writeJSON(w, map[string]interface{}{
+			"connected":    false,
+			"property_url": "",
+			"properties":   []gsc.Property{},
+		})
+		return
+	}
+
+	result := map[string]interface{}{
+		"connected":    true,
+		"property_url": conn.PropertyURL,
+	}
+
+	// If connected but no property selected, list available properties
+	if conn.PropertyURL == "" {
+		client, newToken, err := gsc.NewClientFromTokens(r.Context(), &s.cfg.GSC, conn.AccessToken, conn.RefreshToken, conn.TokenExpiry)
+		if err != nil {
+			log.Printf("GSC client error: %v", err)
+			writeJSON(w, result)
+			return
+		}
+		// Update token if refreshed
+		if newToken.AccessToken != conn.AccessToken {
+			conn.AccessToken = newToken.AccessToken
+			conn.TokenExpiry = newToken.Expiry
+			s.keyStore.SaveGSCConnection(conn)
+		}
+
+		props, err := client.ListProperties(r.Context())
+		if err != nil {
+			log.Printf("GSC list properties error: %v", err)
+		}
+		if props == nil {
+			props = []gsc.Property{}
+		}
+		result["properties"] = props
+	}
+
+	writeJSON(w, result)
+}
+
+func (s *Server) handleGSCFetch(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("id")
+
+	// Parse optional property_url from body (for initial property selection)
+	var body struct {
+		PropertyURL string `json:"property_url"`
+		StartDate   string `json:"start_date"`
+		EndDate     string `json:"end_date"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	conn, err := s.keyStore.GetGSCConnection(projectID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "no GSC connection for this project")
+		return
+	}
+
+	// Update property URL if provided
+	if body.PropertyURL != "" {
+		conn.PropertyURL = body.PropertyURL
+		if err := s.keyStore.SaveGSCConnection(conn); err != nil {
+			internalError(w, r, err)
+			return
+		}
+	}
+
+	if conn.PropertyURL == "" {
+		writeError(w, http.StatusBadRequest, "no property selected")
+		return
+	}
+
+	client, newToken, err := gsc.NewClientFromTokens(r.Context(), &s.cfg.GSC, conn.AccessToken, conn.RefreshToken, conn.TokenExpiry)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "GSC authentication failed, please reconnect")
+		return
+	}
+	// Update token if refreshed
+	if newToken.AccessToken != conn.AccessToken {
+		conn.AccessToken = newToken.AccessToken
+		conn.TokenExpiry = newToken.Expiry
+		s.keyStore.SaveGSCConnection(conn)
+	}
+
+	// Default date range: last 16 months (GSC maximum)
+	endDate := body.EndDate
+	startDate := body.StartDate
+	if endDate == "" {
+		endDate = time.Now().AddDate(0, 0, -3).Format("2006-01-02")
+	}
+	if startDate == "" {
+		startDate = time.Now().AddDate(-1, -4, 0).Format("2006-01-02")
+	}
+
+	// Fetch in background
+	go func() {
+		ctx := context.Background()
+		log.Printf("GSC fetch started for project %s, property %s, range %s to %s", projectID, conn.PropertyURL, startDate, endDate)
+
+		rows, err := client.FetchSearchAnalytics(ctx, conn.PropertyURL, startDate, endDate)
+		if err != nil {
+			log.Printf("GSC fetch analytics error: %v", err)
+			return
+		}
+		log.Printf("GSC fetched %d analytics rows", len(rows))
+
+		// Convert to storage rows
+		insertRows := make([]storage.GSCAnalyticsInsertRow, len(rows))
+		for i, r := range rows {
+			d, _ := time.Parse("2006-01-02", r.Date)
+			insertRows[i] = storage.GSCAnalyticsInsertRow{
+				Date:        d,
+				Query:       r.Query,
+				Page:        r.Page,
+				Country:     r.Country,
+				Device:      r.Device,
+				Clicks:      uint32(r.Clicks),
+				Impressions: uint32(r.Impressions),
+				CTR:         float32(r.CTR),
+				Position:    float32(r.Position),
+			}
+		}
+
+		if err := s.store.InsertGSCAnalytics(ctx, projectID, insertRows); err != nil {
+			log.Printf("GSC insert analytics error: %v", err)
+			return
+		}
+		log.Printf("GSC analytics inserted successfully for project %s", projectID)
+	}()
+
+	writeJSON(w, map[string]string{"status": "fetching"})
+}
+
+func (s *Server) handleGSCDisconnect(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("id")
+	s.keyStore.DeleteGSCConnection(projectID)
+	s.store.DeleteGSCData(r.Context(), projectID)
+	writeJSON(w, map[string]string{"status": "disconnected"})
+}
+
+func (s *Server) handleGSCOverview(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	projectID, err := s.resolveProjectID(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	stats, err := s.store.GSCOverview(r.Context(), projectID)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, stats)
+}
+
+func (s *Server) handleGSCQueries(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	projectID, err := s.resolveProjectID(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, total, err := s.store.GSCTopQueries(r.Context(), projectID, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"rows": rows, "total": total})
+}
+
+func (s *Server) handleGSCPages(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	projectID, err := s.resolveProjectID(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, total, err := s.store.GSCTopPages(r.Context(), projectID, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"rows": rows, "total": total})
+}
+
+func (s *Server) handleGSCCountries(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	projectID, err := s.resolveProjectID(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	rows, err := s.store.GSCByCountry(r.Context(), projectID)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, rows)
+}
+
+func (s *Server) handleGSCDevices(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	projectID, err := s.resolveProjectID(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	rows, err := s.store.GSCByDevice(r.Context(), projectID)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, rows)
+}
+
+func (s *Server) handleGSCTimeline(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	projectID, err := s.resolveProjectID(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	rows, err := s.store.GSCTimeline(r.Context(), projectID)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, rows)
+}
+
+func (s *Server) handleGSCInspection(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	projectID, err := s.resolveProjectID(r.Context(), sessionID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, total, err := s.store.GSCInspectionResults(r.Context(), projectID, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"rows": rows, "total": total})
 }
 
 // parseFilters extracts filter parameters from the request query string.

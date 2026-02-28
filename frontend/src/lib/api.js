@@ -41,6 +41,10 @@ export async function getStats(sessionId) {
   return fetchJSON(`/sessions/${sessionId}/stats`);
 }
 
+export async function getAudit(sessionId) {
+  return fetchJSON(`/sessions/${encodeURIComponent(sessionId)}/audit`);
+}
+
 export async function getPageHTML(sessionId, url) {
   return fetchJSON(`/sessions/${sessionId}/page-html?url=${encodeURIComponent(url)}`);
 }
@@ -250,6 +254,74 @@ export async function restoreBackup(filename) {
 
 export async function deleteBackup(name) {
   return fetchJSON(`/backups/${encodeURIComponent(name)}`, { method: 'DELETE' });
+}
+
+// --- Google Search Console ---
+
+export async function getGSCStatus(projectId) {
+  return fetchJSON(`/projects/${projectId}/gsc/status`);
+}
+
+export function startGSCAuthorize(projectId) {
+  return fetchJSON(`/gsc/authorize?project_id=${encodeURIComponent(projectId)}`);
+}
+
+export async function fetchGSCData(projectId, propertyUrl = '', startDate = '', endDate = '') {
+  const body = {};
+  if (propertyUrl) body.property_url = propertyUrl;
+  if (startDate) body.start_date = startDate;
+  if (endDate) body.end_date = endDate;
+  return fetchJSON(`/projects/${projectId}/gsc/fetch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function disconnectGSC(projectId) {
+  return fetchJSON(`/projects/${projectId}/gsc/disconnect`, { method: 'DELETE' });
+}
+
+export async function getGSCOverview(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/gsc/overview`);
+}
+
+export async function getGSCQueries(sessionId, limit = 100, offset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/gsc/queries?limit=${limit}&offset=${offset}`);
+}
+
+export async function getGSCPages(sessionId, limit = 100, offset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/gsc/pages?limit=${limit}&offset=${offset}`);
+}
+
+export async function getGSCCountries(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/gsc/countries`);
+}
+
+export async function getGSCDevices(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/gsc/devices`);
+}
+
+export async function getGSCTimeline(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/gsc/timeline`);
+}
+
+export async function getGSCInspection(sessionId, limit = 100, offset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/gsc/inspection?limit=${limit}&offset=${offset}`);
+}
+
+// --- Compare ---
+
+export async function getCompareStats(a, b) {
+  return fetchJSON(`/compare/stats?a=${a}&b=${b}`);
+}
+
+export async function getComparePages(a, b, type = 'changed', limit = 100, offset = 0) {
+  return fetchJSON(`/compare/pages?a=${a}&b=${b}&type=${type}&limit=${limit}&offset=${offset}`);
+}
+
+export async function getCompareLinks(a, b, type = 'added', limit = 100, offset = 0) {
+  return fetchJSON(`/compare/links?a=${a}&b=${b}&type=${type}&limit=${limit}&offset=${offset}`);
 }
 
 // SSE for live progress

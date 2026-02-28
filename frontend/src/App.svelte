@@ -15,13 +15,15 @@
   import PageRankTab from './lib/components/PageRankTab.svelte';
   import RobotsTab from './lib/components/RobotsTab.svelte';
   import SitemapsTab from './lib/components/SitemapsTab.svelte';
+  import GSCTab from './lib/components/GSCTab.svelte';
   import GlobalStatsPage from './lib/components/GlobalStatsPage.svelte';
   import SettingsPage from './lib/components/SettingsPage.svelte';
   import APIManagementPage from './lib/components/APIManagementPage.svelte';
   import SessionsList from './lib/components/SessionsList.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import SessionActionBar from './lib/components/SessionActionBar.svelte';
-  import SessionStatsTab from './lib/components/SessionStatsTab.svelte';
+  import ReportsHub from './lib/components/ReportsHub.svelte';
+  import ComparePage from './lib/components/ComparePage.svelte';
   import UrlDetailView from './lib/components/UrlDetailView.svelte';
   import DataTable from './lib/components/DataTable.svelte';
 
@@ -85,6 +87,9 @@
   // PageRank tab
   let prSubView = $state('top');
 
+  // Reports tab
+  let reportsSubView = $state('overview');
+
   // Live progress
   let liveProgress = $state({});
   let sseConnections = {};
@@ -97,12 +102,18 @@
   let showAPI = $state(false);
   let projects = $state([]);
 
+  // Compare
+  let showCompare = $state(false);
+  let compareSessionA = $state('');
+  let compareSessionB = $state('');
+
   // --- Global Stats ---
   function openGlobalStats() {
     showGlobalStats = true;
     showSettings = false;
     showAPI = false;
     showNewCrawl = false;
+    showCompare = false;
     selectedSession = null;
     pushURL('/stats');
   }
@@ -113,6 +124,7 @@
     showSettings = false;
     showGlobalStats = false;
     showNewCrawl = false;
+    showCompare = false;
     selectedSession = null;
     pushURL('/api');
   }
@@ -159,6 +171,7 @@
     showNewCrawl = false;
     showAPI = false;
     showGlobalStats = false;
+    showCompare = false;
     pushURL('/settings');
   }
 
@@ -232,6 +245,10 @@
     if (path === '/settings') return { page: 'settings' };
     if (path === '/stats') return { page: 'stats' };
     if (path === '/api') return { page: 'api' };
+    if (path === '/compare') {
+      const sp = new URLSearchParams(search);
+      return { page: 'compare', sessionA: sp.get('a') || '', sessionB: sp.get('b') || '' };
+    }
 
     // URL detail
     const urlMatch = path.match(/^\/sessions\/([^/]+)\/url\/(.+)/);
@@ -275,6 +292,11 @@
       showGlobalStats = route.page === 'stats';
       showAPI = route.page === 'api';
       showNewCrawl = route.page === 'new-crawl';
+      showCompare = route.page === 'compare';
+      if (route.page === 'compare') {
+        compareSessionA = route.sessionA || '';
+        compareSessionB = route.sessionB || '';
+      }
 
       if (sessions.length === 0) loadSessions();
       // GlobalStatsPage handles its own data loading
@@ -289,6 +311,7 @@
     showGlobalStats = false;
     showAPI = false;
     showNewCrawl = false;
+    showCompare = false;
 
     if (!selectedSession || selectedSession.ID !== route.sessionId) {
       if (sessions.length === 0) {
@@ -316,6 +339,12 @@
         if (route.subView && ['top', 'directory', 'distribution', 'table'].includes(route.subView)) {
           prSubView = route.subView;
         }
+      } else if (tab === 'reports') {
+        if (route.subView && ['overview', 'content', 'technical', 'links', 'structure', 'sitemaps', 'international'].includes(route.subView)) {
+          reportsSubView = route.subView;
+        } else {
+          reportsSubView = 'overview';
+        }
       } else if (tab !== 'robots' && tab !== 'sitemaps') {
         await loadTabData();
       }
@@ -330,6 +359,7 @@
     showGlobalStats = false;
     showAPI = false;
     showNewCrawl = false;
+    showCompare = false;
     tab = 'overview';
     filters = {};
     pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
@@ -350,6 +380,7 @@
     showSettings = false;
     showAPI = false;
     showGlobalStats = false;
+    showCompare = false;
     pushURL('/');
   }
 
@@ -448,10 +479,10 @@
     filters = {};
     pagesOffset = 0; extLinksOffset = 0; intLinksOffset = 0;
     if (selectedSession) {
-      const path = newTab === 'pagerank' ? `${newTab}/${prSubView}` : newTab;
+      const path = newTab === 'pagerank' ? `${newTab}/${prSubView}` : newTab === 'reports' ? `${newTab}/${reportsSubView}` : newTab;
       pushURL(`/sessions/${selectedSession.ID}/${path}`);
     }
-    if (newTab !== 'pagerank' && newTab !== 'robots' && newTab !== 'sitemaps') {
+    if (newTab !== 'pagerank' && newTab !== 'robots' && newTab !== 'sitemaps' && newTab !== 'reports') {
       loadTabData();
     }
   }
@@ -588,7 +619,7 @@
 <div class="layout">
   <div class="drag-bar"><span class="drag-bar-title">{theme.app_name}</span></div>
   <Sidebar {theme} {darkMode} {sessions} {projects} {globalStats} {systemStats}
-    {selectedSession} {showNewCrawl} {showSettings} {showGlobalStats} {showAPI} {liveProgress}
+    {selectedSession} {showNewCrawl} {showSettings} {showGlobalStats} {showAPI} {showCompare} {liveProgress}
     ontoggledarkmmode={toggleDarkMode} onselectsession={selectSession}
     onnavigate={navigateTo} onopensettings={openSettings}
     onopenstats={openGlobalStats} onopenapi={openAPI} ongohome={goHome} />
@@ -626,6 +657,10 @@
       {:else if showGlobalStats}
         <GlobalStatsPage onerror={(msg) => error = msg} />
 
+      {:else if showCompare}
+        <ComparePage {sessions} initialA={compareSessionA} initialB={compareSessionB}
+          onerror={(msg) => error = msg} onnavigate={navigateTo} />
+
       {:else if showAPI && !selectedSession}
         <APIManagementPage onerror={(msg) => error = msg} onprojectschanged={(p) => projects = p} />
 
@@ -661,7 +696,8 @@
 
         <SessionActionBar session={selectedSession} {stats} {liveProgress}
           onerror={(msg) => error = msg} onstop={handleStop} onresume={openResumeModal}
-          ondelete={handleDelete} onrefresh={() => selectSession(selectedSession)} />
+          ondelete={handleDelete} onrefresh={() => selectSession(selectedSession)}
+          oncompare={(id) => navigateTo(`/compare?a=${id}`)} />
 
         {#if stats}
           {@const non200 = stats.status_codes ? Object.entries(stats.status_codes).filter(([k]) => k !== '200').reduce((a, [, v]) => a + v, 0) : stats.error_count}
@@ -857,8 +893,13 @@
 
           {:else if tab === 'sitemaps'}
             <SitemapsTab sessionId={selectedSession.ID} onerror={(msg) => error = msg} />
-          {:else if tab === 'stats'}
-            <SessionStatsTab {stats} sessionId={selectedSession.ID} onnavigate={navigateTo} />
+          {:else if tab === 'gsc'}
+            <GSCTab sessionId={selectedSession.ID} projectId={selectedSession.ProjectID} onerror={(msg) => error = msg} />
+          {:else if tab === 'reports'}
+            <ReportsHub sessionId={selectedSession.ID} {stats} initialSubView={reportsSubView}
+              onnavigate={(url, f) => navigateTo(url, f)}
+              onpushurl={(u) => pushURL(u)}
+              onerror={(msg) => error = msg} />
           {/if}
         </div>
       {/if}

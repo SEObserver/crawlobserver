@@ -25,5 +25,6 @@ export const TABS = [
   { id: 'pagerank', label: 'PageRank' },
   { id: 'robots', label: 'Robots.txt' },
   { id: 'sitemaps', label: 'Sitemaps' },
-  { id: 'stats', label: 'Stats' },
+  { id: 'gsc', label: 'Search Console' },
+  { id: 'reports', label: 'Reports' },
 ];

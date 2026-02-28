@@ -506,6 +506,646 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 	return stats, nil
 }
 
+// --- Audit types and method ---
+
+// AuditContent holds content-related audit metrics.
+type AuditContent struct {
+	Total               uint64 `json:"total"`
+	HTMLPages           uint64 `json:"html_pages"`
+	TitleMissing        uint64 `json:"title_missing"`
+	TitleTooLong        uint64 `json:"title_too_long"`
+	TitleTooShort       uint64 `json:"title_too_short"`
+	TitleDuplicates     uint64 `json:"title_duplicates"`
+	MetaDescMissing     uint64 `json:"meta_desc_missing"`
+	MetaDescTooLong     uint64 `json:"meta_desc_too_long"`
+	MetaDescTooShort    uint64 `json:"meta_desc_too_short"`
+	H1Missing           uint64 `json:"h1_missing"`
+	H1Multiple          uint64 `json:"h1_multiple"`
+	ThinUnder100        uint64 `json:"thin_under_100"`
+	Thin100300          uint64 `json:"thin_100_300"`
+	ImagesTotal         uint64 `json:"images_total"`
+	ImagesNoAltTotal    uint64 `json:"images_no_alt_total"`
+	PagesWithImagesNoAlt uint64 `json:"pages_with_images_no_alt"`
+}
+
+// NoindexReason is a reason + count for non-indexable pages.
+type NoindexReason struct {
+	Reason string `json:"reason"`
+	Count  uint64 `json:"count"`
+}
+
+// ContentTypeCount is a content type + count.
+type ContentTypeCount struct {
+	ContentType string `json:"content_type"`
+	Count       uint64 `json:"count"`
+}
+
+// AuditTechnical holds technical audit metrics.
+type AuditTechnical struct {
+	Indexable           uint64             `json:"indexable"`
+	NonIndexable        uint64             `json:"non_indexable"`
+	CanonicalSelf       uint64             `json:"canonical_self"`
+	CanonicalOther      uint64             `json:"canonical_other"`
+	CanonicalMissing    uint64             `json:"canonical_missing"`
+	HasRedirect         uint64             `json:"has_redirect"`
+	RedirectChainsOver2 uint64             `json:"redirect_chains_over_2"`
+	ResponseFast        uint64             `json:"response_fast"`
+	ResponseOK          uint64             `json:"response_ok"`
+	ResponseSlow        uint64             `json:"response_slow"`
+	ResponseVerySlow    uint64             `json:"response_very_slow"`
+	ErrorPages          uint64             `json:"error_pages"`
+	NoindexReasons      []NoindexReason    `json:"noindex_reasons"`
+	ContentTypes        []ContentTypeCount `json:"content_types"`
+}
+
+// ExternalDomain is a domain + link count.
+type ExternalDomain struct {
+	Domain string `json:"domain"`
+	Count  uint64 `json:"count"`
+}
+
+// AnchorCount is an anchor text + count.
+type AnchorCount struct {
+	Anchor string `json:"anchor"`
+	Count  uint64 `json:"count"`
+}
+
+// AuditLinks holds link audit metrics.
+type AuditLinks struct {
+	TotalInternal       uint64           `json:"total_internal"`
+	TotalExternal       uint64           `json:"total_external"`
+	ExternalNofollow    uint64           `json:"external_nofollow"`
+	ExternalDofollow    uint64           `json:"external_dofollow"`
+	PagesNoInternalOut  uint64           `json:"pages_no_internal_out"`
+	PagesHighInternalOut uint64          `json:"pages_high_internal_out"`
+	PagesNoExternal     uint64           `json:"pages_no_external"`
+	BrokenInternal      uint64           `json:"broken_internal"`
+	TopExternalDomains  []ExternalDomain `json:"top_external_domains"`
+	TopAnchors          []AnchorCount    `json:"top_anchors"`
+}
+
+// DirectoryCount is a URL directory prefix + count.
+type DirectoryCount struct {
+	Directory string `json:"directory"`
+	Count     uint64 `json:"count"`
+}
+
+// AuditStructure holds site structure audit metrics.
+type AuditStructure struct {
+	Directories []DirectoryCount `json:"directories"`
+	OrphanPages uint64           `json:"orphan_pages"`
+}
+
+// AuditSitemaps holds sitemap coverage audit metrics.
+type AuditSitemaps struct {
+	InBoth           uint64 `json:"in_both"`
+	CrawledOnly      uint64 `json:"crawled_only"`
+	SitemapOnly      uint64 `json:"sitemap_only"`
+	TotalSitemapURLs uint64 `json:"total_sitemap_urls"`
+}
+
+// LangCount is a language + count.
+type LangCount struct {
+	Lang  string `json:"lang"`
+	Count uint64 `json:"count"`
+}
+
+// SchemaCount is a schema type + count.
+type SchemaCount struct {
+	SchemaType string `json:"schema_type"`
+	Count      uint64 `json:"count"`
+}
+
+// AuditInternational holds international/schema audit metrics.
+type AuditInternational struct {
+	PagesWithHreflang  uint64        `json:"pages_with_hreflang"`
+	PagesWithLang      uint64        `json:"pages_with_lang"`
+	PagesWithSchema    uint64        `json:"pages_with_schema"`
+	LangDistribution   []LangCount   `json:"lang_distribution"`
+	SchemaDistribution []SchemaCount `json:"schema_distribution"`
+}
+
+// AuditResult is the combined audit result.
+type AuditResult struct {
+	Content       *AuditContent       `json:"content"`
+	Technical     *AuditTechnical     `json:"technical"`
+	Links         *AuditLinks         `json:"links"`
+	Structure     *AuditStructure     `json:"structure"`
+	Sitemaps      *AuditSitemaps      `json:"sitemaps"`
+	International *AuditInternational `json:"international"`
+}
+
+// SessionAudit computes a comprehensive SEO audit for a crawl session.
+func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResult, error) {
+	result := &AuditResult{}
+
+	// --- Content audit ---
+	content := &AuditContent{}
+	row := s.conn.QueryRow(ctx, `
+		SELECT count() AS total,
+			countIf(content_type LIKE '%html%') AS html_pages,
+			countIf(title = '') AS title_missing,
+			countIf(title_length > 60) AS title_too_long,
+			countIf(title_length > 0 AND title_length < 30) AS title_too_short,
+			countIf(meta_description = '') AS meta_desc_missing,
+			countIf(meta_desc_length > 160) AS meta_desc_too_long,
+			countIf(meta_desc_length > 0 AND meta_desc_length < 70) AS meta_desc_too_short,
+			countIf(length(h1) = 0) AS h1_missing,
+			countIf(length(h1) > 1) AS h1_multiple,
+			countIf(word_count < 100) AS thin_under_100,
+			countIf(word_count >= 100 AND word_count < 300) AS thin_100_300,
+			sum(images_count) AS images_total,
+			sum(images_no_alt) AS images_no_alt_total,
+			countIf(images_no_alt > 0) AS pages_with_images_no_alt
+		FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+	if err := row.Scan(
+		&content.Total, &content.HTMLPages,
+		&content.TitleMissing, &content.TitleTooLong, &content.TitleTooShort,
+		&content.MetaDescMissing, &content.MetaDescTooLong, &content.MetaDescTooShort,
+		&content.H1Missing, &content.H1Multiple,
+		&content.ThinUnder100, &content.Thin100300,
+		&content.ImagesTotal, &content.ImagesNoAltTotal, &content.PagesWithImagesNoAlt,
+	); err != nil {
+		return nil, fmt.Errorf("audit content: %w", err)
+	}
+
+	// Title duplicates
+	dupRow := s.conn.QueryRow(ctx, `
+		SELECT sum(cnt - 1) FROM (
+			SELECT title, count() AS cnt FROM seocrawler.pages
+			WHERE crawl_session_id = ? AND title != ''
+			GROUP BY title HAVING cnt > 1
+		)`, sessionID)
+	_ = dupRow.Scan(&content.TitleDuplicates) // ignore error (may be 0 rows)
+	result.Content = content
+
+	// --- Technical audit ---
+	tech := &AuditTechnical{}
+	techRow := s.conn.QueryRow(ctx, `
+		SELECT
+			countIf(is_indexable = true) AS indexable,
+			countIf(is_indexable = false) AS non_indexable,
+			countIf(canonical_is_self = true) AS canonical_self,
+			countIf(canonical != '' AND canonical_is_self = false) AS canonical_other,
+			countIf(canonical = '') AS canonical_missing,
+			countIf(length(redirect_chain) > 0) AS has_redirect,
+			countIf(length(redirect_chain) > 2) AS redirect_chains_over_2,
+			countIf(fetch_duration_ms < 200) AS response_fast,
+			countIf(fetch_duration_ms >= 200 AND fetch_duration_ms < 500) AS response_ok,
+			countIf(fetch_duration_ms >= 500 AND fetch_duration_ms < 1000) AS response_slow,
+			countIf(fetch_duration_ms >= 1000) AS response_very_slow,
+			countIf(error != '') AS error_pages
+		FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+	if err := techRow.Scan(
+		&tech.Indexable, &tech.NonIndexable,
+		&tech.CanonicalSelf, &tech.CanonicalOther, &tech.CanonicalMissing,
+		&tech.HasRedirect, &tech.RedirectChainsOver2,
+		&tech.ResponseFast, &tech.ResponseOK, &tech.ResponseSlow, &tech.ResponseVerySlow,
+		&tech.ErrorPages,
+	); err != nil {
+		return nil, fmt.Errorf("audit technical: %w", err)
+	}
+
+	// Noindex reasons
+	niRows, err := s.conn.Query(ctx, `
+		SELECT index_reason, count() AS cnt FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND is_indexable = false AND index_reason != ''
+		GROUP BY index_reason ORDER BY cnt DESC`, sessionID)
+	if err == nil {
+		defer niRows.Close()
+		for niRows.Next() {
+			var nr NoindexReason
+			if err := niRows.Scan(&nr.Reason, &nr.Count); err == nil {
+				tech.NoindexReasons = append(tech.NoindexReasons, nr)
+			}
+		}
+	}
+
+	// Content types
+	ctRows, err := s.conn.Query(ctx, `
+		SELECT content_type, count() AS cnt FROM seocrawler.pages
+		WHERE crawl_session_id = ?
+		GROUP BY content_type ORDER BY cnt DESC LIMIT 20`, sessionID)
+	if err == nil {
+		defer ctRows.Close()
+		for ctRows.Next() {
+			var ct ContentTypeCount
+			if err := ctRows.Scan(&ct.ContentType, &ct.Count); err == nil {
+				tech.ContentTypes = append(tech.ContentTypes, ct)
+			}
+		}
+	}
+	result.Technical = tech
+
+	// --- Links audit ---
+	links := &AuditLinks{}
+	linkRow := s.conn.QueryRow(ctx, `
+		SELECT
+			countIf(is_internal = true) AS total_internal,
+			countIf(is_internal = false) AS total_external,
+			countIf(is_internal = false AND rel LIKE '%nofollow%') AS external_nofollow,
+			countIf(is_internal = false AND (rel = '' OR rel NOT LIKE '%nofollow%')) AS external_dofollow
+		FROM seocrawler.links WHERE crawl_session_id = ?`, sessionID)
+	if err := linkRow.Scan(&links.TotalInternal, &links.TotalExternal, &links.ExternalNofollow, &links.ExternalDofollow); err != nil {
+		return nil, fmt.Errorf("audit links: %w", err)
+	}
+
+	// Pages link distribution
+	pageDistRow := s.conn.QueryRow(ctx, `
+		SELECT
+			countIf(internal_links_out = 0) AS pages_no_internal_out,
+			countIf(internal_links_out > 100) AS pages_high_internal_out,
+			countIf(external_links_out = 0) AS pages_no_external
+		FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+	_ = pageDistRow.Scan(&links.PagesNoInternalOut, &links.PagesHighInternalOut, &links.PagesNoExternal)
+
+	// Broken internal links
+	brokenRow := s.conn.QueryRow(ctx, `
+		SELECT count(DISTINCT target_url) FROM seocrawler.links
+		WHERE crawl_session_id = ? AND is_internal = true
+		AND target_url NOT IN (SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?)`,
+		sessionID, sessionID)
+	_ = brokenRow.Scan(&links.BrokenInternal)
+
+	// Top external domains
+	edRows, err := s.conn.Query(ctx, `
+		SELECT domain(target_url) AS d, count() AS cnt FROM seocrawler.links
+		WHERE crawl_session_id = ? AND is_internal = false
+		GROUP BY d ORDER BY cnt DESC LIMIT 20`, sessionID)
+	if err == nil {
+		defer edRows.Close()
+		for edRows.Next() {
+			var ed ExternalDomain
+			if err := edRows.Scan(&ed.Domain, &ed.Count); err == nil {
+				links.TopExternalDomains = append(links.TopExternalDomains, ed)
+			}
+		}
+	}
+
+	// Top anchor texts
+	anRows, err := s.conn.Query(ctx, `
+		SELECT anchor_text, count() AS cnt FROM seocrawler.links
+		WHERE crawl_session_id = ? AND is_internal = true AND anchor_text != ''
+		GROUP BY anchor_text ORDER BY cnt DESC LIMIT 20`, sessionID)
+	if err == nil {
+		defer anRows.Close()
+		for anRows.Next() {
+			var ac AnchorCount
+			if err := anRows.Scan(&ac.Anchor, &ac.Count); err == nil {
+				links.TopAnchors = append(links.TopAnchors, ac)
+			}
+		}
+	}
+	result.Links = links
+
+	// --- Structure audit ---
+	structure := &AuditStructure{}
+
+	// Directories (by URL path prefix up to 2nd segment)
+	dirRows, err := s.conn.Query(ctx, `
+		SELECT
+			concat('/', arrayStringConcat(arraySlice(splitByChar('/', pathFull(url)), 2, 1), '/'), '/') AS dir,
+			count() AS cnt
+		FROM seocrawler.pages
+		WHERE crawl_session_id = ?
+		GROUP BY dir ORDER BY cnt DESC LIMIT 50`, sessionID)
+	if err == nil {
+		defer dirRows.Close()
+		for dirRows.Next() {
+			var dc DirectoryCount
+			if err := dirRows.Scan(&dc.Directory, &dc.Count); err == nil {
+				structure.Directories = append(structure.Directories, dc)
+			}
+		}
+	}
+
+	// Orphan pages (not targeted by any internal link)
+	orphanRow := s.conn.QueryRow(ctx, `
+		SELECT count() FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND url NOT IN (
+			SELECT DISTINCT target_url FROM seocrawler.links
+			WHERE crawl_session_id = ? AND is_internal = true
+		)`, sessionID, sessionID)
+	_ = orphanRow.Scan(&structure.OrphanPages)
+	result.Structure = structure
+
+	// --- Sitemaps audit ---
+	sitemaps := &AuditSitemaps{}
+	smRow := s.conn.QueryRow(ctx, `
+		SELECT count(DISTINCT url) FROM seocrawler.sitemap_urls
+		WHERE crawl_session_id = ?`, sessionID)
+	_ = smRow.Scan(&sitemaps.TotalSitemapURLs)
+
+	if sitemaps.TotalSitemapURLs > 0 {
+		covRow := s.conn.QueryRow(ctx, `
+			SELECT
+				countIf(in_crawl AND in_sitemap) AS in_both,
+				countIf(in_crawl AND NOT in_sitemap) AS crawled_only,
+				countIf(NOT in_crawl AND in_sitemap) AS sitemap_only
+			FROM (
+				SELECT
+					url AS u,
+					url IN (SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?) AS in_crawl,
+					1 AS in_sitemap
+				FROM seocrawler.sitemap_urls WHERE crawl_session_id = ?
+				UNION ALL
+				SELECT
+					url AS u,
+					1 AS in_crawl,
+					url IN (SELECT url FROM seocrawler.sitemap_urls WHERE crawl_session_id = ?) AS in_sitemap
+				FROM seocrawler.pages WHERE crawl_session_id = ?
+			) GROUP BY u
+			HAVING 1`, sessionID, sessionID, sessionID, sessionID)
+		// Simplified: just do two counts
+		_ = covRow.Scan(&sitemaps.InBoth, &sitemaps.CrawledOnly, &sitemaps.SitemapOnly)
+	}
+	// Simpler coverage approach
+	if sitemaps.TotalSitemapURLs > 0 {
+		var inBoth uint64
+		ibRow := s.conn.QueryRow(ctx, `
+			SELECT count() FROM (
+				SELECT DISTINCT url FROM seocrawler.sitemap_urls WHERE crawl_session_id = ?
+			) AS sm WHERE sm.url IN (
+				SELECT url FROM seocrawler.pages WHERE crawl_session_id = ?
+			)`, sessionID, sessionID)
+		if ibRow.Scan(&inBoth) == nil {
+			sitemaps.InBoth = inBoth
+			var totalCrawled uint64
+			tcRow := s.conn.QueryRow(ctx, `SELECT count() FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+			_ = tcRow.Scan(&totalCrawled)
+			sitemaps.CrawledOnly = totalCrawled - inBoth
+			sitemaps.SitemapOnly = sitemaps.TotalSitemapURLs - inBoth
+		}
+	}
+	result.Sitemaps = sitemaps
+
+	// --- International audit ---
+	intl := &AuditInternational{}
+	intlRow := s.conn.QueryRow(ctx, `
+		SELECT
+			countIf(length(hreflang) > 0) AS pages_with_hreflang,
+			countIf(lang != '') AS pages_with_lang,
+			countIf(length(schema_types) > 0) AS pages_with_schema
+		FROM seocrawler.pages WHERE crawl_session_id = ?`, sessionID)
+	_ = intlRow.Scan(&intl.PagesWithHreflang, &intl.PagesWithLang, &intl.PagesWithSchema)
+
+	// Lang distribution
+	langRows, err := s.conn.Query(ctx, `
+		SELECT lang, count() AS cnt FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND lang != ''
+		GROUP BY lang ORDER BY cnt DESC LIMIT 20`, sessionID)
+	if err == nil {
+		defer langRows.Close()
+		for langRows.Next() {
+			var lc LangCount
+			if err := langRows.Scan(&lc.Lang, &lc.Count); err == nil {
+				intl.LangDistribution = append(intl.LangDistribution, lc)
+			}
+		}
+	}
+
+	// Schema distribution
+	schemaRows, err := s.conn.Query(ctx, `
+		SELECT arrayJoin(schema_types) AS st, count() AS cnt FROM seocrawler.pages
+		WHERE crawl_session_id = ? AND length(schema_types) > 0
+		GROUP BY st ORDER BY cnt DESC LIMIT 20`, sessionID)
+	if err == nil {
+		defer schemaRows.Close()
+		for schemaRows.Next() {
+			var sc SchemaCount
+			if err := schemaRows.Scan(&sc.SchemaType, &sc.Count); err == nil {
+				intl.SchemaDistribution = append(intl.SchemaDistribution, sc)
+			}
+		}
+	}
+	result.International = intl
+
+	return result, nil
+}
+
+// CompareStats retrieves side-by-side stats for two sessions.
+func (s *Store) CompareStats(ctx context.Context, sessionA, sessionB string) (*CompareStatsResult, error) {
+	statsA, err := s.SessionStats(ctx, sessionA)
+	if err != nil {
+		return nil, fmt.Errorf("stats for session A: %w", err)
+	}
+	statsB, err := s.SessionStats(ctx, sessionB)
+	if err != nil {
+		return nil, fmt.Errorf("stats for session B: %w", err)
+	}
+	return &CompareStatsResult{
+		SessionA: sessionA,
+		SessionB: sessionB,
+		StatsA:   statsA,
+		StatsB:   statsB,
+	}, nil
+}
+
+// ComparePages returns paginated page diffs between two sessions.
+func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType string, limit, offset int) (*PageDiffResult, error) {
+	result := &PageDiffResult{}
+
+	// Count totals for all three diff types
+	countRow := s.conn.QueryRow(ctx, `
+		SELECT
+			countIf(b.url != '' AND a.url = '') AS added,
+			countIf(a.url != '' AND b.url = '') AS removed,
+			countIf(a.url != '' AND b.url != '' AND (
+				a.status_code != b.status_code OR
+				a.title != b.title OR
+				a.canonical != b.canonical OR
+				a.is_indexable != b.is_indexable OR
+				a.meta_description != b.meta_description OR
+				a.h1[1] != b.h1[1] OR
+				a.depth != b.depth OR
+				(abs(toInt64(a.word_count) - toInt64(b.word_count)) > 50 AND abs(toInt64(a.word_count) - toInt64(b.word_count)) > toInt64(a.word_count) / 10) OR
+				abs(a.pagerank - b.pagerank) > 0.01
+			)) AS changed
+		FROM (
+			SELECT url, status_code, title, canonical, is_indexable, meta_description, h1, depth, word_count, pagerank
+			FROM seocrawler.pages WHERE crawl_session_id = ?
+		) a
+		FULL OUTER JOIN (
+			SELECT url, status_code, title, canonical, is_indexable, meta_description, h1, depth, word_count, pagerank
+			FROM seocrawler.pages WHERE crawl_session_id = ?
+		) b USING (url)`, sessionA, sessionB)
+	if err := countRow.Scan(&result.TotalAdded, &result.TotalRemoved, &result.TotalChanged); err != nil {
+		return nil, fmt.Errorf("counting page diffs: %w", err)
+	}
+
+	// Paginated query based on diffType
+	var query string
+	switch diffType {
+	case "added":
+		query = `
+			SELECT b.url,
+				0, '', '', false, 0, 0, 0, '', '',
+				b.status_code, b.title, b.canonical, b.is_indexable, b.word_count, b.depth, b.pagerank, b.meta_description, b.h1[1]
+			FROM seocrawler.pages b
+			LEFT JOIN seocrawler.pages a ON a.url = b.url AND a.crawl_session_id = ?
+			WHERE b.crawl_session_id = ? AND a.url = ''
+			ORDER BY b.url
+			LIMIT ? OFFSET ?`
+		rows, err := s.conn.Query(ctx, query, sessionA, sessionB, limit, offset)
+		if err != nil {
+			return nil, fmt.Errorf("querying added pages: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var p PageDiffRow
+			p.DiffType = "added"
+			if err := rows.Scan(
+				&p.URL,
+				&p.StatusCodeA, &p.TitleA, &p.CanonicalA, &p.IsIndexableA, &p.WordCountA, &p.DepthA, &p.PageRankA, &p.MetaDescriptionA, &p.H1A,
+				&p.StatusCodeB, &p.TitleB, &p.CanonicalB, &p.IsIndexableB, &p.WordCountB, &p.DepthB, &p.PageRankB, &p.MetaDescriptionB, &p.H1B,
+			); err != nil {
+				return nil, fmt.Errorf("scanning added page: %w", err)
+			}
+			result.Pages = append(result.Pages, p)
+		}
+
+	case "removed":
+		query = `
+			SELECT a.url,
+				a.status_code, a.title, a.canonical, a.is_indexable, a.word_count, a.depth, a.pagerank, a.meta_description, a.h1[1],
+				0, '', '', false, 0, 0, 0, '', ''
+			FROM seocrawler.pages a
+			LEFT JOIN seocrawler.pages b ON a.url = b.url AND b.crawl_session_id = ?
+			WHERE a.crawl_session_id = ? AND b.url = ''
+			ORDER BY a.url
+			LIMIT ? OFFSET ?`
+		rows, err := s.conn.Query(ctx, query, sessionB, sessionA, limit, offset)
+		if err != nil {
+			return nil, fmt.Errorf("querying removed pages: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var p PageDiffRow
+			p.DiffType = "removed"
+			if err := rows.Scan(
+				&p.URL,
+				&p.StatusCodeA, &p.TitleA, &p.CanonicalA, &p.IsIndexableA, &p.WordCountA, &p.DepthA, &p.PageRankA, &p.MetaDescriptionA, &p.H1A,
+				&p.StatusCodeB, &p.TitleB, &p.CanonicalB, &p.IsIndexableB, &p.WordCountB, &p.DepthB, &p.PageRankB, &p.MetaDescriptionB, &p.H1B,
+			); err != nil {
+				return nil, fmt.Errorf("scanning removed page: %w", err)
+			}
+			result.Pages = append(result.Pages, p)
+		}
+
+	case "changed":
+		query = `
+			SELECT a.url,
+				a.status_code, a.title, a.canonical, a.is_indexable, a.word_count, a.depth, a.pagerank, a.meta_description, a.h1[1],
+				b.status_code, b.title, b.canonical, b.is_indexable, b.word_count, b.depth, b.pagerank, b.meta_description, b.h1[1]
+			FROM seocrawler.pages a
+			INNER JOIN seocrawler.pages b ON a.url = b.url AND b.crawl_session_id = ?
+			WHERE a.crawl_session_id = ? AND (
+				a.status_code != b.status_code OR
+				a.title != b.title OR
+				a.canonical != b.canonical OR
+				a.is_indexable != b.is_indexable OR
+				a.meta_description != b.meta_description OR
+				a.h1[1] != b.h1[1] OR
+				a.depth != b.depth OR
+				(abs(toInt64(a.word_count) - toInt64(b.word_count)) > 50 AND abs(toInt64(a.word_count) - toInt64(b.word_count)) > toInt64(a.word_count) / 10) OR
+				abs(a.pagerank - b.pagerank) > 0.01
+			)
+			ORDER BY a.url
+			LIMIT ? OFFSET ?`
+		rows, err := s.conn.Query(ctx, query, sessionB, sessionA, limit, offset)
+		if err != nil {
+			return nil, fmt.Errorf("querying changed pages: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var p PageDiffRow
+			p.DiffType = "changed"
+			if err := rows.Scan(
+				&p.URL,
+				&p.StatusCodeA, &p.TitleA, &p.CanonicalA, &p.IsIndexableA, &p.WordCountA, &p.DepthA, &p.PageRankA, &p.MetaDescriptionA, &p.H1A,
+				&p.StatusCodeB, &p.TitleB, &p.CanonicalB, &p.IsIndexableB, &p.WordCountB, &p.DepthB, &p.PageRankB, &p.MetaDescriptionB, &p.H1B,
+			); err != nil {
+				return nil, fmt.Errorf("scanning changed page: %w", err)
+			}
+			result.Pages = append(result.Pages, p)
+		}
+	}
+
+	return result, nil
+}
+
+// CompareLinks returns paginated link diffs between two sessions.
+func (s *Store) CompareLinks(ctx context.Context, sessionA, sessionB, diffType string, limit, offset int) (*LinkDiffResult, error) {
+	result := &LinkDiffResult{}
+
+	// Count totals
+	countRow := s.conn.QueryRow(ctx, `
+		SELECT
+			countIf(b.source_url != '' AND a.source_url = '') AS added,
+			countIf(a.source_url != '' AND b.source_url = '') AS removed
+		FROM (
+			SELECT source_url, target_url
+			FROM seocrawler.links WHERE crawl_session_id = ? AND is_internal = true
+		) a
+		FULL OUTER JOIN (
+			SELECT source_url, target_url
+			FROM seocrawler.links WHERE crawl_session_id = ? AND is_internal = true
+		) b USING (source_url, target_url)`, sessionA, sessionB)
+	if err := countRow.Scan(&result.TotalAdded, &result.TotalRemoved); err != nil {
+		return nil, fmt.Errorf("counting link diffs: %w", err)
+	}
+
+	switch diffType {
+	case "added":
+		rows, err := s.conn.Query(ctx, `
+			SELECT b.source_url, b.target_url, b.anchor_text
+			FROM seocrawler.links b
+			LEFT JOIN seocrawler.links a
+				ON a.source_url = b.source_url AND a.target_url = b.target_url
+				AND a.crawl_session_id = ? AND a.is_internal = true
+			WHERE b.crawl_session_id = ? AND b.is_internal = true AND a.source_url = ''
+			ORDER BY b.source_url, b.target_url
+			LIMIT ? OFFSET ?`, sessionA, sessionB, limit, offset)
+		if err != nil {
+			return nil, fmt.Errorf("querying added links: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var l LinkDiffRow
+			l.DiffType = "added"
+			if err := rows.Scan(&l.SourceURL, &l.TargetURL, &l.AnchorText); err != nil {
+				return nil, fmt.Errorf("scanning added link: %w", err)
+			}
+			result.Links = append(result.Links, l)
+		}
+
+	case "removed":
+		rows, err := s.conn.Query(ctx, `
+			SELECT a.source_url, a.target_url, a.anchor_text
+			FROM seocrawler.links a
+			LEFT JOIN seocrawler.links b
+				ON a.source_url = b.source_url AND a.target_url = b.target_url
+				AND b.crawl_session_id = ? AND b.is_internal = true
+			WHERE a.crawl_session_id = ? AND a.is_internal = true AND b.source_url = ''
+			ORDER BY a.source_url, a.target_url
+			LIMIT ? OFFSET ?`, sessionB, sessionA, limit, offset)
+		if err != nil {
+			return nil, fmt.Errorf("querying removed links: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var l LinkDiffRow
+			l.DiffType = "removed"
+			if err := rows.Scan(&l.SourceURL, &l.TargetURL, &l.AnchorText); err != nil {
+				return nil, fmt.Errorf("scanning removed link: %w", err)
+			}
+			result.Links = append(result.Links, l)
+		}
+	}
+
+	return result, nil
+}
+
 // DeleteSession deletes a crawl session and all its associated data.
 // Uses DROP PARTITION for instant deletion on partitioned tables.
 func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
@@ -1621,6 +2261,368 @@ func (s *Store) GetSitemapURLs(ctx context.Context, sessionID, sitemapURL string
 		result = append(result, r)
 	}
 	return result, nil
+}
+
+// --- GSC Analytics & Inspection ---
+
+type GSCQueryRow struct {
+	Query       string  `json:"query"`
+	Clicks      uint64  `json:"clicks"`
+	Impressions uint64  `json:"impressions"`
+	CTR         float32 `json:"ctr"`
+	Position    float32 `json:"position"`
+}
+
+type GSCPageRow struct {
+	Page        string  `json:"page"`
+	Clicks      uint64  `json:"clicks"`
+	Impressions uint64  `json:"impressions"`
+	CTR         float32 `json:"ctr"`
+	Position    float32 `json:"position"`
+}
+
+type GSCCountryRow struct {
+	Country     string  `json:"country"`
+	Clicks      uint64  `json:"clicks"`
+	Impressions uint64  `json:"impressions"`
+	CTR         float32 `json:"ctr"`
+	Position    float32 `json:"position"`
+}
+
+type GSCDeviceRow struct {
+	Device      string  `json:"device"`
+	Clicks      uint64  `json:"clicks"`
+	Impressions uint64  `json:"impressions"`
+	CTR         float32 `json:"ctr"`
+	Position    float32 `json:"position"`
+}
+
+type GSCOverviewStats struct {
+	TotalClicks      uint64  `json:"total_clicks"`
+	TotalImpressions uint64  `json:"total_impressions"`
+	AvgCTR           float32 `json:"avg_ctr"`
+	AvgPosition      float32 `json:"avg_position"`
+	DateMin          string  `json:"date_min"`
+	DateMax          string  `json:"date_max"`
+	TotalQueries     uint64  `json:"total_queries"`
+	TotalPages       uint64  `json:"total_pages"`
+}
+
+type GSCTimelineRow struct {
+	Date        string `json:"date"`
+	Clicks      uint64 `json:"clicks"`
+	Impressions uint64 `json:"impressions"`
+}
+
+type GSCInspectionRow struct {
+	URL               string `json:"url"`
+	Verdict           string `json:"verdict"`
+	CoverageState     string `json:"coverage_state"`
+	IndexingState     string `json:"indexing_state"`
+	RobotsTxtState    string `json:"robots_txt_state"`
+	LastCrawlTime     string `json:"last_crawl_time"`
+	CrawledAs         string `json:"crawled_as"`
+	CanonicalURL      string `json:"canonical_url"`
+	IsGoogleCanonical bool   `json:"is_google_canonical"`
+	MobileUsability   string `json:"mobile_usability"`
+	RichResultsItems  uint16 `json:"rich_results_items"`
+}
+
+func (s *Store) InsertGSCAnalytics(ctx context.Context, projectID string, rows []GSCAnalyticsInsertRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO seocrawler.gsc_analytics (
+			project_id, date, query, page, country, device,
+			clicks, impressions, ctr, position, fetched_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing gsc_analytics batch: %w", err)
+	}
+	now := time.Now()
+	for _, r := range rows {
+		if err := batch.Append(
+			projectID, r.Date, r.Query, r.Page, r.Country, r.Device,
+			r.Clicks, r.Impressions, r.CTR, r.Position, now,
+		); err != nil {
+			return fmt.Errorf("appending gsc_analytics row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+// GSCAnalyticsInsertRow is the input row for batch inserts.
+type GSCAnalyticsInsertRow struct {
+	Date        time.Time
+	Query       string
+	Page        string
+	Country     string
+	Device      string
+	Clicks      uint32
+	Impressions uint32
+	CTR         float32
+	Position    float32
+}
+
+func (s *Store) InsertGSCInspection(ctx context.Context, projectID string, rows []GSCInspectionInsertRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO seocrawler.gsc_inspection (
+			project_id, url, verdict, coverage_state, indexing_state, robots_txt_state,
+			last_crawl_time, crawled_as, canonical_url, is_google_canonical,
+			mobile_usability, rich_results_items, fetched_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing gsc_inspection batch: %w", err)
+	}
+	now := time.Now()
+	for _, r := range rows {
+		if err := batch.Append(
+			projectID, r.URL, r.Verdict, r.CoverageState, r.IndexingState, r.RobotsTxtState,
+			r.LastCrawlTime, r.CrawledAs, r.CanonicalURL, r.IsGoogleCanonical,
+			r.MobileUsability, r.RichResultsItems, now,
+		); err != nil {
+			return fmt.Errorf("appending gsc_inspection row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+type GSCInspectionInsertRow struct {
+	URL               string
+	Verdict           string
+	CoverageState     string
+	IndexingState     string
+	RobotsTxtState    string
+	LastCrawlTime     time.Time
+	CrawledAs         string
+	CanonicalURL      string
+	IsGoogleCanonical bool
+	MobileUsability   string
+	RichResultsItems  uint16
+}
+
+func (s *Store) GSCOverview(ctx context.Context, projectID string) (*GSCOverviewStats, error) {
+	var stats GSCOverviewStats
+	err := s.conn.QueryRow(ctx, `
+		SELECT
+			sum(clicks), sum(impressions),
+			if(sum(impressions) > 0, sum(clicks) / sum(impressions), 0),
+			if(sum(impressions) > 0, sum(position * impressions) / sum(impressions), 0),
+			min(date), max(date),
+			uniqExact(query), uniqExact(page)
+		FROM seocrawler.gsc_analytics FINAL
+		WHERE project_id = ?`, projectID).Scan(
+		&stats.TotalClicks, &stats.TotalImpressions,
+		&stats.AvgCTR, &stats.AvgPosition,
+		&stats.DateMin, &stats.DateMax,
+		&stats.TotalQueries, &stats.TotalPages,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("querying gsc overview: %w", err)
+	}
+	return &stats, nil
+}
+
+func (s *Store) GSCTopQueries(ctx context.Context, projectID string, limit, offset int) ([]GSCQueryRow, int, error) {
+	var total int
+	if err := s.conn.QueryRow(ctx, `
+		SELECT uniqExact(query) FROM seocrawler.gsc_analytics FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("counting gsc queries: %w", err)
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT query, sum(clicks), sum(impressions),
+			if(sum(impressions) > 0, sum(clicks) / sum(impressions), 0),
+			if(sum(impressions) > 0, sum(position * impressions) / sum(impressions), 0)
+		FROM seocrawler.gsc_analytics FINAL
+		WHERE project_id = ?
+		GROUP BY query
+		ORDER BY sum(clicks) DESC
+		LIMIT ? OFFSET ?`, projectID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying gsc top queries: %w", err)
+	}
+	defer rows.Close()
+
+	var result []GSCQueryRow
+	for rows.Next() {
+		var r GSCQueryRow
+		if err := rows.Scan(&r.Query, &r.Clicks, &r.Impressions, &r.CTR, &r.Position); err != nil {
+			return nil, 0, fmt.Errorf("scanning gsc query row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []GSCQueryRow{}
+	}
+	return result, total, nil
+}
+
+func (s *Store) GSCTopPages(ctx context.Context, projectID string, limit, offset int) ([]GSCPageRow, int, error) {
+	var total int
+	if err := s.conn.QueryRow(ctx, `
+		SELECT uniqExact(page) FROM seocrawler.gsc_analytics FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("counting gsc pages: %w", err)
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT page, sum(clicks), sum(impressions),
+			if(sum(impressions) > 0, sum(clicks) / sum(impressions), 0),
+			if(sum(impressions) > 0, sum(position * impressions) / sum(impressions), 0)
+		FROM seocrawler.gsc_analytics FINAL
+		WHERE project_id = ?
+		GROUP BY page
+		ORDER BY sum(clicks) DESC
+		LIMIT ? OFFSET ?`, projectID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying gsc top pages: %w", err)
+	}
+	defer rows.Close()
+
+	var result []GSCPageRow
+	for rows.Next() {
+		var r GSCPageRow
+		if err := rows.Scan(&r.Page, &r.Clicks, &r.Impressions, &r.CTR, &r.Position); err != nil {
+			return nil, 0, fmt.Errorf("scanning gsc page row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []GSCPageRow{}
+	}
+	return result, total, nil
+}
+
+func (s *Store) GSCByCountry(ctx context.Context, projectID string) ([]GSCCountryRow, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT country, sum(clicks), sum(impressions),
+			if(sum(impressions) > 0, sum(clicks) / sum(impressions), 0),
+			if(sum(impressions) > 0, sum(position * impressions) / sum(impressions), 0)
+		FROM seocrawler.gsc_analytics FINAL
+		WHERE project_id = ?
+		GROUP BY country
+		ORDER BY sum(clicks) DESC`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("querying gsc by country: %w", err)
+	}
+	defer rows.Close()
+
+	var result []GSCCountryRow
+	for rows.Next() {
+		var r GSCCountryRow
+		if err := rows.Scan(&r.Country, &r.Clicks, &r.Impressions, &r.CTR, &r.Position); err != nil {
+			return nil, fmt.Errorf("scanning gsc country row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []GSCCountryRow{}
+	}
+	return result, nil
+}
+
+func (s *Store) GSCByDevice(ctx context.Context, projectID string) ([]GSCDeviceRow, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT device, sum(clicks), sum(impressions),
+			if(sum(impressions) > 0, sum(clicks) / sum(impressions), 0),
+			if(sum(impressions) > 0, sum(position * impressions) / sum(impressions), 0)
+		FROM seocrawler.gsc_analytics FINAL
+		WHERE project_id = ?
+		GROUP BY device
+		ORDER BY sum(clicks) DESC`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("querying gsc by device: %w", err)
+	}
+	defer rows.Close()
+
+	var result []GSCDeviceRow
+	for rows.Next() {
+		var r GSCDeviceRow
+		if err := rows.Scan(&r.Device, &r.Clicks, &r.Impressions, &r.CTR, &r.Position); err != nil {
+			return nil, fmt.Errorf("scanning gsc device row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []GSCDeviceRow{}
+	}
+	return result, nil
+}
+
+func (s *Store) GSCTimeline(ctx context.Context, projectID string) ([]GSCTimelineRow, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT toString(date), sum(clicks), sum(impressions)
+		FROM seocrawler.gsc_analytics FINAL
+		WHERE project_id = ?
+		GROUP BY date
+		ORDER BY date`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("querying gsc timeline: %w", err)
+	}
+	defer rows.Close()
+
+	var result []GSCTimelineRow
+	for rows.Next() {
+		var r GSCTimelineRow
+		if err := rows.Scan(&r.Date, &r.Clicks, &r.Impressions); err != nil {
+			return nil, fmt.Errorf("scanning gsc timeline row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []GSCTimelineRow{}
+	}
+	return result, nil
+}
+
+func (s *Store) GSCInspectionResults(ctx context.Context, projectID string, limit, offset int) ([]GSCInspectionRow, int, error) {
+	var total int
+	if err := s.conn.QueryRow(ctx, `
+		SELECT count() FROM seocrawler.gsc_inspection FINAL WHERE project_id = ?`, projectID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("counting gsc inspections: %w", err)
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT url, verdict, coverage_state, indexing_state, robots_txt_state,
+			toString(last_crawl_time), crawled_as, canonical_url, is_google_canonical,
+			mobile_usability, rich_results_items
+		FROM seocrawler.gsc_inspection FINAL
+		WHERE project_id = ?
+		ORDER BY url
+		LIMIT ? OFFSET ?`, projectID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying gsc inspections: %w", err)
+	}
+	defer rows.Close()
+
+	var result []GSCInspectionRow
+	for rows.Next() {
+		var r GSCInspectionRow
+		if err := rows.Scan(&r.URL, &r.Verdict, &r.CoverageState, &r.IndexingState,
+			&r.RobotsTxtState, &r.LastCrawlTime, &r.CrawledAs, &r.CanonicalURL,
+			&r.IsGoogleCanonical, &r.MobileUsability, &r.RichResultsItems); err != nil {
+			return nil, 0, fmt.Errorf("scanning gsc inspection row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []GSCInspectionRow{}
+	}
+	return result, total, nil
+}
+
+func (s *Store) DeleteGSCData(ctx context.Context, projectID string) error {
+	if err := s.conn.Exec(ctx, `ALTER TABLE seocrawler.gsc_analytics DELETE WHERE project_id = ?`, projectID); err != nil {
+		return fmt.Errorf("deleting gsc analytics: %w", err)
+	}
+	if err := s.conn.Exec(ctx, `ALTER TABLE seocrawler.gsc_inspection DELETE WHERE project_id = ?`, projectID); err != nil {
+		return fmt.Errorf("deleting gsc inspection: %w", err)
+	}
+	return nil
 }
 
 // Close closes the ClickHouse connection.

@@ -38,6 +38,11 @@ type mockStore struct {
 	robotsContent        *storage.RobotsRow
 	sitemaps             []storage.SitemapRow
 	sitemapURLs          []storage.SitemapURLRow
+	urlsByHost           map[string][]string // host prefix -> URLs
+	compareStatsResult   *storage.CompareStatsResult
+	comparePagesResult   *storage.PageDiffResult
+	compareLinksResult   *storage.LinkDiffResult
+	auditResult          *storage.AuditResult
 	err                  error
 	deleteCalls          []string
 	updateProjectCalls   []updateProjectCall
@@ -106,6 +111,13 @@ func (m *mockStore) InternalLinksPaginated(_ context.Context, _ string, _, _ int
 
 func (m *mockStore) SessionStats(_ context.Context, _ string) (*storage.SessionStats, error) {
 	return m.stats, m.err
+}
+
+func (m *mockStore) SessionAudit(_ context.Context, _ string) (*storage.AuditResult, error) {
+	if m.auditResult != nil {
+		return m.auditResult, m.err
+	}
+	return &storage.AuditResult{}, m.err
 }
 
 func (m *mockStore) GetPageHTML(_ context.Context, _, _ string) (string, error) {
@@ -182,8 +194,63 @@ func (m *mockStore) GetSitemapURLs(_ context.Context, _, _ string, _, _ int) ([]
 	return m.sitemapURLs, m.err
 }
 
-func (m *mockStore) GetURLsByHost(_ context.Context, _, _ string) ([]string, error) {
+func (m *mockStore) GetURLsByHost(_ context.Context, _ string, host string) ([]string, error) {
+	if m.urlsByHost != nil {
+		return m.urlsByHost[host], m.err
+	}
 	return nil, m.err
+}
+
+// Compare mock methods
+func (m *mockStore) CompareStats(_ context.Context, _, _ string) (*storage.CompareStatsResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.compareStatsResult, nil
+}
+func (m *mockStore) ComparePages(_ context.Context, _, _, _ string, _, _ int) (*storage.PageDiffResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.comparePagesResult, nil
+}
+func (m *mockStore) CompareLinks(_ context.Context, _, _, _ string, _, _ int) (*storage.LinkDiffResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.compareLinksResult, nil
+}
+
+// GSC mock methods
+func (m *mockStore) InsertGSCAnalytics(_ context.Context, _ string, _ []storage.GSCAnalyticsInsertRow) error {
+	return m.err
+}
+func (m *mockStore) InsertGSCInspection(_ context.Context, _ string, _ []storage.GSCInspectionInsertRow) error {
+	return m.err
+}
+func (m *mockStore) GSCOverview(_ context.Context, _ string) (*storage.GSCOverviewStats, error) {
+	return &storage.GSCOverviewStats{}, m.err
+}
+func (m *mockStore) GSCTopQueries(_ context.Context, _ string, _, _ int) ([]storage.GSCQueryRow, int, error) {
+	return []storage.GSCQueryRow{}, 0, m.err
+}
+func (m *mockStore) GSCTopPages(_ context.Context, _ string, _, _ int) ([]storage.GSCPageRow, int, error) {
+	return []storage.GSCPageRow{}, 0, m.err
+}
+func (m *mockStore) GSCByCountry(_ context.Context, _ string) ([]storage.GSCCountryRow, error) {
+	return []storage.GSCCountryRow{}, m.err
+}
+func (m *mockStore) GSCByDevice(_ context.Context, _ string) ([]storage.GSCDeviceRow, error) {
+	return []storage.GSCDeviceRow{}, m.err
+}
+func (m *mockStore) GSCTimeline(_ context.Context, _ string) ([]storage.GSCTimelineRow, error) {
+	return []storage.GSCTimelineRow{}, m.err
+}
+func (m *mockStore) GSCInspectionResults(_ context.Context, _ string, _, _ int) ([]storage.GSCInspectionRow, int, error) {
+	return []storage.GSCInspectionRow{}, 0, m.err
+}
+func (m *mockStore) DeleteGSCData(_ context.Context, _ string) error {
+	return m.err
 }
 
 // ---------------------------------------------------------------------------
@@ -1026,6 +1093,222 @@ func TestProjects_AssociateDisassociateSession(t *testing.T) {
 	}
 	if ms.updateProjectCalls[1].ProjectID != nil {
 		t.Errorf("expected nil project on disassociate, got %v", ms.updateProjectCalls[1].ProjectID)
+	}
+}
+
+// =========================================================================
+// 6. Compare tests
+// =========================================================================
+
+func TestCompareStats_MissingParams(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	// Missing both
+	req := authRequest(httptest.NewRequest("GET", "/api/compare/stats", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing params, got %d", rec.Code)
+	}
+
+	// Missing b
+	req = authRequest(httptest.NewRequest("GET", "/api/compare/stats?a=sess-1", nil))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing b, got %d", rec.Code)
+	}
+}
+
+func TestCompareStats_Success(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	ms := srv.store.(*mockStore)
+	ms.compareStatsResult = &storage.CompareStatsResult{
+		SessionA: "sess-a",
+		SessionB: "sess-b",
+		StatsA: &storage.SessionStats{
+			TotalPages:        100,
+			StatusCodes:       map[uint16]uint64{200: 100},
+			DepthDistribution: map[uint16]uint64{0: 10, 1: 90},
+		},
+		StatsB: &storage.SessionStats{
+			TotalPages:        120,
+			StatusCodes:       map[uint16]uint64{200: 115, 404: 5},
+			DepthDistribution: map[uint16]uint64{0: 10, 1: 110},
+		},
+	}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/compare/stats?a=sess-a&b=sess-b", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var result storage.CompareStatsResult
+	decodeJSON(t, rec, &result)
+	if result.StatsA.TotalPages != 100 {
+		t.Errorf("expected stats_a total_pages 100, got %d", result.StatsA.TotalPages)
+	}
+	if result.StatsB.TotalPages != 120 {
+		t.Errorf("expected stats_b total_pages 120, got %d", result.StatsB.TotalPages)
+	}
+}
+
+func TestComparePages_InvalidType(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	req := authRequest(httptest.NewRequest("GET", "/api/compare/pages?a=sess-a&b=sess-b&type=invalid", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid type, got %d", rec.Code)
+	}
+}
+
+func TestComparePages_Success(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	ms := srv.store.(*mockStore)
+	ms.comparePagesResult = &storage.PageDiffResult{
+		Pages: []storage.PageDiffRow{
+			{URL: "https://example.com/new", DiffType: "added", StatusCodeB: 200, TitleB: "New Page"},
+		},
+		TotalAdded:   1,
+		TotalRemoved: 0,
+		TotalChanged: 0,
+	}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/compare/pages?a=sess-a&b=sess-b&type=added", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var result storage.PageDiffResult
+	decodeJSON(t, rec, &result)
+	if len(result.Pages) != 1 {
+		t.Fatalf("expected 1 page, got %d", len(result.Pages))
+	}
+	if result.Pages[0].URL != "https://example.com/new" {
+		t.Errorf("expected URL https://example.com/new, got %s", result.Pages[0].URL)
+	}
+}
+
+func TestCompareLinks_Success(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	ms := srv.store.(*mockStore)
+	ms.compareLinksResult = &storage.LinkDiffResult{
+		Links: []storage.LinkDiffRow{
+			{SourceURL: "https://example.com/a", TargetURL: "https://example.com/b", AnchorText: "link", DiffType: "added"},
+		},
+		TotalAdded:   1,
+		TotalRemoved: 0,
+	}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/compare/links?a=sess-a&b=sess-b&type=added", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var result storage.LinkDiffResult
+	decodeJSON(t, rec, &result)
+	if len(result.Links) != 1 {
+		t.Fatalf("expected 1 link, got %d", len(result.Links))
+	}
+}
+
+func TestCompareLinks_InvalidType(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	req := authRequest(httptest.NewRequest("GET", "/api/compare/links?a=sess-a&b=sess-b&type=changed", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid link type, got %d", rec.Code)
+	}
+}
+
+func TestCompare_CrossProjectForbidden(t *testing.T) {
+	srv, handler, ks := newTestServer(t)
+
+	proj, _ := ks.CreateProject("my-proj")
+	result, _ := ks.CreateAPIKey("proj-key", "project", &proj.ID)
+
+	otherProj := "other-proj-id"
+	ms := srv.store.(*mockStore)
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-mine":  {ID: "sess-mine", ProjectID: &proj.ID, Status: "completed"},
+		"sess-other": {ID: "sess-other", ProjectID: &otherProj, Status: "completed"},
+	}
+
+	req := httptest.NewRequest("GET", "/api/compare/stats?a=sess-mine&b=sess-other", nil)
+	req.Header.Set("X-API-Key", result.FullKey)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for cross-project compare, got %d", rec.Code)
+	}
+}
+
+func TestAudit_Success(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+	ms := srv.store.(*mockStore)
+	ms.sessions = []storage.CrawlSession{{ID: "sess-1", Status: "completed"}}
+	ms.auditResult = &storage.AuditResult{
+		Content: &storage.AuditContent{
+			Total:        100,
+			HTMLPages:    95,
+			TitleMissing: 5,
+			TitleTooLong: 10,
+		},
+		Technical: &storage.AuditTechnical{
+			Indexable:    80,
+			NonIndexable: 20,
+		},
+		Links: &storage.AuditLinks{
+			TotalInternal: 500,
+			TotalExternal: 50,
+		},
+		Structure: &storage.AuditStructure{
+			OrphanPages: 3,
+		},
+		Sitemaps:      &storage.AuditSitemaps{InBoth: 80, CrawledOnly: 15, SitemapOnly: 5},
+		International: &storage.AuditInternational{PagesWithLang: 90},
+	}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-1/audit", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var result storage.AuditResult
+	decodeJSON(t, rec, &result)
+	if result.Content.Total != 100 {
+		t.Errorf("expected total 100, got %d", result.Content.Total)
+	}
+	if result.Content.TitleMissing != 5 {
+		t.Errorf("expected title_missing 5, got %d", result.Content.TitleMissing)
+	}
+	if result.Technical.Indexable != 80 {
+		t.Errorf("expected indexable 80, got %d", result.Technical.Indexable)
+	}
+	if result.Links.TotalInternal != 500 {
+		t.Errorf("expected total_internal 500, got %d", result.Links.TotalInternal)
 	}
 }
 

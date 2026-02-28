@@ -91,6 +91,21 @@ func NewStore(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("creating api_keys table: %w", err)
 	}
 
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS gsc_connections (
+			id TEXT PRIMARY KEY,
+			project_id TEXT NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+			property_url TEXT NOT NULL,
+			access_token TEXT NOT NULL,
+			refresh_token TEXT NOT NULL,
+			token_expiry DATETIME NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)
+	`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("creating gsc_connections table: %w", err)
+	}
+
 	return &Store{db: db}, nil
 }
 
@@ -249,6 +264,79 @@ func (s *Store) DeleteAPIKey(id string) error {
 		return fmt.Errorf("api key not found")
 	}
 	return nil
+}
+
+// --- GSC Connections ---
+
+type GSCConnection struct {
+	ID           string    `json:"id"`
+	ProjectID    string    `json:"project_id"`
+	PropertyURL  string    `json:"property_url"`
+	AccessToken  string    `json:"-"`
+	RefreshToken string    `json:"-"`
+	TokenExpiry  time.Time `json:"token_expiry"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+func (s *Store) SaveGSCConnection(conn *GSCConnection) error {
+	if conn.ID == "" {
+		conn.ID = uuid.New().String()
+	}
+	_, err := s.db.Exec(`
+		INSERT INTO gsc_connections (id, project_id, property_url, access_token, refresh_token, token_expiry, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(project_id) DO UPDATE SET
+			property_url = excluded.property_url,
+			access_token = excluded.access_token,
+			refresh_token = excluded.refresh_token,
+			token_expiry = excluded.token_expiry`,
+		conn.ID, conn.ProjectID, conn.PropertyURL, conn.AccessToken, conn.RefreshToken, conn.TokenExpiry, time.Now().UTC())
+	return err
+}
+
+func (s *Store) GetGSCConnection(projectID string) (*GSCConnection, error) {
+	var c GSCConnection
+	err := s.db.QueryRow(`
+		SELECT id, project_id, property_url, access_token, refresh_token, token_expiry, created_at
+		FROM gsc_connections WHERE project_id = ?`, projectID).
+		Scan(&c.ID, &c.ProjectID, &c.PropertyURL, &c.AccessToken, &c.RefreshToken, &c.TokenExpiry, &c.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (s *Store) DeleteGSCConnection(projectID string) error {
+	res, err := s.db.Exec(`DELETE FROM gsc_connections WHERE project_id = ?`, projectID)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("gsc connection not found")
+	}
+	return nil
+}
+
+func (s *Store) ListGSCConnections() ([]GSCConnection, error) {
+	rows, err := s.db.Query(`SELECT id, project_id, property_url, access_token, refresh_token, token_expiry, created_at FROM gsc_connections ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var conns []GSCConnection
+	for rows.Next() {
+		var c GSCConnection
+		if err := rows.Scan(&c.ID, &c.ProjectID, &c.PropertyURL, &c.AccessToken, &c.RefreshToken, &c.TokenExpiry, &c.CreatedAt); err != nil {
+			return nil, err
+		}
+		conns = append(conns, c)
+	}
+	if conns == nil {
+		conns = []GSCConnection{}
+	}
+	return conns, nil
 }
 
 func (s *Store) ValidateKey(rawKey string) *KeyLookupResult {

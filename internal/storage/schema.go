@@ -280,6 +280,44 @@ PARTITION BY crawl_session_id
 ORDER BY (crawl_session_id, sitemap_url, loc)
 `
 
+const CreateGSCAnalytics = `
+CREATE TABLE IF NOT EXISTS seocrawler.gsc_analytics (
+    project_id String,
+    date Date,
+    query String,
+    page String,
+    country String,
+    device String,
+    clicks UInt32,
+    impressions UInt32,
+    ctr Float32,
+    position Float32,
+    fetched_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(fetched_at)
+PARTITION BY project_id
+ORDER BY (project_id, date, query, page, country, device)
+`
+
+const CreateGSCInspection = `
+CREATE TABLE IF NOT EXISTS seocrawler.gsc_inspection (
+    project_id String,
+    url String,
+    verdict String,
+    coverage_state String,
+    indexing_state String,
+    robots_txt_state String,
+    last_crawl_time DateTime64(3),
+    crawled_as String,
+    canonical_url String,
+    is_google_canonical Bool,
+    mobile_usability String,
+    rich_results_items UInt16,
+    fetched_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(fetched_at)
+PARTITION BY project_id
+ORDER BY (project_id, url)
+`
+
 // repartitionTable migrates a table to use PARTITION BY crawl_session_id.
 // It checks the current partition key first and skips if already correct.
 func repartitionTable(ctx context.Context, conn driver.Conn, table, createV2DDL string) error {
@@ -370,4 +408,6 @@ var Migrations = []Migration{
 	{Name: "create sitemaps", DDL: CreateSitemaps},
 	{Name: "create sitemap_urls", DDL: CreateSitemapURLs},
 	{Name: "repartition by session_id", Fn: migrateRepartitionBySession},
+	{Name: "create gsc_analytics", DDL: CreateGSCAnalytics},
+	{Name: "create gsc_inspection", DDL: CreateGSCInspection},
 }
