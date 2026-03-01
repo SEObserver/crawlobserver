@@ -1,6 +1,7 @@
 <script>
   import { getPageResourceChecks, getPageResourceChecksSummary } from '../api.js';
   import { t } from '../i18n/index.svelte.js';
+  import SearchSelect from './SearchSelect.svelte';
 
   let { sessionId, initialSubView = 'summary', initialFilters = {}, onpushurl, onerror } = $props();
 
@@ -105,29 +106,32 @@
     {#if view === 'urls'}
       <input type="text" class="res-filter-input" placeholder={t('resources.filterUrls')} bind:value={urlFilters.url}
         onkeydown={(e) => { if (e.key === 'Enter') { checksOffset = 0; pushFilters(); loadChecks(); } }} />
-      <select class="res-filter-select" bind:value={urlFilters.resource_type}
-        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}>
-        <option value="">{t('resources.allTypes')}</option>
-        <option value="css">{t('resources.css')}</option>
-        <option value="js">{t('resources.js')}</option>
-        <option value="font">{t('resources.font')}</option>
-        <option value="icon">{t('resources.icon')}</option>
-      </select>
-      <select class="res-filter-select" bind:value={urlFilters.is_internal}
-        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}>
-        <option value="">{t('resources.allSources')}</option>
-        <option value="true">{t('common.internal')}</option>
-        <option value="false">{t('resources.hotlink')}</option>
-      </select>
-      <select class="res-filter-select" bind:value={urlFilters.status_code}
-        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}>
-        <option value="">{t('resources.allStatus')}</option>
-        <option value="0">{t('extChecks.dead')}</option>
-        <option value="200-299">{t('extChecks.ok2xx')}</option>
-        <option value="300-399">{t('extChecks.redirect3xx')}</option>
-        <option value="400-499">{t('extChecks.client4xx')}</option>
-        <option value=">=500">{t('extChecks.server5xx')}</option>
-      </select>
+      <SearchSelect small bind:value={urlFilters.resource_type}
+        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}
+        options={[
+          { value: '', label: t('resources.allTypes') },
+          { value: 'css', label: t('resources.css') },
+          { value: 'js', label: t('resources.js') },
+          { value: 'font', label: t('resources.font') },
+          { value: 'icon', label: t('resources.icon') },
+        ]} />
+      <SearchSelect small bind:value={urlFilters.is_internal}
+        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}
+        options={[
+          { value: '', label: t('resources.allSources') },
+          { value: 'true', label: t('common.internal') },
+          { value: 'false', label: t('resources.hotlink') },
+        ]} />
+      <SearchSelect small bind:value={urlFilters.status_code}
+        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}
+        options={[
+          { value: '', label: t('resources.allStatus') },
+          { value: '0', label: t('extChecks.dead') },
+          { value: '200-299', label: t('extChecks.ok2xx') },
+          { value: '300-399', label: t('extChecks.redirect3xx') },
+          { value: '400-499', label: t('extChecks.client4xx') },
+          { value: '>=500', label: t('extChecks.server5xx') },
+        ]} />
     {/if}
   </div>
 
@@ -243,13 +247,9 @@
     font-size: 13px;
     min-width: 200px;
   }
-  .res-filter-select {
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--fg);
-    border-radius: 6px;
-    font-size: 13px;
+  .res-checks-header :global(.ss-wrap) {
+    width: 150px;
+    flex-shrink: 0;
   }
   .res-table {
     width: 100%;

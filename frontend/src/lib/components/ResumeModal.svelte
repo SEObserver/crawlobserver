@@ -2,6 +2,7 @@
   import { resumeCrawl } from '../api.js';
   import { a11yKeydown } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
+  import SearchSelect from './SearchSelect.svelte';
 
   let { sessionId, sessions, onresume, onclose, onerror } = $props();
 
@@ -58,10 +59,10 @@
         <div class="form-group"><label for="r-delay">{t('resumeModal.delay')}</label><input id="r-delay" type="text" bind:value={resumeDelay} placeholder="1s" /></div>
         <div class="form-group">
           <label for="r-scope">{t('resumeModal.crawlScope')}</label>
-          <select id="r-scope" bind:value={resumeCrawlScope}>
-            <option value="host">{t('resumeModal.sameHost')}</option>
-            <option value="domain">{t('resumeModal.sameDomain')}</option>
-          </select>
+          <SearchSelect id="r-scope" bind:value={resumeCrawlScope} options={[
+            { value: 'host', label: t('resumeModal.sameHost') },
+            { value: 'domain', label: t('resumeModal.sameDomain') },
+          ]} />
         </div>
         <div class="form-group checkbox-row">
           <input id="r-storehtml" type="checkbox" bind:checked={resumeStoreHtml} /><label for="r-storehtml" class="mb-0">{t('resumeModal.storeHtml')}</label>

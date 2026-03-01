@@ -3,6 +3,7 @@
   import { timeAgo, copyToClipboard } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
   import ConfirmModal from './ConfirmModal.svelte';
+  import SearchSelect from './SearchSelect.svelte';
 
   let { onerror, onprojectschanged } = $props();
 
@@ -205,20 +206,21 @@
     </div>
     <div class="form-group">
       <label for="key-type">{t('api.keyType')}</label>
-      <select id="key-type" bind:value={newKeyType}>
-        <option value="general">{t('api.generalAccess')}</option>
-        <option value="project">{t('api.projectReadOnly')}</option>
-      </select>
+      <SearchSelect id="key-type" bind:value={newKeyType} options={[
+        { value: 'general', label: t('api.generalAccess') },
+        { value: 'project', label: t('api.projectReadOnly') },
+      ]} />
     </div>
     {#if newKeyType === 'project'}
       <div class="form-group">
         <label for="key-project">{t('stats.project')}</label>
-        <select id="key-project" bind:value={newKeyProjectId}>
-          <option value="">{t('api.selectProject')}</option>
-          {#each projects as p}
-            <option value={p.id}>{p.name}</option>
-          {/each}
-        </select>
+        <SearchSelect id="key-project" bind:value={newKeyProjectId}
+          placeholder={t('api.selectProject')}
+          options={[{ value: '', label: t('api.selectProject') }, ...projects.map(p => ({ value: p.id, label: p.name }))]}
+          onsearch={projects.length > 20 ? async (q) => {
+            const lq = q.toLowerCase();
+            return [{ value: '', label: t('api.selectProject') }, ...projects.filter(p => p.name.toLowerCase().includes(lq)).map(p => ({ value: p.id, label: p.name }))];
+          } : undefined} />
       </div>
     {/if}
   </div>

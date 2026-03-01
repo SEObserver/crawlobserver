@@ -1,8 +1,9 @@
 <script>
   import { t } from '../i18n/index.svelte.js';
   import { startCrawl } from '../api.js';
+  import SearchSelect from './SearchSelect.svelte';
 
-  let { projects = [], onstart, oncancel, onerror } = $props();
+  let { projects = [], initialProjectId = '', onstart, oncancel, onerror } = $props();
 
   let seedInput = $state('');
   let maxPages = $state(0);
@@ -11,7 +12,7 @@
   let crawlDelay = $state('1s');
   let storeHtml = $state(false);
   let crawlScope = $state('host');
-  let crawlProjectId = $state('');
+  let crawlProjectId = $state(initialProjectId);
   let checkExternalLinks = $state(true);
   let externalLinkWorkers = $state(3);
   let userAgentPreset = $state('');
@@ -68,18 +69,14 @@
     <div class="form-group"><label for="maxdepth">{t('newCrawl.maxDepth')}</label><input id="maxdepth" type="number" bind:value={maxDepth} min="0" /></div>
     <div class="form-group">
       <label for="scope">{t('newCrawl.crawlScope')}</label>
-      <select id="scope" bind:value={crawlScope}>
-        <option value="host">{t('newCrawl.sameHost')}</option>
-        <option value="domain">{t('newCrawl.sameDomain')}</option>
-      </select>
+      <SearchSelect id="scope" bind:value={crawlScope} options={[
+        { value: 'host', label: t('newCrawl.sameHost') },
+        { value: 'domain', label: t('newCrawl.sameDomain') },
+      ]} />
     </div>
     <div class="form-group">
       <label for="useragent">{t('newCrawl.userAgent')}</label>
-      <select id="useragent" bind:value={userAgentPreset} onchange={onUserAgentChange}>
-        {#each userAgentPresets as preset}
-          <option value={preset.value}>{preset.label}</option>
-        {/each}
-      </select>
+      <SearchSelect id="useragent" bind:value={userAgentPreset} onchange={onUserAgentChange} options={userAgentPresets.map(p => ({ value: p.value, label: p.label }))} />
     </div>
     {#if userAgentPreset === 'custom'}
       <div class="form-group">
@@ -90,12 +87,12 @@
     {#if userAgentPreset !== ''}
       <div class="form-group">
         <label for="tlsprofile">{t('newCrawl.tlsFingerprint')}</label>
-        <select id="tlsprofile" bind:value={tlsProfile}>
-          <option value="">{t('newCrawl.tlsOff')}</option>
-          <option value="chrome">{t('newCrawl.tlsChrome')}</option>
-          <option value="firefox">{t('newCrawl.tlsFirefox')}</option>
-          <option value="edge">{t('newCrawl.tlsEdge')}</option>
-        </select>
+        <SearchSelect id="tlsprofile" bind:value={tlsProfile} options={[
+          { value: '', label: t('newCrawl.tlsOff') },
+          { value: 'chrome', label: t('newCrawl.tlsChrome') },
+          { value: 'firefox', label: t('newCrawl.tlsFirefox') },
+          { value: 'edge', label: t('newCrawl.tlsEdge') },
+        ]} />
       </div>
     {/if}
     <div class="form-group form-checkbox-row">
@@ -112,11 +109,11 @@
     {/if}
     <div class="form-group">
       <label for="jsrender">{t('newCrawl.jsRender')}</label>
-      <select id="jsrender" bind:value={jsRenderMode}>
-        <option value="off">{t('newCrawl.jsRenderOff')}</option>
-        <option value="auto">{t('newCrawl.jsRenderAuto')}</option>
-        <option value="always">{t('newCrawl.jsRenderAlways')}</option>
-      </select>
+      <SearchSelect id="jsrender" bind:value={jsRenderMode} options={[
+        { value: 'off', label: t('newCrawl.jsRenderOff') },
+        { value: 'auto', label: t('newCrawl.jsRenderAuto') },
+        { value: 'always', label: t('newCrawl.jsRenderAlways') },
+      ]} />
     </div>
     {#if jsRenderMode !== 'off'}
       <div class="form-group"><label for="jsworkers">{t('newCrawl.jsRenderWorkers')}</label><input id="jsworkers" type="number" bind:value={jsRenderMaxPages} min="1" max="8" /></div>
@@ -127,12 +124,13 @@
     {#if projects.length > 0}
       <div class="form-group">
         <label for="crawl-project">{t('newCrawl.project')}</label>
-        <select id="crawl-project" bind:value={crawlProjectId}>
-          <option value="">{t('newCrawl.noProject')}</option>
-          {#each projects as p}
-            <option value={p.id}>{p.name}</option>
-          {/each}
-        </select>
+        <SearchSelect id="crawl-project" bind:value={crawlProjectId}
+          placeholder={t('newCrawl.noProject')}
+          options={[{ value: '', label: t('newCrawl.noProject') }, ...projects.map(p => ({ value: p.id, label: p.name }))]}
+          onsearch={projects.length > 20 ? async (q) => {
+            const lq = q.toLowerCase();
+            return [{ value: '', label: t('newCrawl.noProject') }, ...projects.filter(p => p.name.toLowerCase().includes(lq)).map(p => ({ value: p.id, label: p.name }))];
+          } : undefined} />
       </div>
     {/if}
   </div>

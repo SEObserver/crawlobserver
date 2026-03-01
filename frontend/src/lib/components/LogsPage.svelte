@@ -2,6 +2,7 @@
   import { getLogs, exportLogs } from '../api.js';
   import { onDestroy } from 'svelte';
   import { t, getLocale } from '../i18n/index.svelte.js';
+  import SearchSelect from './SearchSelect.svelte';
 
   let { onerror } = $props();
 
@@ -33,14 +34,14 @@
     loadLogs();
   }
 
-  function changeLevel(e) {
-    level = e.target.value;
+  function changeLevel(v) {
+    level = v;
     offset = 0;
     loadLogs();
   }
 
-  function changeComponent(e) {
-    component = e.target.value;
+  function changeComponent(v) {
+    component = v;
     offset = 0;
     loadLogs();
   }
@@ -77,21 +78,21 @@
 </div>
 
 <div class="logs-filters">
-  <select class="logs-select" onchange={changeLevel} value={level}>
-    <option value="">{t('logs.allLevels')}</option>
-    <option value="debug">{t('logs.debug')}</option>
-    <option value="info">{t('logs.info')}</option>
-    <option value="warn">{t('logs.warn')}</option>
-    <option value="error">{t('logs.error')}</option>
-  </select>
+  <SearchSelect small bind:value={level} onchange={changeLevel} options={[
+    { value: '', label: t('logs.allLevels') },
+    { value: 'debug', label: t('logs.debug') },
+    { value: 'info', label: t('logs.info') },
+    { value: 'warn', label: t('logs.warn') },
+    { value: 'error', label: t('logs.error') },
+  ]} />
 
-  <select class="logs-select" onchange={changeComponent} value={component}>
-    <option value="">{t('logs.allComponents')}</option>
-    <option value="server">{t('logs.server')}</option>
-    <option value="crawler">{t('logs.crawler')}</option>
-    <option value="gsc">{t('logs.gsc')}</option>
-    <option value="storage">{t('logs.storage')}</option>
-  </select>
+  <SearchSelect small bind:value={component} onchange={changeComponent} options={[
+    { value: '', label: t('logs.allComponents') },
+    { value: 'server', label: t('logs.server') },
+    { value: 'crawler', label: t('logs.crawler') },
+    { value: 'gsc', label: t('logs.gsc') },
+    { value: 'storage', label: t('logs.storage') },
+  ]} />
 
   <form class="logs-search-form" onsubmit={(e) => { e.preventDefault(); applySearch(); }}>
     <input class="logs-search" type="text" placeholder={t('logs.searchMessages')} bind:value={searchInput} />
@@ -146,13 +147,9 @@
     flex-wrap: wrap;
     align-items: center;
   }
-  .logs-select {
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 13px;
+  .logs-filters :global(.ss-wrap) {
+    width: 160px;
+    flex-shrink: 0;
   }
   .logs-search-form {
     display: flex;

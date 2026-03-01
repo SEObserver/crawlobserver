@@ -522,7 +522,7 @@
         <APIManagementPage onerror={(msg) => error = msg} onprojectschanged={(p) => projects = p} />
 
       {:else if currentView === 'new-crawl'}
-        <NewCrawlForm {projects} onstart={onCrawlStarted} oncancel={() => navigateTo('/')} onerror={(msg) => error = msg} />
+        <NewCrawlForm {projects} initialProjectId={new URLSearchParams(window.location.search).get('project') || ''} onstart={onCrawlStarted} oncancel={() => { const proj = new URLSearchParams(window.location.search).get('project'); proj ? navigateTo(`/projects/${proj}`) : navigateTo('/'); }} onerror={(msg) => error = msg} />
 
       {:else if currentView === 'project' && selectedProject}
         {#key selectedProject.id}
@@ -533,6 +533,7 @@
             onerror={(msg) => error = msg}
             onselectsession={selectSession}
             ongohome={goHome}
+            onnewcrawl={() => navigateTo('/new-crawl', { project: selectedProject?.id })}
             onprojectrenamed={async (id) => { projects = await getProjects(); selectedProject = projects.find(p => p.id === id) || selectedProject; }}
             onprojectdeleted={async () => { projects = await getProjects(); goHome(); }}
             onpushurl={(u) => pushURL(u)} />
