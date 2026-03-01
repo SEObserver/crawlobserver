@@ -55,14 +55,14 @@
 {:else}
   <div class="card card-flush">
     {#each sessions as s}
+      {@const live = liveProgress[s.ID]}
+      {@const isQueued = live ? live.is_queued : s.is_queued}
+      {@const isRunning = live ? live.is_running : s.is_running}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="session-row" onclick={() => onselectsession?.(s)}>
         <div class="session-info">
           <div class="session-seed">{s.SeedURLs?.[0] || 'Unknown'}</div>
-          {@const live = liveProgress[s.ID]}
-          {@const isQueued = live ? live.is_queued : s.is_queued}
-          {@const isRunning = live ? live.is_running : s.is_running}
           <div class="session-meta">
             {#if isQueued}
               <span class="badge badge-queued">{t('session.queued')}</span>
