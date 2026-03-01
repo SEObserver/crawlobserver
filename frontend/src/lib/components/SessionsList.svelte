@@ -55,7 +55,9 @@
 {:else}
   <div class="card card-flush">
     {#each sessions as s}
-      <div class="session-row">
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="session-row" onclick={() => onselectsession?.(s)}>
         <div class="session-info">
           <div class="session-seed">{s.SeedURLs?.[0] || 'Unknown'}</div>
           <div class="session-meta">
@@ -80,8 +82,7 @@
             <span>{timeAgo(s.StartedAt)}</span>
           </div>
         </div>
-        <div class="session-actions">
-          <button class="btn btn-sm" onclick={() => onselectsession?.(s)}>{t('common.view')}</button>
+        <div class="session-actions" onclick={(e) => e.stopPropagation()}>
           {#if s.is_running}
             <button class="btn btn-sm btn-danger" onclick={() => onstop?.(s.ID)}>{t('common.stop')}</button>
           {:else}
@@ -105,7 +106,7 @@
     gap: 16px;
   }
   .session-row:last-child { border-bottom: none; }
-  .session-row:hover { background: var(--bg-hover); }
+  .session-row:hover { background: var(--bg-hover); cursor: pointer; }
   .session-info {
     display: flex;
     flex-direction: column;
