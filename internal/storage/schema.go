@@ -569,6 +569,42 @@ ALTER TABLE crawlobserver.pages
     ADD COLUMN IF NOT EXISTS content_hash UInt64 DEFAULT 0 AFTER pagerank
 `
 
+const CreateProviderTopPages = `
+CREATE TABLE IF NOT EXISTS crawlobserver.provider_top_pages (
+    project_id String,
+    provider String,
+    domain String,
+    url String,
+    title String,
+    trust_flow UInt8,
+    citation_flow UInt8,
+    ext_backlinks Int64,
+    ref_domains Int64,
+    topical_trust_flow Array(Tuple(String, UInt8)),
+    language LowCardinality(String),
+    fetched_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(fetched_at)
+PARTITION BY project_id
+ORDER BY (project_id, provider, domain, url)
+`
+
+const CreateProviderAPICalls = `
+CREATE TABLE IF NOT EXISTS crawlobserver.provider_api_calls (
+    project_id String,
+    provider String,
+    endpoint String,
+    method LowCardinality(String),
+    status_code UInt16,
+    duration_ms UInt32,
+    rows_returned UInt32,
+    response_body String CODEC(ZSTD(3)),
+    error String,
+    called_at DateTime64(3)
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMM(called_at)
+ORDER BY (project_id, provider, called_at)
+`
+
 // Migrations is the ordered list of migrations.
 var Migrations = []Migration{
 	{Name: "create database", DDL: CreateDatabase},
@@ -596,4 +632,6 @@ var Migrations = []Migration{
 	{Name: "create page_resource_refs", DDL: CreatePageResourceRefs},
 	{Name: "alter pages v5 js rendering", DDL: AlterPagesV5},
 	{Name: "alter pages v6 content hash", DDL: AlterPagesV6},
+	{Name: "create provider_top_pages", DDL: CreateProviderTopPages},
+	{Name: "create provider_api_calls", DDL: CreateProviderAPICalls},
 }

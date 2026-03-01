@@ -1,7 +1,8 @@
 <script>
   import { onDestroy } from 'svelte';
   import { getProviderStatus, connectProvider, disconnectProvider, fetchProviderData, stopProviderFetch,
-    getProviderMetrics, getProviderBacklinks, getProviderRefDomains, getProviderRankings, getProviderVisibility } from '../api.js';
+    getProviderMetrics, getProviderBacklinks, getProviderRefDomains, getProviderRankings, getProviderVisibility,
+    getProviderTopPages, getProviderAPICalls } from '../api.js';
   import { fmtN } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
 
@@ -25,6 +26,10 @@
   let refdomainsOffset = $state(0);
   let rankings = $state(null);
   let rankingsOffset = $state(0);
+  let topPages = $state(null);
+  let topPagesOffset = $state(0);
+  let apiCalls = $state(null);
+  let apiCallsOffset = $state(0);
   let visibility = $state(null);
 
   let fetchingData = $state(false);
@@ -116,6 +121,8 @@
       backlinks = null;
       refdomains = null;
       rankings = null;
+      topPages = null;
+      apiCalls = null;
       visibility = null;
     } catch (e) {
       onerror?.(e.message);
@@ -154,6 +161,10 @@
         refdomains = await getProviderRefDomains(projectId, provider, PAGE_LIMIT, refdomainsOffset);
       } else if (view === 'rankings') {
         rankings = await getProviderRankings(projectId, provider, PAGE_LIMIT, rankingsOffset);
+      } else if (view === 'top_pages') {
+        topPages = await getProviderTopPages(projectId, provider, PAGE_LIMIT, topPagesOffset);
+      } else if (view === 'api_calls') {
+        apiCalls = await getProviderAPICalls(projectId, provider, 50, apiCallsOffset);
       }
     } catch (e) {
       // No data yet is OK
@@ -167,6 +178,8 @@
     if (view === 'backlinks') backlinksOffset = 0;
     if (view === 'refdomains') refdomainsOffset = 0;
     if (view === 'rankings') rankingsOffset = 0;
+    if (view === 'top_pages') topPagesOffset = 0;
+    if (view === 'api_calls') apiCallsOffset = 0;
     if (view === 'settings') {
       settingsDomain = status?.domain || '';
       settingsApiKey = '';
@@ -229,6 +242,8 @@
       <button class="pr-subview-btn" class:pr-subview-active={subView === 'backlinks'} onclick={() => switchSubView('backlinks')}>{t('providers.backlinks')}</button>
       <button class="pr-subview-btn" class:pr-subview-active={subView === 'refdomains'} onclick={() => switchSubView('refdomains')}>{t('providers.refDomains')}</button>
       <button class="pr-subview-btn" class:pr-subview-active={subView === 'rankings'} onclick={() => switchSubView('rankings')}>{t('providers.rankings')}</button>
+      <button class="pr-subview-btn" class:pr-subview-active={subView === 'top_pages'} onclick={() => switchSubView('top_pages')}>{t('providers.topPagesTab')}</button>
+      <button class="pr-subview-btn" class:pr-subview-active={subView === 'api_calls'} onclick={() => switchSubView('api_calls')}>{t('providers.apiCallsTab')}</button>
       <button class="pr-subview-btn" class:pr-subview-active={subView === 'settings'} onclick={() => switchSubView('settings')}>{t('providers.settings')}</button>
     </div>
 
@@ -364,6 +379,70 @@
         {/if}
       {:else}
         <p class="chart-empty">{t('providers.noRankings')}</p>
+      {/if}
+
+    {:else if subView === 'top_pages'}
+      {#if topPages?.rows?.length > 0}
+        <div class="table-meta">{t('providers.topPagesCount', { count: fmtN(topPages.total) })}</div>
+        <table>
+          <thead><tr><th>#</th><th>{t('common.url')}</th><th>{t('providers.title')}</th><th>{t('providers.tf')}</th><th>{t('providers.cf')}</th><th>{t('providers.backlinks')}</th><th>{t('providers.refDomains')}</th><th>{t('providers.topic')}</th><th>{t('providers.lang')}</th></tr></thead>
+          <tbody>
+            {#each topPages.rows as r, i}
+              <tr>
+                <td class="row-num">{topPagesOffset + i + 1}</td>
+                <td class="cell-url prov-cell-url">
+                  <a href={r.url} target="_blank" rel="noopener">{r.url}</a>
+                </td>
+                <td class="prov-cell-anchor">{r.title || '-'}</td>
+                <td><span class="badge prov-metric-badge" style="background-color: {r.trust_flow > 40 ? '#22c55e22' : r.trust_flow >= 20 ? '#f59e0b22' : '#ef444422'}; color: {r.trust_flow > 40 ? '#16a34a' : r.trust_flow >= 20 ? '#d97706' : '#dc2626'}">{r.trust_flow ?? '-'}</span></td>
+                <td><span class="badge prov-metric-badge" style="background-color: {r.citation_flow > 40 ? '#22c55e22' : r.citation_flow >= 20 ? '#f59e0b22' : '#ef444422'}; color: {r.citation_flow > 40 ? '#16a34a' : r.citation_flow >= 20 ? '#d97706' : '#dc2626'}">{r.citation_flow ?? '-'}</span></td>
+                <td>{fmtN(r.backlinks ?? 0)}</td>
+                <td>{fmtN(r.ref_domains ?? 0)}</td>
+                <td class="text-xs">{r.topical_tf?.[0]?.topic || '-'}</td>
+                <td class="text-xs">{r.language || '-'}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+        {#if topPages.total > PAGE_LIMIT}
+          <div class="pagination">
+            <button class="btn btn-sm" disabled={topPagesOffset === 0} onclick={() => { topPagesOffset = Math.max(0, topPagesOffset - PAGE_LIMIT); loadSubView('top_pages'); }}>{t('common.previous')}</button>
+            <span class="pagination-info">{topPagesOffset + 1} - {Math.min(topPagesOffset + PAGE_LIMIT, topPages.total)} of {fmtN(topPages.total)}</span>
+            <button class="btn btn-sm" disabled={topPagesOffset + PAGE_LIMIT >= topPages.total} onclick={() => { topPagesOffset += PAGE_LIMIT; loadSubView('top_pages'); }}>{t('common.next')}</button>
+          </div>
+        {/if}
+      {:else}
+        <p class="chart-empty">{t('providers.noTopPages')}</p>
+      {/if}
+
+    {:else if subView === 'api_calls'}
+      {#if apiCalls?.rows?.length > 0}
+        <div class="table-meta">{t('providers.apiCallsCount', { count: fmtN(apiCalls.total) })}</div>
+        <table>
+          <thead><tr><th>#</th><th>{t('providers.time')}</th><th>{t('providers.endpoint')}</th><th>{t('providers.status')}</th><th>{t('providers.duration')}</th><th>{t('providers.rows')}</th><th>{t('providers.error')}</th></tr></thead>
+          <tbody>
+            {#each apiCalls.rows as r, i}
+              <tr>
+                <td class="row-num">{apiCallsOffset + i + 1}</td>
+                <td class="text-xs nowrap">{r.timestamp ? new Date(r.timestamp).toLocaleString() : '-'}</td>
+                <td class="prov-cell-anchor">{r.endpoint || '-'}</td>
+                <td><span class="badge" style="background-color: {r.status_code >= 200 && r.status_code < 300 ? '#22c55e22' : r.status_code >= 400 ? '#ef444422' : '#f59e0b22'}; color: {r.status_code >= 200 && r.status_code < 300 ? '#16a34a' : r.status_code >= 400 ? '#dc2626' : '#d97706'}">{r.status_code ?? '-'}</span></td>
+                <td class="text-xs nowrap">{r.duration_ms != null ? `${r.duration_ms}ms` : '-'}</td>
+                <td>{r.rows_returned != null ? fmtN(r.rows_returned) : '-'}</td>
+                <td class="text-xs prov-cell-anchor">{r.error || '-'}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+        {#if apiCalls.total > 50}
+          <div class="pagination">
+            <button class="btn btn-sm" disabled={apiCallsOffset === 0} onclick={() => { apiCallsOffset = Math.max(0, apiCallsOffset - 50); loadSubView('api_calls'); }}>{t('common.previous')}</button>
+            <span class="pagination-info">{apiCallsOffset + 1} - {Math.min(apiCallsOffset + 50, apiCalls.total)} of {fmtN(apiCalls.total)}</span>
+            <button class="btn btn-sm" disabled={apiCallsOffset + 50 >= apiCalls.total} onclick={() => { apiCallsOffset += 50; loadSubView('api_calls'); }}>{t('common.next')}</button>
+          </div>
+        {/if}
+      {:else}
+        <p class="chart-empty">{t('providers.noAPICalls')}</p>
       {/if}
 
     {:else if subView === 'settings'}

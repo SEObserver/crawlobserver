@@ -33,11 +33,25 @@ type apiResponse struct {
 	Data    json.RawMessage `json:"data"`
 }
 
-func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader) (*apiResponse, error) {
+// APICallMeta captures metadata about an API call for logging.
+type APICallMeta struct {
+	Endpoint     string
+	Method       string
+	StatusCode   uint16
+	DurationMs   uint32
+	ResponseBody string // truncated to 10KB
+}
+
+const maxResponseBodyLog = 10 * 1024
+
+func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader) (*apiResponse, *APICallMeta, error) {
+	meta := &APICallMeta{Endpoint: path, Method: method}
+	start := time.Now()
+
 	url := c.baseURL + "/" + path
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return nil, meta, fmt.Errorf("creating request: %w", err)
 	}
 	req.Header.Set("X-SEObserver-key", c.apiKey)
 	if body != nil {
@@ -45,42 +59,50 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 	}
 
 	resp, err := c.http.Do(req)
+	meta.DurationMs = uint32(time.Since(start).Milliseconds())
 	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
+		return nil, meta, fmt.Errorf("executing request: %w", err)
 	}
 	defer resp.Body.Close()
+	meta.StatusCode = uint16(resp.StatusCode)
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+		return nil, meta, fmt.Errorf("reading response: %w", err)
+	}
+
+	if len(data) <= maxResponseBodyLog {
+		meta.ResponseBody = string(data)
+	} else {
+		meta.ResponseBody = string(data[:maxResponseBodyLog])
 	}
 
 	if resp.StatusCode == 401 {
-		return nil, fmt.Errorf("unauthorized: invalid API key")
+		return nil, meta, fmt.Errorf("unauthorized: invalid API key")
 	}
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(data))
+		return nil, meta, fmt.Errorf("API error %d: %s", resp.StatusCode, string(data))
 	}
 
 	var result apiResponse
 	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, fmt.Errorf("parsing response: %w", err)
+		return nil, meta, fmt.Errorf("parsing response: %w", err)
 	}
 	if result.Status != "ok" {
-		return nil, fmt.Errorf("API error: %s", result.Message)
+		return nil, meta, fmt.Errorf("API error: %s", result.Message)
 	}
-	return &result, nil
+	return &result, meta, nil
 }
 
-func (c *Client) postJSON(ctx context.Context, path string, payload interface{}) (*apiResponse, error) {
+func (c *Client) postJSON(ctx context.Context, path string, payload interface{}) (*apiResponse, *APICallMeta, error) {
 	b, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("marshaling payload: %w", err)
+		return nil, nil, fmt.Errorf("marshaling payload: %w", err)
 	}
 	return c.doRequest(ctx, "POST", path, strings.NewReader(string(b)))
 }
 
-func (c *Client) get(ctx context.Context, path string) (*apiResponse, error) {
+func (c *Client) get(ctx context.Context, path string) (*apiResponse, *APICallMeta, error) {
 	return c.doRequest(ctx, "GET", path, nil)
 }
 
@@ -96,20 +118,20 @@ type DomainMetrics struct {
 }
 
 // GetDomainMetrics fetches domain-level metrics via backlinks/metrics.json.
-func (c *Client) GetDomainMetrics(ctx context.Context, domain string) (*DomainMetrics, error) {
+func (c *Client) GetDomainMetrics(ctx context.Context, domain string) (*DomainMetrics, *APICallMeta, error) {
 	items := []map[string]string{{"item_type": "domain", "item_value": domain}}
-	resp, err := c.postJSON(ctx, "backlinks/metrics.json", map[string]interface{}{"items": items})
+	resp, meta, err := c.postJSON(ctx, "backlinks/metrics.json", map[string]interface{}{"items": items})
 	if err != nil {
-		return nil, err
+		return nil, meta, err
 	}
 	var rows []DomainMetrics
 	if err := json.Unmarshal(resp.Data, &rows); err != nil {
-		return nil, fmt.Errorf("parsing metrics: %w", err)
+		return nil, meta, fmt.Errorf("parsing metrics: %w", err)
 	}
 	if len(rows) == 0 {
-		return &DomainMetrics{}, nil
+		return &DomainMetrics{}, meta, nil
 	}
-	return &rows[0], nil
+	return &rows[0], meta, nil
 }
 
 // --- Backlinks ---
@@ -128,20 +150,20 @@ type Backlink struct {
 }
 
 // FetchBacklinks fetches top backlinks via backlinks/top.json.
-func (c *Client) FetchBacklinks(ctx context.Context, domain string, limit int) ([]Backlink, error) {
+func (c *Client) FetchBacklinks(ctx context.Context, domain string, limit int) ([]Backlink, *APICallMeta, error) {
 	payload := map[string]interface{}{
 		"item":  domain,
 		"limit": limit,
 	}
-	resp, err := c.postJSON(ctx, "backlinks/top.json", payload)
+	resp, meta, err := c.postJSON(ctx, "backlinks/top.json", payload)
 	if err != nil {
-		return nil, err
+		return nil, meta, err
 	}
 	var rows []Backlink
 	if err := json.Unmarshal(resp.Data, &rows); err != nil {
-		return nil, fmt.Errorf("parsing backlinks: %w", err)
+		return nil, meta, fmt.Errorf("parsing backlinks: %w", err)
 	}
-	return rows, nil
+	return rows, meta, nil
 }
 
 // --- Referring Domains ---
@@ -155,20 +177,20 @@ type RefDomain struct {
 }
 
 // FetchRefDomains fetches referring domains via backlinks/refdomains.json.
-func (c *Client) FetchRefDomains(ctx context.Context, domain string, limit int) ([]RefDomain, error) {
+func (c *Client) FetchRefDomains(ctx context.Context, domain string, limit int) ([]RefDomain, *APICallMeta, error) {
 	payload := map[string]interface{}{
 		"item":  domain,
 		"limit": limit,
 	}
-	resp, err := c.postJSON(ctx, "backlinks/refdomains.json", payload)
+	resp, meta, err := c.postJSON(ctx, "backlinks/refdomains.json", payload)
 	if err != nil {
-		return nil, err
+		return nil, meta, err
 	}
 	var rows []RefDomain
 	if err := json.Unmarshal(resp.Data, &rows); err != nil {
-		return nil, fmt.Errorf("parsing refdomains: %w", err)
+		return nil, meta, fmt.Errorf("parsing refdomains: %w", err)
 	}
-	return rows, nil
+	return rows, meta, nil
 }
 
 // --- Anchors ---
@@ -180,20 +202,20 @@ type Anchor struct {
 }
 
 // FetchAnchors fetches anchor text distribution via backlinks/anchors.json.
-func (c *Client) FetchAnchors(ctx context.Context, domain string, limit int) ([]Anchor, error) {
+func (c *Client) FetchAnchors(ctx context.Context, domain string, limit int) ([]Anchor, *APICallMeta, error) {
 	payload := map[string]interface{}{
 		"item":  domain,
 		"limit": limit,
 	}
-	resp, err := c.postJSON(ctx, "backlinks/anchors.json", payload)
+	resp, meta, err := c.postJSON(ctx, "backlinks/anchors.json", payload)
 	if err != nil {
-		return nil, err
+		return nil, meta, err
 	}
 	var rows []Anchor
 	if err := json.Unmarshal(resp.Data, &rows); err != nil {
-		return nil, fmt.Errorf("parsing anchors: %w", err)
+		return nil, meta, fmt.Errorf("parsing anchors: %w", err)
 	}
-	return rows, nil
+	return rows, meta, nil
 }
 
 // --- Rankings ---
@@ -209,17 +231,17 @@ type Ranking struct {
 }
 
 // FetchRankings fetches organic keyword rankings via organic_keywords/index.json.
-func (c *Client) FetchRankings(ctx context.Context, domain, base string, limit, offset int) ([]Ranking, error) {
+func (c *Client) FetchRankings(ctx context.Context, domain, base string, limit, offset int) ([]Ranking, *APICallMeta, error) {
 	path := fmt.Sprintf("organic_keywords/index.json?domain=%s&base=%s&limit=%d&offset=%d", domain, base, limit, offset)
-	resp, err := c.get(ctx, path)
+	resp, meta, err := c.get(ctx, path)
 	if err != nil {
-		return nil, err
+		return nil, meta, err
 	}
 	var rows []Ranking
 	if err := json.Unmarshal(resp.Data, &rows); err != nil {
-		return nil, fmt.Errorf("parsing rankings: %w", err)
+		return nil, meta, fmt.Errorf("parsing rankings: %w", err)
 	}
-	return rows, nil
+	return rows, meta, nil
 }
 
 // --- Visibility History ---
@@ -231,19 +253,117 @@ type VisibilityPoint struct {
 }
 
 // FetchVisibilityHistory fetches organic visibility history.
-func (c *Client) FetchVisibilityHistory(ctx context.Context, domain, base string) ([]VisibilityPoint, error) {
+func (c *Client) FetchVisibilityHistory(ctx context.Context, domain, base string) ([]VisibilityPoint, *APICallMeta, error) {
 	items := []map[string]string{{"item_type": "domain", "item_value": domain}}
 	payload := map[string]interface{}{
 		"items": items,
 		"base":  base,
 	}
-	resp, err := c.postJSON(ctx, "organic_keywords/visibility_history.json", payload)
+	resp, meta, err := c.postJSON(ctx, "organic_keywords/visibility_history.json", payload)
 	if err != nil {
-		return nil, err
+		return nil, meta, err
 	}
 	var rows []VisibilityPoint
 	if err := json.Unmarshal(resp.Data, &rows); err != nil {
-		return nil, fmt.Errorf("parsing visibility history: %w", err)
+		return nil, meta, fmt.Errorf("parsing visibility history: %w", err)
 	}
-	return rows, nil
+	return rows, meta, nil
+}
+
+// --- Top Pages (Majestic) ---
+
+// TopPage represents a top page with Majestic authority metrics.
+type TopPage struct {
+	URL              string      `json:"url"`
+	Title            string      `json:"title"`
+	TrustFlow        uint8       `json:"trust_flow"`
+	CitationFlow     uint8       `json:"citation_flow"`
+	ExtBackLinks     int64       `json:"ext_backlinks"`
+	RefDomains       int64       `json:"ref_domains"`
+	TopicalTrustFlow []TopicalTF `json:"topical_trust_flow"`
+	Language         string      `json:"language"`
+}
+
+// TopicalTF represents a topical trust flow entry.
+type TopicalTF struct {
+	Topic string `json:"topic"`
+	Value uint8  `json:"value"`
+}
+
+// rawTopPage is the flat JSON structure from the Majestic/SEObserver API.
+type rawTopPage struct {
+	URL          string `json:"url"`
+	Title        string `json:"title"`
+	TrustFlow    uint8  `json:"trust_flow"`
+	CitationFlow uint8  `json:"citation_flow"`
+	ExtBackLinks int64  `json:"ext_backlinks"`
+	RefDomains   int64  `json:"ref_domains"`
+	Language     string `json:"language"`
+	// Flat topical TF fields (Topic_0..Topic_9, Value_0..Value_9)
+	TTFTopic0 string `json:"TopicalTrustFlow_Topic_0"`
+	TTFValue0 uint8  `json:"TopicalTrustFlow_Value_0"`
+	TTFTopic1 string `json:"TopicalTrustFlow_Topic_1"`
+	TTFValue1 uint8  `json:"TopicalTrustFlow_Value_1"`
+	TTFTopic2 string `json:"TopicalTrustFlow_Topic_2"`
+	TTFValue2 uint8  `json:"TopicalTrustFlow_Value_2"`
+	TTFTopic3 string `json:"TopicalTrustFlow_Topic_3"`
+	TTFValue3 uint8  `json:"TopicalTrustFlow_Value_3"`
+	TTFTopic4 string `json:"TopicalTrustFlow_Topic_4"`
+	TTFValue4 uint8  `json:"TopicalTrustFlow_Value_4"`
+	TTFTopic5 string `json:"TopicalTrustFlow_Topic_5"`
+	TTFValue5 uint8  `json:"TopicalTrustFlow_Value_5"`
+	TTFTopic6 string `json:"TopicalTrustFlow_Topic_6"`
+	TTFValue6 uint8  `json:"TopicalTrustFlow_Value_6"`
+	TTFTopic7 string `json:"TopicalTrustFlow_Topic_7"`
+	TTFValue7 uint8  `json:"TopicalTrustFlow_Value_7"`
+	TTFTopic8 string `json:"TopicalTrustFlow_Topic_8"`
+	TTFValue8 uint8  `json:"TopicalTrustFlow_Value_8"`
+	TTFTopic9 string `json:"TopicalTrustFlow_Topic_9"`
+	TTFValue9 uint8  `json:"TopicalTrustFlow_Value_9"`
+}
+
+func (r *rawTopPage) toTopPage() TopPage {
+	tp := TopPage{
+		URL:          r.URL,
+		Title:        r.Title,
+		TrustFlow:    r.TrustFlow,
+		CitationFlow: r.CitationFlow,
+		ExtBackLinks: r.ExtBackLinks,
+		RefDomains:   r.RefDomains,
+		Language:     r.Language,
+	}
+	pairs := []struct{ t string; v uint8 }{
+		{r.TTFTopic0, r.TTFValue0}, {r.TTFTopic1, r.TTFValue1},
+		{r.TTFTopic2, r.TTFValue2}, {r.TTFTopic3, r.TTFValue3},
+		{r.TTFTopic4, r.TTFValue4}, {r.TTFTopic5, r.TTFValue5},
+		{r.TTFTopic6, r.TTFValue6}, {r.TTFTopic7, r.TTFValue7},
+		{r.TTFTopic8, r.TTFValue8}, {r.TTFTopic9, r.TTFValue9},
+	}
+	for _, p := range pairs {
+		if p.t != "" {
+			tp.TopicalTrustFlow = append(tp.TopicalTrustFlow, TopicalTF{Topic: p.t, Value: p.v})
+		}
+	}
+	return tp
+}
+
+// FetchTopPages fetches top pages with Majestic authority data.
+func (c *Client) FetchTopPages(ctx context.Context, domain string, limit int) ([]TopPage, *APICallMeta, error) {
+	payload := map[string]interface{}{
+		"item":  domain,
+		"limit": limit,
+	}
+	resp, meta, err := c.postJSON(ctx, "backlinks/top-pages.json", payload)
+	if err != nil {
+		return nil, meta, err
+	}
+	var raw []rawTopPage
+	if err := json.Unmarshal(resp.Data, &raw); err != nil {
+		return nil, meta, fmt.Errorf("parsing top pages: %w", err)
+	}
+	pages := make([]TopPage, len(raw))
+	for i, r := range raw {
+		pages[i] = r.toTopPage()
+	}
+	return pages, meta, nil
 }

@@ -23,6 +23,7 @@ export const TAB_ICONS = {
   pagerank:   '<circle cx="11" cy="11" r="2.5" fill="currentColor" stroke="none"/><circle cx="13" cy="4" r="1.5" fill="currentColor" stroke="none"/><circle cx="20" cy="10" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="17" r="1.5" fill="currentColor" stroke="none"/><circle cx="5" cy="17" r="1.5" fill="currentColor" stroke="none"/><path d="M11 11l2-7M11 11l9-1M11 11l5 6M11 11l-6 6M20 10l-4 7M20 10l-7-6"/>',
   directives: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
   tests:      '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  authority:  '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4m0 4h.01"/>',
 };
 
 export function getTabs() {
@@ -33,6 +34,7 @@ export function getTabs() {
     { id: 'resources',  label: t('tabs.resources'),   icon: TAB_ICONS.resources },
     { id: 'pagerank',   label: t('tabs.pagerank'),    icon: TAB_ICONS.pagerank },
     { id: 'directives', label: t('tabs.directives'),  icon: TAB_ICONS.directives },
+    { id: 'authority',  label: t('tabs.authority'),    icon: TAB_ICONS.authority },
     { id: 'tests',      label: t('tabs.tests'),       icon: TAB_ICONS.tests },
   ];
 }
@@ -44,6 +46,7 @@ export const TAB_SUB_VIEWS = {
   resources:  ['summary', 'urls'],
   pagerank:   ['top', 'directory', 'distribution', 'table'],
   directives: ['robots', 'sitemaps'],
+  authority:  null,
   tests:      null,
 };
 
@@ -54,6 +57,7 @@ export const TAB_DEFAULT_SUB_VIEW = {
   resources:  'summary',
   pagerank:   'top',
   directives: 'robots',
+  authority:  null,
   tests:      null,
 };
 

@@ -274,6 +274,138 @@ func (s *Store) ProviderVisibilityHistory(ctx context.Context, projectID, provid
 	return result, nil
 }
 
+func (s *Store) InsertProviderTopPages(ctx context.Context, projectID string, rows []ProviderTopPageRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO crawlobserver.provider_top_pages (
+			project_id, provider, domain, url, title, trust_flow, citation_flow,
+			ext_backlinks, ref_domains, topical_trust_flow, language, fetched_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing provider_top_pages batch: %w", err)
+	}
+	now := time.Now()
+	for _, r := range rows {
+		ttf := make([][]interface{}, len(r.TopicalTrustFlow))
+		for i, t := range r.TopicalTrustFlow {
+			ttf[i] = []interface{}{t.Topic, t.Value}
+		}
+		if err := batch.Append(
+			projectID, r.Provider, r.Domain, r.URL, r.Title,
+			r.TrustFlow, r.CitationFlow, r.ExtBackLinks, r.RefDomains,
+			ttf, r.Language, now,
+		); err != nil {
+			return fmt.Errorf("appending provider_top_pages row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+func (s *Store) ProviderTopPages(ctx context.Context, projectID, provider string, limit, offset int) ([]ProviderTopPageRow, int, error) {
+	var total uint64
+	if err := s.conn.QueryRow(ctx, `
+		SELECT count() FROM crawlobserver.provider_top_pages FINAL
+		WHERE project_id = ? AND provider = ?`, projectID, provider).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("counting provider top pages: %w", err)
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT provider, domain, url, title, trust_flow, citation_flow,
+			ext_backlinks, ref_domains, topical_trust_flow, language, fetched_at
+		FROM crawlobserver.provider_top_pages FINAL
+		WHERE project_id = ? AND provider = ?
+		ORDER BY trust_flow DESC
+		LIMIT ? OFFSET ?`, projectID, provider, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying provider top pages: %w", err)
+	}
+	defer rows.Close()
+
+	var result []ProviderTopPageRow
+	for rows.Next() {
+		var r ProviderTopPageRow
+		var ttfRaw [][]interface{}
+		if err := rows.Scan(&r.Provider, &r.Domain, &r.URL, &r.Title,
+			&r.TrustFlow, &r.CitationFlow, &r.ExtBackLinks, &r.RefDomains,
+			&ttfRaw, &r.Language, &r.FetchedAt); err != nil {
+			return nil, 0, fmt.Errorf("scanning provider top page row: %w", err)
+		}
+		for _, pair := range ttfRaw {
+			if len(pair) == 2 {
+				topic, _ := pair[0].(string)
+				value, _ := pair[1].(uint8)
+				r.TopicalTrustFlow = append(r.TopicalTrustFlow, TopicalTF{Topic: topic, Value: value})
+			}
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []ProviderTopPageRow{}
+	}
+	return result, int(total), nil
+}
+
+func (s *Store) InsertProviderAPICalls(ctx context.Context, rows []ProviderAPICallRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO crawlobserver.provider_api_calls (
+			project_id, provider, endpoint, method, status_code, duration_ms,
+			rows_returned, response_body, error, called_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing provider_api_calls batch: %w", err)
+	}
+	for _, r := range rows {
+		if err := batch.Append(
+			r.ProjectID, r.Provider, r.Endpoint, r.Method, r.StatusCode,
+			r.DurationMs, r.RowsReturned, r.ResponseBody, r.Error, r.CalledAt,
+		); err != nil {
+			return fmt.Errorf("appending provider_api_calls row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+func (s *Store) ProviderAPICalls(ctx context.Context, projectID, provider string, limit, offset int) ([]ProviderAPICallRow, int, error) {
+	var total uint64
+	if err := s.conn.QueryRow(ctx, `
+		SELECT count() FROM crawlobserver.provider_api_calls
+		WHERE project_id = ? AND provider = ?`, projectID, provider).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("counting provider api calls: %w", err)
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT project_id, provider, endpoint, method, status_code, duration_ms,
+			rows_returned, response_body, error, called_at
+		FROM crawlobserver.provider_api_calls
+		WHERE project_id = ? AND provider = ?
+		ORDER BY called_at DESC
+		LIMIT ? OFFSET ?`, projectID, provider, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying provider api calls: %w", err)
+	}
+	defer rows.Close()
+
+	var result []ProviderAPICallRow
+	for rows.Next() {
+		var r ProviderAPICallRow
+		if err := rows.Scan(&r.ProjectID, &r.Provider, &r.Endpoint, &r.Method,
+			&r.StatusCode, &r.DurationMs, &r.RowsReturned, &r.ResponseBody,
+			&r.Error, &r.CalledAt); err != nil {
+			return nil, 0, fmt.Errorf("scanning provider api call row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []ProviderAPICallRow{}
+	}
+	return result, int(total), nil
+}
+
 func (s *Store) DeleteProviderData(ctx context.Context, projectID, provider string) error {
 	tables := []string{
 		"provider_domain_metrics",
@@ -281,6 +413,7 @@ func (s *Store) DeleteProviderData(ctx context.Context, projectID, provider stri
 		"provider_refdomains",
 		"provider_rankings",
 		"provider_visibility",
+		"provider_top_pages",
 	}
 	for _, table := range tables {
 		q := fmt.Sprintf("ALTER TABLE crawlobserver.%s DELETE WHERE project_id = ? AND provider = ?", table)

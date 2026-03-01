@@ -1153,3 +1153,57 @@ func (s *Store) NearDuplicates(ctx context.Context, sessionID string, threshold 
 	}
 	return result, nil
 }
+
+// PagesWithAuthority joins crawled pages with provider top_pages (Majestic authority data).
+func (s *Store) PagesWithAuthority(ctx context.Context, sessionID, projectID string, limit, offset int) ([]PageWithAuthority, int, error) {
+	if !isValidUUID(sessionID) {
+		return nil, 0, fmt.Errorf("invalid session ID")
+	}
+
+	var total uint64
+	if err := s.conn.QueryRow(ctx, `
+		SELECT count()
+		FROM crawlobserver.pages FINAL AS p
+		WHERE p.crawl_session_id = ? AND p.status_code >= 200 AND p.status_code < 300
+	`, sessionID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("counting authority pages: %w", err)
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT p.url, p.title, p.pagerank, p.word_count, p.status_code, p.depth,
+		       t.trust_flow, t.citation_flow, t.ext_backlinks, t.ref_domains
+		FROM crawlobserver.pages FINAL AS p
+		LEFT JOIN crawlobserver.provider_top_pages FINAL AS t
+		  ON p.url = t.url AND t.project_id = ? AND t.provider = 'seobserver'
+		WHERE p.crawl_session_id = ?
+		  AND p.status_code >= 200 AND p.status_code < 300
+		ORDER BY t.trust_flow DESC NULLS LAST
+		LIMIT ? OFFSET ?
+	`, projectID, sessionID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying authority pages: %w", err)
+	}
+	defer rows.Close()
+
+	var result []PageWithAuthority
+	for rows.Next() {
+		var r PageWithAuthority
+		var tf, cf uint8
+		var extBL, rd int64
+		if err := rows.Scan(&r.URL, &r.Title, &r.PageRank, &r.WordCount, &r.StatusCode, &r.Depth,
+			&tf, &cf, &extBL, &rd); err != nil {
+			return nil, 0, fmt.Errorf("scanning authority page row: %w", err)
+		}
+		if tf > 0 || cf > 0 {
+			r.TrustFlow = &tf
+			r.CitationFlow = &cf
+			r.ExtBackLinks = &extBL
+			r.RefDomains = &rd
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []PageWithAuthority{}
+	}
+	return result, int(total), nil
+}

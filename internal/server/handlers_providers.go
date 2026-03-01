@@ -56,7 +56,7 @@ func (s *Server) handleProviderConnect(w http.ResponseWriter, r *http.Request) {
 	switch provider {
 	case "seobserver":
 		client := seobserver.NewClient(apiKey)
-		if _, err := client.GetDomainMetrics(r.Context(), body.Domain); err != nil {
+		if _, _, err := client.GetDomainMetrics(r.Context(), body.Domain); err != nil {
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("SEObserver API validation failed: %v", err))
 			return
 		}
@@ -128,7 +128,7 @@ func (s *Server) handleProviderFetch(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&body)
 	if len(body.DataTypes) == 0 {
-		body.DataTypes = []string{"metrics", "backlinks", "refdomains", "rankings", "visibility"}
+		body.DataTypes = []string{"metrics", "backlinks", "refdomains", "rankings", "visibility", "top_pages"}
 	}
 
 	conn, err := s.keyStore.GetProviderConnection(projectID, provider)
@@ -155,13 +155,45 @@ func (s *Server) handleProviderFetch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "fetching"})
 }
 
+func (s *Server) logAPICall(ctx context.Context, meta *seobserver.APICallMeta, projectID, provider string, rowsReturned int, callErr error) {
+	if meta == nil {
+		return
+	}
+	errStr := ""
+	if callErr != nil {
+		errStr = callErr.Error()
+	}
+	row := storage.ProviderAPICallRow{
+		ProjectID:    projectID,
+		Provider:     provider,
+		Endpoint:     meta.Endpoint,
+		Method:       meta.Method,
+		StatusCode:   meta.StatusCode,
+		DurationMs:   meta.DurationMs,
+		RowsReturned: uint32(rowsReturned),
+		ResponseBody: meta.ResponseBody,
+		Error:        errStr,
+		CalledAt:     time.Now(),
+	}
+	if err := s.store.InsertProviderAPICalls(ctx, []storage.ProviderAPICallRow{row}); err != nil {
+		applog.Errorf("provider", "insert api call log error: %v", err)
+	}
+}
+
 func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc, projectID, provider string, conn *providers.ProviderConnection, dataTypes []string, key string) {
 	defer cancel()
+
+	results := make(map[string]phaseResult)
+
 	defer func() {
 		if r := recover(); r != nil {
 			applog.Errorf("provider", "fetch PANIC: %v", r)
+			now := time.Now()
 			s.providerFetchMu.Lock()
-			s.providerFetchStatus[key] = &providerFetchStatus{Fetching: false, Error: fmt.Sprintf("panic: %v", r)}
+			s.providerFetchStatus[key] = &providerFetchStatus{
+				Fetching: false, Error: fmt.Sprintf("panic: %v", r),
+				CompletedAt: &now, PhaseResults: results,
+			}
 			s.providerFetchMu.Unlock()
 		}
 	}()
@@ -171,8 +203,9 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 	case "seobserver":
 		client = seobserver.NewClient(conn.APIKey)
 	default:
+		now := time.Now()
 		s.providerFetchMu.Lock()
-		s.providerFetchStatus[key] = &providerFetchStatus{Fetching: false, Error: "unsupported provider"}
+		s.providerFetchStatus[key] = &providerFetchStatus{Fetching: false, Error: "unsupported provider", CompletedAt: &now}
 		s.providerFetchMu.Unlock()
 		return
 	}
@@ -198,12 +231,14 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 	// Metrics
 	if wantType("metrics") {
 		setPhase("metrics")
-		if err := ctx.Err(); err != nil {
+		if ctx.Err() != nil {
 			return
 		}
-		metrics, err := client.GetDomainMetrics(ctx, domain)
+		metrics, meta, err := client.GetDomainMetrics(ctx, domain)
+		s.logAPICall(ctx, meta, projectID, provider, 1, err)
 		if err != nil {
 			applog.Errorf("provider", "metrics error: %v", err)
+			results["metrics"] = phaseResult{Error: err.Error()}
 		} else {
 			row := storage.ProviderDomainMetricsRow{
 				Provider: provider, Domain: domain,
@@ -215,19 +250,22 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 				applog.Errorf("provider", "insert metrics error: %v", err)
 			}
 			totalRows++
+			results["metrics"] = phaseResult{Rows: 1}
 		}
 	}
 
 	// Backlinks
 	if wantType("backlinks") {
 		setPhase("backlinks")
-		if err := ctx.Err(); err != nil {
+		if ctx.Err() != nil {
 			return
 		}
-		backlinks, err := client.FetchBacklinks(ctx, domain, 1000)
+		backlinks, meta, err := client.FetchBacklinks(ctx, domain, 1000)
+		s.logAPICall(ctx, meta, projectID, provider, len(backlinks), err)
 		if err != nil {
 			applog.Errorf("provider", "backlinks error: %v", err)
-		} else if len(backlinks) > 0 {
+			results["backlinks"] = phaseResult{Error: err.Error()}
+		} else {
 			insertRows := make([]storage.ProviderBacklinkRow, len(backlinks))
 			for i, b := range backlinks {
 				insertRows[i] = storage.ProviderBacklinkRow{
@@ -242,19 +280,22 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 				applog.Errorf("provider", "insert backlinks error: %v", err)
 			}
 			totalRows += len(insertRows)
+			results["backlinks"] = phaseResult{Rows: len(insertRows)}
 		}
 	}
 
 	// RefDomains
 	if wantType("refdomains") {
 		setPhase("refdomains")
-		if err := ctx.Err(); err != nil {
+		if ctx.Err() != nil {
 			return
 		}
-		refdoms, err := client.FetchRefDomains(ctx, domain, 1000)
+		refdoms, meta, err := client.FetchRefDomains(ctx, domain, 1000)
+		s.logAPICall(ctx, meta, projectID, provider, len(refdoms), err)
 		if err != nil {
 			applog.Errorf("provider", "refdomains error: %v", err)
-		} else if len(refdoms) > 0 {
+			results["refdomains"] = phaseResult{Error: err.Error()}
+		} else {
 			insertRows := make([]storage.ProviderRefDomainRow, len(refdoms))
 			for i, rd := range refdoms {
 				insertRows[i] = storage.ProviderRefDomainRow{
@@ -267,19 +308,22 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 				applog.Errorf("provider", "insert refdomains error: %v", err)
 			}
 			totalRows += len(insertRows)
+			results["refdomains"] = phaseResult{Rows: len(insertRows)}
 		}
 	}
 
 	// Rankings
 	if wantType("rankings") {
 		setPhase("rankings")
-		if err := ctx.Err(); err != nil {
+		if ctx.Err() != nil {
 			return
 		}
-		rankings, err := client.FetchRankings(ctx, domain, "fr", 1000, 0)
+		rankings, meta, err := client.FetchRankings(ctx, domain, "fr", 1000, 0)
+		s.logAPICall(ctx, meta, projectID, provider, len(rankings), err)
 		if err != nil {
 			applog.Errorf("provider", "rankings error: %v", err)
-		} else if len(rankings) > 0 {
+			results["rankings"] = phaseResult{Error: err.Error()}
+		} else {
 			insertRows := make([]storage.ProviderRankingRow, len(rankings))
 			for i, rk := range rankings {
 				insertRows[i] = storage.ProviderRankingRow{
@@ -293,19 +337,22 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 				applog.Errorf("provider", "insert rankings error: %v", err)
 			}
 			totalRows += len(insertRows)
+			results["rankings"] = phaseResult{Rows: len(insertRows)}
 		}
 	}
 
 	// Visibility
 	if wantType("visibility") {
 		setPhase("visibility")
-		if err := ctx.Err(); err != nil {
+		if ctx.Err() != nil {
 			return
 		}
-		vis, err := client.FetchVisibilityHistory(ctx, domain, "fr")
+		vis, meta, err := client.FetchVisibilityHistory(ctx, domain, "fr")
+		s.logAPICall(ctx, meta, projectID, provider, len(vis), err)
 		if err != nil {
 			applog.Errorf("provider", "visibility error: %v", err)
-		} else if len(vis) > 0 {
+			results["visibility"] = phaseResult{Error: err.Error()}
+		} else {
 			insertRows := make([]storage.ProviderVisibilityRow, len(vis))
 			for i, v := range vis {
 				insertRows[i] = storage.ProviderVisibilityRow{
@@ -317,12 +364,54 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 				applog.Errorf("provider", "insert visibility error: %v", err)
 			}
 			totalRows += len(insertRows)
+			results["visibility"] = phaseResult{Rows: len(insertRows)}
 		}
 	}
 
+	// Top Pages
+	if wantType("top_pages") {
+		setPhase("top_pages")
+		if ctx.Err() != nil {
+			return
+		}
+		pages, meta, err := client.FetchTopPages(ctx, domain, 1000)
+		s.logAPICall(ctx, meta, projectID, provider, len(pages), err)
+		if err != nil {
+			applog.Errorf("provider", "top_pages error: %v", err)
+			results["top_pages"] = phaseResult{Error: err.Error()}
+		} else {
+			insertRows := make([]storage.ProviderTopPageRow, len(pages))
+			for i, p := range pages {
+				ttf := make([]storage.TopicalTF, len(p.TopicalTrustFlow))
+				for j, t := range p.TopicalTrustFlow {
+					ttf[j] = storage.TopicalTF{Topic: t.Topic, Value: t.Value}
+				}
+				insertRows[i] = storage.ProviderTopPageRow{
+					Provider: provider, Domain: domain,
+					URL: p.URL, Title: p.Title,
+					TrustFlow: p.TrustFlow, CitationFlow: p.CitationFlow,
+					ExtBackLinks: p.ExtBackLinks, RefDomains: p.RefDomains,
+					TopicalTrustFlow: ttf, Language: p.Language,
+				}
+			}
+			if err := s.store.InsertProviderTopPages(ctx, projectID, insertRows); err != nil {
+				applog.Errorf("provider", "insert top_pages error: %v", err)
+			}
+			totalRows += len(insertRows)
+			results["top_pages"] = phaseResult{Rows: len(insertRows)}
+		}
+	}
+
+	now := time.Now()
 	s.providerFetchMu.Lock()
 	applog.Infof("provider", "fetch completed for %s/%s: %d total rows", projectID, provider, totalRows)
-	delete(s.providerFetchStatus, key)
+	s.providerFetchStatus[key] = &providerFetchStatus{
+		Fetching:     false,
+		Phase:        "done",
+		RowsSoFar:    totalRows,
+		CompletedAt:  &now,
+		PhaseResults: results,
+	}
 	s.providerFetchMu.Unlock()
 }
 
@@ -420,4 +509,62 @@ func (s *Server) handleProviderVisibility(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, rows)
+}
+
+func (s *Server) handleProviderTopPages(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("id")
+	provider := r.PathValue("provider")
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 {
+		limit = 100
+	}
+	limit, offset = clampPagination(limit, offset)
+	rows, total, err := s.store.ProviderTopPages(r.Context(), projectID, provider, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"rows": rows, "total": total})
+}
+
+func (s *Server) handleProviderAPICalls(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("id")
+	provider := r.PathValue("provider")
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 {
+		limit = 50
+	}
+	limit, offset = clampPagination(limit, offset)
+	rows, total, err := s.store.ProviderAPICalls(r.Context(), projectID, provider, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"rows": rows, "total": total})
+}
+
+func (s *Server) handleSessionAuthority(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	projectID := r.URL.Query().Get("project_id")
+	if projectID == "" {
+		writeError(w, http.StatusBadRequest, "project_id is required")
+		return
+	}
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 {
+		limit = 100
+	}
+	limit, offset = clampPagination(limit, offset)
+	rows, total, err := s.store.PagesWithAuthority(r.Context(), sessionID, projectID, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"rows": rows, "total": total})
 }

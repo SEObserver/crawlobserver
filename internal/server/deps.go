@@ -52,6 +52,7 @@ type CrawlStore interface {
 	RunCustomTestsSQL(ctx context.Context, sessionID string, rules []customtests.TestRule) (map[string]map[string]string, error)
 	NearDuplicates(ctx context.Context, sessionID string, threshold int, limit, offset int) (*storage.NearDuplicatesResult, error)
 	StreamPagesHTML(ctx context.Context, sessionID string) (<-chan storage.PageHTMLRow, error)
+	PagesWithAuthority(ctx context.Context, sessionID, projectID string, limit, offset int) ([]storage.PageWithAuthority, int, error)
 }
 
 // GSCStore handles Google Search Console data.
@@ -80,6 +81,10 @@ type ProviderStore interface {
 	ProviderRefDomains(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderRefDomainRow, int, error)
 	ProviderRankings(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderRankingRow, int, error)
 	ProviderVisibilityHistory(ctx context.Context, projectID, provider string) ([]storage.ProviderVisibilityRow, error)
+	InsertProviderTopPages(ctx context.Context, projectID string, rows []storage.ProviderTopPageRow) error
+	ProviderTopPages(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderTopPageRow, int, error)
+	InsertProviderAPICalls(ctx context.Context, rows []storage.ProviderAPICallRow) error
+	ProviderAPICalls(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderAPICallRow, int, error)
 	DeleteProviderData(ctx context.Context, projectID, provider string) error
 }
 

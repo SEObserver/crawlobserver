@@ -12,6 +12,7 @@
   import PagesExplorer from './PagesExplorer.svelte';
   import LinksExplorer from './LinksExplorer.svelte';
   import DirectivesTab from './DirectivesTab.svelte';
+  import AuthorityTab from './AuthorityTab.svelte';
 
   let {
     session, stats, liveProgress,
@@ -135,6 +136,15 @@
       <DirectivesTab sessionId={session.ID} initialSubView={subView || 'robots'}
         onpushurl={(u) => pushURL(u)}
         onerror={(msg) => onerror?.(msg)} />
+
+    {:else if tab === 'authority'}
+      <AuthorityTab sessionId={session.ID} projectId={session.ProjectID}
+        onerror={(msg) => onerror?.(msg)}
+        onnavigate={() => {
+          if (session.ProjectID) {
+            onnavigate?.(`/projects/${session.ProjectID}/providers`);
+          }
+        }} />
 
     {:else if tab === 'tests'}
       <CustomTestsTab sessionId={session.ID} onerror={(msg) => onerror?.(msg)} />

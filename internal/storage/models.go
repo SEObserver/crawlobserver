@@ -311,6 +311,54 @@ type ProviderVisibilityRow struct {
 	FetchedAt     time.Time `json:"fetched_at"`
 }
 
+// --- Provider Top Pages & API Calls ---
+
+type TopicalTF struct {
+	Topic string `json:"topic"`
+	Value uint8  `json:"value"`
+}
+
+type ProviderTopPageRow struct {
+	Provider         string      `json:"provider"`
+	Domain           string      `json:"domain"`
+	URL              string      `json:"url"`
+	Title            string      `json:"title"`
+	TrustFlow        uint8       `json:"trust_flow"`
+	CitationFlow     uint8       `json:"citation_flow"`
+	ExtBackLinks     int64       `json:"ext_backlinks"`
+	RefDomains       int64       `json:"ref_domains"`
+	TopicalTrustFlow []TopicalTF `json:"topical_trust_flow"`
+	Language         string      `json:"language"`
+	FetchedAt        time.Time   `json:"fetched_at"`
+}
+
+type ProviderAPICallRow struct {
+	ProjectID    string    `json:"project_id"`
+	Provider     string    `json:"provider"`
+	Endpoint     string    `json:"endpoint"`
+	Method       string    `json:"method"`
+	StatusCode   uint16    `json:"status_code"`
+	DurationMs   uint32    `json:"duration_ms"`
+	RowsReturned uint32    `json:"rows_returned"`
+	ResponseBody string    `json:"response_body"`
+	Error        string    `json:"error"`
+	CalledAt     time.Time `json:"called_at"`
+}
+
+// PageWithAuthority combines a crawled page with its Majestic authority data.
+type PageWithAuthority struct {
+	URL          string  `json:"url"`
+	Title        string  `json:"title"`
+	PageRank     float64 `json:"pagerank"`
+	WordCount    uint32  `json:"word_count"`
+	StatusCode   uint16  `json:"status_code"`
+	Depth        uint16  `json:"depth"`
+	TrustFlow    *uint8  `json:"trust_flow"`
+	CitationFlow *uint8  `json:"citation_flow"`
+	ExtBackLinks *int64  `json:"ext_backlinks"`
+	RefDomains   *int64  `json:"ref_domains"`
+}
+
 // PageResourceCheck represents a single page resource check result.
 type PageResourceCheck struct {
 	CrawlSessionID string    `json:"crawl_session_id"`
