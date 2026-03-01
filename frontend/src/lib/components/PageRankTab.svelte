@@ -69,7 +69,6 @@
       await computePageRank(sessionId);
       hasData = true;
       loadPRSubView(prSubView);
-      onrefresh?.();
     } catch (e) { onerror?.(e.message); }
     finally { computingPR = false; }
   }
@@ -83,6 +82,12 @@
     <button class="pr-subview-btn" class:pr-subview-active={prSubView === 'directory'} onclick={() => switchPRSubView('directory')}>{t('pagerank.byDirectory')}</button>
     <button class="pr-subview-btn" class:pr-subview-active={prSubView === 'distribution'} onclick={() => switchPRSubView('distribution')}>{t('pagerank.distribution')}</button>
     <button class="pr-subview-btn" class:pr-subview-active={prSubView === 'table'} onclick={() => switchPRSubView('table')}>{t('pagerank.fullTable')}</button>
+    {#if hasData}
+      <button class="btn btn-sm pr-recalc-btn" onclick={handleComputePageRank} disabled={computingPR}>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        {computingPR ? t('actionBar.computing') : t('actionBar.computePageRank')}
+      </button>
+    {/if}
   </div>
 
   {#if prLoading}
@@ -90,11 +95,11 @@
   {:else if hasData === false}
     <div class="pr-empty-state">
       <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="pr-empty-icon">
-        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+        <circle cx="11" cy="11" r="2.5" fill="currentColor" stroke="none"/><circle cx="13" cy="4" r="1.5" fill="currentColor" stroke="none"/><circle cx="20" cy="10" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="17" r="1.5" fill="currentColor" stroke="none"/><circle cx="5" cy="17" r="1.5" fill="currentColor" stroke="none"/><path d="M11 11l2-7M11 11l9-1M11 11l5 6M11 11l-6 6M20 10l-4 7M20 10l-7-6"/>
       </svg>
       <p class="pr-empty-text">{t('pagerank.noData')}</p>
       <button class="btn btn-primary" onclick={handleComputePageRank} disabled={computingPR}>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="2.5" fill="currentColor" stroke="none"/><circle cx="13" cy="4" r="1.5" fill="currentColor" stroke="none"/><circle cx="20" cy="10" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="17" r="1.5" fill="currentColor" stroke="none"/><circle cx="5" cy="17" r="1.5" fill="currentColor" stroke="none"/><path d="M11 11l2-7M11 11l9-1M11 11l5 6M11 11l-6 6M20 10l-4 7M20 10l-7-6"/></svg>
         {computingPR ? t('actionBar.computing') : t('actionBar.computePageRank')}
       </button>
     </div>
@@ -137,5 +142,8 @@
     color: var(--text-muted);
     font-size: 15px;
     margin: 0;
+  }
+  .pr-recalc-btn {
+    margin-left: auto;
   }
 </style>
