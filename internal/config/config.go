@@ -35,6 +35,14 @@ type CrawlerConfig struct {
 	AllowPrivateIPs bool          `mapstructure:"allow_private_ips"` // allow crawling private/reserved IPs (default: false)
 	TLSProfile      string        `mapstructure:"tls_profile"`      // "", "chrome", "firefox", "edge"
 	Retry           RetryConfig   `mapstructure:"retry"`
+	JSRender        JSRenderConfig `mapstructure:"js_render"`
+}
+
+type JSRenderConfig struct {
+	Mode           string        `mapstructure:"mode"`            // "off" (default), "auto", "always"
+	MaxPages       int           `mapstructure:"max_pages"`       // concurrent Chrome pages (default: 4)
+	PageTimeout    time.Duration `mapstructure:"page_timeout"`    // per-page timeout (default: 15s)
+	BlockResources bool          `mapstructure:"block_resources"` // block images/fonts (default: true)
 }
 
 type RetryConfig struct {
@@ -122,6 +130,10 @@ func SetDefaults() {
 	viper.SetDefault("crawler.retry.max_delay", "60s")
 	viper.SetDefault("crawler.retry.max_consecutive_fails", 10)
 	viper.SetDefault("crawler.retry.max_global_error_rate", 0.8)
+	viper.SetDefault("crawler.js_render.mode", "off")
+	viper.SetDefault("crawler.js_render.max_pages", 4)
+	viper.SetDefault("crawler.js_render.page_timeout", "15s")
+	viper.SetDefault("crawler.js_render.block_resources", true)
 
 	viper.SetDefault("clickhouse.host", "localhost")
 	viper.SetDefault("clickhouse.port", 19000)

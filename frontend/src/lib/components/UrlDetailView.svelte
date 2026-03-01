@@ -231,6 +231,59 @@
     </div>
   </div>
 
+  <!-- JS Rendering -->
+  {#if pg.JSRendered}
+    <div class="card card-section">
+      <h3 class="section-title">{t('urlDetail.jsRendering')}</h3>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value">{fmt(pg.JSRenderDurationMs)}</div><div class="stat-label">{t('urlDetail.renderTime')}</div></div>
+        {#if pg.JSRenderError}
+          <div class="stat-card"><div class="stat-value stat-value-xs" style="color: var(--error)">{pg.JSRenderError}</div><div class="stat-label">{t('urlDetail.renderError')}</div></div>
+        {/if}
+      </div>
+      {#if !pg.JSRenderError}
+        <h4 class="subsection-title">{t('urlDetail.staticVsRendered')}</h4>
+        <table>
+          <thead><tr><th>{t('urlDetail.field')}</th><th>{t('urlDetail.staticValue')}</th><th>{t('urlDetail.renderedValue')}</th><th>{t('common.status')}</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="font-medium">{t('urlDetail.title')}</td>
+              <td class="cell-title">{pg.Title || '-'}</td>
+              <td class="cell-title">{pg.RenderedTitle || '-'}</td>
+              <td>{#if pg.JSChangedTitle}<span class="badge badge-warning">{t('urlDetail.changed')}</span>{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td>
+            </tr>
+            <tr>
+              <td class="font-medium">H1</td>
+              <td class="cell-title">{pg.H1?.join(', ') || '-'}</td>
+              <td class="cell-title">{pg.RenderedH1?.join(', ') || '-'}</td>
+              <td>{#if pg.JSChangedH1}<span class="badge badge-warning">{t('urlDetail.changed')}</span>{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td>
+            </tr>
+            <tr>
+              <td class="font-medium">{t('urlDetail.metaDescription')}</td>
+              <td class="cell-title">{pg.MetaDescription || '-'}</td>
+              <td class="cell-title">{pg.RenderedMetaDescription || '-'}</td>
+              <td>{#if pg.JSChangedDescription}<span class="badge badge-warning">{t('urlDetail.changed')}</span>{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td>
+            </tr>
+            <tr>
+              <td class="font-medium">{t('urlDetail.canonical')}</td>
+              <td class="cell-url">{pg.Canonical || '-'}</td>
+              <td class="cell-url">{pg.RenderedCanonical || '-'}</td>
+              <td>{#if pg.JSChangedCanonical}<span class="badge badge-warning">{t('urlDetail.changed')}</span>{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="stats-grid" style="margin-top: 12px">
+          <div class="stat-card"><div class="stat-value">{pg.WordCount} → {pg.RenderedWordCount}</div><div class="stat-label">{t('urlDetail.words')} {#if pg.JSChangedContent}<span class="badge badge-warning badge-xs">{t('urlDetail.changed')}</span>{/if}</div></div>
+          <div class="stat-card"><div class="stat-value" style={pg.JSAddedLinks > 0 ? 'color: var(--warning)' : ''}>{pg.JSAddedLinks > 0 ? '+' : ''}{pg.JSAddedLinks}</div><div class="stat-label">{t('urlDetail.deltaLinks')}</div></div>
+          <div class="stat-card"><div class="stat-value" style={pg.JSAddedImages > 0 ? 'color: var(--warning)' : ''}>{pg.JSAddedImages > 0 ? '+' : ''}{pg.JSAddedImages}</div><div class="stat-label">{t('urlDetail.deltaImages')}</div></div>
+          {#if pg.JSAddedSchema}
+            <div class="stat-card"><div class="stat-value" style="color: var(--warning)">{t('common.yes')}</div><div class="stat-label">{t('urlDetail.newSchema')}</div></div>
+          {/if}
+        </div>
+      {/if}
+    </div>
+  {/if}
+
   <!-- Outbound Links -->
   {#if outLinks.length > 0}
     <div class="card card-section">
@@ -312,4 +365,5 @@
   .schema-badges { display: flex; flex-wrap: wrap; gap: 6px; }
   .links-pagination { display: flex; gap: 8px; align-items: center; margin-top: 12px; justify-content: center; }
   .links-info { color: var(--text-muted); font-size: 0.85rem; }
+  .subsection-title { font-size: 0.9rem; margin: 16px 0 8px; color: var(--text-secondary); }
 </style>

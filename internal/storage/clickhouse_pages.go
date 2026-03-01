@@ -27,7 +27,15 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			lang, og_title, og_description, og_image, schema_types,
 			headers, redirect_chain, body_size, fetch_duration_ms,
 			content_encoding, x_robots_tag,
-			error, depth, found_on, pagerank, body_html, body_truncated, crawled_at
+			error, depth, found_on, pagerank, body_html, body_truncated, crawled_at,
+			js_rendered, js_render_duration_ms, js_render_error,
+			rendered_title, rendered_meta_description, rendered_h1,
+			rendered_word_count, rendered_links_count, rendered_images_count,
+			rendered_canonical, rendered_meta_robots, rendered_schema_types,
+			rendered_body_html,
+			js_changed_title, js_changed_description, js_changed_h1,
+			js_changed_canonical, js_changed_content,
+			js_added_links, js_added_images, js_added_schema
 		)`)
 	if err != nil {
 		return fmt.Errorf("preparing pages batch: %w", err)
@@ -57,6 +65,14 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			p.Headers, chain, p.BodySize, p.FetchDurationMs,
 			p.ContentEncoding, p.XRobotsTag,
 			p.Error, p.Depth, p.FoundOn, p.PageRank, p.BodyHTML, p.BodyTruncated, p.CrawledAt,
+			p.JSRendered, p.JSRenderDurationMs, p.JSRenderError,
+			p.RenderedTitle, p.RenderedMetaDescription, p.RenderedH1,
+			p.RenderedWordCount, p.RenderedLinksCount, p.RenderedImagesCount,
+			p.RenderedCanonical, p.RenderedMetaRobots, p.RenderedSchemaTypes,
+			p.RenderedBodyHTML,
+			p.JSChangedTitle, p.JSChangedDescription, p.JSChangedH1,
+			p.JSChangedCanonical, p.JSChangedContent,
+			p.JSAddedLinks, p.JSAddedImages, p.JSAddedSchema,
 		); err != nil {
 			return fmt.Errorf("appending page row: %w", err)
 		}
@@ -83,7 +99,11 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 			images_count, images_no_alt,
 			lang, og_title, og_description, og_image, schema_types,
 			body_size, fetch_duration_ms, content_encoding, x_robots_tag,
-			error, depth, found_on, pagerank, crawled_at
+			error, depth, found_on, pagerank, crawled_at,
+			js_rendered, js_render_duration_ms, js_render_error,
+			js_changed_title, js_changed_description, js_changed_h1,
+			js_changed_canonical, js_changed_content,
+			js_added_links, js_added_images, js_added_schema
 		FROM crawlobserver.pages
 		WHERE crawl_session_id = ?`
 	args := []interface{}{sessionID}
@@ -119,6 +139,10 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 			&p.Lang, &p.OGTitle, &p.OGDescription, &p.OGImage, &p.SchemaTypes,
 			&p.BodySize, &p.FetchDurationMs, &p.ContentEncoding, &p.XRobotsTag,
 			&p.Error, &p.Depth, &p.FoundOn, &p.PageRank, &p.CrawledAt,
+			&p.JSRendered, &p.JSRenderDurationMs, &p.JSRenderError,
+			&p.JSChangedTitle, &p.JSChangedDescription, &p.JSChangedH1,
+			&p.JSChangedCanonical, &p.JSChangedContent,
+			&p.JSAddedLinks, &p.JSAddedImages, &p.JSAddedSchema,
 		); err != nil {
 			return nil, fmt.Errorf("scanning page: %w", err)
 		}
@@ -146,7 +170,14 @@ func (s *Store) GetPage(ctx context.Context, sessionID, url string) (*PageRow, e
 			lang, og_title, og_description, og_image, schema_types,
 			headers, redirect_chain, body_size, fetch_duration_ms,
 			content_encoding, x_robots_tag,
-			error, depth, found_on, pagerank, crawled_at
+			error, depth, found_on, pagerank, crawled_at,
+			js_rendered, js_render_duration_ms, js_render_error,
+			rendered_title, rendered_meta_description, rendered_h1,
+			rendered_word_count, rendered_links_count, rendered_images_count,
+			rendered_canonical, rendered_meta_robots, rendered_schema_types,
+			js_changed_title, js_changed_description, js_changed_h1,
+			js_changed_canonical, js_changed_content,
+			js_added_links, js_added_images, js_added_schema
 		FROM crawlobserver.pages
 		WHERE crawl_session_id = ? AND url = ?
 		LIMIT 1`, sessionID, url)
@@ -162,6 +193,13 @@ func (s *Store) GetPage(ctx context.Context, sessionID, url string) (*PageRow, e
 		&p.Headers, &redirectChain, &p.BodySize, &p.FetchDurationMs,
 		&p.ContentEncoding, &p.XRobotsTag,
 		&p.Error, &p.Depth, &p.FoundOn, &p.PageRank, &p.CrawledAt,
+		&p.JSRendered, &p.JSRenderDurationMs, &p.JSRenderError,
+		&p.RenderedTitle, &p.RenderedMetaDescription, &p.RenderedH1,
+		&p.RenderedWordCount, &p.RenderedLinksCount, &p.RenderedImagesCount,
+		&p.RenderedCanonical, &p.RenderedMetaRobots, &p.RenderedSchemaTypes,
+		&p.JSChangedTitle, &p.JSChangedDescription, &p.JSChangedH1,
+		&p.JSChangedCanonical, &p.JSChangedContent,
+		&p.JSAddedLinks, &p.JSAddedImages, &p.JSAddedSchema,
 	); err != nil {
 		return nil, fmt.Errorf("querying page detail: %w", err)
 	}

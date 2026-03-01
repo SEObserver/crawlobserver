@@ -16,6 +16,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/frontier"
 	"github.com/SEObserver/crawlobserver/internal/normalizer"
 	"github.com/SEObserver/crawlobserver/internal/parser"
+	"github.com/SEObserver/crawlobserver/internal/renderer"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 	"golang.org/x/net/publicsuffix"
 )
@@ -59,8 +60,22 @@ type Engine struct {
 	resourceRefBuf   []storage.PageResourceRef
 	resourceRefMu    sync.Mutex
 
+	renderPool    *renderer.Pool
+	renderMode    renderer.DetectionMode
+	renderWorkers int
+	renderCh      chan *renderItem
+	followJSLinks bool
+
 	ctx    context.Context
 	cancel context.CancelFunc
+}
+
+// renderItem transports data from parseWorker to renderWorker.
+type renderItem struct {
+	result     *fetcher.FetchResult
+	staticData *parser.PageData
+	pageRow    storage.PageRow
+	linkRows   []storage.LinkRow
 }
 
 // resourceCheckItem wraps a resource URL with its metadata for the check worker.
@@ -210,6 +225,27 @@ func (e *Engine) initCrawl(seeds []string) error {
 		return fmt.Errorf("inserting session: %w", err)
 	}
 
+	// Initialize JS rendering pool if enabled
+	e.renderMode = renderer.ParseDetectionMode(e.cfg.Crawler.JSRender.Mode)
+	if e.renderMode != renderer.ModeOff {
+		poolOpts := renderer.PoolOptions{
+			MaxPages:       e.cfg.Crawler.JSRender.MaxPages,
+			PageTimeout:    e.cfg.Crawler.JSRender.PageTimeout,
+			UserAgent:      e.cfg.Crawler.UserAgent,
+			BlockResources: e.cfg.Crawler.JSRender.BlockResources,
+			Headless:       true,
+		}
+		pool, err := renderer.NewPool(poolOpts)
+		if err != nil {
+			applog.Warnf("crawler", "Failed to initialize JS rendering pool: %v — rendering disabled", err)
+			e.renderMode = renderer.ModeOff
+		} else {
+			e.renderPool = pool
+			e.renderWorkers = poolOpts.MaxPages
+			applog.Infof("crawler", "JS rendering enabled (mode=%s, workers=%d)", e.renderMode, e.renderWorkers)
+		}
+	}
+
 	applog.Infof("crawler", "Starting crawl session %s with %d seed(s), %d workers",
 		e.session.ID, len(seeds), e.cfg.Crawler.Workers)
 	return nil
@@ -290,6 +326,19 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 		applog.Infof("crawler", "Started %d external link check workers", numExtWorkers)
 	}
 
+	var renderWg sync.WaitGroup
+	if e.renderPool != nil {
+		e.renderCh = make(chan *renderItem, e.renderWorkers*2)
+		for i := 0; i < e.renderWorkers; i++ {
+			renderWg.Add(1)
+			go func(id int) {
+				defer renderWg.Done()
+				e.renderWorker(id, e.renderCh)
+			}(i)
+		}
+		applog.Infof("crawler", "Started %d render workers", e.renderWorkers)
+	}
+
 	var resWg sync.WaitGroup
 	if e.checkResources {
 		e.resourceCh = make(chan resourceCheckItem, 1000)
@@ -317,6 +366,15 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 		fetchWg.Wait()
 		close(parseCh)
 		parseWg.Wait()
+
+		// Shutdown render workers
+		if e.renderCh != nil {
+			close(e.renderCh)
+			renderWg.Wait()
+		}
+		if e.renderPool != nil {
+			e.renderPool.Close()
+		}
 
 		// Shutdown optional workers
 		if e.checkExternal && e.externalCh != nil {
@@ -646,6 +704,22 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 							default:
 							}
 						}
+					}
+				}
+
+				// JS rendering: check if this page needs rendering
+				if e.renderPool != nil && renderer.NeedsRendering(e.renderMode, result.Body, pageData) {
+					ensureNonNilArrays(&pageRow)
+					select {
+					case e.renderCh <- &renderItem{
+						result:     result,
+						staticData: pageData,
+						pageRow:    pageRow,
+						linkRows:   linkRows,
+					}:
+						continue // renderWorker will handle buffer.AddPage
+					case <-e.ctx.Done():
+						// Context cancelled, fall through to store static data
 					}
 				}
 			}
@@ -1062,6 +1136,146 @@ func (e *Engine) newCheckClient() *http.Client {
 	}
 }
 
+// renderWorker receives pages that need JS rendering, renders them, computes diffs, and stores results.
+func (e *Engine) renderWorker(id int, in <-chan *renderItem) {
+	for item := range in {
+		select {
+		case <-e.ctx.Done():
+			// Store static data on cancellation
+			e.buffer.AddPage(item.pageRow)
+			if len(item.linkRows) > 0 {
+				e.buffer.AddLinks(item.linkRows)
+			}
+			continue
+		default:
+		}
+
+		finalURL := item.result.FinalURL
+		if finalURL == "" {
+			finalURL = item.result.URL
+		}
+
+		// Create a timeout context for rendering
+		renderCtx, renderCancel := context.WithTimeout(e.ctx, e.cfg.Crawler.JSRender.PageTimeout)
+		renderResult := e.renderPool.Render(renderCtx, finalURL)
+		renderCancel()
+
+		item.pageRow.JSRendered = true
+		item.pageRow.JSRenderDurationMs = uint64(renderResult.RenderDuration.Milliseconds())
+
+		if renderResult.Error != nil {
+			item.pageRow.JSRenderError = renderResult.Error.Error()
+			applog.Warnf("crawler", "Render error for %s: %v", finalURL, renderResult.Error)
+		} else {
+			// Re-parse rendered HTML
+			renderedData, err := parser.Parse([]byte(renderResult.RenderedHTML), finalURL)
+			if err != nil {
+				item.pageRow.JSRenderError = fmt.Sprintf("parse rendered: %v", err)
+			} else {
+				// Populate rendered fields
+				item.pageRow.RenderedTitle = renderedData.Title
+				item.pageRow.RenderedMetaDescription = renderedData.MetaDescription
+				item.pageRow.RenderedH1 = renderedData.H1
+				item.pageRow.RenderedWordCount = uint32(renderedData.WordCount)
+				item.pageRow.RenderedCanonical = renderedData.Canonical
+				item.pageRow.RenderedMetaRobots = renderedData.MetaRobots
+				item.pageRow.RenderedSchemaTypes = renderedData.SchemaTypes
+
+				// Count rendered links and images
+				item.pageRow.RenderedLinksCount = uint32(len(renderedData.Links))
+				item.pageRow.RenderedImagesCount = uint16(len(renderedData.Images))
+
+				// Store rendered HTML if store_html is enabled
+				if e.cfg.Crawler.StoreHTML {
+					item.pageRow.RenderedBodyHTML = renderResult.RenderedHTML
+				}
+
+				// Compute diffs
+				computeJSDiffs(&item.pageRow, item.staticData, renderedData)
+
+				// Discover new links from rendered content
+				if e.followJSLinks {
+					for _, link := range renderedData.Links {
+						if link.IsInternal && e.isInScope(link.TargetURL) {
+							newDepth := item.result.Depth + 1
+							if e.cfg.Crawler.MaxDepth == 0 || newDepth <= e.cfg.Crawler.MaxDepth {
+								e.front.Add(frontier.CrawlURL{
+									URL:      link.TargetURL,
+									Priority: newDepth,
+									Depth:    newDepth,
+									FoundOn:  item.result.URL,
+								})
+							}
+						}
+					}
+				}
+			}
+		}
+
+		ensureNonNilArrays(&item.pageRow)
+		e.buffer.AddPage(item.pageRow)
+		if len(item.linkRows) > 0 {
+			e.buffer.AddLinks(item.linkRows)
+		}
+	}
+}
+
+// computeJSDiffs compares static and rendered page data and sets diff flags.
+func computeJSDiffs(row *storage.PageRow, static, rendered *parser.PageData) {
+	// Title
+	row.JSChangedTitle = strings.TrimSpace(static.Title) != strings.TrimSpace(rendered.Title)
+
+	// Description
+	row.JSChangedDescription = strings.TrimSpace(static.MetaDescription) != strings.TrimSpace(rendered.MetaDescription)
+
+	// H1
+	row.JSChangedH1 = !stringSlicesEqual(static.H1, rendered.H1)
+
+	// Canonical
+	row.JSChangedCanonical = strings.TrimSpace(static.Canonical) != strings.TrimSpace(rendered.Canonical)
+
+	// Content: word count changed by >20%
+	if static.WordCount > 0 {
+		delta := float64(rendered.WordCount-static.WordCount) / float64(static.WordCount)
+		if delta < 0 {
+			delta = -delta
+		}
+		row.JSChangedContent = delta > 0.2
+	} else {
+		row.JSChangedContent = rendered.WordCount > 50
+	}
+
+	// Links delta
+	row.JSAddedLinks = int32(len(rendered.Links)) - int32(len(static.Links))
+
+	// Images delta
+	row.JSAddedImages = int32(len(rendered.Images)) - int32(len(static.Images))
+
+	// Schema: check if rendered has types not in static
+	staticSchemaSet := make(map[string]bool)
+	for _, t := range static.SchemaTypes {
+		staticSchemaSet[t] = true
+	}
+	for _, t := range rendered.SchemaTypes {
+		if !staticSchemaSet[t] {
+			row.JSAddedSchema = true
+			break
+		}
+	}
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // ensureNonNilArrays replaces nil slices/maps with empty values for ClickHouse compatibility.
 func ensureNonNilArrays(row *storage.PageRow) {
 	if row.H1 == nil {
@@ -1093,5 +1307,11 @@ func ensureNonNilArrays(row *storage.PageRow) {
 	}
 	if row.SchemaTypes == nil {
 		row.SchemaTypes = []string{}
+	}
+	if row.RenderedH1 == nil {
+		row.RenderedH1 = []string{}
+	}
+	if row.RenderedSchemaTypes == nil {
+		row.RenderedSchemaTypes = []string{}
 	}
 }

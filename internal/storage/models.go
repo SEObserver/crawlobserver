@@ -64,6 +64,33 @@ type PageRow struct {
 	BodyHTML        string
 	BodyTruncated   bool
 	CrawledAt       time.Time
+
+	// JS Rendering
+	JSRendered         bool
+	JSRenderDurationMs uint64
+	JSRenderError      string
+
+	// Rendered data
+	RenderedTitle           string
+	RenderedMetaDescription string
+	RenderedH1              []string
+	RenderedWordCount       uint32
+	RenderedLinksCount      uint32
+	RenderedImagesCount     uint16
+	RenderedCanonical       string
+	RenderedMetaRobots      string
+	RenderedSchemaTypes     []string
+	RenderedBodyHTML        string
+
+	// Diff flags (static vs rendered)
+	JSChangedTitle       bool
+	JSChangedDescription bool
+	JSChangedH1          bool
+	JSChangedCanonical   bool
+	JSChangedContent     bool  // word count changed >20%
+	JSAddedLinks         int32 // delta links
+	JSAddedImages        int32 // delta images
+	JSAddedSchema        bool  // new schema types appeared
 }
 
 // RedirectHopRow represents a redirect hop for storage.

@@ -179,6 +179,11 @@ type SessionStats struct {
 	PagesPerSecond    float64           `json:"pages_per_second"`
 	CrawlDurationSec  float64           `json:"crawl_duration_sec"`
 	TopPageRank       []PageRankEntry   `json:"top_pagerank"`
+	JSRenderedPages     uint64  `json:"js_rendered_pages"`
+	JSChangedTitleCount uint64  `json:"js_changed_title_count"`
+	JSChangedH1Count    uint64  `json:"js_changed_h1_count"`
+	JSChangedContentCount uint64 `json:"js_changed_content_count"`
+	AvgJSRenderMs       float64 `json:"avg_js_render_ms"`
 }
 
 // SessionStats retrieves aggregate statistics for a crawl session.
@@ -275,6 +280,19 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 		if err := prRows.Err(); err != nil {
 			applog.Warnf("audit", "iterating top pagerank: %v", err)
 		}
+	}
+
+	// JS rendering stats
+	jsRow := s.conn.QueryRow(ctx, `
+		SELECT countIf(js_rendered),
+			countIf(js_changed_title),
+			countIf(js_changed_h1),
+			countIf(js_changed_content),
+			avgIf(js_render_duration_ms, js_rendered)
+		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+	if err := jsRow.Scan(&stats.JSRenderedPages, &stats.JSChangedTitleCount,
+		&stats.JSChangedH1Count, &stats.JSChangedContentCount, &stats.AvgJSRenderMs); err != nil {
+		applog.Warnf("storage", "querying JS render stats: %v", err)
 	}
 
 	return stats, nil

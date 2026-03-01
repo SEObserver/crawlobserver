@@ -61,6 +61,10 @@ type CrawlRequest struct {
 	CheckPageResources  *bool    `json:"check_page_resources"`
 	ResourceWorkers     int      `json:"resource_workers"`
 	TLSProfile          string   `json:"tls_profile"`
+	JSRenderMode        string   `json:"js_render_mode"`
+	JSRenderMaxPages    int      `json:"js_render_max_pages"`
+	JSRenderTimeout     string   `json:"js_render_timeout"`
+	FollowJSLinks       bool     `json:"follow_js_links"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -99,6 +103,19 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 		cfg.Crawler.TLSProfile = req.TLSProfile
 	}
 
+	// JS rendering overrides
+	if req.JSRenderMode != "" {
+		cfg.Crawler.JSRender.Mode = req.JSRenderMode
+	}
+	if req.JSRenderMaxPages > 0 {
+		cfg.Crawler.JSRender.MaxPages = req.JSRenderMaxPages
+	}
+	if req.JSRenderTimeout != "" {
+		if d, err := time.ParseDuration(req.JSRenderTimeout); err == nil {
+			cfg.Crawler.JSRender.PageTimeout = d
+		}
+	}
+
 	engine := NewEngine(&cfg, m.store)
 	sessionID := engine.SessionID(req.Seeds)
 	engine.session.ProjectID = req.ProjectID
@@ -117,6 +134,9 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	if engine.resourceWorkers <= 0 {
 		engine.resourceWorkers = defaultResourceWorkers
 	}
+
+	// JS rendering
+	engine.followJSLinks = req.FollowJSLinks
 
 	m.mu.Lock()
 	m.engines[sessionID] = engine

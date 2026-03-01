@@ -539,6 +539,31 @@ func migrateRepartitionBySession(ctx context.Context, conn driver.Conn) error {
 	return nil
 }
 
+const AlterPagesV5 = `
+ALTER TABLE crawlobserver.pages
+    ADD COLUMN IF NOT EXISTS js_rendered Bool DEFAULT false,
+    ADD COLUMN IF NOT EXISTS js_render_duration_ms UInt64 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS js_render_error String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS rendered_title String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS rendered_meta_description String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS rendered_h1 Array(String) DEFAULT [],
+    ADD COLUMN IF NOT EXISTS rendered_word_count UInt32 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS rendered_links_count UInt32 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS rendered_images_count UInt16 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS rendered_canonical String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS rendered_meta_robots String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS rendered_schema_types Array(String) DEFAULT [],
+    ADD COLUMN IF NOT EXISTS rendered_body_html String DEFAULT '' CODEC(ZSTD(3)),
+    ADD COLUMN IF NOT EXISTS js_changed_title Bool DEFAULT false,
+    ADD COLUMN IF NOT EXISTS js_changed_description Bool DEFAULT false,
+    ADD COLUMN IF NOT EXISTS js_changed_h1 Bool DEFAULT false,
+    ADD COLUMN IF NOT EXISTS js_changed_canonical Bool DEFAULT false,
+    ADD COLUMN IF NOT EXISTS js_changed_content Bool DEFAULT false,
+    ADD COLUMN IF NOT EXISTS js_added_links Int32 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS js_added_images Int32 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS js_added_schema Bool DEFAULT false
+`
+
 // Migrations is the ordered list of migrations.
 var Migrations = []Migration{
 	{Name: "create database", DDL: CreateDatabase},
@@ -564,4 +589,5 @@ var Migrations = []Migration{
 	{Name: "create provider_visibility", DDL: CreateProviderVisibility},
 	{Name: "create page_resource_checks", DDL: CreatePageResourceChecks},
 	{Name: "create page_resource_refs", DDL: CreatePageResourceRefs},
+	{Name: "alter pages v5 js rendering", DDL: AlterPagesV5},
 }

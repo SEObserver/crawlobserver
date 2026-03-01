@@ -18,6 +18,9 @@
   let userAgentCustom = $state('');
   let crawlSitemapOnly = $state(false);
   let tlsProfile = $state('');
+  let jsRenderMode = $state('off');
+  let jsRenderMaxPages = $state(4);
+  let followJSLinks = $state(false);
   let starting = $state(false);
 
   let userAgentPresets = $derived([
@@ -40,7 +43,7 @@
     starting = true;
     const ua = userAgentPreset === 'custom' ? userAgentCustom : userAgentPreset;
     try {
-      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null, check_external_links: checkExternalLinks, external_link_workers: externalLinkWorkers, user_agent: ua || undefined, crawl_sitemap_only: crawlSitemapOnly, tls_profile: tlsProfile || undefined });
+      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null, check_external_links: checkExternalLinks, external_link_workers: externalLinkWorkers, user_agent: ua || undefined, crawl_sitemap_only: crawlSitemapOnly, tls_profile: tlsProfile || undefined, js_render_mode: jsRenderMode !== 'off' ? jsRenderMode : undefined, js_render_max_pages: jsRenderMode !== 'off' ? jsRenderMaxPages : undefined, follow_js_links: jsRenderMode !== 'off' ? followJSLinks : undefined });
       onstart?.();
     } catch (e) {
       onerror?.(e.message);
@@ -106,6 +109,20 @@
     </div>
     {#if checkExternalLinks}
       <div class="form-group"><label for="extworkers">{t('newCrawl.extWorkers')}</label><input id="extworkers" type="number" bind:value={externalLinkWorkers} min="1" max="20" /></div>
+    {/if}
+    <div class="form-group">
+      <label for="jsrender">{t('newCrawl.jsRender')}</label>
+      <select id="jsrender" bind:value={jsRenderMode}>
+        <option value="off">{t('newCrawl.jsRenderOff')}</option>
+        <option value="auto">{t('newCrawl.jsRenderAuto')}</option>
+        <option value="always">{t('newCrawl.jsRenderAlways')}</option>
+      </select>
+    </div>
+    {#if jsRenderMode !== 'off'}
+      <div class="form-group"><label for="jsworkers">{t('newCrawl.jsRenderWorkers')}</label><input id="jsworkers" type="number" bind:value={jsRenderMaxPages} min="1" max="8" /></div>
+      <div class="form-group form-checkbox-row">
+        <input id="followjs" type="checkbox" bind:checked={followJSLinks} /><label for="followjs" class="form-checkbox-label">{t('newCrawl.followJSLinks')}</label>
+      </div>
     {/if}
     {#if projects.length > 0}
       <div class="form-group">
