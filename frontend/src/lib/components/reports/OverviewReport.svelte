@@ -78,7 +78,7 @@
 
   const dBars = $derived(depthBars(stats));
   const maxDepth = $derived(stats?.depth_distribution ? Math.max(...Object.keys(stats.depth_distribution).map(Number)) : 0);
-  const non200 = $derived(stats?.status_codes ? Object.entries(stats.status_codes).filter(([k]) => k !== '200').reduce((a, [, v]) => a + v, 0) : (stats?.error_count || 0));
+  const errorCount = $derived(stats?.status_codes ? Object.entries(stats.status_codes).filter(([k]) => Number(k) >= 400 || Number(k) === 0).reduce((a, [, v]) => a + v, 0) : (stats?.error_count || 0));
   const duration = $derived(stats?.crawl_duration_sec ? (stats.crawl_duration_sec < 60 ? stats.crawl_duration_sec.toFixed(0) + 's' : (stats.crawl_duration_sec / 60).toFixed(1) + 'min') : '-');
 </script>
 
@@ -108,8 +108,8 @@
       <div class="stat-card stat-card-link" onclick={() => nav('external')} role="button" tabindex="0" onkeydown={a11yKeydown(() => nav('external'))}>
         <div class="stat-value">{fmtN(stats.external_links)}</div><div class="stat-label">{t('report.overview.externalLinks')}</div>
       </div>
-      <div class="stat-card stat-card-link" onclick={() => nav('response', { status_code: '4' })} role="button" tabindex="0" onkeydown={a11yKeydown(() => nav('response', { status_code: '4' }))}>
-        <div class="stat-value" style={non200 > 0 ? 'color: var(--error)' : ''}>{fmtN(non200)}</div><div class="stat-label">{t('report.overview.errors')}</div>
+      <div class="stat-card stat-card-link" onclick={() => nav('response', { status_code: '>=400' })} role="button" tabindex="0" onkeydown={a11yKeydown(() => nav('response', { status_code: '>=400' }))}>
+        <div class="stat-value" style={errorCount > 0 ? 'color: var(--error)' : ''}>{fmtN(errorCount)}</div><div class="stat-label">{t('report.overview.errors')}</div>
       </div>
       <div class="stat-card stat-card-link" onclick={() => nav('response')} role="button" tabindex="0" onkeydown={a11yKeydown(() => nav('response'))}>
         <div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">{t('report.overview.avgResponse')}</div>

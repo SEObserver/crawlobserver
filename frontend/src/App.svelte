@@ -235,17 +235,6 @@
     currentView = 'session';
     selectedProject = null;
 
-    if (!selectedSession || selectedSession.ID !== route.sessionId) {
-      if (sessions.length === 0) {
-        await loadSessions();
-      }
-      const found = sessions.find(s => s.ID === route.sessionId);
-      if (found) {
-        selectedSession = found;
-        stats = await getStats(found.ID);
-        loadStorageStats();
-      }
-    }
     // Handle old tab redirects
     if (route.redirectFrom) {
       const newPath = route.subView
@@ -256,6 +245,7 @@
       history.replaceState(null, '', qs ? `${newPath}?${qs}` : newPath);
     }
 
+    // Set route state BEFORE selectedSession to avoid rendering with stale defaults
     if (route.tab === 'url-detail') {
       routeTab = 'url-detail';
       routeDetailUrl = route.detailUrl;
@@ -266,6 +256,18 @@
       routeFilters = route.filters || {};
       routeOffset = route.offset || 0;
       routeSubView = route.subView || null;
+    }
+
+    if (!selectedSession || selectedSession.ID !== route.sessionId) {
+      if (sessions.length === 0) {
+        await loadSessions();
+      }
+      const found = sessions.find(s => s.ID === route.sessionId);
+      if (found) {
+        selectedSession = found;
+        stats = await getStats(found.ID);
+        loadStorageStats();
+      }
     }
   }
 

@@ -272,6 +272,7 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 
 	// Restore the original session with its seed URLs, not the uncrawled URLs
 	engine.ResumeSession(sessionID, originalSession.SeedURLs)
+	engine.session.ProjectID = originalSession.ProjectID
 
 	// Pre-seed dedup with already crawled URLs
 	engine.PreSeedDedup(crawled)
@@ -363,6 +364,7 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 
 	engine := NewEngine(&cfg, m.store)
 	engine.ResumeSession(sessionID, originalSession.SeedURLs)
+	engine.session.ProjectID = originalSession.ProjectID
 	engine.PreSeedDedup(crawled)
 
 	m.mu.Lock()
