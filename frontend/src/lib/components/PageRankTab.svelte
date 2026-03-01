@@ -89,27 +89,29 @@
 </script>
 
 <div class="pr-container">
-  <div class="pr-subview-bar">
-    <button
-      class="pr-subview-btn"
-      class:pr-subview-active={prSubView === 'top'}
-      onclick={() => switchPRSubView('top')}>{t('pagerank.topPages')}</button
-    >
-    <button
-      class="pr-subview-btn"
-      class:pr-subview-active={prSubView === 'directory'}
-      onclick={() => switchPRSubView('directory')}>{t('pagerank.byDirectory')}</button
-    >
-    <button
-      class="pr-subview-btn"
-      class:pr-subview-active={prSubView === 'distribution'}
-      onclick={() => switchPRSubView('distribution')}>{t('pagerank.distribution')}</button
-    >
-    <button
-      class="pr-subview-btn"
-      class:pr-subview-active={prSubView === 'table'}
-      onclick={() => switchPRSubView('table')}>{t('pagerank.fullTable')}</button
-    >
+  <div class="pr-subview-header">
+    <div class="pr-subview-bar">
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={prSubView === 'top'}
+        onclick={() => switchPRSubView('top')}>{t('pagerank.topPages')}</button
+      >
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={prSubView === 'directory'}
+        onclick={() => switchPRSubView('directory')}>{t('pagerank.byDirectory')}</button
+      >
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={prSubView === 'distribution'}
+        onclick={() => switchPRSubView('distribution')}>{t('pagerank.distribution')}</button
+      >
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={prSubView === 'table'}
+        onclick={() => switchPRSubView('table')}>{t('pagerank.fullTable')}</button
+      >
+    </div>
     {#if hasData}
       <button
         class="btn btn-sm pr-recalc-btn"
@@ -274,6 +276,15 @@
     color: var(--text-muted);
     font-size: 15px;
     margin: 0;
+  }
+  .pr-subview-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .pr-subview-header :global(.pr-subview-bar) {
+    margin-bottom: 0;
   }
   .pr-recalc-btn {
     margin-left: auto;

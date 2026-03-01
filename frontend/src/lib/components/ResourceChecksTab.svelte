@@ -106,11 +106,11 @@
 
 <div class="res-checks">
   <div class="res-checks-header">
-    <div class="res-checks-views">
-      <button class="btn-view" class:active={view === 'summary'} onclick={switchToSummary}
+    <div class="pr-subview-bar">
+      <button class="pr-subview-btn" class:pr-subview-active={view === 'summary'} onclick={switchToSummary}
         >{t('resources.summary')}</button
       >
-      <button class="btn-view" class:active={view === 'urls'} onclick={() => switchToUrls('')}
+      <button class="pr-subview-btn" class:pr-subview-active={view === 'urls'} onclick={() => switchToUrls('')}
         >{t('resources.urls')}</button
       >
     </div>
@@ -294,32 +294,17 @@
 
 <style>
   .res-checks {
-    padding: 16px;
+    padding: 24px;
   }
   .res-checks-header {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
   }
-  .res-checks-views {
-    display: flex;
-    gap: 4px;
-  }
-  .btn-view {
-    padding: 6px 14px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--fg);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-  }
-  .btn-view.active {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
+  .res-checks-header :global(.pr-subview-bar) {
+    margin-bottom: 0;
   }
   .res-filter-input {
     padding: 6px 10px;
