@@ -89,6 +89,11 @@ func NewWithDeps(cfg *config.Config, store StorageService, keyStore *apikeys.Sto
 	}
 }
 
+// Handler builds and returns the HTTP handler (useful for testing).
+func (s *Server) Handler() (http.Handler, error) {
+	return s.buildHandler()
+}
+
 // buildHandler builds the HTTP handler with all routes, auth, and security headers.
 func (s *Server) buildHandler() (http.Handler, error) {
 	mux := http.NewServeMux()

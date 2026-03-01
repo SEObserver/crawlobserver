@@ -22,10 +22,11 @@ import (
 
 // Engine orchestrates the crawling pipeline.
 type Engine struct {
-	cfg     *config.Config
-	store   *storage.Store
-	buffer  *storage.Buffer
-	front   *frontier.Frontier
+	cfg      *config.Config
+	store    *storage.Store
+	bufferMu sync.RWMutex
+	buffer   *storage.Buffer
+	front    *frontier.Frontier
 	fetch   *fetcher.Fetcher
 	robots  *fetcher.RobotsCache
 	session *Session
@@ -196,7 +197,10 @@ func (e *Engine) initCrawl(seeds []string) error {
 	}
 	e.maxPages = int64(e.cfg.Crawler.MaxPages)
 	e.buildScope()
-	e.buffer = storage.NewBuffer(e.store, e.cfg.Storage.BatchSize, e.cfg.Storage.FlushInterval, e.session.ID)
+	buf := storage.NewBuffer(e.store, e.cfg.Storage.BatchSize, e.cfg.Storage.FlushInterval, e.session.ID)
+	e.bufferMu.Lock()
+	e.buffer = buf
+	e.bufferMu.Unlock()
 	e.buffer.SetOnDataLost(func(lostPages, lostLinks int64) {
 		applog.Errorf("crawler", "[%s] DATA LOSS: %d pages, %d links dropped — stopping crawl (disk full?)", e.session.ID, lostPages, lostLinks)
 		e.Stop()
@@ -345,10 +349,13 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 
 // BufferState returns the current buffer error state for monitoring.
 func (e *Engine) BufferState() storage.BufferErrorState {
-	if e.buffer == nil {
+	e.bufferMu.RLock()
+	buf := e.buffer
+	e.bufferMu.RUnlock()
+	if buf == nil {
 		return storage.BufferErrorState{}
 	}
-	return e.buffer.ErrorState()
+	return buf.ErrorState()
 }
 
 // Stop gracefully stops the engine.

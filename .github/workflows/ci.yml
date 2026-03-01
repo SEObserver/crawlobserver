@@ -25,6 +25,38 @@ jobs:
       - name: Coverage
         run: go tool cover -func=coverage.out
 
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:latest
+        ports:
+          - 19000:9000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Integration tests
+        run: go test -tags integration -race -v -timeout 120s ./e2e/...
+        env:
+          CH_HOST: localhost
+          CH_PORT: 19000
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Frontend tests
+        run: cd frontend && npm ci && npm test
+
   lint:
     runs-on: ubuntu-latest
     steps:
