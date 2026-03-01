@@ -301,6 +301,35 @@ func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "deleted"})
 }
 
+func (s *Server) handleDeleteProjectWithSessions(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	id := r.PathValue("id")
+
+	// List all sessions belonging to this project
+	sessions, err := s.store.ListSessions(r.Context(), id)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+
+	// Delete each session (skip running ones)
+	for _, sess := range sessions {
+		if s.manager.IsRunning(sess.ID) {
+			continue
+		}
+		_ = s.store.DeleteSession(r.Context(), sess.ID)
+	}
+
+	// Delete the project itself
+	if err := s.keyStore.DeleteProject(id); err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	writeJSON(w, map[string]string{"status": "deleted"})
+}
+
 func (s *Server) handleAssociateSession(w http.ResponseWriter, r *http.Request) {
 	if !requireFullAccess(w, r) {
 		return

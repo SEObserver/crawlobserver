@@ -495,6 +495,10 @@ export async function deleteProject(id) {
   return fetchJSON(`/projects/${id}`, { method: 'DELETE' });
 }
 
+export async function deleteProjectWithSessions(id) {
+  return fetchJSON(`/projects/${id}/with-sessions`, { method: 'DELETE' });
+}
+
 /**
  * @param {string} projectId
  * @param {string} sessionId

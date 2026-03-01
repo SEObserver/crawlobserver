@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { getSessionsPaginated, renameProject, deleteProject } from '../api.js';
+  import { getSessionsPaginated, renameProject, deleteProject, deleteProjectWithSessions } from '../api.js';
   import { fmtN, timeAgo } from '../utils.js';
   import { pushURL } from '../router.js';
   import { t } from '../i18n/index.svelte.js';
@@ -82,6 +82,15 @@
     }, { danger: true, confirmLabel: t('common.delete') });
   }
 
+  function handleDeleteProjectWithSessions() {
+    showConfirm(t('project.deleteProjectWithSessions') + ` "${project?.name}"?`, async () => {
+      try {
+        await deleteProjectWithSessions(project.id);
+        onprojectdeleted?.();
+      } catch (e) { onerror?.(e.message); }
+    }, { danger: true, confirmLabel: t('common.delete') });
+  }
+
   // --- Mount ---
   onMount(() => {
     loadProjectSessions();
@@ -99,8 +108,9 @@
   {:else}
     <button class="inline-btn breadcrumb-active" ondblclick={startRenameProject} title={t('project.doubleClickRename')}>{project.name}</button>
   {/if}
-  <button class="project-delete-btn" onclick={() => handleDeleteProject()} title={t('project.deleteProject')} aria-label={t('project.deleteProject')}>
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+  <button class="btn btn-primary btn-sm project-new-crawl" onclick={() => onnewcrawl?.()}>
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    {t('sessions.newCrawl')}
   </button>
 </div>
 
@@ -166,6 +176,32 @@
   {/if}
 </div>
 
+{#if projectTab === 'sessions'}
+  <details class="danger-zone">
+    <summary>{t('project.dangerZone')}</summary>
+    <div class="danger-zone-item">
+      <div class="danger-zone-text">
+        <strong>{t('project.deleteProject')}</strong>
+        <p>{t('project.deleteProjectDesc')}</p>
+      </div>
+      <button class="btn btn-danger" onclick={handleDeleteProject}>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        {t('project.deleteProject')}
+      </button>
+    </div>
+    <div class="danger-zone-item">
+      <div class="danger-zone-text">
+        <strong>{t('project.deleteProjectWithSessions')}</strong>
+        <p>{t('project.deleteProjectWithSessionsDesc')}</p>
+      </div>
+      <button class="btn btn-danger" onclick={handleDeleteProjectWithSessions}>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        {t('project.deleteProjectWithSessions')}
+      </button>
+    </div>
+  </details>
+{/if}
+
 {#if confirmState}
   <ConfirmModal
     message={confirmState.message}
@@ -180,6 +216,9 @@
   .breadcrumb-active {
     color: var(--text);
   }
+  .project-new-crawl {
+    margin-left: auto;
+  }
   .card-tab-body {
     border-top-left-radius: 0;
     border-top-right-radius: 0;
@@ -191,5 +230,61 @@
     justify-content: center;
     gap: 12px;
     padding: 12px 0;
+  }
+  .danger-zone {
+    margin-top: 32px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .danger-zone summary {
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    list-style: none;
+  }
+  .danger-zone summary::-webkit-details-marker { display: none; }
+  .danger-zone[open] summary {
+    color: #dc2626;
+    border-bottom: 1px solid var(--border);
+  }
+  .danger-zone-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px;
+  }
+  .danger-zone-item + .danger-zone-item {
+    border-top: 1px solid var(--border);
+  }
+  .danger-zone-text p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .danger-zone-text strong {
+    font-size: 13px;
+  }
+  .btn-danger {
+    background: var(--bg-card);
+    color: #dc2626;
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .btn-danger:hover {
+    background: #dc2626;
+    color: #fff;
+    border-color: #dc2626;
   }
 </style>
