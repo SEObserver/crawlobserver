@@ -2,6 +2,8 @@
  * Client-side router — pure functions, no framework dependency.
  */
 
+import { OLD_TAB_REDIRECT } from './tabColumns.js';
+
 /** Push a new URL to the browser history. */
 export function pushURL(path, queryFilters = {}, offset = 0) {
   const params = new URLSearchParams();
@@ -60,7 +62,20 @@ export function parseRoute() {
         routeFilters[k] = v;
       }
     }
-    return { sessionId: m[1], tab: m[2] || 'overview', subView: m[3] || null, filters: routeFilters, offset: routeOffset };
+
+    let tab = m[2] || 'reports';
+    let subView = m[3] || null;
+    let redirectFrom = null;
+
+    // Compat: redirect old flat tab IDs to new grouped structure
+    const redirect = OLD_TAB_REDIRECT[tab];
+    if (redirect) {
+      redirectFrom = tab;
+      tab = redirect.tab;
+      subView = redirect.subView;
+    }
+
+    return { sessionId: m[1], tab, subView, filters: routeFilters, offset: routeOffset, redirectFrom };
   }
 
   // Home

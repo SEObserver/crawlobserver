@@ -101,6 +101,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+h1, h2, h3 {
+  font-family: 'Nunito Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
 #app { min-height: 100vh; display: flex; }
 
 a { color: var(--accent); text-decoration: none; }
@@ -380,9 +384,14 @@ tr:hover td { background: var(--bg-hover); }
   white-space: nowrap;
   border-bottom: 2px solid transparent;
   transition: color 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .tab:hover { color: var(--text); }
 .tab-active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.tab-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.6; }
+.tab-active .tab-icon { opacity: 1; }
 
 /* ===== Forms ===== */
 .form-grid {

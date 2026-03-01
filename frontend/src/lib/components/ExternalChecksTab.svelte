@@ -2,7 +2,7 @@
   import { getExternalLinkChecks, getExternalLinkCheckDomains } from '../api.js';
   import { t } from '../i18n/index.svelte.js';
 
-  let { sessionId, initialSubView = 'domains', initialFilters = {}, onpushurl, onnavigate, onerror } = $props();
+  let { sessionId, initialSubView = 'domains', initialFilters = {}, basePath = null, onpushurl, onnavigate, onerror } = $props();
 
   let view = $state(initialSubView); // 'domains' | 'urls'
   let domains = $state([]);
@@ -17,7 +17,7 @@
   const PAGE_SIZE = 100;
 
   function pushFilters() {
-    const base = `/sessions/${sessionId}/ext-checks/${view}`;
+    const base = `${basePath || `/sessions/${sessionId}/ext-checks`}/${view}`;
     const params = new URLSearchParams();
     if (view === 'domains' && domainFilter) params.set('domain', domainFilter);
     if (view === 'urls' && urlFilters.url) params.set('url', urlFilters.url);

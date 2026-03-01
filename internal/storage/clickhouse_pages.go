@@ -927,6 +927,10 @@ func (s *Store) PageRankDistribution(ctx context.Context, sessionID string, buck
 	}
 
 	if result.TotalWithPR == 0 {
+		result.Avg = 0
+		result.Median = 0
+		result.P90 = 0
+		result.P99 = 0
 		return result, nil
 	}
 

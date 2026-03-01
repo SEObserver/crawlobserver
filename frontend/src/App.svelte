@@ -74,14 +74,11 @@
   let systemStats = $state(null);
 
   // --- Route-derived state (passed as initial props to page components) ---
-  let routeTab = $state('overview');
+  let routeTab = $state('reports');
   let routeFilters = $state({});
   let routeOffset = $state(0);
   let routeDetailUrl = $state('');
-  let routePrSubView = $state('top');
-  let routeReportsSubView = $state('overview');
-  let routeExtChecksSubView = $state('domains');
-  let routeResourcesSubView = $state('summary');
+  let routeSubView = $state(null);
   let routeProjectTab = $state('sessions');
   let routeGscSubView = $state('overview');
   let routeProviderSubView = $state('overview');
@@ -248,25 +245,26 @@
         loadStorageStats();
       }
     }
+    // Handle old tab redirects
+    if (route.redirectFrom) {
+      const newPath = route.subView
+        ? `/sessions/${route.sessionId}/${route.tab}/${route.subView}`
+        : `/sessions/${route.sessionId}/${route.tab}`;
+      const sp = new URLSearchParams(window.location.search);
+      const qs = sp.toString();
+      history.replaceState(null, '', qs ? `${newPath}?${qs}` : newPath);
+    }
+
     if (route.tab === 'url-detail') {
       routeTab = 'url-detail';
       routeDetailUrl = route.detailUrl;
       routeFilters = {};
+      routeSubView = null;
     } else {
       routeTab = route.tab;
       routeFilters = route.filters || {};
       routeOffset = route.offset || 0;
-      if (route.tab === 'pagerank') {
-        if (route.subView && ['top', 'directory', 'distribution', 'table'].includes(route.subView)) {
-          routePrSubView = route.subView;
-        }
-      } else if (route.tab === 'reports') {
-        routeReportsSubView = (route.subView && ['overview', 'content', 'technical', 'links', 'structure', 'sitemaps', 'international'].includes(route.subView)) ? route.subView : 'overview';
-      } else if (route.tab === 'ext-checks') {
-        routeExtChecksSubView = (route.subView && ['domains', 'urls'].includes(route.subView)) ? route.subView : 'domains';
-      } else if (route.tab === 'resources') {
-        routeResourcesSubView = (route.subView && ['summary', 'urls'].includes(route.subView)) ? route.subView : 'summary';
-      }
+      routeSubView = route.subView || null;
     }
   }
 
@@ -279,11 +277,12 @@
     currentView = 'session';
     selectedSession = session;
     selectedProject = null;
-    routeTab = 'overview';
+    routeTab = 'reports';
     routeFilters = {};
     routeOffset = 0;
+    routeSubView = null;
     routeVersion++;
-    pushURL(`/sessions/${session.ID}/overview`);
+    pushURL(`/sessions/${session.ID}/reports`);
     try {
       stats = await getStats(session.ID);
       loadStorageStats();
@@ -546,8 +545,7 @@
           <SessionDetailPage session={selectedSession} {stats} {liveProgress} {sessionStorageMap}
             initialTab={routeTab} initialFilters={routeFilters} initialOffset={routeOffset}
             initialDetailUrl={routeDetailUrl}
-            initialPrSubView={routePrSubView} initialReportsSubView={routeReportsSubView}
-            initialExtChecksSubView={routeExtChecksSubView} initialResourcesSubView={routeResourcesSubView}
+            initialSubView={routeSubView}
             onerror={(msg) => error = msg} onstop={handleStop} onresume={openResumeModal}
             ondelete={handleDelete} onrefresh={() => selectSession(selectedSession)}
             oncompare={(id) => navigateTo(`/compare?a=${id}`)}

@@ -113,7 +113,9 @@ async function fetchJSON(path, options = {}) {
     catch { errorMessage = await res.text().catch(() => res.statusText); }
     throw new Error(errorMessage || `API error: ${res.status}`);
   }
-  return res.json();
+  const text = await res.text();
+  if (!text) return null;
+  return JSON.parse(text);
 }
 
 /** @returns {Promise<Session[]>} */

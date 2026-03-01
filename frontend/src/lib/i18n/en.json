@@ -413,6 +413,24 @@
   "tabs.sitemaps": "Sitemaps",
   "tabs.reports": "Reports",
   "tabs.tests": "Tests",
+  "tabs.pages": "Pages",
+  "tabs.links": "Links",
+  "tabs.directives": "Directives",
+
+  "pages.all": "All",
+  "pages.titles": "Titles",
+  "pages.meta": "Meta",
+  "pages.headings": "H1/H2",
+  "pages.images": "Images",
+  "pages.indexability": "Indexability",
+  "pages.response": "Response",
+
+  "links.internal": "Internal",
+  "links.external": "External",
+  "links.checks": "Checks",
+
+  "directives.robots": "Robots.txt",
+  "directives.sitemaps": "Sitemaps",
 
   "pagerank.topPages": "Top Pages",
   "pagerank.byDirectory": "By Directory",
