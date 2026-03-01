@@ -48,6 +48,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 				"UserAgent":    sess.UserAgent,
 				"ProjectID":    sess.ProjectID,
 				"is_running":   s.manager.IsRunning(sess.ID),
+				"is_queued":    s.manager.IsQueued(sess.ID),
 			})
 		}
 		if resp == nil {
@@ -75,7 +76,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enrich with running status
+	// Enrich with running/queued status
 	var resp []map[string]interface{}
 	for _, sess := range sessions {
 		resp = append(resp, map[string]interface{}{
@@ -89,6 +90,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 			"UserAgent":    sess.UserAgent,
 			"ProjectID":    sess.ProjectID,
 			"is_running":   s.manager.IsRunning(sess.ID),
+			"is_queued":    s.manager.IsQueued(sess.ID),
 		})
 	}
 	writeJSON(w, resp)
@@ -276,10 +278,14 @@ func (s *Server) handleStartCrawl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	status := "started"
+	if s.manager.IsQueued(sessionID) {
+		status = "queued"
+	}
 	w.WriteHeader(http.StatusCreated)
 	writeJSON(w, map[string]string{
 		"session_id": sessionID,
-		"status":     "started",
+		"status":     status,
 	})
 }
 
@@ -886,4 +892,19 @@ func (s *Server) handlePageResourceChecksSummary(w http.ResponseWriter, r *http.
 		summary = []storage.ResourceTypeSummary{}
 	}
 	writeJSON(w, summary)
+}
+
+func (s *Server) handleNearDuplicates(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	limit, offset := clampPagination(queryInt(r, "limit", 50), queryInt(r, "offset", 0))
+	threshold := queryInt(r, "threshold", 3)
+	result, err := s.store.NearDuplicates(r.Context(), sessionID, threshold, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
 }

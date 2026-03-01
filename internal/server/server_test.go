@@ -329,6 +329,9 @@ func (m *mockStore) GetPageResourceChecks(_ context.Context, _ string, _, _ int,
 func (m *mockStore) GetPageResourceTypeSummary(_ context.Context, _ string) ([]storage.ResourceTypeSummary, error) {
 	return []storage.ResourceTypeSummary{}, m.err
 }
+func (m *mockStore) NearDuplicates(_ context.Context, _ string, _ int, _, _ int) (*storage.NearDuplicatesResult, error) {
+	return &storage.NearDuplicatesResult{Pairs: []storage.NearDuplicatePair{}, Total: 0}, m.err
+}
 
 // Application Logs mock methods
 func (m *mockStore) InsertLogs(_ context.Context, _ []applog.LogRow) error {
@@ -447,6 +450,10 @@ func (m *mockManager) BufferState(sessionID string) storage.BufferErrorState {
 func (m *mockManager) LastError(sessionID string) string {
 	return ""
 }
+
+func (m *mockManager) IsQueued(sessionID string) bool { return false }
+
+func (m *mockManager) QueuedSessions() []string { return nil }
 
 func (m *mockManager) Shutdown(timeout time.Duration) {}
 

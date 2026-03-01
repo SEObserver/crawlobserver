@@ -564,6 +564,11 @@ ALTER TABLE crawlobserver.pages
     ADD COLUMN IF NOT EXISTS js_added_schema Bool DEFAULT false
 `
 
+const AlterPagesV6 = `
+ALTER TABLE crawlobserver.pages
+    ADD COLUMN IF NOT EXISTS content_hash UInt64 DEFAULT 0 AFTER pagerank
+`
+
 // Migrations is the ordered list of migrations.
 var Migrations = []Migration{
 	{Name: "create database", DDL: CreateDatabase},
@@ -590,4 +595,5 @@ var Migrations = []Migration{
 	{Name: "create page_resource_checks", DDL: CreatePageResourceChecks},
 	{Name: "create page_resource_refs", DDL: CreatePageResourceRefs},
 	{Name: "alter pages v5 js rendering", DDL: AlterPagesV5},
+	{Name: "alter pages v6 content hash", DDL: AlterPagesV6},
 }

@@ -27,7 +27,7 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			lang, og_title, og_description, og_image, schema_types,
 			headers, redirect_chain, body_size, fetch_duration_ms,
 			content_encoding, x_robots_tag,
-			error, depth, found_on, pagerank, body_html, body_truncated, crawled_at,
+			error, depth, found_on, pagerank, content_hash, body_html, body_truncated, crawled_at,
 			js_rendered, js_render_duration_ms, js_render_error,
 			rendered_title, rendered_meta_description, rendered_h1,
 			rendered_word_count, rendered_links_count, rendered_images_count,
@@ -64,7 +64,7 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			p.Lang, p.OGTitle, p.OGDescription, p.OGImage, p.SchemaTypes,
 			p.Headers, chain, p.BodySize, p.FetchDurationMs,
 			p.ContentEncoding, p.XRobotsTag,
-			p.Error, p.Depth, p.FoundOn, p.PageRank, p.BodyHTML, p.BodyTruncated, p.CrawledAt,
+			p.Error, p.Depth, p.FoundOn, p.PageRank, p.ContentHash, p.BodyHTML, p.BodyTruncated, p.CrawledAt,
 			p.JSRendered, p.JSRenderDurationMs, p.JSRenderError,
 			p.RenderedTitle, p.RenderedMetaDescription, p.RenderedH1,
 			p.RenderedWordCount, p.RenderedLinksCount, p.RenderedImagesCount,
@@ -1086,6 +1086,70 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterating top pages: %w", err)
+	}
+	return result, nil
+}
+
+// NearDuplicates finds pages with similar content using SimHash Hamming distance.
+// threshold is the max Hamming distance (e.g. 3 = ≤3 bits differ out of 64).
+func (s *Store) NearDuplicates(ctx context.Context, sessionID string, threshold int, limit, offset int) (*NearDuplicatesResult, error) {
+	if threshold <= 0 {
+		threshold = 3
+	}
+
+	// Count total pairs
+	var total uint64
+	err := s.conn.QueryRow(ctx, `
+		SELECT count()
+		FROM crawlobserver.pages AS a
+		INNER JOIN crawlobserver.pages AS b
+			ON a.crawl_session_id = b.crawl_session_id
+			AND a.url < b.url
+		WHERE a.crawl_session_id = ?
+			AND a.content_hash != 0
+			AND b.content_hash != 0
+			AND a.status_code >= 200 AND a.status_code < 300
+			AND b.status_code >= 200 AND b.status_code < 300
+			AND bitCount(bitXor(a.content_hash, b.content_hash)) <= ?`,
+		sessionID, threshold).Scan(&total)
+	if err != nil {
+		return nil, fmt.Errorf("counting near-duplicates: %w", err)
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT
+			a.url, b.url,
+			a.title, b.title,
+			a.word_count, b.word_count,
+			1.0 - (bitCount(bitXor(a.content_hash, b.content_hash)) / 64.0) AS similarity
+		FROM crawlobserver.pages AS a
+		INNER JOIN crawlobserver.pages AS b
+			ON a.crawl_session_id = b.crawl_session_id
+			AND a.url < b.url
+		WHERE a.crawl_session_id = ?
+			AND a.content_hash != 0
+			AND b.content_hash != 0
+			AND a.status_code >= 200 AND a.status_code < 300
+			AND b.status_code >= 200 AND b.status_code < 300
+			AND bitCount(bitXor(a.content_hash, b.content_hash)) <= ?
+		ORDER BY similarity DESC
+		LIMIT ? OFFSET ?`,
+		sessionID, threshold, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("querying near-duplicates: %w", err)
+	}
+	defer rows.Close()
+
+	result := &NearDuplicatesResult{Total: total, Pairs: []NearDuplicatePair{}}
+	for rows.Next() {
+		var p NearDuplicatePair
+		if err := rows.Scan(&p.URLa, &p.URLb, &p.TitleA, &p.TitleB, &p.WordCountA, &p.WordCountB, &p.Similarity); err != nil {
+			return nil, fmt.Errorf("scanning near-duplicate: %w", err)
+		}
+		result.Pairs = append(result.Pairs, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating near-duplicates: %w", err)
 	}
 	return result, nil
 }

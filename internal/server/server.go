@@ -121,6 +121,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/sessions/{id}/external-checks/expired-domains", s.handleExpiredDomains)
 	mux.HandleFunc("GET /api/sessions/{id}/resource-checks", s.handlePageResourceChecks)
 	mux.HandleFunc("GET /api/sessions/{id}/resource-checks/summary", s.handlePageResourceChecksSummary)
+	mux.HandleFunc("GET /api/sessions/{id}/near-duplicates", s.handleNearDuplicates)
 	mux.HandleFunc("GET /api/storage-stats", s.handleStorageStats)
 	mux.HandleFunc("GET /api/session-storage", s.handleSessionStorage)
 	mux.HandleFunc("GET /api/global-stats", s.handleGlobalStats)

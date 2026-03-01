@@ -48,7 +48,7 @@ At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We buil
 
 ## Quick Start
 
-**Prerequisites:** Go 1.21+ and Docker.
+**Prerequisites:** Go 1.25+ and Docker.
 
 ```bash
 # 1. Clone & build
@@ -206,25 +206,34 @@ ClickHouse  (columnar storage, partitioned by month)
     |---> CLI reports
 ```
 
-### Why ClickHouse (and not a graph database)
+### Why ClickHouse (and not SQLite, DuckDB, or a graph database)
 
-SEO crawling is an analytical workload. 95% of queries are scans, filters, and aggregations over millions of rows: "all pages in 404", "missing canonicals", "external links grouped by domain". This is what columnar databases are built for.
+A crawler has a hard architectural constraint: **it writes and reads at the same time, continuously.** During a crawl, 10+ goroutines batch-insert pages, links, and resources while the web UI polls for live progress every 100ms and users run analytical queries (filtered pages, audit aggregations, PageRank percentiles) on data that's still being written. This is a concurrent read/write workload on an analytical dataset — the worst case for embedded databases.
 
-We sometimes get asked about graph databases (Neo4j, Dgraph) since a crawl is essentially a link graph. Our take: **a crawler is an analytics pipeline, not a graph explorer.** ClickHouse handles the tabular queries better than anything else, and when we need graph algorithms (PageRank, BFS depth), we compute them in-memory in Go and write the results back. A million-page link graph fits in ~200MB of RAM and computes in seconds — no need for a second database.
+SQLite and DuckDB are single-writer. Under concurrent load, readers block writers or vice versa. You'd need to serialize access behind a mutex, which kills real-time monitoring — or accept that the UI freezes during crawls. ClickHouse is a client/server database: readers and writers never block each other, every goroutine gets its own connection from the pool, and the UI stays live throughout the crawl.
 
-Adding a graph layer would mean double storage, sync complexity, and a heavier install — bad trade-offs for a free community tool. If you need graph exploration, export your crawl data and load it into the tool of your choice.
+The trick is the **managed mode**: CrawlObserver downloads a ClickHouse static binary and runs it as a subprocess. The user sees one program; under the hood, there's a full analytical database server with concurrent access. Single-binary distribution, server-grade architecture.
+
+The other benefits follow from this choice:
+- **`DROP PARTITION`** deletes a 10M-page session instantly (O(1) metadata operation, not a table scan)
+- **`joinGet()` + Join engine** computes PageRank server-side without round-tripping millions of URL strings to Go
+- **Columnar compression** stores crawl data at ~10:1 ratios; ZSTD(3) on raw HTML bodies
+- **Built-in analytical functions** (`countIf()`, `quantile()`, `domain()`, `arrayJoin()`) replace what would be hundreds of lines of post-processing in Go
+
+We sometimes get asked about graph databases (Neo4j, Dgraph) since a crawl is essentially a link graph. Our take: **a crawler is an analytics pipeline, not a graph explorer.** When we need graph algorithms (PageRank, BFS depth), we compute them in-memory in Go and write the results back. A million-page link graph fits in ~200MB of RAM and computes in seconds — no need for a second database.
 
 ### Tech stack
 
 | Layer | Technology |
 |-------|-----------|
-| Crawler engine | Go, `net/http`, goroutine pool |
+| Crawler engine | Go, `net/http`, goroutine pool, HTTP/2 (via `utls` ALPN negotiation) |
+| TLS fingerprinting | `refraction-networking/utls` (Chrome/Firefox/Edge profiles) |
 | HTML parsing | `goquery` (CSS selectors) |
 | URL normalization | `purell` + custom rules |
 | robots.txt | `temoto/robotstxt` |
 | Storage | ClickHouse (via `clickhouse-go/v2`) |
 | API keys / sessions | SQLite (`modernc.org/sqlite`) |
-| Web UI | Svelte 5, Vite |
+| Web UI | Svelte 5, Vite (zero runtime dependencies) |
 | Desktop app | webview (macOS) |
 | CLI | Cobra + Viper |
 

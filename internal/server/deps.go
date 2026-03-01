@@ -50,6 +50,7 @@ type CrawlStore interface {
 	GetPageResourceChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.PageResourceCheck, error)
 	GetPageResourceTypeSummary(ctx context.Context, sessionID string) ([]storage.ResourceTypeSummary, error)
 	RunCustomTestsSQL(ctx context.Context, sessionID string, rules []customtests.TestRule) (map[string]map[string]string, error)
+	NearDuplicates(ctx context.Context, sessionID string, threshold int, limit, offset int) (*storage.NearDuplicatesResult, error)
 	StreamPagesHTML(ctx context.Context, sessionID string) (<-chan storage.PageHTMLRow, error)
 }
 
@@ -101,6 +102,7 @@ type StorageService interface {
 // CrawlService is the subset of crawler.Manager used by the HTTP server.
 type CrawlService interface {
 	IsRunning(sessionID string) bool
+	IsQueued(sessionID string) bool
 	Progress(sessionID string) (int64, int, bool)
 	BufferState(sessionID string) storage.BufferErrorState
 	LastError(sessionID string) string
@@ -108,6 +110,7 @@ type CrawlService interface {
 	StopCrawl(sessionID string) error
 	ResumeCrawl(sessionID string, overrides *crawler.CrawlRequest) (string, error)
 	RetryFailed(sessionID string, overrides *crawler.CrawlRequest) (int, error)
+	QueuedSessions() []string
 	Shutdown(timeout time.Duration)
 	RecoverOrphanedSessions(ctx context.Context)
 }

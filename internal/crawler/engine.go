@@ -45,6 +45,7 @@ type Engine struct {
 	pendingRetries atomic.Int64
 
 	sitemapOnly      bool
+	sitemapURLSet    map[string]bool // URLs found in sitemaps, for priority boost
 	checkExternal    bool
 	externalWorkers  int
 	externalCh       chan string
@@ -92,7 +93,7 @@ func NewEngine(cfg *config.Config, store *storage.Store) *Engine {
 	return &Engine{
 		cfg:    cfg,
 		store:  store,
-		front:  frontier.New(cfg.Crawler.Delay),
+		front:  frontier.New(cfg.Crawler.Delay, cfg.Crawler.MaxFrontierSize),
 		fetch:  fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize, cfg.Crawler.AllowPrivateIPs, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
 		robots: fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.AllowPrivateIPs, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
 		retryQueue: NewRetryQueue(),
@@ -630,6 +631,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 				pageRow.H5 = pageData.H5
 				pageRow.H6 = pageData.H6
 				pageRow.WordCount = uint32(pageData.WordCount)
+				pageRow.ContentHash = pageData.ContentHash
 				pageRow.Lang = pageData.Lang
 				pageRow.OGTitle = pageData.OGTitle
 				pageRow.OGDescription = pageData.OGDescription
@@ -686,9 +688,14 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 						if !e.sitemapOnly && e.isInScope(link.TargetURL) {
 							newDepth := result.Depth + 1
 							if e.cfg.Crawler.MaxDepth == 0 || newDepth <= e.cfg.Crawler.MaxDepth {
+								priority := newDepth
+								// Boost priority for URLs found in sitemaps
+								if e.sitemapURLSet[link.TargetURL] && priority > 1 {
+									priority = 1
+								}
 								e.front.Add(frontier.CrawlURL{
 									URL:      link.TargetURL,
-									Priority: newDepth,
+									Priority: priority,
 									Depth:    newDepth,
 									FoundOn:  result.URL,
 								})
@@ -1077,6 +1084,19 @@ func (e *Engine) discoverAndPersistSitemaps() {
 		applog.Infof("crawler", "Persisted %d sitemaps (%d URLs total)", len(sitemapRows), len(sitemapURLRows))
 	}
 
+	// Build sitemap URL set for priority boosting (used in both modes)
+	if len(sitemapURLRows) > 0 {
+		e.sitemapURLSet = make(map[string]bool, len(sitemapURLRows))
+		for _, su := range sitemapURLRows {
+			norm, err := normalizer.Normalize(su.Loc)
+			if err != nil {
+				continue
+			}
+			e.sitemapURLSet[norm] = true
+		}
+		applog.Infof("crawler", "Built sitemap URL set: %d URLs for priority boosting", len(e.sitemapURLSet))
+	}
+
 	if e.sitemapOnly && len(sitemapURLRows) > 0 {
 		added := 0
 		for _, su := range sitemapURLRows {
@@ -1230,9 +1250,13 @@ func (e *Engine) renderWorker(id int, in <-chan *renderItem) {
 						if link.IsInternal && e.isInScope(link.TargetURL) {
 							newDepth := item.result.Depth + 1
 							if e.cfg.Crawler.MaxDepth == 0 || newDepth <= e.cfg.Crawler.MaxDepth {
+								priority := newDepth
+								if e.sitemapURLSet[link.TargetURL] && priority > 1 {
+									priority = 1
+								}
 								e.front.Add(frontier.CrawlURL{
 									URL:      link.TargetURL,
-									Priority: newDepth,
+									Priority: priority,
 									Depth:    newDepth,
 									FoundOn:  item.result.URL,
 								})

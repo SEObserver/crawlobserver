@@ -61,6 +61,7 @@ type PageRow struct {
 	Depth           uint16
 	FoundOn         string
 	PageRank        float64
+	ContentHash     uint64
 	BodyHTML        string
 	BodyTruncated   bool
 	CrawledAt       time.Time
@@ -332,6 +333,23 @@ type PageResourceRef struct {
 	ResourceURL    string `json:"resource_url"`
 	ResourceType   string `json:"resource_type"`
 	IsInternal     bool   `json:"is_internal"`
+}
+
+// NearDuplicatePair represents two pages with near-identical content.
+type NearDuplicatePair struct {
+	URLa      string `json:"url_a"`
+	URLb      string `json:"url_b"`
+	TitleA    string `json:"title_a"`
+	TitleB    string `json:"title_b"`
+	WordCountA uint32 `json:"word_count_a"`
+	WordCountB uint32 `json:"word_count_b"`
+	Similarity float64 `json:"similarity"` // 0–1, 1 = exact duplicate
+}
+
+// NearDuplicatesResult wraps paginated near-duplicate results.
+type NearDuplicatesResult struct {
+	Pairs []NearDuplicatePair `json:"pairs"`
+	Total uint64              `json:"total"`
 }
 
 // ResourceTypeSummary holds aggregated stats for one resource type.

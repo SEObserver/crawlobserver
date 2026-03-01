@@ -31,6 +31,7 @@ type PageData struct {
 	OGImage         string
 	SchemaTypes     []string
 	WordCount       int
+	ContentHash     uint64 // SimHash fingerprint of visible body text
 	Resources       []PageResource
 }
 
@@ -81,6 +82,7 @@ func Parse(body []byte, pageURL string) (*PageData, error) {
 	data.OGImage = extractMetaProperty(doc, "og:image")
 	data.SchemaTypes = extractSchemaTypes(doc)
 	data.WordCount = countWords(doc)
+	data.ContentHash = SimHash(doc.Find("body").Text())
 	data.Resources = ExtractResources(doc, baseURL)
 
 	return data, nil
