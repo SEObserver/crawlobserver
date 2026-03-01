@@ -54,6 +54,44 @@
   let pollTimer = null;
   const PAGE_LIMIT = 100;
 
+  // Placeholder data for disconnected locked previews
+  const PH_METRICS = { domain_rank: 42.3, backlinks_total: 128450, refdomains_total: 3280, organic_keywords: 15670, organic_traffic: 45200, organic_cost: 12800 };
+  const PH_BACKLINKS = [
+    { source_url: 'https://blog.example.com/review', target_url: '/products/main', anchor_text: 'best product', domain_rank: 45.2, nofollow: false, first_seen: '2025-11-15' },
+    { source_url: 'https://news.sample.org/roundup', target_url: '/blog/latest', anchor_text: 'latest news', domain_rank: 38.7, nofollow: false, first_seen: '2025-10-22' },
+    { source_url: 'https://forum.tech.io/thread', target_url: '/', anchor_text: 'homepage', domain_rank: 29.1, nofollow: true, first_seen: '2025-09-03' },
+    { source_url: 'https://review.site.com/top-10', target_url: '/about', anchor_text: 'company info', domain_rank: 52.8, nofollow: false, first_seen: '2025-08-17' },
+    { source_url: 'https://wiki.reference.net/entry', target_url: '/resources', anchor_text: 'resource page', domain_rank: 61.3, nofollow: false, first_seen: '2025-07-01' },
+  ];
+  const PH_REFDOMAINS = [
+    { ref_domain: 'blog.example.com', backlink_count: 342, domain_rank: 45.2, first_seen: '2024-03-12', last_seen: '2025-11-15' },
+    { ref_domain: 'news.sample.org', backlink_count: 128, domain_rank: 38.7, first_seen: '2024-06-01', last_seen: '2025-10-22' },
+    { ref_domain: 'forum.tech.io', backlink_count: 89, domain_rank: 29.1, first_seen: '2024-09-15', last_seen: '2025-09-03' },
+    { ref_domain: 'review.site.com', backlink_count: 56, domain_rank: 52.8, first_seen: '2025-01-20', last_seen: '2025-08-17' },
+    { ref_domain: 'wiki.reference.net', backlink_count: 234, domain_rank: 61.3, first_seen: '2023-11-05', last_seen: '2025-07-01' },
+  ];
+  const PH_RANKINGS = [
+    { keyword: 'best seo tool 2025', position: 3, url: '/products/seo-tool', search_volume: 12400, cpc: 4.50, traffic: 3200 },
+    { keyword: 'website audit software', position: 7, url: '/products/audit', search_volume: 8200, cpc: 3.20, traffic: 890 },
+    { keyword: 'backlink checker free', position: 12, url: '/tools/backlinks', search_volume: 22000, cpc: 2.80, traffic: 620 },
+    { keyword: 'seo crawler comparison', position: 2, url: '/blog/comparison', search_volume: 4800, cpc: 5.10, traffic: 2100 },
+    { keyword: 'domain authority tool', position: 18, url: '/tools/authority', search_volume: 9600, cpc: 3.70, traffic: 280 },
+  ];
+  const PH_TOP_PAGES = [
+    { url: 'https://example.com/page-one', title: 'Main Product Page', trust_flow: 42, citation_flow: 38, backlinks: 1240, ref_domains: 320, topical_tf: [{ topic: 'Business' }], language: 'en' },
+    { url: 'https://example.com/blog/article', title: 'Top Blog Article', trust_flow: 35, citation_flow: 29, backlinks: 870, ref_domains: 215, topical_tf: [{ topic: 'Technology' }], language: 'en' },
+    { url: 'https://example.com/products/item', title: 'Featured Product', trust_flow: 18, citation_flow: 44, backlinks: 520, ref_domains: 142, topical_tf: [{ topic: 'Shopping' }], language: 'en' },
+    { url: 'https://example.com/about', title: 'About Us', trust_flow: 25, citation_flow: 21, backlinks: 310, ref_domains: 98, topical_tf: [{ topic: 'Business' }], language: 'en' },
+    { url: 'https://example.com/contact', title: 'Contact Page', trust_flow: 12, citation_flow: 15, backlinks: 95, ref_domains: 34, topical_tf: [{ topic: 'Reference' }], language: 'en' },
+  ];
+  const PH_API_CALLS = [
+    { timestamp: '2025-11-15T14:32:00Z', endpoint: '/api/v1/backlinks', status_code: 200, duration_ms: 342, rows_returned: 1000, error: '' },
+    { timestamp: '2025-11-15T14:33:00Z', endpoint: '/api/v1/refdomains', status_code: 200, duration_ms: 256, rows_returned: 500, error: '' },
+    { timestamp: '2025-11-15T14:34:00Z', endpoint: '/api/v1/rankings', status_code: 200, duration_ms: 890, rows_returned: 2000, error: '' },
+    { timestamp: '2025-11-15T14:35:00Z', endpoint: '/api/v1/top-pages', status_code: 200, duration_ms: 178, rows_returned: 100, error: '' },
+    { timestamp: '2025-11-15T14:36:00Z', endpoint: '/api/v1/visibility', status_code: 429, duration_ms: 45, rows_returned: 0, error: 'Rate limited' },
+  ];
+
   async function loadStatus() {
     if (!projectId) return;
     try {
@@ -220,36 +258,9 @@
     </div>
   {:else if !status}
     <p class="loading-msg">{t('common.loading')}</p>
-  {:else if !status.connected}
-    <div class="prov-empty">
-      <h3 class="prov-connect-title">{t('providers.connectTitle')}</h3>
-      <p class="text-muted text-sm mb-md">
-        {t('providers.connectDesc')}
-      </p>
-      <div class="prov-connect-form">
-        <input
-          type="text"
-          class="pr-input"
-          placeholder={t('providers.domainPlaceholder')}
-          bind:value={domainInput}
-        />
-        <input
-          type="password"
-          class="pr-input"
-          placeholder={t('providers.apiKey')}
-          bind:value={apiKeyInput}
-        />
-        <button
-          class="btn btn-primary"
-          onclick={doConnect}
-          disabled={connecting || !apiKeyInput || !domainInput}
-        >
-          {connecting ? t('providers.connecting') : t('common.connect')}
-        </button>
-      </div>
-    </div>
   {:else}
-    <!-- Connected -->
+    <!-- Toolbar: only when connected -->
+    {#if status.connected}
     <div class="prov-toolbar">
       <span class="text-sm text-secondary">
         {t('providers.domain')} <strong>{status.domain}</strong>
@@ -269,6 +280,7 @@
         {/if}
       </div>
     </div>
+    {/if}
 
     <div class="pr-subview-bar">
       <button
@@ -308,7 +320,107 @@
       >
     </div>
 
-    {#if loading}
+    {#if !status.connected}
+      <!-- Disconnected: locked previews to create desire -->
+      {#if subView === 'settings'}
+        <div class="prov-empty">
+          <h3 class="prov-connect-title">{t('providers.connectTitle')}</h3>
+          <p class="text-muted text-sm mb-md">{t('providers.connectDesc')}</p>
+          <div class="prov-connect-form">
+            <input type="text" class="pr-input" placeholder={t('providers.domainPlaceholder')} bind:value={domainInput} />
+            <input type="password" class="pr-input" placeholder={t('providers.apiKey')} bind:value={apiKeyInput} />
+            <button class="btn btn-primary" onclick={doConnect} disabled={connecting || !apiKeyInput || !domainInput}>
+              {connecting ? t('providers.connecting') : t('common.connect')}
+            </button>
+          </div>
+        </div>
+      {:else}
+        <div class="prov-lock-cta">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <p class="prov-lock-text">{t('providers.lockCta')}</p>
+          <button class="btn btn-primary" onclick={() => switchSubView('settings')}>{t('providers.connectTitle')}</button>
+        </div>
+        <div class="prov-preview-wrapper">
+          <div class="prov-preview-blur">
+            {#if subView === 'overview'}
+              <div class="stats-grid prov-stats">
+                <div class="stat-card"><div class="stat-value">{PH_METRICS.domain_rank}</div><div class="stat-label">{t('providers.domainRank')}</div></div>
+                <div class="stat-card"><div class="stat-value">{fmtN(PH_METRICS.backlinks_total)}</div><div class="stat-label">{t('providers.totalBacklinks')}</div></div>
+                <div class="stat-card"><div class="stat-value">{fmtN(PH_METRICS.refdomains_total)}</div><div class="stat-label">{t('providers.referringDomains')}</div></div>
+                <div class="stat-card"><div class="stat-value">{fmtN(PH_METRICS.organic_keywords)}</div><div class="stat-label">{t('providers.organicKeywords')}</div></div>
+                <div class="stat-card"><div class="stat-value">{fmtN(PH_METRICS.organic_traffic)}</div><div class="stat-label">{t('providers.organicTraffic')}</div></div>
+                <div class="stat-card"><div class="stat-value">${PH_METRICS.organic_cost}</div><div class="stat-label">{t('providers.trafficValue')}</div></div>
+              </div>
+            {:else if subView === 'backlinks'}
+              <table>
+                <thead><tr><th>#</th><th>{t('providers.sourceURL')}</th><th>{t('providers.targetURL')}</th><th>{t('providers.anchor')}</th><th>{t('providers.dr')}</th><th>{t('providers.nf')}</th><th>{t('providers.firstSeen')}</th></tr></thead>
+                <tbody>
+                  {#each PH_BACKLINKS as r, i}
+                    <tr><td class="row-num">{i + 1}</td><td class="cell-url prov-cell-url">{r.source_url}</td><td class="cell-url prov-cell-target">{r.target_url}</td><td class="prov-cell-anchor">{r.anchor_text}</td><td>{r.domain_rank}</td><td>{r.nofollow ? t('providers.nf') : t('providers.df')}</td><td class="text-xs nowrap">{r.first_seen}</td></tr>
+                  {/each}
+                </tbody>
+              </table>
+            {:else if subView === 'refdomains'}
+              <table>
+                <thead><tr><th>#</th><th>{t('providers.domainCol')}</th><th>{t('providers.backlinks')}</th><th>{t('providers.dr')}</th><th>{t('providers.firstSeen')}</th><th>{t('providers.lastSeen')}</th></tr></thead>
+                <tbody>
+                  {#each PH_REFDOMAINS as r, i}
+                    <tr><td class="row-num">{i + 1}</td><td><strong>{r.ref_domain}</strong></td><td>{fmtN(r.backlink_count)}</td><td>{r.domain_rank}</td><td class="text-xs nowrap">{r.first_seen}</td><td class="text-xs nowrap">{r.last_seen}</td></tr>
+                  {/each}
+                </tbody>
+              </table>
+            {:else if subView === 'rankings'}
+              <table>
+                <thead><tr><th>#</th><th>{t('providers.keyword')}</th><th>{t('providers.pos')}</th><th>{t('common.url')}</th><th>{t('providers.volume')}</th><th>{t('providers.cpc')}</th><th>{t('providers.traffic')}</th></tr></thead>
+                <tbody>
+                  {#each PH_RANKINGS as r, i}
+                    <tr><td class="row-num">{i + 1}</td><td><strong>{r.keyword}</strong></td><td><span class="badge" class:badge-success={r.position <= 3} class:badge-warn={r.position > 3 && r.position <= 10}>{r.position}</span></td><td class="cell-url prov-cell-url">{r.url}</td><td>{fmtN(r.search_volume)}</td><td>{r.cpc.toFixed(2)}</td><td>{r.traffic}</td></tr>
+                  {/each}
+                </tbody>
+              </table>
+            {:else if subView === 'top_pages'}
+              <table>
+                <thead><tr><th>#</th><th>{t('common.url')}</th><th>{t('providers.title')}</th><th>{t('providers.tf')}</th><th>{t('providers.cf')}</th><th>{t('providers.backlinks')}</th><th>{t('providers.refDomains')}</th><th>{t('providers.topic')}</th><th>{t('providers.lang')}</th></tr></thead>
+                <tbody>
+                  {#each PH_TOP_PAGES as r, i}
+                    <tr>
+                      <td class="row-num">{i + 1}</td>
+                      <td class="cell-url prov-cell-url">{r.url}</td>
+                      <td class="prov-cell-anchor">{r.title}</td>
+                      <td><span class="badge prov-metric-badge" style="background-color: {r.trust_flow > 40 ? '#22c55e22' : r.trust_flow >= 20 ? '#f59e0b22' : '#ef444422'}; color: {r.trust_flow > 40 ? '#16a34a' : r.trust_flow >= 20 ? '#d97706' : '#dc2626'}">{r.trust_flow}</span></td>
+                      <td><span class="badge prov-metric-badge" style="background-color: {r.citation_flow > 40 ? '#22c55e22' : r.citation_flow >= 20 ? '#f59e0b22' : '#ef444422'}; color: {r.citation_flow > 40 ? '#16a34a' : r.citation_flow >= 20 ? '#d97706' : '#dc2626'}">{r.citation_flow}</span></td>
+                      <td>{fmtN(r.backlinks)}</td>
+                      <td>{fmtN(r.ref_domains)}</td>
+                      <td class="text-xs">{r.topical_tf?.[0]?.topic || '-'}</td>
+                      <td class="text-xs">{r.language}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {:else if subView === 'api_calls'}
+              <table>
+                <thead><tr><th>#</th><th>{t('providers.time')}</th><th>{t('providers.endpoint')}</th><th>{t('providers.status')}</th><th>{t('providers.duration')}</th><th>{t('providers.rows')}</th><th>{t('providers.error')}</th></tr></thead>
+                <tbody>
+                  {#each PH_API_CALLS as r, i}
+                    <tr>
+                      <td class="row-num">{i + 1}</td>
+                      <td class="text-xs nowrap">{new Date(r.timestamp).toLocaleString()}</td>
+                      <td class="prov-cell-anchor">{r.endpoint}</td>
+                      <td><span class="badge" style="background-color: {r.status_code >= 200 && r.status_code < 300 ? '#22c55e22' : r.status_code >= 400 ? '#ef444422' : '#f59e0b22'}; color: {r.status_code >= 200 && r.status_code < 300 ? '#16a34a' : r.status_code >= 400 ? '#dc2626' : '#d97706'}">{r.status_code}</span></td>
+                      <td class="text-xs nowrap">{r.duration_ms}ms</td>
+                      <td>{fmtN(r.rows_returned)}</td>
+                      <td class="text-xs prov-cell-anchor">{r.error || '-'}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {/if}
+          </div>
+        </div>
+      {/if}
+    {:else if loading}
       <p class="loading-msg">{t('common.loading')}</p>
     {:else if subView === 'overview'}
       {#if metrics && (metrics.backlinks_total > 0 || metrics.domain_rank > 0)}
@@ -973,5 +1085,35 @@
   .prov-disconnect-btn {
     color: var(--danger, #e53e3e);
     border-color: var(--danger, #e53e3e);
+  }
+
+  /* Lock overlay for disconnected state */
+  .prov-lock-cta {
+    text-align: center;
+    padding: 48px 20px 24px;
+    color: var(--text-primary);
+    position: relative;
+    z-index: 1;
+  }
+  .prov-lock-cta svg {
+    color: var(--text-muted);
+  }
+  .prov-lock-text {
+    max-width: 460px;
+    margin: 16px auto 20px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .prov-preview-wrapper {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+  }
+  .prov-preview-blur {
+    filter: blur(4px);
+    opacity: 0.45;
+    pointer-events: none;
+    user-select: none;
   }
 </style>

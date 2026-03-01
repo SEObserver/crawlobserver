@@ -670,6 +670,7 @@
   "providers.associateFirst": "Associate it with a project first, then connect an SEO data provider.",
   "providers.connectTitle": "Connect SEObserver",
   "providers.connectDesc": "Link this project to SEObserver to get backlinks, rankings, referring domains, and visibility data.",
+  "providers.lockCta": "Connect your SEObserver account to unlock this data — backlinks, rankings, top pages, and more.",
   "providers.domainPlaceholder": "Domain (e.g. example.com)",
   "providers.apiKey": "SEObserver API Key",
   "providers.connecting": "Connecting...",
