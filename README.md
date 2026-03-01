@@ -220,7 +220,7 @@ Adding a graph layer would mean double storage, sync complexity, and a heavier i
 | Storage | ClickHouse (via `clickhouse-go/v2`) |
 | API keys / sessions | SQLite (`modernc.org/sqlite`) |
 | Web UI | Svelte 5, Vite |
-| Desktop app | Wails v2 (macOS) |
+| Desktop app | webview (macOS) |
 | CLI | Cobra + Viper |
 
 ---
