@@ -1,6 +1,8 @@
 package frontier
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
@@ -158,4 +160,85 @@ func TestURLDb(t *testing.T) {
 	if db.Len() != 1 {
 		t.Errorf("expected Len() = 1, got %d", db.Len())
 	}
+}
+
+func TestFrontierMaxSizeZeroUnlimited(t *testing.T) {
+	f := New(0, 0) // no delay, no limit
+	for i := 0; i < 500; i++ {
+		ok := f.Add(CrawlURL{URL: fmt.Sprintf("http://example.com/%d", i)})
+		if !ok {
+			t.Fatalf("Add failed at i=%d, expected unlimited capacity", i)
+		}
+	}
+	if f.Len() != 500 {
+		t.Fatalf("expected Len()=500, got %d", f.Len())
+	}
+}
+
+func TestFrontierMaxSizeWithDedup(t *testing.T) {
+	f := New(0, 3)
+	f.Add(CrawlURL{URL: "http://a.com/1"})
+	f.Add(CrawlURL{URL: "http://a.com/2"})
+	// duplicate — should not count toward maxSize
+	ok := f.Add(CrawlURL{URL: "http://a.com/1"})
+	if ok {
+		t.Fatal("expected duplicate to be rejected")
+	}
+	// should still be able to add one more (slot 3/3)
+	ok = f.Add(CrawlURL{URL: "http://a.com/3"})
+	if !ok {
+		t.Fatal("expected 3rd unique URL to succeed (capacity=3)")
+	}
+	if f.Len() != 3 {
+		t.Fatalf("expected Len()=3, got %d", f.Len())
+	}
+	// now at capacity — next add should fail
+	ok = f.Add(CrawlURL{URL: "http://a.com/4"})
+	if ok {
+		t.Fatal("expected add to fail at capacity")
+	}
+}
+
+func TestFrontierMaxSizeDrainAndRefill(t *testing.T) {
+	f := New(0, 3)
+	// fill
+	for i := 0; i < 3; i++ {
+		f.Add(CrawlURL{URL: fmt.Sprintf("http://a.com/%d", i)})
+	}
+	if f.Len() != 3 {
+		t.Fatalf("expected Len()=3, got %d", f.Len())
+	}
+	// drain
+	for f.Len() > 0 {
+		next := f.Next()
+		if next == nil {
+			t.Fatal("Next() returned nil before queue empty")
+		}
+	}
+	// refill with new URLs (old ones are deduped, so use new)
+	for i := 10; i < 13; i++ {
+		ok := f.Add(CrawlURL{URL: fmt.Sprintf("http://a.com/%d", i)})
+		if !ok {
+			t.Fatalf("expected refill to succeed at i=%d", i)
+		}
+	}
+	if f.Len() != 3 {
+		t.Fatalf("expected Len()=3 after refill, got %d", f.Len())
+	}
+}
+
+func TestFrontierConcurrentAccess(t *testing.T) {
+	f := New(0, 0)
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			f.Add(CrawlURL{URL: fmt.Sprintf("http://host%d.com/page", n)})
+			f.Len()
+			f.Next()
+			f.SeenCount()
+		}(i)
+	}
+	wg.Wait()
 }

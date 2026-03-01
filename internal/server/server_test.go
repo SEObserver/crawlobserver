@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -379,6 +380,21 @@ func (m *mockStore) DeleteProviderData(_ context.Context, projectID, provider st
 	m.deleteProviderCalls = append(m.deleteProviderCalls, deleteProviderCall{projectID, provider})
 	return m.err
 }
+func (m *mockStore) InsertProviderTopPages(_ context.Context, _ string, _ []storage.ProviderTopPageRow) error {
+	return m.err
+}
+func (m *mockStore) ProviderTopPages(_ context.Context, _, _ string, _, _ int) ([]storage.ProviderTopPageRow, int, error) {
+	return []storage.ProviderTopPageRow{}, 0, m.err
+}
+func (m *mockStore) InsertProviderAPICalls(_ context.Context, _ []storage.ProviderAPICallRow) error {
+	return m.err
+}
+func (m *mockStore) ProviderAPICalls(_ context.Context, _, _ string, _, _ int) ([]storage.ProviderAPICallRow, int, error) {
+	return []storage.ProviderAPICallRow{}, 0, m.err
+}
+func (m *mockStore) PagesWithAuthority(_ context.Context, _, _ string, _, _ int) ([]storage.PageWithAuthority, int, error) {
+	return []storage.PageWithAuthority{}, 0, m.err
+}
 
 // ---------------------------------------------------------------------------
 // mockManager implements CrawlService
@@ -396,6 +412,9 @@ type mockManager struct {
 	resumeCalls  []resumeCall
 	startCalls   []crawler.CrawlRequest
 	stopCalls    []string
+	queued       map[string]bool
+	queueOrder   []string
+	shouldQueue  bool
 }
 
 type resumeCall struct {
@@ -426,11 +445,18 @@ func (m *mockManager) StartCrawl(req crawler.CrawlRequest) (string, error) {
 	if m.startErr != nil {
 		return "", m.startErr
 	}
+	if m.shouldQueue && m.queued != nil {
+		m.queued[m.startResult] = true
+		m.queueOrder = append(m.queueOrder, m.startResult)
+	}
 	return m.startResult, nil
 }
 
 func (m *mockManager) StopCrawl(sessionID string) error {
 	m.stopCalls = append(m.stopCalls, sessionID)
+	if m.queued != nil && m.queued[sessionID] {
+		delete(m.queued, sessionID)
+	}
 	return m.stopErr
 }
 
@@ -451,9 +477,19 @@ func (m *mockManager) LastError(sessionID string) string {
 	return ""
 }
 
-func (m *mockManager) IsQueued(sessionID string) bool { return false }
+func (m *mockManager) IsQueued(sessionID string) bool {
+	if m.queued != nil {
+		return m.queued[sessionID]
+	}
+	return false
+}
 
-func (m *mockManager) QueuedSessions() []string { return nil }
+func (m *mockManager) QueuedSessions() []string {
+	if m.queueOrder != nil {
+		return m.queueOrder
+	}
+	return []string{}
+}
 
 func (m *mockManager) Shutdown(timeout time.Duration) {}
 
@@ -2317,6 +2353,214 @@ func TestExpiredDomains_DefaultPagination(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+}
+
+// =========================================================================
+// Queue simulation E2E tests
+// =========================================================================
+
+func TestStartCrawlQueued(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	mm := srv.manager.(*mockManager)
+	mm.startResult = "queued-sess-1"
+	mm.shouldQueue = true
+	mm.queued = make(map[string]bool)
+
+	body := jsonBody(t, map[string]interface{}{
+		"seeds": []string{"http://example.com"},
+	})
+	req := authRequest(httptest.NewRequest("POST", "/api/crawl", body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]string
+	decodeJSON(t, rec, &resp)
+	if resp["status"] != "queued" {
+		t.Errorf("expected status queued, got %q", resp["status"])
+	}
+	if resp["session_id"] != "queued-sess-1" {
+		t.Errorf("expected session_id queued-sess-1, got %q", resp["session_id"])
+	}
+	if !mm.queued["queued-sess-1"] {
+		t.Error("expected session queued-sess-1 to be in mockManager.queued")
+	}
+}
+
+func TestStartCrawlStarted(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	mm := srv.manager.(*mockManager)
+	mm.startResult = "started-sess-1"
+	mm.shouldQueue = false
+
+	body := jsonBody(t, map[string]interface{}{
+		"seeds": []string{"http://example.com"},
+	})
+	req := authRequest(httptest.NewRequest("POST", "/api/crawl", body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]string
+	decodeJSON(t, rec, &resp)
+	if resp["status"] != "started" {
+		t.Errorf("expected status started, got %q", resp["status"])
+	}
+	if resp["session_id"] != "started-sess-1" {
+		t.Errorf("expected session_id started-sess-1, got %q", resp["session_id"])
+	}
+}
+
+func TestListSessionsWithQueuedFlag(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	ms := srv.store.(*mockStore)
+	ms.sessions = []storage.CrawlSession{
+		{ID: "sess-1", Status: "running", SeedURLs: []string{"https://a.com"}, StartedAt: time.Now()},
+		{ID: "sess-2", Status: "running", SeedURLs: []string{"https://b.com"}, StartedAt: time.Now()},
+	}
+
+	mm := srv.manager.(*mockManager)
+	mm.queued = map[string]bool{"sess-2": true}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var sessions []map[string]interface{}
+	decodeJSON(t, rec, &sessions)
+	if len(sessions) != 2 {
+		t.Fatalf("expected 2 sessions, got %d", len(sessions))
+	}
+
+	for _, s := range sessions {
+		id := s["ID"].(string)
+		isQueued, _ := s["is_queued"].(bool)
+		switch id {
+		case "sess-1":
+			if isQueued {
+				t.Errorf("expected sess-1 is_queued=false, got true")
+			}
+		case "sess-2":
+			if !isQueued {
+				t.Errorf("expected sess-2 is_queued=true, got false")
+			}
+		default:
+			t.Errorf("unexpected session ID %q", id)
+		}
+	}
+}
+
+func TestStopQueuedSession(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	mm := srv.manager.(*mockManager)
+	mm.queued = map[string]bool{"sess-q": true}
+	mm.running["sess-q"] = false
+
+	req := authRequest(httptest.NewRequest("POST", "/api/sessions/sess-q/stop", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]string
+	decodeJSON(t, rec, &resp)
+	if resp["status"] != "stopped" {
+		t.Errorf("expected status stopped, got %q", resp["status"])
+	}
+
+	if len(mm.stopCalls) != 1 || mm.stopCalls[0] != "sess-q" {
+		t.Errorf("expected stopCalls=[sess-q], got %v", mm.stopCalls)
+	}
+
+	if mm.queued["sess-q"] {
+		t.Error("expected sess-q to be removed from queued map after stop")
+	}
+}
+
+func TestGetSessionWithQueuedFlag(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	ms := srv.store.(*mockStore)
+	ms.sessions = []storage.CrawlSession{
+		{ID: "sess-1", Status: "running", SeedURLs: []string{"https://example.com"}, StartedAt: time.Now()},
+	}
+
+	mm := srv.manager.(*mockManager)
+	mm.queued = map[string]bool{"sess-1": true}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var sessions []map[string]interface{}
+	decodeJSON(t, rec, &sessions)
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(sessions))
+	}
+
+	isQueued, ok := sessions[0]["is_queued"].(bool)
+	if !ok {
+		t.Fatal("expected is_queued field to be present and boolean")
+	}
+	if !isQueued {
+		t.Error("expected is_queued=true for sess-1")
+	}
+}
+
+func TestSSEQueuedSession(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	ms := srv.store.(*mockStore)
+	ms.sessions = []storage.CrawlSession{
+		{ID: "sess-1", Status: "running"},
+	}
+
+	mm := srv.manager.(*mockManager)
+	mm.queued = map[string]bool{"sess-1": true}
+	mm.running["sess-1"] = false
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-1/events", nil))
+	req.Header.Set("Accept", "text/event-stream")
+	rec := httptest.NewRecorder()
+
+	// Run handler in a goroutine since SSE blocks; cancel the request context
+	// after a short window so we collect at least the first data line.
+	ctx, cancel := context.WithTimeout(req.Context(), 500*time.Millisecond)
+	defer cancel()
+	req = req.WithContext(ctx)
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, `"is_queued":true`) {
+		t.Errorf("expected SSE data to contain is_queued:true, got:\n%s", body)
 	}
 }
 
