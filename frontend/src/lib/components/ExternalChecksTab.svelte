@@ -1,6 +1,7 @@
 <script>
   import { getExternalLinkChecks, getExternalLinkCheckDomains } from '../api.js';
   import { t } from '../i18n/index.svelte.js';
+  import SearchSelect from './SearchSelect.svelte';
 
   let { sessionId, initialSubView = 'domains', initialFilters = {}, basePath = null, onpushurl, onnavigate, onerror } = $props();
 
@@ -108,15 +109,16 @@
     {:else}
       <input type="text" class="ext-filter-input" placeholder={t('extChecks.filterUrls')} bind:value={urlFilters.url}
         onkeydown={(e) => { if (e.key === 'Enter') { checksOffset = 0; pushFilters(); loadChecks(); } }} />
-      <select class="ext-filter-select" bind:value={urlFilters.status_code}
-        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}>
-        <option value="">{t('extChecks.allStatus')}</option>
-        <option value="0">{t('extChecks.dead')}</option>
-        <option value="200-299">{t('extChecks.ok2xx')}</option>
-        <option value="300-399">{t('extChecks.redirect3xx')}</option>
-        <option value="400-499">{t('extChecks.client4xx')}</option>
-        <option value=">=500">{t('extChecks.server5xx')}</option>
-      </select>
+      <SearchSelect small bind:value={urlFilters.status_code}
+        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}
+        options={[
+          { value: '', label: t('extChecks.allStatus') },
+          { value: '0', label: t('extChecks.dead') },
+          { value: '200-299', label: t('extChecks.ok2xx') },
+          { value: '300-399', label: t('extChecks.redirect3xx') },
+          { value: '400-499', label: t('extChecks.client4xx') },
+          { value: '>=500', label: t('extChecks.server5xx') },
+        ]} />
     {/if}
   </div>
 
@@ -241,13 +243,9 @@
     font-size: 13px;
     min-width: 200px;
   }
-  .ext-filter-select {
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--fg);
-    border-radius: 6px;
-    font-size: 13px;
+  .ext-checks-header :global(.ss-wrap) {
+    width: 150px;
+    flex-shrink: 0;
   }
   .ext-table {
     width: 100%;

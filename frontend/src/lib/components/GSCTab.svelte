@@ -5,6 +5,7 @@
     getGSCTimeline, getGSCInspection } from '../api.js';
   import { fmtN } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
+  import SearchSelect from './SearchSelect.svelte';
 
   let { projectId, initialSubView = 'overview', onerror, onpushurl } = $props();
 
@@ -196,12 +197,9 @@
       </p>
       {#if status.properties?.length > 0}
         <div class="flex-center-gap gsc-property-wrap">
-          <select class="pr-select gsc-property-select" bind:value={selectedProperty}>
-            <option value="">{t('gsc.selectPlaceholder')}</option>
-            {#each status.properties as p}
-              <option value={p.site_url}>{p.site_url} ({p.permission_level})</option>
-            {/each}
-          </select>
+          <SearchSelect bind:value={selectedProperty}
+            placeholder={t('gsc.selectPlaceholder')}
+            options={[{ value: '', label: t('gsc.selectPlaceholder') }, ...status.properties.map(p => ({ value: p.site_url, label: `${p.site_url} (${p.permission_level})` }))]} />
           <button class="btn btn-primary" onclick={selectPropertyAndFetch} disabled={!selectedProperty || fetchingData}>
             {fetchingData ? t('gsc.fetching') : t('gsc.selectFetch')}
           </button>
@@ -515,7 +513,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .gsc-connect-title { margin-bottom: 12px; font-size: 16px; }
-  .gsc-property-select { min-width: 300px; }
+  .gsc-property-wrap :global(.ss-wrap) { min-width: 300px; }
   .gsc-property-wrap { flex-wrap: wrap; }
   .gsc-disconnect-btn { margin-top: 12px; }
   .gsc-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -535,5 +533,4 @@
   .gsc-bar-pct { width: 50px; text-align: right; color: var(--text-muted); font-size: 11px; }
   .gsc-cell-insp-url { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .gsc-cell-canonical { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-  .pr-select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px; }
 </style>

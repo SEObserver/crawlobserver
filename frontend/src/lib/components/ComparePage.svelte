@@ -5,6 +5,7 @@
   import CompareStatsView from './CompareStatsView.svelte';
   import ComparePagesView from './ComparePagesView.svelte';
   import CompareLinksView from './CompareLinksView.svelte';
+  import SearchSelect from './SearchSelect.svelte';
 
   let { sessions = [], initialA = '', initialB = '', onerror, onnavigate } = $props();
 
@@ -78,10 +79,13 @@
   <div class="compare-selectors">
     <div class="selector-group">
       <label>{t('compare.sessionA')}</label>
-      <select bind:value={sessionA}>
-        <option value="">{t('compare.selectSession')}</option>
-        {#each sessions as s}<option value={s.ID}>{sessionLabel(s)}</option>{/each}
-      </select>
+      <SearchSelect bind:value={sessionA}
+        placeholder={t('compare.selectSession')}
+        options={[{ value: '', label: t('compare.selectSession') }, ...sessions.map(s => ({ value: s.ID, label: sessionLabel(s) }))]}
+        onsearch={sessions.length > 20 ? async (q) => {
+          const lq = q.toLowerCase();
+          return sessions.filter(s => sessionLabel(s).toLowerCase().includes(lq)).map(s => ({ value: s.ID, label: sessionLabel(s) }));
+        } : undefined} />
     </div>
     <div class="selector-swap">
       <button class="btn btn-sm" title={t('compare.swap')} onclick={() => { const tmp = sessionA; sessionA = sessionB; sessionB = tmp; compareStats = null; pagesResult = null; linksResult = null; }}>
@@ -90,10 +94,13 @@
     </div>
     <div class="selector-group">
       <label>{t('compare.sessionB')}</label>
-      <select bind:value={sessionB}>
-        <option value="">{t('compare.selectSession')}</option>
-        {#each sessions as s}<option value={s.ID}>{sessionLabel(s)}</option>{/each}
-      </select>
+      <SearchSelect bind:value={sessionB}
+        placeholder={t('compare.selectSession')}
+        options={[{ value: '', label: t('compare.selectSession') }, ...sessions.map(s => ({ value: s.ID, label: sessionLabel(s) }))]}
+        onsearch={sessions.length > 20 ? async (q) => {
+          const lq = q.toLowerCase();
+          return sessions.filter(s => sessionLabel(s).toLowerCase().includes(lq)).map(s => ({ value: s.ID, label: sessionLabel(s) }));
+        } : undefined} />
     </div>
     <button class="btn btn-primary" onclick={doCompare} disabled={!sessionA || !sessionB || loading}>
       {loading ? t('compare.comparing') : t('sidebar.compare')}
@@ -128,7 +135,7 @@
   .compare-selectors { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
   .selector-group { flex: 1; min-width: 200px; }
   .selector-group label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 4px; }
-  .selector-group select { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 13px; }
+  .selector-group :global(.ss-wrap) { width: 100%; }
   .selector-swap { display: flex; align-items: center; padding-bottom: 2px; }
   .compare-tab-bar { margin-top: 24px; }
   .compare-card-flush { border-top-left-radius: 0; border-top-right-radius: 0; border-top: none; }

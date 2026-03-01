@@ -2,6 +2,7 @@
   import { fmtN, a11yKeydown } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
   import Pagination from './Pagination.svelte';
+  import SearchSelect from './SearchSelect.svelte';
 
   let { data, offset = 0, limit = 50, onnavigate, onlimitchange, onpagechange, ontooltip } = $props();
 
@@ -13,11 +14,9 @@
 {#if data?.pages?.length > 0}
   <div class="pr-controls">
     <label>{t('pagerank.show')}</label>
-    <select class="pr-select" value={limit} onchange={(e) => onlimitchange?.(Number(e.target.value))}>
-      <option value={20}>20</option>
-      <option value={50}>50</option>
-      <option value={100}>100</option>
-    </select>
+    <SearchSelect small value={limit} onchange={(v) => onlimitchange?.(Number(v))} options={[
+      { value: 20, label: '20' }, { value: 50, label: '50' }, { value: 100, label: '100' },
+    ]} />
     <span class="text-muted text-xs">{t('pagerank.ofPagesWithPR', { total: fmtN(data.total) })}</span>
   </div>
   {@const maxPR = data.pages[0]?.pagerank || 1}
@@ -47,7 +46,7 @@
 <style>
   .pr-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
   .pr-controls label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
-  .pr-select { padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text); font-size: 13px; font-family: inherit; }
+  .pr-controls :global(.ss-wrap) { width: 80px; flex-shrink: 0; }
   .pr-top-row { display: grid; grid-template-columns: 36px 1fr 200px 50px 90px; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border-light); transition: background 0.1s; font-size: 13px; }
   .pr-top-row:hover { background: var(--bg-hover); }
   .pr-top-row-clickable { cursor: pointer; }

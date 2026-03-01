@@ -2,6 +2,7 @@
   import { getRulesets, getRuleset, createRuleset, updateRuleset, deleteRuleset, runTests } from '../api.js';
   import ConfirmModal from './ConfirmModal.svelte';
   import { t } from '../i18n/index.svelte.js';
+  import SearchSelect from './SearchSelect.svelte';
 
   let { sessionId, onerror } = $props();
 
@@ -250,13 +251,9 @@
         <tbody>
           {#each editRules as rule, i}
             <tr>
-              <td>
-                <select bind:value={rule.type}
-                  class="ct-input">
-                  {#each getRuleTypes() as rt}
-                    <option value={rt.value}>{rt.label}</option>
-                  {/each}
-                </select>
+              <td class="ct-td-type">
+                <SearchSelect small bind:value={rule.type}
+                  options={getRuleTypes().map(rt => ({ value: rt.value, label: rt.label }))} />
               </td>
               <td>
                 <input type="text" bind:value={rule.name} placeholder={t('tests.ruleLabel')}
@@ -380,7 +377,8 @@
   .ct-title-mb { margin: 0 0 12px 0; font-size: 15px; font-weight: 600; }
   .ct-empty { padding: 40px; text-align: center; color: var(--text-muted); }
   .ct-col-actions { width: 200px; }
-  .ct-col-type { width: 200px; }
+  .ct-col-type { width: 220px; }
+  .ct-td-type { overflow: visible; position: relative; }
   .ct-col-remove { width: 40px; }
   .ct-col-rule { min-width: 100px; }
   .ct-editor-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }

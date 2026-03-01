@@ -192,7 +192,7 @@
               aria-selected={String(opt.value) === String(value)}
               data-index={i}
               onmouseenter={() => activeIndex = i}
-              onmousedown|preventDefault={() => selectOption(opt)}
+              onmousedown={(e) => { e.preventDefault(); selectOption(opt); }}
             >
               {opt.label}
             </div>

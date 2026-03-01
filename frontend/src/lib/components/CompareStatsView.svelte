@@ -13,11 +13,11 @@
     return d > 0 ? `+${fmtN(d)}` : fmtN(d);
   }
 
-  function deltaClass(a, b) {
+  function deltaClass(a, b, invert = false) {
     const d = b - a;
-    if (d > 0) return 'delta-up';
-    if (d < 0) return 'delta-down';
-    return '';
+    if (d === 0) return '';
+    const up = invert ? d < 0 : d > 0;
+    return up ? 'delta-up' : 'delta-down';
   }
 </script>
 
@@ -56,7 +56,7 @@
       <span class="val-arrow">→</span>
       <span class="val-b">{fmtN(sb.error_count)}</span>
     </div>
-    <div class="compare-delta {deltaClass(sa.error_count, sb.error_count)}">{delta(sa.error_count, sb.error_count)}</div>
+    <div class="compare-delta {deltaClass(sa.error_count, sb.error_count, true)}">{delta(sa.error_count, sb.error_count)}</div>
   </div>
   <div class="compare-stat-card">
     <div class="compare-stat-label">{t('compare.avgResponse')}</div>
@@ -65,7 +65,7 @@
       <span class="val-arrow">→</span>
       <span class="val-b">{fmt(Math.round(sb.avg_fetch_ms))}</span>
     </div>
-    <div class="compare-delta {deltaClass(sa.avg_fetch_ms, sb.avg_fetch_ms)}">{delta(Math.round(sa.avg_fetch_ms), Math.round(sb.avg_fetch_ms))}</div>
+    <div class="compare-delta {deltaClass(sa.avg_fetch_ms, sb.avg_fetch_ms, true)}">{delta(Math.round(sa.avg_fetch_ms), Math.round(sb.avg_fetch_ms))}</div>
   </div>
   <div class="compare-stat-card">
     <div class="compare-stat-label">{t('compare.pagesPerSec')}</div>

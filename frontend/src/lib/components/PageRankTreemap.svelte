@@ -1,6 +1,7 @@
 <script>
   import { fmtN, a11yKeydown, squarify } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
+  import SearchSelect from './SearchSelect.svelte';
 
   let { data, depth = 2, minPages = 1, ondepthchange, onminpageschange, ondrill, ontooltip } = $props();
 </script>
@@ -8,13 +9,13 @@
 {#if data?.length > 0}
   <div class="pr-controls">
     <label>{t('urlDetail.depth')}</label>
-    <select class="pr-select" value={depth} onchange={(e) => ondepthchange?.(Number(e.target.value))}>
-      <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option>
-    </select>
+    <SearchSelect small value={depth} onchange={(v) => ondepthchange?.(Number(v))} options={[
+      { value: 1, label: '1' }, { value: 2, label: '2' }, { value: 3, label: '3' },
+    ]} />
     <label>{t('pagerank.minPages')}</label>
-    <select class="pr-select" value={minPages} onchange={(e) => onminpageschange?.(Number(e.target.value))}>
-      <option value={1}>1</option><option value={5}>5</option><option value={10}>10</option><option value={25}>25</option>
-    </select>
+    <SearchSelect small value={minPages} onchange={(v) => onminpageschange?.(Number(v))} options={[
+      { value: 1, label: '1' }, { value: 5, label: '5' }, { value: 10, label: '10' }, { value: 25, label: '25' },
+    ]} />
     <span class="text-muted text-xs">{t('pagerank.directories', { count: data.length })}</span>
   </div>
   {@const treemapItems = data.map(d => ({ ...d, value: d.total_pr }))}
@@ -47,7 +48,7 @@
 <style>
   .pr-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
   .pr-controls label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
-  .pr-select { padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text); font-size: 13px; font-family: inherit; }
+  .pr-controls :global(.ss-wrap) { width: 80px; flex-shrink: 0; }
   .pr-treemap-container { position: relative; width: 100%; height: 500px; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
   .pr-treemap-rect { position: absolute; border: 1px solid var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; transition: opacity 0.15s; }
   .pr-treemap-rect:hover { opacity: 0.85; }
