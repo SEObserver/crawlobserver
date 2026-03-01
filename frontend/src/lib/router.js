@@ -40,13 +40,24 @@ export function parseRoute() {
   // Project view
   const projMatch = path.match(/^\/projects\/([^/]+)(?:\/([^/]+)(?:\/([^/]+))?)?/);
   if (projMatch) {
-    return { page: 'project', projectId: projMatch[1], projectTab: projMatch[2] || 'sessions', projectSubView: projMatch[3] || null };
+    return {
+      page: 'project',
+      projectId: projMatch[1],
+      projectTab: projMatch[2] || 'sessions',
+      projectSubView: projMatch[3] || null,
+    };
   }
 
   // URL detail
   const urlMatch = path.match(/^\/sessions\/([^/]+)\/url\/(.+)/);
   if (urlMatch) {
-    return { sessionId: urlMatch[1], tab: 'url-detail', detailUrl: decodeURIComponent(urlMatch[2]), filters: {}, offset: 0 };
+    return {
+      sessionId: urlMatch[1],
+      tab: 'url-detail',
+      detailUrl: decodeURIComponent(urlMatch[2]),
+      filters: {},
+      offset: 0,
+    };
   }
 
   // Session detail
@@ -75,7 +86,14 @@ export function parseRoute() {
       subView = redirect.subView;
     }
 
-    return { sessionId: m[1], tab, subView, filters: routeFilters, offset: routeOffset, redirectFrom };
+    return {
+      sessionId: m[1],
+      tab,
+      subView,
+      filters: routeFilters,
+      offset: routeOffset,
+      redirectFrom,
+    };
   }
 
   // Home

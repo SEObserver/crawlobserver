@@ -13,13 +13,25 @@
   import LinksExplorer from './LinksExplorer.svelte';
   import DirectivesTab from './DirectivesTab.svelte';
   import AuthorityTab from './AuthorityTab.svelte';
+  import NearDuplicatesTab from './NearDuplicatesTab.svelte';
 
   let {
-    session, stats, liveProgress,
-    initialTab = 'reports', initialFilters = {}, initialOffset = 0,
+    session,
+    stats,
+    liveProgress,
+    initialTab = 'reports',
+    initialFilters = {},
+    initialOffset = 0,
     initialDetailUrl = '',
     initialSubView = null,
-    onerror, onstop, onresume, ondelete, onrefresh, oncompare, onnavigate, ongohome,
+    onerror,
+    onstop,
+    onresume,
+    ondelete,
+    onrefresh,
+    oncompare,
+    onnavigate,
+    ongohome,
   } = $props();
 
   let tab = $state(initialTab);
@@ -61,34 +73,70 @@
 
 {#if tab === 'url-detail' && session}
   <div class="breadcrumb">
-    <a href="/" onclick={(e) => { e.preventDefault(); ongohome?.(); }}>{t('session.sessions')}</a>
+    <a
+      href="/"
+      onclick={(e) => {
+        e.preventDefault();
+        ongohome?.();
+      }}>{t('session.sessions')}</a
+    >
     <span>/</span>
-    <a href={`/sessions/${session.ID}/reports`} onclick={(e) => { e.preventDefault(); onnavigate?.(`/sessions/${session.ID}/reports`); }}>{session.SeedURLs?.[0] || session.ID}</a>
+    <a
+      href={`/sessions/${session.ID}/reports`}
+      onclick={(e) => {
+        e.preventDefault();
+        onnavigate?.(`/sessions/${session.ID}/reports`);
+      }}>{session.SeedURLs?.[0] || session.ID}</a
+    >
     <span>/</span>
     <span class="breadcrumb-active">{t('session.urlDetail')}</span>
   </div>
   {#key detailUrl}
-    <UrlDetailView sessionId={session.ID} url={detailUrl}
-      onerror={(msg) => onerror?.(msg)} onnavigate={(url) => onnavigate?.(url)}
-      onopenhtml={openHtmlModal} />
+    <UrlDetailView
+      sessionId={session.ID}
+      url={detailUrl}
+      onerror={(msg) => onerror?.(msg)}
+      onnavigate={(url) => onnavigate?.(url)}
+      onopenhtml={openHtmlModal}
+    />
   {/key}
-
 {:else if session}
   <div class="breadcrumb">
-    <a href="/" onclick={(e) => { e.preventDefault(); ongohome?.(); }}>{t('session.sessions')}</a>
+    <a
+      href="/"
+      onclick={(e) => {
+        e.preventDefault();
+        ongohome?.();
+      }}>{t('session.sessions')}</a
+    >
     <span>/</span>
     <span class="breadcrumb-active">{session.SeedURLs?.[0] || session.ID}</span>
   </div>
 
-  <SessionActionBar {session} {stats} {liveProgress}
-    onerror={(msg) => onerror?.(msg)} onstop={(id) => onstop?.(id)} onresume={(id) => onresume?.(id)}
-    ondelete={(id) => ondelete?.(id)} onrefresh={() => onrefresh?.()}
-    oncompare={(id) => oncompare?.(id)} />
+  <SessionActionBar
+    {session}
+    {stats}
+    {liveProgress}
+    onerror={(msg) => onerror?.(msg)}
+    onstop={(id) => onstop?.(id)}
+    onresume={(id) => onresume?.(id)}
+    ondelete={(id) => ondelete?.(id)}
+    onrefresh={() => onrefresh?.()}
+    oncompare={(id) => oncompare?.(id)}
+  />
 
   <div class="tab-bar">
     {#each getTabs() as tb}
       <button class="tab" class:tab-active={tab === tb.id} onclick={() => switchTab(tb.id)}>
-        <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html tb.icon}</svg>
+        <svg
+          class="tab-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round">{@html tb.icon}</svg
+        >
         {tb.label}
       </button>
     {/each}
@@ -96,56 +144,76 @@
 
   <div class="card card-flush card-tab-body">
     {#if tab === 'reports'}
-      <ReportsHub sessionId={session.ID} {stats} initialSubView={subView || 'overview'}
+      <ReportsHub
+        sessionId={session.ID}
+        {stats}
+        initialSubView={subView || 'overview'}
         onnavigate={(url, f) => onnavigate?.(url, f)}
         onpushurl={(u) => pushURL(u)}
-        onerror={(msg) => onerror?.(msg)} />
-
+        onerror={(msg) => onerror?.(msg)}
+      />
     {:else if tab === 'pages'}
-      <PagesExplorer sessionId={session.ID}
+      <PagesExplorer
+        sessionId={session.ID}
         initialSubView={subView || 'all'}
-        initialFilters={initialFilters}
-        initialOffset={initialOffset}
+        {initialFilters}
+        {initialOffset}
         onpushurl={(u) => pushURL(u)}
         onnavigate={(url) => onnavigate?.(url)}
         onerror={(msg) => onerror?.(msg)}
-        onopenhtml={openHtmlModal} />
-
+        onopenhtml={openHtmlModal}
+      />
     {:else if tab === 'links'}
-      <LinksExplorer sessionId={session.ID}
+      <LinksExplorer
+        sessionId={session.ID}
         initialSubView={subView || 'internal'}
-        initialFilters={initialFilters}
-        initialOffset={initialOffset}
+        {initialFilters}
+        {initialOffset}
         onpushurl={(u) => pushURL(u)}
         onnavigate={(url) => onnavigate?.(url)}
-        onerror={(msg) => onerror?.(msg)} />
-
+        onerror={(msg) => onerror?.(msg)}
+      />
     {:else if tab === 'resources'}
-      <ResourceChecksTab sessionId={session.ID} initialSubView={subView || 'summary'} initialFilters={initialFilters}
-        onpushurl={(u) => pushURL(u)}
-        onerror={(msg) => onerror?.(msg)} />
-
-    {:else if tab === 'pagerank'}
-      <PageRankTab sessionId={session.ID} initialSubView={subView || 'top'}
-        onnavigate={(url) => goToUrlDetail({preventDefault:()=>{}}, url)}
+      <ResourceChecksTab
+        sessionId={session.ID}
+        initialSubView={subView || 'summary'}
+        {initialFilters}
         onpushurl={(u) => pushURL(u)}
         onerror={(msg) => onerror?.(msg)}
-        onrefresh={() => onrefresh?.()} />
-
-    {:else if tab === 'directives'}
-      <DirectivesTab sessionId={session.ID} initialSubView={subView || 'robots'}
+      />
+    {:else if tab === 'pagerank'}
+      <PageRankTab
+        sessionId={session.ID}
+        initialSubView={subView || 'top'}
+        onnavigate={(url) => goToUrlDetail({ preventDefault: () => {} }, url)}
         onpushurl={(u) => pushURL(u)}
-        onerror={(msg) => onerror?.(msg)} />
-
+        onerror={(msg) => onerror?.(msg)}
+        onrefresh={() => onrefresh?.()}
+      />
+    {:else if tab === 'directives'}
+      <DirectivesTab
+        sessionId={session.ID}
+        initialSubView={subView || 'robots'}
+        onpushurl={(u) => pushURL(u)}
+        onerror={(msg) => onerror?.(msg)}
+      />
+    {:else if tab === 'duplicates'}
+      <NearDuplicatesTab
+        sessionId={session.ID}
+        onerror={(msg) => onerror?.(msg)}
+        onnavigate={(url) => onnavigate?.(url)}
+      />
     {:else if tab === 'authority'}
-      <AuthorityTab sessionId={session.ID} projectId={session.ProjectID}
+      <AuthorityTab
+        sessionId={session.ID}
+        projectId={session.ProjectID}
         onerror={(msg) => onerror?.(msg)}
         onnavigate={() => {
           if (session.ProjectID) {
             onnavigate?.(`/projects/${session.ProjectID}/providers`);
           }
-        }} />
-
+        }}
+      />
     {:else if tab === 'tests'}
       <CustomTestsTab sessionId={session.ID} onerror={(msg) => onerror?.(msg)} />
     {/if}
@@ -153,7 +221,12 @@
 {/if}
 
 {#if showHtmlModal && session}
-  <HtmlModal sessionId={session.ID} url={htmlModalUrl} onclose={closeHtmlModal} onerror={(msg) => onerror?.(msg)} />
+  <HtmlModal
+    sessionId={session.ID}
+    url={htmlModalUrl}
+    onclose={closeHtmlModal}
+    onerror={(msg) => onerror?.(msg)}
+  />
 {/if}
 
 <style>

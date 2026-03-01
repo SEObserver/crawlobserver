@@ -15,7 +15,7 @@
     url: initialFilters.url || '',
     resource_type: initialFilters.resource_type || '',
     is_internal: initialFilters.is_internal || '',
-    status_code: initialFilters.status_code || ''
+    status_code: initialFilters.status_code || '',
   });
   const PAGE_SIZE = 100;
 
@@ -58,7 +58,9 @@
   }
 
   function switchToUrls(type) {
-    urlFilters = type ? { url: '', resource_type: type, is_internal: '', status_code: '' } : { url: '', resource_type: '', is_internal: '', status_code: '' };
+    urlFilters = type
+      ? { url: '', resource_type: type, is_internal: '', status_code: '' }
+      : { url: '', resource_type: '', is_internal: '', status_code: '' };
     checksOffset = 0;
     view = 'urls';
     pushFilters();
@@ -81,11 +83,16 @@
 
   function typeIcon(type) {
     switch (type) {
-      case 'css': return t('resources.css');
-      case 'js': return t('resources.js');
-      case 'font': return t('resources.font');
-      case 'icon': return t('resources.icon');
-      default: return type;
+      case 'css':
+        return t('resources.css');
+      case 'js':
+        return t('resources.js');
+      case 'font':
+        return t('resources.font');
+      case 'icon':
+        return t('resources.icon');
+      default:
+        return type;
     }
   }
 
@@ -100,30 +107,65 @@
 <div class="res-checks">
   <div class="res-checks-header">
     <div class="res-checks-views">
-      <button class="btn-view" class:active={view === 'summary'} onclick={switchToSummary}>{t('resources.summary')}</button>
-      <button class="btn-view" class:active={view === 'urls'} onclick={() => switchToUrls('')}>{t('resources.urls')}</button>
+      <button class="btn-view" class:active={view === 'summary'} onclick={switchToSummary}
+        >{t('resources.summary')}</button
+      >
+      <button class="btn-view" class:active={view === 'urls'} onclick={() => switchToUrls('')}
+        >{t('resources.urls')}</button
+      >
     </div>
     {#if view === 'urls'}
-      <input type="text" class="res-filter-input" placeholder={t('resources.filterUrls')} bind:value={urlFilters.url}
-        onkeydown={(e) => { if (e.key === 'Enter') { checksOffset = 0; pushFilters(); loadChecks(); } }} />
-      <SearchSelect small bind:value={urlFilters.resource_type}
-        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}
+      <input
+        type="text"
+        class="res-filter-input"
+        placeholder={t('resources.filterUrls')}
+        bind:value={urlFilters.url}
+        onkeydown={(e) => {
+          if (e.key === 'Enter') {
+            checksOffset = 0;
+            pushFilters();
+            loadChecks();
+          }
+        }}
+      />
+      <SearchSelect
+        small
+        bind:value={urlFilters.resource_type}
+        onchange={() => {
+          checksOffset = 0;
+          pushFilters();
+          loadChecks();
+        }}
         options={[
           { value: '', label: t('resources.allTypes') },
           { value: 'css', label: t('resources.css') },
           { value: 'js', label: t('resources.js') },
           { value: 'font', label: t('resources.font') },
           { value: 'icon', label: t('resources.icon') },
-        ]} />
-      <SearchSelect small bind:value={urlFilters.is_internal}
-        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}
+        ]}
+      />
+      <SearchSelect
+        small
+        bind:value={urlFilters.is_internal}
+        onchange={() => {
+          checksOffset = 0;
+          pushFilters();
+          loadChecks();
+        }}
         options={[
           { value: '', label: t('resources.allSources') },
           { value: 'true', label: t('common.internal') },
           { value: 'false', label: t('resources.hotlink') },
-        ]} />
-      <SearchSelect small bind:value={urlFilters.status_code}
-        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}
+        ]}
+      />
+      <SearchSelect
+        small
+        bind:value={urlFilters.status_code}
+        onchange={() => {
+          checksOffset = 0;
+          pushFilters();
+          loadChecks();
+        }}
         options={[
           { value: '', label: t('resources.allStatus') },
           { value: '0', label: t('extChecks.dead') },
@@ -131,7 +173,8 @@
           { value: '300-399', label: t('extChecks.redirect3xx') },
           { value: '400-499', label: t('extChecks.client4xx') },
           { value: '>=500', label: t('extChecks.server5xx') },
-        ]} />
+        ]}
+      />
     {/if}
   </div>
 
@@ -154,15 +197,32 @@
         {#each summary as s}
           <tr>
             <td><span class="badge badge-type">{typeIcon(s.resource_type)}</span></td>
-            <td class="num"><button class="link-btn" onclick={() => switchToUrls(s.resource_type)}>{s.total}</button></td>
+            <td class="num"
+              ><button class="link-btn" onclick={() => switchToUrls(s.resource_type)}
+                >{s.total}</button
+              ></td
+            >
             <td class="num">{s.internal}</td>
-            <td class="num">{#if s.external > 0}<span class="badge badge-hotlink">{s.external}</span>{:else}0{/if}</td>
+            <td class="num"
+              >{#if s.external > 0}<span class="badge badge-hotlink">{s.external}</span
+                >{:else}0{/if}</td
+            >
             <td class="num">{s.ok}</td>
-            <td class="num">{#if s.errors > 0}<span class="badge badge-error">{s.errors}</span>{:else}0{/if}</td>
+            <td class="num"
+              >{#if s.errors > 0}<span class="badge badge-error">{s.errors}</span>{:else}0{/if}</td
+            >
             <td class="cell-bar">
               <div class="status-bar">
-                {#if s.ok > 0}<div class="bar-ok" style="width: {s.total > 0 ? (s.ok / s.total * 100) : 0}%" title="{s.ok} OK"></div>{/if}
-                {#if s.errors > 0}<div class="bar-err" style="width: {s.total > 0 ? (s.errors / s.total * 100) : 0}%" title="{s.errors} errors"></div>{/if}
+                {#if s.ok > 0}<div
+                    class="bar-ok"
+                    style="width: {s.total > 0 ? (s.ok / s.total) * 100 : 0}%"
+                    title="{s.ok} OK"
+                  ></div>{/if}
+                {#if s.errors > 0}<div
+                    class="bar-err"
+                    style="width: {s.total > 0 ? (s.errors / s.total) * 100 : 0}%"
+                    title="{s.errors} errors"
+                  ></div>{/if}
               </div>
             </td>
           </tr>
@@ -172,7 +232,6 @@
         {/if}
       </tbody>
     </table>
-
   {:else}
     <table class="res-table">
       <thead>
@@ -192,8 +251,15 @@
           <tr>
             <td class="cell-url"><a href={c.url} target="_blank" rel="noopener">{c.url}</a></td>
             <td><span class="badge badge-type">{typeIcon(c.resource_type)}</span></td>
-            <td>{#if c.is_internal}<span class="badge badge-internal">{t('common.internal')}</span>{:else}<span class="badge badge-hotlink">{t('resources.hotlink')}</span>{/if}</td>
-            <td><span class="badge {statusClass(c.status_code)}">{c.status_code || t('extChecks.deadLabel')}</span></td>
+            <td
+              >{#if c.is_internal}<span class="badge badge-internal">{t('common.internal')}</span
+                >{:else}<span class="badge badge-hotlink">{t('resources.hotlink')}</span>{/if}</td
+            >
+            <td
+              ><span class="badge {statusClass(c.status_code)}"
+                >{c.status_code || t('extChecks.deadLabel')}</span
+              ></td
+            >
             <td>{c.content_type || '-'}</td>
             <td class="cell-url">{c.redirect_url || '-'}</td>
             <td class="num">{c.page_count || 0}</td>
@@ -207,15 +273,29 @@
     </table>
 
     <div class="res-pagination">
-      <button disabled={checksOffset === 0} onclick={() => { checksOffset = Math.max(0, checksOffset - PAGE_SIZE); loadChecks(); }}>{t('common.previous')}</button>
+      <button
+        disabled={checksOffset === 0}
+        onclick={() => {
+          checksOffset = Math.max(0, checksOffset - PAGE_SIZE);
+          loadChecks();
+        }}>{t('common.previous')}</button
+      >
       <span>{checksOffset + 1} - {checksOffset + checks.length}</span>
-      <button disabled={!hasMoreChecks} onclick={() => { checksOffset += PAGE_SIZE; loadChecks(); }}>{t('common.next')}</button>
+      <button
+        disabled={!hasMoreChecks}
+        onclick={() => {
+          checksOffset += PAGE_SIZE;
+          loadChecks();
+        }}>{t('common.next')}</button
+      >
     </div>
   {/if}
 </div>
 
 <style>
-  .res-checks { padding: 16px; }
+  .res-checks {
+    padding: 16px;
+  }
   .res-checks-header {
     display: flex;
     align-items: center;
@@ -223,7 +303,10 @@
     margin-bottom: 16px;
     flex-wrap: wrap;
   }
-  .res-checks-views { display: flex; gap: 4px; }
+  .res-checks-views {
+    display: flex;
+    gap: 4px;
+  }
   .btn-view {
     padding: 6px 14px;
     border: 1px solid var(--border);
@@ -271,17 +354,29 @@
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
   }
-  .res-table tbody tr:hover { background: var(--bg-hover); }
+  .res-table tbody tr:hover {
+    background: var(--bg-hover);
+  }
   .cell-url {
     max-width: 400px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .cell-url a { color: var(--accent); text-decoration: none; }
-  .cell-url a:hover { text-decoration: underline; }
-  .cell-bar { min-width: 120px; }
-  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .cell-url a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .cell-url a:hover {
+    text-decoration: underline;
+  }
+  .cell-bar {
+    min-width: 120px;
+  }
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
   .link-btn {
     background: none;
     border: none;
@@ -291,7 +386,9 @@
     padding: 0;
     text-align: left;
   }
-  .link-btn:hover { text-decoration: underline; }
+  .link-btn:hover {
+    text-decoration: underline;
+  }
   .badge {
     display: inline-block;
     padding: 2px 8px;
@@ -299,20 +396,62 @@
     font-size: 12px;
     font-weight: 600;
   }
-  .badge-type { background: #e0e7ff; color: #3730a3; }
-  .badge-success { background: #dcfce7; color: #166534; }
-  .badge-redirect { background: #fef9c3; color: #854d0e; }
-  .badge-error { background: #fee2e2; color: #991b1b; }
-  .badge-dead { background: #f3f4f6; color: #6b7280; }
-  .badge-internal { background: #dcfce7; color: #166534; }
-  .badge-hotlink { background: #ffedd5; color: #9a3412; }
-  :global([data-theme="dark"]) .badge-type { background: #3730a3; color: #e0e7ff; }
-  :global([data-theme="dark"]) .badge-success { background: #166534; color: #dcfce7; }
-  :global([data-theme="dark"]) .badge-redirect { background: #854d0e; color: #fef9c3; }
-  :global([data-theme="dark"]) .badge-error { background: #991b1b; color: #fee2e2; }
-  :global([data-theme="dark"]) .badge-dead { background: #374151; color: #9ca3af; }
-  :global([data-theme="dark"]) .badge-internal { background: #166534; color: #dcfce7; }
-  :global([data-theme="dark"]) .badge-hotlink { background: #9a3412; color: #ffedd5; }
+  .badge-type {
+    background: #e0e7ff;
+    color: #3730a3;
+  }
+  .badge-success {
+    background: #dcfce7;
+    color: #166534;
+  }
+  .badge-redirect {
+    background: #fef9c3;
+    color: #854d0e;
+  }
+  .badge-error {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .badge-dead {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+  .badge-internal {
+    background: #dcfce7;
+    color: #166534;
+  }
+  .badge-hotlink {
+    background: #ffedd5;
+    color: #9a3412;
+  }
+  :global([data-theme='dark']) .badge-type {
+    background: #3730a3;
+    color: #e0e7ff;
+  }
+  :global([data-theme='dark']) .badge-success {
+    background: #166534;
+    color: #dcfce7;
+  }
+  :global([data-theme='dark']) .badge-redirect {
+    background: #854d0e;
+    color: #fef9c3;
+  }
+  :global([data-theme='dark']) .badge-error {
+    background: #991b1b;
+    color: #fee2e2;
+  }
+  :global([data-theme='dark']) .badge-dead {
+    background: #374151;
+    color: #9ca3af;
+  }
+  :global([data-theme='dark']) .badge-internal {
+    background: #166534;
+    color: #dcfce7;
+  }
+  :global([data-theme='dark']) .badge-hotlink {
+    background: #9a3412;
+    color: #ffedd5;
+  }
   .status-bar {
     display: flex;
     height: 14px;
@@ -320,8 +459,12 @@
     overflow: hidden;
     background: var(--border);
   }
-  .bar-ok { background: #22c55e; }
-  .bar-err { background: #ef4444; }
+  .bar-ok {
+    background: #22c55e;
+  }
+  .bar-err {
+    background: #ef4444;
+  }
   .res-pagination {
     display: flex;
     align-items: center;
@@ -339,8 +482,12 @@
     cursor: pointer;
     font-size: 13px;
   }
-  .res-pagination button:disabled { opacity: 0.4; cursor: default; }
-  .res-loading, .res-empty {
+  .res-pagination button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .res-loading,
+  .res-empty {
     text-align: center;
     padding: 32px;
     color: var(--text-muted);

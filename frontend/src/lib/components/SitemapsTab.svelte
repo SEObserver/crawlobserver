@@ -89,15 +89,44 @@
     {:else}
       <table>
         <thead>
-          <tr><th>{t('common.url')}</th><th>{t('common.type')}</th><th>{t('sitemaps.urls')}</th><th>{t('common.status')}</th></tr>
+          <tr
+            ><th>{t('common.url')}</th><th>{t('common.type')}</th><th>{t('sitemaps.urls')}</th><th
+              >{t('common.status')}</th
+            ></tr
+          >
         </thead>
         <tbody>
           {#each sitemaps as s}
-            <tr class:robots-host-active={selectedSitemap === s.URL} class="clickable-row" role="button" tabindex="0" onclick={() => selectSitemap(s.URL)} onkeydown={a11yKeydown(() => selectSitemap(s.URL))}>
-              <td class="font-medium truncate sitemap-url-cell" title={s.URL}>{s.URL.replace(/^https?:\/\/[^/]+/, '')}</td>
-              <td><span class="badge {s.Type === 'index' ? 'badge-warning' : s.Type === 'urlset' ? 'badge-success' : 'badge-muted'}">{s.Type || '?'}</span></td>
+            <tr
+              class:robots-host-active={selectedSitemap === s.URL}
+              class="clickable-row"
+              role="button"
+              tabindex="0"
+              onclick={() => selectSitemap(s.URL)}
+              onkeydown={a11yKeydown(() => selectSitemap(s.URL))}
+            >
+              <td class="font-medium truncate sitemap-url-cell" title={s.URL}
+                >{s.URL.replace(/^https?:\/\/[^/]+/, '')}</td
+              >
+              <td
+                ><span
+                  class="badge {s.Type === 'index'
+                    ? 'badge-warning'
+                    : s.Type === 'urlset'
+                      ? 'badge-success'
+                      : 'badge-muted'}">{s.Type || '?'}</span
+                ></td
+              >
               <td class="text-right">{s.URLCount?.toLocaleString() || 0}</td>
-              <td><span class="badge {s.StatusCode === 200 ? 'badge-success' : s.StatusCode >= 400 ? 'badge-error' : 'badge-warning'}">{s.StatusCode}</span></td>
+              <td
+                ><span
+                  class="badge {s.StatusCode === 200
+                    ? 'badge-success'
+                    : s.StatusCode >= 400
+                      ? 'badge-error'
+                      : 'badge-warning'}">{s.StatusCode}</span
+                ></td
+              >
             </tr>
           {/each}
         </tbody>
@@ -106,7 +135,9 @@
   </div>
   <div class="robots-detail">
     {#if selectedSitemap}
-      <h3 class="sitemap-detail-title font-semibold text-secondary word-break">{selectedSitemap}</h3>
+      <h3 class="sitemap-detail-title font-semibold text-secondary word-break">
+        {selectedSitemap}
+      </h3>
       {#if sitemapURLsLoading && sitemapURLs.length === 0}
         <p class="text-muted">{t('common.loading')}</p>
       {:else if sitemapURLs.length === 0}
@@ -114,7 +145,11 @@
       {:else}
         <table>
           <thead>
-            <tr><th>{t('common.url')}</th><th>{t('sitemaps.lastModified')}</th><th>{t('sitemaps.changeFreq')}</th><th>{t('sitemaps.priority')}</th></tr>
+            <tr
+              ><th>{t('common.url')}</th><th>{t('sitemaps.lastModified')}</th><th
+                >{t('sitemaps.changeFreq')}</th
+              ><th>{t('sitemaps.priority')}</th></tr
+            >
           </thead>
           <tbody>
             {#each sitemapURLs as u}
@@ -128,11 +163,19 @@
           </tbody>
         </table>
         <div class="pagination pagination-gap">
-          <button class="btn btn-sm" onclick={sitemapURLsPrev} disabled={sitemapURLsOffset === 0 || sitemapURLsLoading}>{t('common.prev')}</button>
+          <button
+            class="btn btn-sm"
+            onclick={sitemapURLsPrev}
+            disabled={sitemapURLsOffset === 0 || sitemapURLsLoading}>{t('common.prev')}</button
+          >
           <span class="row-num">
             {sitemapURLsOffset + 1}&ndash;{sitemapURLsOffset + sitemapURLs.length}
           </span>
-          <button class="btn btn-sm" onclick={sitemapURLsNext} disabled={!hasMoreSitemapURLs || sitemapURLsLoading}>{t('common.next')}</button>
+          <button
+            class="btn btn-sm"
+            onclick={sitemapURLsNext}
+            disabled={!hasMoreSitemapURLs || sitemapURLsLoading}>{t('common.next')}</button
+          >
         </div>
       {/if}
     {:else}

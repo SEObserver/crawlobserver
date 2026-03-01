@@ -23,14 +23,18 @@
 
   let displayOptions = $derived(
     onsearch
-      ? (query ? asyncOptions : options)
-      : (query ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase())) : options)
+      ? query
+        ? asyncOptions
+        : options
+      : query
+        ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+        : options,
   );
 
   let selectedLabel = $derived(
-    options.find(o => String(o.value) === String(value))?.label
-    || (onsearch && asyncOptions.find(o => String(o.value) === String(value))?.label)
-    || ''
+    options.find((o) => String(o.value) === String(value))?.label ||
+      (onsearch && asyncOptions.find((o) => String(o.value) === String(value))?.label) ||
+      '',
   );
 
   function openDropdown() {
@@ -104,7 +108,13 @@
   }
 
   function handleClickOutside(e) {
-    if (open && triggerEl && !triggerEl.contains(e.target) && dropdownEl && !dropdownEl.contains(e.target)) {
+    if (
+      open &&
+      triggerEl &&
+      !triggerEl.contains(e.target) &&
+      dropdownEl &&
+      !dropdownEl.contains(e.target)
+    ) {
       closeDropdown();
     }
   }
@@ -153,17 +163,16 @@
       {selectedLabel || placeholder || '\u00A0'}
     </span>
     <svg class="ss-chevron" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+      <path
+        fill-rule="evenodd"
+        d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+        clip-rule="evenodd"
+      />
     </svg>
   </button>
 
   {#if open}
-    <div
-      bind:this={dropdownEl}
-      class="ss-dropdown"
-      class:ss-flip={flipUp}
-      role="listbox"
-    >
+    <div bind:this={dropdownEl} class="ss-dropdown" class:ss-flip={flipUp} role="listbox">
       <div class="ss-search-wrap">
         <input
           bind:this={inputEl}
@@ -191,8 +200,11 @@
               role="option"
               aria-selected={String(opt.value) === String(value)}
               data-index={i}
-              onmouseenter={() => activeIndex = i}
-              onmousedown={(e) => { e.preventDefault(); selectOption(opt); }}
+              onmouseenter={() => (activeIndex = i)}
+              onmousedown={(e) => {
+                e.preventDefault();
+                selectOption(opt);
+              }}
             >
               {opt.label}
             </div>

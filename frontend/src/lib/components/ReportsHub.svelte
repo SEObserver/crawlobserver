@@ -16,7 +16,15 @@
   let auditLoading = $state(false);
   let auditError = $state(null);
 
-  const SUB_VIEW_IDS = ['overview', 'content', 'technical', 'links', 'structure', 'sitemaps', 'international'];
+  const SUB_VIEW_IDS = [
+    'overview',
+    'content',
+    'technical',
+    'links',
+    'structure',
+    'sitemaps',
+    'international',
+  ];
   const SUB_VIEW_KEYS = {
     overview: 'reports.overview',
     content: 'reports.content',
@@ -58,8 +66,11 @@
 <div class="pr-container">
   <div class="pr-subview-bar">
     {#each SUB_VIEW_IDS as id}
-      <button class="pr-subview-btn" class:pr-subview-active={subView === id}
-        onclick={() => switchSubView(id)}>
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={subView === id}
+        onclick={() => switchSubView(id)}
+      >
         {t(SUB_VIEW_KEYS[id])}
       </button>
     {/each}

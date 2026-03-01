@@ -3,7 +3,15 @@
   import { t } from '../i18n/index.svelte.js';
   import SearchSelect from './SearchSelect.svelte';
 
-  let { sessionId, initialSubView = 'domains', initialFilters = {}, basePath = null, onpushurl, onnavigate, onerror } = $props();
+  let {
+    sessionId,
+    initialSubView = 'domains',
+    initialFilters = {},
+    basePath = null,
+    onpushurl,
+    onnavigate,
+    onerror,
+  } = $props();
 
   let view = $state(initialSubView); // 'domains' | 'urls'
   let domains = $state([]);
@@ -14,7 +22,10 @@
   let hasMoreDomains = $state(false);
   let hasMoreChecks = $state(false);
   let domainFilter = $state(initialFilters.domain || '');
-  let urlFilters = $state({ url: initialFilters.url || '', status_code: initialFilters.status_code || '' });
+  let urlFilters = $state({
+    url: initialFilters.url || '',
+    status_code: initialFilters.status_code || '',
+  });
   const PAGE_SIZE = 100;
 
   function pushFilters() {
@@ -22,7 +33,8 @@
     const params = new URLSearchParams();
     if (view === 'domains' && domainFilter) params.set('domain', domainFilter);
     if (view === 'urls' && urlFilters.url) params.set('url', urlFilters.url);
-    if (view === 'urls' && urlFilters.status_code) params.set('status_code', urlFilters.status_code);
+    if (view === 'urls' && urlFilters.status_code)
+      params.set('status_code', urlFilters.status_code);
     const qs = params.toString();
     onpushurl?.(qs ? `${base}?${qs}` : base);
   }
@@ -31,7 +43,12 @@
     loading = true;
     try {
       const filters = domainFilter ? { domain: domainFilter } : {};
-      const result = await getExternalLinkCheckDomains(sessionId, PAGE_SIZE, domainsOffset, filters);
+      const result = await getExternalLinkCheckDomains(
+        sessionId,
+        PAGE_SIZE,
+        domainsOffset,
+        filters,
+      );
       domains = result || [];
       hasMoreDomains = domains.length === PAGE_SIZE;
     } catch (e) {
@@ -86,7 +103,7 @@
   }
 
   function pct(n, total) {
-    return total > 0 ? (n / total * 100) : 0;
+    return total > 0 ? (n / total) * 100 : 0;
   }
 
   $effect(() => {
@@ -100,17 +117,48 @@
 <div class="ext-checks">
   <div class="ext-checks-header">
     <div class="ext-checks-views">
-      <button class="btn-view" class:active={view === 'domains'} onclick={switchToDomains}>{t('extChecks.domains')}</button>
-      <button class="btn-view" class:active={view === 'urls'} onclick={() => switchToUrls('')}>{t('extChecks.urls')}</button>
+      <button class="btn-view" class:active={view === 'domains'} onclick={switchToDomains}
+        >{t('extChecks.domains')}</button
+      >
+      <button class="btn-view" class:active={view === 'urls'} onclick={() => switchToUrls('')}
+        >{t('extChecks.urls')}</button
+      >
     </div>
     {#if view === 'domains'}
-      <input type="text" class="ext-filter-input" placeholder={t('extChecks.filterDomains')} bind:value={domainFilter}
-        onkeydown={(e) => { if (e.key === 'Enter') { domainsOffset = 0; loadDomains(); } }} />
+      <input
+        type="text"
+        class="ext-filter-input"
+        placeholder={t('extChecks.filterDomains')}
+        bind:value={domainFilter}
+        onkeydown={(e) => {
+          if (e.key === 'Enter') {
+            domainsOffset = 0;
+            loadDomains();
+          }
+        }}
+      />
     {:else}
-      <input type="text" class="ext-filter-input" placeholder={t('extChecks.filterUrls')} bind:value={urlFilters.url}
-        onkeydown={(e) => { if (e.key === 'Enter') { checksOffset = 0; pushFilters(); loadChecks(); } }} />
-      <SearchSelect small bind:value={urlFilters.status_code}
-        onchange={() => { checksOffset = 0; pushFilters(); loadChecks(); }}
+      <input
+        type="text"
+        class="ext-filter-input"
+        placeholder={t('extChecks.filterUrls')}
+        bind:value={urlFilters.url}
+        onkeydown={(e) => {
+          if (e.key === 'Enter') {
+            checksOffset = 0;
+            pushFilters();
+            loadChecks();
+          }
+        }}
+      />
+      <SearchSelect
+        small
+        bind:value={urlFilters.status_code}
+        onchange={() => {
+          checksOffset = 0;
+          pushFilters();
+          loadChecks();
+        }}
         options={[
           { value: '', label: t('extChecks.allStatus') },
           { value: '0', label: t('extChecks.dead') },
@@ -118,7 +166,8 @@
           { value: '300-399', label: t('extChecks.redirect3xx') },
           { value: '400-499', label: t('extChecks.client4xx') },
           { value: '>=500', label: t('extChecks.server5xx') },
-        ]} />
+        ]}
+      />
     {/if}
   </div>
 
@@ -142,15 +191,38 @@
       <tbody>
         {#each domains as d}
           <tr>
-            <td><button class="link-btn" onclick={() => switchToUrls(d.domain)}>{d.domain}</button></td>
+            <td
+              ><button class="link-btn" onclick={() => switchToUrls(d.domain)}>{d.domain}</button
+              ></td
+            >
             <td>{d.total_urls}</td>
             <td class="cell-bar">
               <div class="status-bar">
-                {#if d.ok > 0}<div class="bar-ok" style="width: {pct(d.ok, maxCount(d))}%" title="{d.ok} OK"></div>{/if}
-                {#if d.redirects > 0}<div class="bar-redirect" style="width: {pct(d.redirects, maxCount(d))}%" title="{d.redirects} redirects"></div>{/if}
-                {#if d.client_errors > 0}<div class="bar-client" style="width: {pct(d.client_errors, maxCount(d))}%" title="{d.client_errors} 4xx"></div>{/if}
-                {#if d.server_errors > 0}<div class="bar-server" style="width: {pct(d.server_errors, maxCount(d))}%" title="{d.server_errors} 5xx"></div>{/if}
-                {#if d.unreachable > 0}<div class="bar-dead" style="width: {pct(d.unreachable, maxCount(d))}%" title="{d.unreachable} dead"></div>{/if}
+                {#if d.ok > 0}<div
+                    class="bar-ok"
+                    style="width: {pct(d.ok, maxCount(d))}%"
+                    title="{d.ok} OK"
+                  ></div>{/if}
+                {#if d.redirects > 0}<div
+                    class="bar-redirect"
+                    style="width: {pct(d.redirects, maxCount(d))}%"
+                    title="{d.redirects} redirects"
+                  ></div>{/if}
+                {#if d.client_errors > 0}<div
+                    class="bar-client"
+                    style="width: {pct(d.client_errors, maxCount(d))}%"
+                    title="{d.client_errors} 4xx"
+                  ></div>{/if}
+                {#if d.server_errors > 0}<div
+                    class="bar-server"
+                    style="width: {pct(d.server_errors, maxCount(d))}%"
+                    title="{d.server_errors} 5xx"
+                  ></div>{/if}
+                {#if d.unreachable > 0}<div
+                    class="bar-dead"
+                    style="width: {pct(d.unreachable, maxCount(d))}%"
+                    title="{d.unreachable} dead"
+                  ></div>{/if}
               </div>
             </td>
             <td class="num">{d.ok}</td>
@@ -168,11 +240,22 @@
     </table>
 
     <div class="ext-pagination">
-      <button disabled={domainsOffset === 0} onclick={() => { domainsOffset = Math.max(0, domainsOffset - PAGE_SIZE); loadDomains(); }}>{t('common.previous')}</button>
+      <button
+        disabled={domainsOffset === 0}
+        onclick={() => {
+          domainsOffset = Math.max(0, domainsOffset - PAGE_SIZE);
+          loadDomains();
+        }}>{t('common.previous')}</button
+      >
       <span>{domainsOffset + 1} - {domainsOffset + domains.length}</span>
-      <button disabled={!hasMoreDomains} onclick={() => { domainsOffset += PAGE_SIZE; loadDomains(); }}>{t('common.next')}</button>
+      <button
+        disabled={!hasMoreDomains}
+        onclick={() => {
+          domainsOffset += PAGE_SIZE;
+          loadDomains();
+        }}>{t('common.next')}</button
+      >
     </div>
-
   {:else}
     <table class="ext-table">
       <thead>
@@ -188,8 +271,16 @@
       <tbody>
         {#each checks as c}
           <tr class="clickable-row" onclick={() => viewSources(c.url)}>
-            <td class="cell-url"><a href={c.url} target="_blank" rel="noopener" onclick={(e) => e.stopPropagation()}>{c.url}</a></td>
-            <td><span class="badge {statusClass(c.status_code)}">{c.status_code || t('extChecks.deadLabel')}</span></td>
+            <td class="cell-url"
+              ><a href={c.url} target="_blank" rel="noopener" onclick={(e) => e.stopPropagation()}
+                >{c.url}</a
+              ></td
+            >
+            <td
+              ><span class="badge {statusClass(c.status_code)}"
+                >{c.status_code || t('extChecks.deadLabel')}</span
+              ></td
+            >
             <td>{c.content_type || '-'}</td>
             <td class="cell-url">{c.redirect_url || '-'}</td>
             <td class="cell-error" title={c.error}>{c.error ? c.error.substring(0, 60) : '-'}</td>
@@ -203,15 +294,29 @@
     </table>
 
     <div class="ext-pagination">
-      <button disabled={checksOffset === 0} onclick={() => { checksOffset = Math.max(0, checksOffset - PAGE_SIZE); loadChecks(); }}>{t('common.previous')}</button>
+      <button
+        disabled={checksOffset === 0}
+        onclick={() => {
+          checksOffset = Math.max(0, checksOffset - PAGE_SIZE);
+          loadChecks();
+        }}>{t('common.previous')}</button
+      >
       <span>{checksOffset + 1} - {checksOffset + checks.length}</span>
-      <button disabled={!hasMoreChecks} onclick={() => { checksOffset += PAGE_SIZE; loadChecks(); }}>{t('common.next')}</button>
+      <button
+        disabled={!hasMoreChecks}
+        onclick={() => {
+          checksOffset += PAGE_SIZE;
+          loadChecks();
+        }}>{t('common.next')}</button
+      >
     </div>
   {/if}
 </div>
 
 <style>
-  .ext-checks { padding: 16px; }
+  .ext-checks {
+    padding: 16px;
+  }
   .ext-checks-header {
     display: flex;
     align-items: center;
@@ -219,7 +324,10 @@
     margin-bottom: 16px;
     flex-wrap: wrap;
   }
-  .ext-checks-views { display: flex; gap: 4px; }
+  .ext-checks-views {
+    display: flex;
+    gap: 4px;
+  }
   .btn-view {
     padding: 6px 14px;
     border: 1px solid var(--border);
@@ -267,15 +375,22 @@
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
   }
-  .ext-table tbody tr:hover { background: var(--bg-hover); }
+  .ext-table tbody tr:hover {
+    background: var(--bg-hover);
+  }
   .cell-url {
     max-width: 400px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .cell-url a { color: var(--accent); text-decoration: none; }
-  .cell-url a:hover { text-decoration: underline; }
+  .cell-url a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .cell-url a:hover {
+    text-decoration: underline;
+  }
   .cell-error {
     max-width: 200px;
     overflow: hidden;
@@ -284,8 +399,13 @@
     color: var(--text-muted);
     font-size: 12px;
   }
-  .cell-bar { min-width: 120px; }
-  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .cell-bar {
+    min-width: 120px;
+  }
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
   .link-btn {
     background: none;
     border: none;
@@ -295,7 +415,9 @@
     padding: 0;
     text-align: left;
   }
-  .link-btn:hover { text-decoration: underline; }
+  .link-btn:hover {
+    text-decoration: underline;
+  }
   .badge {
     display: inline-block;
     padding: 2px 8px;
@@ -303,14 +425,38 @@
     font-size: 12px;
     font-weight: 600;
   }
-  .badge-success { background: #dcfce7; color: #166534; }
-  .badge-redirect { background: #fef9c3; color: #854d0e; }
-  .badge-error { background: #fee2e2; color: #991b1b; }
-  .badge-dead { background: #f3f4f6; color: #6b7280; }
-  :global([data-theme="dark"]) .badge-success { background: #166534; color: #dcfce7; }
-  :global([data-theme="dark"]) .badge-redirect { background: #854d0e; color: #fef9c3; }
-  :global([data-theme="dark"]) .badge-error { background: #991b1b; color: #fee2e2; }
-  :global([data-theme="dark"]) .badge-dead { background: #374151; color: #9ca3af; }
+  .badge-success {
+    background: #dcfce7;
+    color: #166534;
+  }
+  .badge-redirect {
+    background: #fef9c3;
+    color: #854d0e;
+  }
+  .badge-error {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .badge-dead {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+  :global([data-theme='dark']) .badge-success {
+    background: #166534;
+    color: #dcfce7;
+  }
+  :global([data-theme='dark']) .badge-redirect {
+    background: #854d0e;
+    color: #fef9c3;
+  }
+  :global([data-theme='dark']) .badge-error {
+    background: #991b1b;
+    color: #fee2e2;
+  }
+  :global([data-theme='dark']) .badge-dead {
+    background: #374151;
+    color: #9ca3af;
+  }
   .status-bar {
     display: flex;
     height: 14px;
@@ -318,11 +464,21 @@
     overflow: hidden;
     background: var(--border);
   }
-  .bar-ok { background: #22c55e; }
-  .bar-redirect { background: #eab308; }
-  .bar-client { background: #ef4444; }
-  .bar-server { background: #dc2626; }
-  .bar-dead { background: #9ca3af; }
+  .bar-ok {
+    background: #22c55e;
+  }
+  .bar-redirect {
+    background: #eab308;
+  }
+  .bar-client {
+    background: #ef4444;
+  }
+  .bar-server {
+    background: #dc2626;
+  }
+  .bar-dead {
+    background: #9ca3af;
+  }
   .ext-pagination {
     display: flex;
     align-items: center;
@@ -340,8 +496,12 @@
     cursor: pointer;
     font-size: 13px;
   }
-  .ext-pagination button:disabled { opacity: 0.4; cursor: default; }
-  .ext-loading, .ext-empty {
+  .ext-pagination button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .ext-loading,
+  .ext-empty {
     text-align: center;
     padding: 32px;
     color: var(--text-muted);

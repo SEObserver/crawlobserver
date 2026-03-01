@@ -6,7 +6,7 @@
   let { sessionId, initialSubView = 'robots', onpushurl, onerror } = $props();
 
   const SUB_VIEWS = [
-    { id: 'robots',   label: () => t('directives.robots') },
+    { id: 'robots', label: () => t('directives.robots') },
     { id: 'sitemaps', label: () => t('directives.sitemaps') },
   ];
 
@@ -21,8 +21,11 @@
 <div class="directives-tab">
   <div class="pr-subview-bar">
     {#each SUB_VIEWS as sv}
-      <button class="pr-subview-btn" class:pr-subview-active={subView === sv.id}
-        onclick={() => switchSubView(sv.id)}>{sv.label()}</button>
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={subView === sv.id}
+        onclick={() => switchSubView(sv.id)}>{sv.label()}</button
+      >
     {/each}
   </div>
 
@@ -34,5 +37,7 @@
 </div>
 
 <style>
-  .directives-tab { padding: 16px; }
+  .directives-tab {
+    padding: 16px;
+  }
 </style>

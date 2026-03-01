@@ -25,13 +25,17 @@ describe('applyTheme', () => {
   it('sets --accent-light with correct alpha for light mode', () => {
     applyTheme({ accent_color: '#ff6600' }, false);
     // ff=255, 66=102, 00=0, alpha=0.08
-    expect(document.documentElement.style.getPropertyValue('--accent-light')).toBe('rgba(255,102,0,0.08)');
+    expect(document.documentElement.style.getPropertyValue('--accent-light')).toBe(
+      'rgba(255,102,0,0.08)',
+    );
   });
 
   it('sets --accent-light with higher alpha for dark mode', () => {
     applyTheme({ accent_color: '#ff6600' }, true);
     // alpha=0.15
-    expect(document.documentElement.style.getPropertyValue('--accent-light')).toBe('rgba(255,102,0,0.15)');
+    expect(document.documentElement.style.getPropertyValue('--accent-light')).toBe(
+      'rgba(255,102,0,0.15)',
+    );
   });
 
   it('handles theme without accent_color', () => {
@@ -50,8 +54,12 @@ describe('saveDarkMode', () => {
     Object.defineProperty(globalThis, 'localStorage', {
       value: {
         getItem: vi.fn((key) => store[key] ?? null),
-        setItem: vi.fn((key, val) => { store[key] = String(val); }),
-        removeItem: vi.fn((key) => { delete store[key]; }),
+        setItem: vi.fn((key, val) => {
+          store[key] = String(val);
+        }),
+        removeItem: vi.fn((key) => {
+          delete store[key];
+        }),
       },
       writable: true,
       configurable: true,

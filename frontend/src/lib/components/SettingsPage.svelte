@@ -64,29 +64,37 @@
   }
 
   function doRestoreBackup(filename) {
-    showConfirm(t('settings.restoreConfirm', { name: filename }), async () => {
-      restoringBackup = filename;
-      backupMessage = '';
-      try {
-        const result = await restoreBackup(filename);
-        backupMessage = result.message || t('settings.restoreComplete');
-      } catch (e) {
-        backupMessage = t('settings.restoreFailed', { error: e.message });
-      } finally {
-        restoringBackup = null;
-      }
-    }, { danger: true, confirmLabel: t('settings.restore') });
+    showConfirm(
+      t('settings.restoreConfirm', { name: filename }),
+      async () => {
+        restoringBackup = filename;
+        backupMessage = '';
+        try {
+          const result = await restoreBackup(filename);
+          backupMessage = result.message || t('settings.restoreComplete');
+        } catch (e) {
+          backupMessage = t('settings.restoreFailed', { error: e.message });
+        } finally {
+          restoringBackup = null;
+        }
+      },
+      { danger: true, confirmLabel: t('settings.restore') },
+    );
   }
 
   function doDeleteBackup(name) {
-    showConfirm(t('settings.deleteBackupConfirm', { name }), async () => {
-      try {
-        await deleteBackup(name);
-        await loadBackups();
-      } catch (e) {
-        backupMessage = t('settings.deleteFailed', { error: e.message });
-      }
-    }, { danger: true, confirmLabel: t('common.delete') });
+    showConfirm(
+      t('settings.deleteBackupConfirm', { name }),
+      async () => {
+        try {
+          await deleteBackup(name);
+          await loadBackups();
+        } catch (e) {
+          backupMessage = t('settings.deleteFailed', { error: e.message });
+        }
+      },
+      { danger: true, confirmLabel: t('common.delete') },
+    );
   }
 
   loadBackups();
@@ -104,7 +112,13 @@
     </div>
     <div class="form-group">
       <label for="set-logo">{t('settings.logoUrl')}</label>
-      <input id="set-logo" type="text" bind:value={editTheme.logo_url} oninput={previewTheme} placeholder="https://example.com/logo.png" />
+      <input
+        id="set-logo"
+        type="text"
+        bind:value={editTheme.logo_url}
+        oninput={previewTheme}
+        placeholder="https://example.com/logo.png"
+      />
     </div>
     {#if editTheme.logo_url}
       <div class="form-group full-width">
@@ -115,22 +129,53 @@
     <div class="form-group">
       <label for="set-accent">{t('settings.accentColor')}</label>
       <div class="color-picker-row">
-        <input id="set-accent" type="color" value={editTheme.accent_color} oninput={(e) => { editTheme.accent_color = e.target.value; previewTheme(); }} class="color-swatch" />
+        <input
+          id="set-accent"
+          type="color"
+          value={editTheme.accent_color}
+          oninput={(e) => {
+            editTheme.accent_color = e.target.value;
+            previewTheme();
+          }}
+          class="color-swatch"
+        />
         <span class="color-value">{editTheme.accent_color}</span>
       </div>
     </div>
     <div class="form-group">
       <span class="field-label mb-xs">{t('settings.mode')}</span>
       <div class="flex-center-gap">
-        <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'light'} onclick={() => { editTheme.mode = 'light'; previewTheme(); }}>{t('settings.light')}</button>
-        <button class="btn btn-sm" class:btn-primary={editTheme.mode === 'dark'} onclick={() => { editTheme.mode = 'dark'; previewTheme(); }}>{t('settings.dark')}</button>
+        <button
+          class="btn btn-sm"
+          class:btn-primary={editTheme.mode === 'light'}
+          onclick={() => {
+            editTheme.mode = 'light';
+            previewTheme();
+          }}>{t('settings.light')}</button
+        >
+        <button
+          class="btn btn-sm"
+          class:btn-primary={editTheme.mode === 'dark'}
+          onclick={() => {
+            editTheme.mode = 'dark';
+            previewTheme();
+          }}>{t('settings.dark')}</button
+        >
       </div>
     </div>
     <div class="form-group">
       <label>{t('settings.language')}</label>
       <div class="flex-center-gap">
-        <button class="btn btn-sm" class:btn-primary={getLocale() === 'en'} onclick={() => setLocale('en')}>{t('settings.langEn')}</button>
-        <button class="btn btn-sm" class:btn-primary={getLocale() === 'fr'} onclick={() => setLocale('fr')}>{t('settings.langFr')}</button>
+        <button
+          class="btn btn-sm"
+          class:btn-primary={getLocale() === 'en'}
+          onclick={() => setLocale('en')}>{t('settings.langEn')}</button
+        >
+        <button
+          class="btn btn-sm"
+          class:btn-primary={getLocale() === 'fr'}
+          onclick={() => setLocale('fr')}>{t('settings.langFr')}</button
+        >
       </div>
     </div>
   </div>
@@ -152,7 +197,9 @@
 {#if backupMessage}
   <div class="alert alert-info mb-md">
     <span>{backupMessage}</span>
-    <button class="btn btn-sm btn-ghost" onclick={() => backupMessage = ''}>{t('common.dismiss')}</button>
+    <button class="btn btn-sm btn-ghost" onclick={() => (backupMessage = '')}
+      >{t('common.dismiss')}</button
+    >
   </div>
 {/if}
 <div class="card card-flush">
@@ -179,11 +226,16 @@
             <td>{new Date(b.created_at).toLocaleString()}</td>
             <td>{fmtSize(b.size)}</td>
             <td class="nowrap">
-              <button class="btn btn-sm" onclick={() => doRestoreBackup(b.filename)}
-                disabled={restoringBackup === b.filename}>
+              <button
+                class="btn btn-sm"
+                onclick={() => doRestoreBackup(b.filename)}
+                disabled={restoringBackup === b.filename}
+              >
                 {restoringBackup === b.filename ? t('settings.restoring') : t('settings.restore')}
               </button>
-              <button class="btn btn-sm btn-danger" onclick={() => doDeleteBackup(b.filename)}>{t('common.delete')}</button>
+              <button class="btn btn-sm btn-danger" onclick={() => doDeleteBackup(b.filename)}
+                >{t('common.delete')}</button
+              >
             </td>
           </tr>
         {/each}
@@ -192,7 +244,16 @@
   {/if}
 </div>
 
-{#if confirmState}<ConfirmModal message={confirmState.message} danger={confirmState.danger} confirmLabel={confirmState.confirmLabel} onconfirm={() => { confirmState.onConfirm(); confirmState = null; }} oncancel={() => confirmState = null} />{/if}
+{#if confirmState}<ConfirmModal
+    message={confirmState.message}
+    danger={confirmState.danger}
+    confirmLabel={confirmState.confirmLabel}
+    onconfirm={() => {
+      confirmState.onConfirm();
+      confirmState = null;
+    }}
+    oncancel={() => (confirmState = null)}
+  />{/if}
 
 <style>
   .full-width {

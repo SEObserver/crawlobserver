@@ -432,6 +432,7 @@
   "tabs.pages": "Pages",
   "tabs.links": "Links",
   "tabs.directives": "Directives",
+  "tabs.nearDuplicates": "Duplicates",
   "tabs.authority": "Authority",
 
   "pages.all": "All",
@@ -882,5 +883,16 @@
   "tests.cssNotExists": "CSS selector not exists",
   "tests.regexExtract": "Regex capture group",
   "tests.regexExtractAll": "Regex capture ALL",
-  "tests.xpathExpression": "XPath expression"
+  "tests.xpathExpression": "XPath expression",
+
+  "neardup.urlA": "URL A",
+  "neardup.urlB": "URL B",
+  "neardup.titleA": "Title A",
+  "neardup.titleB": "Title B",
+  "neardup.wordCountA": "Words A",
+  "neardup.wordCountB": "Words B",
+  "neardup.similarity": "Similarity",
+  "neardup.noPairs": "No near-duplicate pairs found.",
+  "neardup.threshold": "Threshold",
+  "neardup.pairs": "pairs"
 }

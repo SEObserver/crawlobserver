@@ -1,5 +1,5 @@
 <script>
-  import { getProjects, createProject, renameProject, deleteProject, getAPIKeys, createAPIKey, deleteAPIKey, getServerInfo } from '../api.js';
+  import { getProjects, getAPIKeys, createAPIKey, deleteAPIKey, getServerInfo } from '../api.js';
   import { timeAgo, copyToClipboard } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
   import ConfirmModal from './ConfirmModal.svelte';
@@ -18,48 +18,19 @@
 
   let projects = $state([]);
   let apiKeys = $state([]);
-  let newProjectName = $state('');
   let newKeyName = $state('');
   let newKeyType = $state('general');
   let newKeyProjectId = $state('');
   let createdKeyFull = $state(null);
-  let renamingProject = $state(null);
-  let renameValue = $state('');
 
   async function loadAPIData() {
     try {
       projects = await getProjects();
       apiKeys = await getAPIKeys();
       onprojectschanged?.(projects);
-    } catch (e) { onerror?.(e.message); }
-  }
-
-  async function handleCreateProject() {
-    if (!newProjectName.trim()) return;
-    try {
-      await createProject(newProjectName.trim());
-      newProjectName = '';
-      await loadAPIData();
-    } catch (e) { onerror?.(e.message); }
-  }
-
-  async function handleRenameProject(id) {
-    if (!renameValue.trim()) return;
-    try {
-      await renameProject(id, renameValue.trim());
-      renamingProject = null;
-      renameValue = '';
-      await loadAPIData();
-    } catch (e) { onerror?.(e.message); }
-  }
-
-  function handleDeleteProject(id) {
-    showConfirm(t('api.confirmDeleteProject'), async () => {
-      try {
-        await deleteProject(id);
-        await loadAPIData();
-      } catch (e) { onerror?.(e.message); }
-    }, { danger: true, confirmLabel: t('common.delete') });
+    } catch (e) {
+      onerror?.(e.message);
+    }
   }
 
   async function handleCreateAPIKey() {
@@ -72,119 +43,284 @@
       newKeyType = 'general';
       newKeyProjectId = '';
       await loadAPIData();
-    } catch (e) { onerror?.(e.message); }
+    } catch (e) {
+      onerror?.(e.message);
+    }
   }
 
   function handleDeleteAPIKey(id) {
-    showConfirm(t('api.confirmRevokeKey'), async () => {
-      try {
-        await deleteAPIKey(id);
-        await loadAPIData();
-      } catch (e) { onerror?.(e.message); }
-    }, { danger: true, confirmLabel: t('common.delete') });
+    showConfirm(
+      t('api.confirmRevokeKey'),
+      async () => {
+        try {
+          await deleteAPIKey(id);
+          await loadAPIData();
+        } catch (e) {
+          onerror?.(e.message);
+        }
+      },
+      { danger: true, confirmLabel: t('common.delete') },
+    );
   }
 
   async function loadServerInfo() {
-    try { serverInfo = await getServerInfo(); } catch (e) { /* non-critical */ }
+    try {
+      serverInfo = await getServerInfo();
+    } catch (e) {
+      /* non-critical */
+    }
   }
 
   const apiRef = [
-    { section: 'Crawl Sessions', endpoints: [
-      { method: 'GET', path: '/sessions', desc: 'List all crawl sessions' },
-      { method: 'POST', path: '/crawl', desc: 'Start a new crawl (JSON body with seeds, config)' },
-      { method: 'POST', path: '/sessions/{id}/stop', desc: 'Stop a running crawl' },
-      { method: 'POST', path: '/sessions/{id}/resume', desc: 'Resume a stopped crawl' },
-      { method: 'POST', path: '/sessions/{id}/retry-failed', desc: 'Retry failed URLs' },
-      { method: 'DELETE', path: '/sessions/{id}', desc: 'Delete a session' },
-      { method: 'GET', path: '/sessions/{id}/export', desc: 'Export session data (CSV/JSON)' },
-      { method: 'POST', path: '/sessions/import', desc: 'Import a session archive' },
-    ]},
-    { section: 'Session Data (read)', endpoints: [
-      { method: 'GET', path: '/sessions/{id}/pages', desc: 'List crawled pages (paginated, filterable)' },
-      { method: 'GET', path: '/sessions/{id}/stats', desc: 'Session statistics summary' },
-      { method: 'GET', path: '/sessions/{id}/audit', desc: 'SEO audit issues' },
-      { method: 'GET', path: '/sessions/{id}/links', desc: 'All links (internal + external)' },
-      { method: 'GET', path: '/sessions/{id}/internal-links', desc: 'Internal links only' },
-      { method: 'GET', path: '/sessions/{id}/page-detail?url=', desc: 'Full detail for a single page' },
-      { method: 'GET', path: '/sessions/{id}/page-html?url=', desc: 'Raw HTML body of a page' },
-      { method: 'GET', path: '/sessions/{id}/robots', desc: 'Robots.txt hosts found' },
-      { method: 'GET', path: '/sessions/{id}/robots-content?host=', desc: 'Robots.txt content for a host' },
-      { method: 'GET', path: '/sessions/{id}/sitemaps', desc: 'Discovered sitemaps' },
-      { method: 'GET', path: '/sessions/{id}/sitemap-urls?sitemap=', desc: 'URLs in a sitemap' },
-      { method: 'GET', path: '/sessions/{id}/near-duplicates', desc: 'Near-duplicate page pairs' },
-      { method: 'GET', path: '/sessions/{id}/external-checks', desc: 'External link check results' },
-      { method: 'GET', path: '/sessions/{id}/external-checks/domains', desc: 'External checks grouped by domain' },
-      { method: 'GET', path: '/sessions/{id}/external-checks/expired-domains', desc: 'Expired/dead domains' },
-      { method: 'GET', path: '/sessions/{id}/resource-checks', desc: 'Page resource (JS/CSS/img) check results' },
-      { method: 'GET', path: '/sessions/{id}/resource-checks/summary', desc: 'Resource checks summary by type' },
-    ]},
-    { section: 'PageRank & Authority', endpoints: [
-      { method: 'GET', path: '/sessions/{id}/pagerank-top', desc: 'Top pages by internal PageRank' },
-      { method: 'GET', path: '/sessions/{id}/pagerank-distribution', desc: 'PageRank distribution histogram' },
-      { method: 'GET', path: '/sessions/{id}/pagerank-treemap', desc: 'PageRank treemap data' },
-      { method: 'POST', path: '/sessions/{id}/compute-pagerank', desc: 'Recompute PageRank' },
-      { method: 'POST', path: '/sessions/{id}/recompute-depths', desc: 'Recompute crawl depths' },
-      { method: 'GET', path: '/sessions/{id}/authority', desc: 'Pages enriched with external authority data' },
-    ]},
-    { section: 'Robots & Testing', endpoints: [
-      { method: 'POST', path: '/sessions/{id}/robots-test', desc: 'Test if a URL is allowed by robots.txt' },
-      { method: 'POST', path: '/sessions/{id}/robots-simulate', desc: 'Simulate robots.txt rules for URLs' },
-      { method: 'POST', path: '/sessions/{id}/run-tests', desc: 'Run custom test ruleset on session' },
-    ]},
-    { section: 'Compare Sessions', endpoints: [
-      { method: 'GET', path: '/compare/stats?a={id}&b={id}', desc: 'Compare stats of two sessions' },
-      { method: 'GET', path: '/compare/pages?a={id}&b={id}', desc: 'Page differences between two sessions' },
-      { method: 'GET', path: '/compare/links?a={id}&b={id}', desc: 'Link differences between two sessions' },
-    ]},
-    { section: 'Projects', endpoints: [
-      { method: 'GET', path: '/projects', desc: 'List all projects' },
-      { method: 'POST', path: '/projects', desc: 'Create a project' },
-      { method: 'PUT', path: '/projects/{id}', desc: 'Rename a project' },
-      { method: 'DELETE', path: '/projects/{id}', desc: 'Delete a project' },
-      { method: 'POST', path: '/projects/{pid}/sessions/{sid}', desc: 'Associate session to project' },
-      { method: 'DELETE', path: '/projects/{pid}/sessions/{sid}', desc: 'Disassociate session from project' },
-    ]},
-    { section: 'API Keys', endpoints: [
-      { method: 'GET', path: '/api-keys', desc: 'List API keys' },
-      { method: 'POST', path: '/api-keys', desc: 'Create an API key' },
-      { method: 'DELETE', path: '/api-keys/{id}', desc: 'Revoke an API key' },
-    ]},
-    { section: 'Custom Test Rulesets', endpoints: [
-      { method: 'GET', path: '/rulesets', desc: 'List test rulesets' },
-      { method: 'POST', path: '/rulesets', desc: 'Create a test ruleset' },
-      { method: 'GET', path: '/rulesets/{id}', desc: 'Get a ruleset' },
-      { method: 'PUT', path: '/rulesets/{id}', desc: 'Update a ruleset' },
-      { method: 'DELETE', path: '/rulesets/{id}', desc: 'Delete a ruleset' },
-    ]},
-    { section: 'Providers (SEObserver, etc.)', endpoints: [
-      { method: 'GET', path: '/projects/{id}/providers', desc: 'List provider connections' },
-      { method: 'POST', path: '/projects/{id}/providers/{provider}/connect', desc: 'Connect a provider' },
-      { method: 'DELETE', path: '/projects/{id}/providers/{provider}/disconnect', desc: 'Disconnect a provider' },
-      { method: 'POST', path: '/projects/{id}/providers/{provider}/fetch', desc: 'Fetch provider data' },
-      { method: 'GET', path: '/projects/{id}/providers/{provider}/metrics', desc: 'Domain metrics' },
-      { method: 'GET', path: '/projects/{id}/providers/{provider}/backlinks', desc: 'Backlinks' },
-      { method: 'GET', path: '/projects/{id}/providers/{provider}/refdomains', desc: 'Referring domains' },
-      { method: 'GET', path: '/projects/{id}/providers/{provider}/rankings', desc: 'Organic keyword rankings' },
-      { method: 'GET', path: '/projects/{id}/providers/{provider}/visibility', desc: 'Visibility history' },
-      { method: 'GET', path: '/projects/{id}/providers/{provider}/top-pages', desc: 'Top pages with authority' },
-    ]},
-    { section: 'Google Search Console', endpoints: [
-      { method: 'GET', path: '/projects/{id}/gsc/status', desc: 'GSC connection status' },
-      { method: 'POST', path: '/projects/{id}/gsc/fetch', desc: 'Fetch GSC data' },
-      { method: 'GET', path: '/projects/{id}/gsc/overview', desc: 'GSC overview stats' },
-      { method: 'GET', path: '/projects/{id}/gsc/queries', desc: 'Search queries' },
-      { method: 'GET', path: '/projects/{id}/gsc/pages', desc: 'Pages performance' },
-      { method: 'GET', path: '/projects/{id}/gsc/timeline', desc: 'Clicks/impressions timeline' },
-    ]},
-    { section: 'System', endpoints: [
-      { method: 'GET', path: '/health', desc: 'Health check' },
-      { method: 'GET', path: '/server-info', desc: 'Server info (URL, auth)' },
-      { method: 'GET', path: '/global-stats', desc: 'Global statistics' },
-      { method: 'GET', path: '/system-stats', desc: 'System stats (CPU, memory, disk)' },
-      { method: 'GET', path: '/storage-stats', desc: 'ClickHouse storage stats' },
-      { method: 'POST', path: '/check-ip', desc: 'Check exit IP (optional: source_ip, force_ipv4)' },
-      { method: 'GET', path: '/logs', desc: 'Application logs' },
-    ]},
+    {
+      section: 'Crawl Sessions',
+      endpoints: [
+        { method: 'GET', path: '/sessions', desc: 'List all crawl sessions' },
+        {
+          method: 'POST',
+          path: '/crawl',
+          desc: 'Start a new crawl (JSON body with seeds, config)',
+        },
+        { method: 'POST', path: '/sessions/{id}/stop', desc: 'Stop a running crawl' },
+        { method: 'POST', path: '/sessions/{id}/resume', desc: 'Resume a stopped crawl' },
+        { method: 'POST', path: '/sessions/{id}/retry-failed', desc: 'Retry failed URLs' },
+        { method: 'DELETE', path: '/sessions/{id}', desc: 'Delete a session' },
+        { method: 'GET', path: '/sessions/{id}/export', desc: 'Export session data (CSV/JSON)' },
+        { method: 'POST', path: '/sessions/import', desc: 'Import a session archive' },
+      ],
+    },
+    {
+      section: 'Session Data (read)',
+      endpoints: [
+        {
+          method: 'GET',
+          path: '/sessions/{id}/pages',
+          desc: 'List crawled pages (paginated, filterable)',
+        },
+        { method: 'GET', path: '/sessions/{id}/stats', desc: 'Session statistics summary' },
+        { method: 'GET', path: '/sessions/{id}/audit', desc: 'SEO audit issues' },
+        { method: 'GET', path: '/sessions/{id}/links', desc: 'All links (internal + external)' },
+        { method: 'GET', path: '/sessions/{id}/internal-links', desc: 'Internal links only' },
+        {
+          method: 'GET',
+          path: '/sessions/{id}/page-detail?url=',
+          desc: 'Full detail for a single page',
+        },
+        { method: 'GET', path: '/sessions/{id}/page-html?url=', desc: 'Raw HTML body of a page' },
+        { method: 'GET', path: '/sessions/{id}/robots', desc: 'Robots.txt hosts found' },
+        {
+          method: 'GET',
+          path: '/sessions/{id}/robots-content?host=',
+          desc: 'Robots.txt content for a host',
+        },
+        { method: 'GET', path: '/sessions/{id}/sitemaps', desc: 'Discovered sitemaps' },
+        { method: 'GET', path: '/sessions/{id}/sitemap-urls?sitemap=', desc: 'URLs in a sitemap' },
+        {
+          method: 'GET',
+          path: '/sessions/{id}/near-duplicates',
+          desc: 'Near-duplicate page pairs',
+        },
+        {
+          method: 'GET',
+          path: '/sessions/{id}/external-checks',
+          desc: 'External link check results',
+        },
+        {
+          method: 'GET',
+          path: '/sessions/{id}/external-checks/domains',
+          desc: 'External checks grouped by domain',
+        },
+        {
+          method: 'GET',
+          path: '/sessions/{id}/external-checks/expired-domains',
+          desc: 'Expired/dead domains',
+        },
+        {
+          method: 'GET',
+          path: '/sessions/{id}/resource-checks',
+          desc: 'Page resource (JS/CSS/img) check results',
+        },
+        {
+          method: 'GET',
+          path: '/sessions/{id}/resource-checks/summary',
+          desc: 'Resource checks summary by type',
+        },
+      ],
+    },
+    {
+      section: 'PageRank & Authority',
+      endpoints: [
+        {
+          method: 'GET',
+          path: '/sessions/{id}/pagerank-top',
+          desc: 'Top pages by internal PageRank',
+        },
+        {
+          method: 'GET',
+          path: '/sessions/{id}/pagerank-distribution',
+          desc: 'PageRank distribution histogram',
+        },
+        { method: 'GET', path: '/sessions/{id}/pagerank-treemap', desc: 'PageRank treemap data' },
+        { method: 'POST', path: '/sessions/{id}/compute-pagerank', desc: 'Recompute PageRank' },
+        { method: 'POST', path: '/sessions/{id}/recompute-depths', desc: 'Recompute crawl depths' },
+        {
+          method: 'GET',
+          path: '/sessions/{id}/authority',
+          desc: 'Pages enriched with external authority data',
+        },
+      ],
+    },
+    {
+      section: 'Robots & Testing',
+      endpoints: [
+        {
+          method: 'POST',
+          path: '/sessions/{id}/robots-test',
+          desc: 'Test if a URL is allowed by robots.txt',
+        },
+        {
+          method: 'POST',
+          path: '/sessions/{id}/robots-simulate',
+          desc: 'Simulate robots.txt rules for URLs',
+        },
+        {
+          method: 'POST',
+          path: '/sessions/{id}/run-tests',
+          desc: 'Run custom test ruleset on session',
+        },
+      ],
+    },
+    {
+      section: 'Compare Sessions',
+      endpoints: [
+        {
+          method: 'GET',
+          path: '/compare/stats?a={id}&b={id}',
+          desc: 'Compare stats of two sessions',
+        },
+        {
+          method: 'GET',
+          path: '/compare/pages?a={id}&b={id}',
+          desc: 'Page differences between two sessions',
+        },
+        {
+          method: 'GET',
+          path: '/compare/links?a={id}&b={id}',
+          desc: 'Link differences between two sessions',
+        },
+      ],
+    },
+    {
+      section: 'Projects',
+      endpoints: [
+        { method: 'GET', path: '/projects', desc: 'List all projects' },
+        { method: 'POST', path: '/projects', desc: 'Create a project' },
+        { method: 'PUT', path: '/projects/{id}', desc: 'Rename a project' },
+        { method: 'DELETE', path: '/projects/{id}', desc: 'Delete a project' },
+        {
+          method: 'POST',
+          path: '/projects/{pid}/sessions/{sid}',
+          desc: 'Associate session to project',
+        },
+        {
+          method: 'DELETE',
+          path: '/projects/{pid}/sessions/{sid}',
+          desc: 'Disassociate session from project',
+        },
+      ],
+    },
+    {
+      section: 'API Keys',
+      endpoints: [
+        { method: 'GET', path: '/api-keys', desc: 'List API keys' },
+        { method: 'POST', path: '/api-keys', desc: 'Create an API key' },
+        { method: 'DELETE', path: '/api-keys/{id}', desc: 'Revoke an API key' },
+      ],
+    },
+    {
+      section: 'Custom Test Rulesets',
+      endpoints: [
+        { method: 'GET', path: '/rulesets', desc: 'List test rulesets' },
+        { method: 'POST', path: '/rulesets', desc: 'Create a test ruleset' },
+        { method: 'GET', path: '/rulesets/{id}', desc: 'Get a ruleset' },
+        { method: 'PUT', path: '/rulesets/{id}', desc: 'Update a ruleset' },
+        { method: 'DELETE', path: '/rulesets/{id}', desc: 'Delete a ruleset' },
+      ],
+    },
+    {
+      section: 'Providers (SEObserver, etc.)',
+      endpoints: [
+        { method: 'GET', path: '/projects/{id}/providers', desc: 'List provider connections' },
+        {
+          method: 'POST',
+          path: '/projects/{id}/providers/{provider}/connect',
+          desc: 'Connect a provider',
+        },
+        {
+          method: 'DELETE',
+          path: '/projects/{id}/providers/{provider}/disconnect',
+          desc: 'Disconnect a provider',
+        },
+        {
+          method: 'POST',
+          path: '/projects/{id}/providers/{provider}/fetch',
+          desc: 'Fetch provider data',
+        },
+        {
+          method: 'GET',
+          path: '/projects/{id}/providers/{provider}/metrics',
+          desc: 'Domain metrics',
+        },
+        { method: 'GET', path: '/projects/{id}/providers/{provider}/backlinks', desc: 'Backlinks' },
+        {
+          method: 'GET',
+          path: '/projects/{id}/providers/{provider}/refdomains',
+          desc: 'Referring domains',
+        },
+        {
+          method: 'GET',
+          path: '/projects/{id}/providers/{provider}/rankings',
+          desc: 'Organic keyword rankings',
+        },
+        {
+          method: 'GET',
+          path: '/projects/{id}/providers/{provider}/visibility',
+          desc: 'Visibility history',
+        },
+        {
+          method: 'GET',
+          path: '/projects/{id}/providers/{provider}/top-pages',
+          desc: 'Top pages with authority',
+        },
+      ],
+    },
+    {
+      section: 'Google Search Console',
+      endpoints: [
+        { method: 'GET', path: '/projects/{id}/gsc/status', desc: 'GSC connection status' },
+        { method: 'POST', path: '/projects/{id}/gsc/fetch', desc: 'Fetch GSC data' },
+        { method: 'GET', path: '/projects/{id}/gsc/overview', desc: 'GSC overview stats' },
+        { method: 'GET', path: '/projects/{id}/gsc/queries', desc: 'Search queries' },
+        { method: 'GET', path: '/projects/{id}/gsc/pages', desc: 'Pages performance' },
+        { method: 'GET', path: '/projects/{id}/gsc/timeline', desc: 'Clicks/impressions timeline' },
+      ],
+    },
+    {
+      section: 'System',
+      endpoints: [
+        { method: 'GET', path: '/health', desc: 'Health check' },
+        { method: 'GET', path: '/server-info', desc: 'Server info (URL, auth)' },
+        { method: 'GET', path: '/global-stats', desc: 'Global statistics' },
+        { method: 'GET', path: '/system-stats', desc: 'System stats (CPU, memory, disk)' },
+        { method: 'GET', path: '/storage-stats', desc: 'ClickHouse storage stats' },
+        {
+          method: 'POST',
+          path: '/check-ip',
+          desc: 'Check exit IP (optional: source_ip, force_ipv4)',
+        },
+        { method: 'GET', path: '/logs', desc: 'Application logs' },
+      ],
+    },
   ];
 
   function buildRefMarkdown() {
@@ -206,7 +342,7 @@
   async function handleCopyRef() {
     await copyToClipboard(buildRefMarkdown());
     copiedRef = true;
-    setTimeout(() => copiedRef = false, 2000);
+    setTimeout(() => (copiedRef = false), 2000);
   }
 
   loadAPIData();
@@ -228,7 +364,9 @@
     </div>
     <div class="flex-center-gap api-url-row">
       <code class="text-sm word-break api-url-code">{serverInfo.api_url}</code>
-      <button class="btn btn-sm" onclick={() => copyToClipboard(serverInfo.api_url)}>{t('common.copy')}</button>
+      <button class="btn btn-sm" onclick={() => copyToClipboard(serverInfo.api_url)}
+        >{t('common.copy')}</button
+      >
     </div>
     {#if serverInfo.has_auth}
       <div class="text-xs text-muted mb-sm">
@@ -240,11 +378,17 @@
       <div class="mt-sm flex-col gap-sm">
         <div>
           <strong>{t('api.curl')}</strong>
-          <code class="code-example code-example-wrap">curl {serverInfo.has_auth ? `-u ${serverInfo.username}:PASSWORD ` : ''}{serverInfo.api_url}/sessions</code>
+          <code class="code-example code-example-wrap"
+            >curl {serverInfo.has_auth
+              ? `-u ${serverInfo.username}:PASSWORD `
+              : ''}{serverInfo.api_url}/sessions</code
+          >
         </div>
         <div>
           <strong>{t('api.apiKeyLabel')}</strong>
-          <code class="code-example code-example-wrap">curl -H "X-API-Key: YOUR_KEY" {serverInfo.api_url}/sessions</code>
+          <code class="code-example code-example-wrap"
+            >curl -H "X-API-Key: YOUR_KEY" {serverInfo.api_url}/sessions</code
+          >
         </div>
         <div>
           <strong>{t('api.discoveryFile')}</strong>
@@ -272,7 +416,13 @@
         <h4 class="api-ref-group-title">{group.section}</h4>
         {#each group.endpoints as ep}
           <div class="api-ref-row">
-            <span class="api-ref-method" class:method-get={ep.method === 'GET'} class:method-post={ep.method === 'POST'} class:method-put={ep.method === 'PUT'} class:method-delete={ep.method === 'DELETE'}>{ep.method}</span>
+            <span
+              class="api-ref-method"
+              class:method-get={ep.method === 'GET'}
+              class:method-post={ep.method === 'POST'}
+              class:method-put={ep.method === 'PUT'}
+              class:method-delete={ep.method === 'DELETE'}>{ep.method}</span
+            >
             <code class="api-ref-path">{serverInfo?.api_url || '/api'}{ep.path}</code>
             <span class="api-ref-desc">{ep.desc}</span>
           </div>
@@ -281,56 +431,6 @@
     {/each}
   </div>
 </div>
-
-<!-- Projects -->
-<div class="page-header">
-  <h1>{t('api.projects')}</h1>
-</div>
-
-<!-- Create Project -->
-<div class="card mb-md">
-  <div class="form-grid">
-    <div class="form-group form-group-full">
-      <label for="new-project">{t('api.newProject')}</label>
-      <div class="flex-center-gap">
-        <input id="new-project" type="text" bind:value={newProjectName} placeholder={t('api.projectName')} onkeydown={(e) => e.key === 'Enter' && handleCreateProject()} />
-        <button class="btn btn-primary" onclick={handleCreateProject} disabled={!newProjectName.trim()}>{t('common.create')}</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Projects List -->
-{#if projects.length === 0}
-  <div class="card text-center text-muted empty-state">{t('api.noProjects')}</div>
-{:else}
-  <div class="card card-flush">
-    {#each projects as p}
-      <div class="session-row">
-        <div class="session-info">
-          {#if renamingProject === p.id}
-            <div class="flex-center-gap rename-row">
-              <input type="text" bind:value={renameValue} class="flex-1" onkeydown={(e) => e.key === 'Enter' && handleRenameProject(p.id)} />
-              <button class="btn btn-sm btn-primary" onclick={() => handleRenameProject(p.id)}>{t('common.save')}</button>
-              <button class="btn btn-sm" onclick={() => renamingProject = null}>{t('common.cancel')}</button>
-            </div>
-          {:else}
-            <div class="session-seed">{p.name}</div>
-            <div class="session-meta">
-              <span>{new Date(p.created_at).toLocaleDateString()}</span>
-            </div>
-          {/if}
-        </div>
-        {#if renamingProject !== p.id}
-          <div class="session-actions">
-            <button class="btn btn-sm" onclick={() => { renamingProject = p.id; renameValue = p.name; }}>{t('common.rename')}</button>
-            <button class="btn btn-sm btn-danger" onclick={() => handleDeleteProject(p.id)}>{t('common.delete')}</button>
-          </div>
-        {/if}
-      </div>
-    {/each}
-  </div>
-{/if}
 
 <!-- API Keys Header -->
 <div class="page-header api-keys-header">
@@ -341,12 +441,17 @@
   <div class="card key-created-card">
     <div class="key-created-inner">
       <div class="flex-1">
-        <strong>{t('api.keyCreated')}</strong> {t('api.copyKeyNow')}<br/>
+        <strong>{t('api.keyCreated')}</strong>
+        {t('api.copyKeyNow')}<br />
         <code class="word-break key-created-code">{createdKeyFull}</code>
       </div>
       <div class="key-created-actions">
-        <button class="btn btn-sm" onclick={() => copyToClipboard(createdKeyFull)}>{t('common.copy')}</button>
-        <button class="btn btn-sm" onclick={() => createdKeyFull = null}>{t('common.dismiss')}</button>
+        <button class="btn btn-sm" onclick={() => copyToClipboard(createdKeyFull)}
+          >{t('common.copy')}</button
+        >
+        <button class="btn btn-sm" onclick={() => (createdKeyFull = null)}
+          >{t('common.dismiss')}</button
+        >
       </div>
     </div>
   </div>
@@ -357,30 +462,57 @@
   <div class="form-grid">
     <div class="form-group">
       <label for="key-name">{t('api.keyName')}</label>
-      <input id="key-name" type="text" bind:value={newKeyName} placeholder={t('api.keyNamePlaceholder')} />
+      <input
+        id="key-name"
+        type="text"
+        bind:value={newKeyName}
+        placeholder={t('api.keyNamePlaceholder')}
+      />
     </div>
     <div class="form-group">
       <label for="key-type">{t('api.keyType')}</label>
-      <SearchSelect id="key-type" bind:value={newKeyType} options={[
-        { value: 'general', label: t('api.generalAccess') },
-        { value: 'project', label: t('api.projectReadOnly') },
-      ]} />
+      <SearchSelect
+        id="key-type"
+        bind:value={newKeyType}
+        options={[
+          { value: 'general', label: t('api.generalAccess') },
+          { value: 'project', label: t('api.projectReadOnly') },
+        ]}
+      />
     </div>
     {#if newKeyType === 'project'}
       <div class="form-group">
         <label for="key-project">{t('stats.project')}</label>
-        <SearchSelect id="key-project" bind:value={newKeyProjectId}
+        <SearchSelect
+          id="key-project"
+          bind:value={newKeyProjectId}
           placeholder={t('api.selectProject')}
-          options={[{ value: '', label: t('api.selectProject') }, ...projects.map(p => ({ value: p.id, label: p.name }))]}
-          onsearch={projects.length > 20 ? async (q) => {
-            const lq = q.toLowerCase();
-            return [{ value: '', label: t('api.selectProject') }, ...projects.filter(p => p.name.toLowerCase().includes(lq)).map(p => ({ value: p.id, label: p.name }))];
-          } : undefined} />
+          options={[
+            { value: '', label: t('api.selectProject') },
+            ...projects.map((p) => ({ value: p.id, label: p.name })),
+          ]}
+          onsearch={projects.length > 20
+            ? async (q) => {
+                const lq = q.toLowerCase();
+                return [
+                  { value: '', label: t('api.selectProject') },
+                  ...projects
+                    .filter((p) => p.name.toLowerCase().includes(lq))
+                    .map((p) => ({ value: p.id, label: p.name })),
+                ];
+              }
+            : undefined}
+        />
       </div>
     {/if}
   </div>
   <div class="mt-md">
-    <button class="btn btn-primary" onclick={handleCreateAPIKey} disabled={!newKeyName.trim() || (newKeyType === 'project' && !newKeyProjectId)}>{t('api.createKey')}</button>
+    <button
+      class="btn btn-primary"
+      onclick={handleCreateAPIKey}
+      disabled={!newKeyName.trim() || (newKeyType === 'project' && !newKeyProjectId)}
+      >{t('api.createKey')}</button
+    >
   </div>
 </div>
 
@@ -394,24 +526,45 @@
         <div class="session-info">
           <div class="session-seed">{k.name}</div>
           <div class="session-meta">
-            <span class="badge" class:badge-info={k.type === 'general'} class:badge-warning={k.type === 'project'}>{k.type}</span>
+            <span
+              class="badge"
+              class:badge-info={k.type === 'general'}
+              class:badge-warning={k.type === 'project'}>{k.type}</span
+            >
             {#if k.project_id}
-              <span class="badge badge-accent">{projects.find(p => p.id === k.project_id)?.name || k.project_id}</span>
+              <span class="badge badge-accent"
+                >{projects.find((p) => p.id === k.project_id)?.name || k.project_id}</span
+              >
             {/if}
             <code class="key-prefix-code">{k.key_prefix}</code>
             <span>{new Date(k.created_at).toLocaleDateString()}</span>
-            <span>{k.last_used_at ? t('api.used') + ' ' + timeAgo(k.last_used_at) : t('api.neverUsed')}</span>
+            <span
+              >{k.last_used_at
+                ? t('api.used') + ' ' + timeAgo(k.last_used_at)
+                : t('api.neverUsed')}</span
+            >
           </div>
         </div>
         <div class="session-actions">
-          <button class="btn btn-sm btn-danger" onclick={() => handleDeleteAPIKey(k.id)}>{t('api.revoke')}</button>
+          <button class="btn btn-sm btn-danger" onclick={() => handleDeleteAPIKey(k.id)}
+            >{t('api.revoke')}</button
+          >
         </div>
       </div>
     {/each}
   </div>
 {/if}
 
-{#if confirmState}<ConfirmModal message={confirmState.message} danger={confirmState.danger} confirmLabel={confirmState.confirmLabel} onconfirm={() => { confirmState.onConfirm(); confirmState = null; }} oncancel={() => confirmState = null} />{/if}
+{#if confirmState}<ConfirmModal
+    message={confirmState.message}
+    danger={confirmState.danger}
+    confirmLabel={confirmState.confirmLabel}
+    onconfirm={() => {
+      confirmState.onConfirm();
+      confirmState = null;
+    }}
+    oncancel={() => (confirmState = null)}
+  />{/if}
 
 <style>
   .api-endpoint-card {
@@ -461,16 +614,8 @@
     white-space: pre-wrap;
   }
 
-  .form-group-full {
-    grid-column: 1 / -1;
-  }
-
   .empty-state {
     padding: 32px;
-  }
-
-  .rename-row {
-    flex: 1;
   }
 
   .flex-1 {
@@ -555,15 +700,39 @@
     font-family: var(--font-mono, monospace);
   }
 
-  .method-get { background: #e8f5e9; color: #2e7d32; }
-  .method-post { background: #e3f2fd; color: #1565c0; }
-  .method-put { background: #fff3e0; color: #e65100; }
-  .method-delete { background: #fce4ec; color: #c62828; }
+  .method-get {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  .method-post {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+  .method-put {
+    background: #fff3e0;
+    color: #e65100;
+  }
+  .method-delete {
+    background: #fce4ec;
+    color: #c62828;
+  }
 
-  :global([data-theme="dark"]) .method-get { background: #1b3a1e; color: #66bb6a; }
-  :global([data-theme="dark"]) .method-post { background: #0d2744; color: #64b5f6; }
-  :global([data-theme="dark"]) .method-put { background: #3e2000; color: #ffb74d; }
-  :global([data-theme="dark"]) .method-delete { background: #3e0a0a; color: #ef9a9a; }
+  :global([data-theme='dark']) .method-get {
+    background: #1b3a1e;
+    color: #66bb6a;
+  }
+  :global([data-theme='dark']) .method-post {
+    background: #0d2744;
+    color: #64b5f6;
+  }
+  :global([data-theme='dark']) .method-put {
+    background: #3e2000;
+    color: #ffb74d;
+  }
+  :global([data-theme='dark']) .method-delete {
+    background: #3e0a0a;
+    color: #ef9a9a;
+  }
 
   .api-ref-path {
     font-size: 11.5px;
@@ -588,8 +757,12 @@
     transition: background 0.1s;
     gap: 16px;
   }
-  .session-row:last-child { border-bottom: none; }
-  .session-row:hover { background: var(--bg-hover); }
+  .session-row:last-child {
+    border-bottom: none;
+  }
+  .session-row:hover {
+    background: var(--bg-hover);
+  }
   .session-info {
     display: flex;
     flex-direction: column;

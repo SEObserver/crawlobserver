@@ -6,21 +6,35 @@
 
   let { stats, audit, sessionId, onnavigate } = $props();
 
-  function nav(tab, filters = {}) { onnavigate?.(`/sessions/${sessionId}/${tab}`, filters); }
+  function nav(tab, filters = {}) {
+    onnavigate?.(`/sessions/${sessionId}/${tab}`, filters);
+  }
 
   const links = $derived(audit?.links);
 
   function extSegments(l) {
     if (!l) return [];
     const segs = [];
-    if (l.external_dofollow > 0) segs.push({ value: l.external_dofollow, color: 'var(--success)', label: t('report.links.dofollow'), onclick: () => nav('external') });
-    if (l.external_nofollow > 0) segs.push({ value: l.external_nofollow, color: 'var(--warning)', label: t('report.links.nofollow'), onclick: () => nav('external', { rel: 'nofollow' }) });
+    if (l.external_dofollow > 0)
+      segs.push({
+        value: l.external_dofollow,
+        color: 'var(--success)',
+        label: t('report.links.dofollow'),
+        onclick: () => nav('external'),
+      });
+    if (l.external_nofollow > 0)
+      segs.push({
+        value: l.external_nofollow,
+        color: 'var(--warning)',
+        label: t('report.links.nofollow'),
+        onclick: () => nav('external', { rel: 'nofollow' }),
+      });
     return segs;
   }
 
   function topDomainBars(l) {
     if (!l?.top_external_domains) return [];
-    return l.top_external_domains.map(d => ({
+    return l.top_external_domains.map((d) => ({
       label: d.domain,
       value: d.count,
       color: 'chart-bar-info',
@@ -30,7 +44,7 @@
 
   function anchorBars(l) {
     if (!l?.top_anchors) return [];
-    return l.top_anchors.map(a => ({
+    return l.top_anchors.map((a) => ({
       label: a.anchor || '(empty)',
       value: a.count,
       color: 'chart-bar-accent',
@@ -47,21 +61,45 @@
   <div class="report-section">
     <h3 class="chart-title">{t('report.links.internalLinks')}</h3>
     <div class="stats-grid">
-      <div class="stat-card stat-card-link" role="button" tabindex="0"
-        onclick={() => nav('internal')} onkeydown={a11yKeydown(() => nav('internal'))}>
-        <div class="stat-value">{fmtN(links.total_internal)}</div><div class="stat-label">{t('report.links.totalInternal')}</div>
+      <div
+        class="stat-card stat-card-link"
+        role="button"
+        tabindex="0"
+        onclick={() => nav('internal')}
+        onkeydown={a11yKeydown(() => nav('internal'))}
+      >
+        <div class="stat-value">{fmtN(links.total_internal)}</div>
+        <div class="stat-label">{t('report.links.totalInternal')}</div>
       </div>
-      <div class="stat-card stat-card-link" role="button" tabindex="0"
-        onclick={() => nav('overview', { internal_links_out: '0' })} onkeydown={a11yKeydown(() => nav('overview', { internal_links_out: '0' }))}>
-        <div class="stat-value text-warning">{fmtN(links.pages_no_internal_out || 0)}</div><div class="stat-label">{t('report.links.noOutlinks')}</div>
+      <div
+        class="stat-card stat-card-link"
+        role="button"
+        tabindex="0"
+        onclick={() => nav('overview', { internal_links_out: '0' })}
+        onkeydown={a11yKeydown(() => nav('overview', { internal_links_out: '0' }))}
+      >
+        <div class="stat-value text-warning">{fmtN(links.pages_no_internal_out || 0)}</div>
+        <div class="stat-label">{t('report.links.noOutlinks')}</div>
       </div>
-      <div class="stat-card stat-card-link" role="button" tabindex="0"
-        onclick={() => nav('overview', { internal_links_out: '>100' })} onkeydown={a11yKeydown(() => nav('overview', { internal_links_out: '>100' }))}>
-        <div class="stat-value text-warning">{fmtN(links.pages_high_internal_out || 0)}</div><div class="stat-label">{t('report.links.over100')}</div>
+      <div
+        class="stat-card stat-card-link"
+        role="button"
+        tabindex="0"
+        onclick={() => nav('overview', { internal_links_out: '>100' })}
+        onkeydown={a11yKeydown(() => nav('overview', { internal_links_out: '>100' }))}
+      >
+        <div class="stat-value text-warning">{fmtN(links.pages_high_internal_out || 0)}</div>
+        <div class="stat-label">{t('report.links.over100')}</div>
       </div>
-      <div class="stat-card stat-card-link" role="button" tabindex="0"
-        onclick={() => nav('internal')} onkeydown={a11yKeydown(() => nav('internal'))}>
-        <div class="stat-value text-error">{fmtN(links.broken_internal || 0)}</div><div class="stat-label">{t('report.links.brokenInternal')}</div>
+      <div
+        class="stat-card stat-card-link"
+        role="button"
+        tabindex="0"
+        onclick={() => nav('internal')}
+        onkeydown={a11yKeydown(() => nav('internal'))}
+      >
+        <div class="stat-value text-error">{fmtN(links.broken_internal || 0)}</div>
+        <div class="stat-label">{t('report.links.brokenInternal')}</div>
       </div>
     </div>
   </div>
@@ -70,17 +108,34 @@
     <h3 class="chart-title">{t('report.links.externalLinks')}</h3>
     <div class="report-grid">
       <div>
-        <DonutChart segments={eSegs} size={180} strokeWidth={24}
-          centerLabel={fmtN(links.total_external)} centerSubLabel={t('common.external')} />
+        <DonutChart
+          segments={eSegs}
+          size={180}
+          strokeWidth={24}
+          centerLabel={fmtN(links.total_external)}
+          centerSubLabel={t('common.external')}
+        />
       </div>
       <div class="stats-grid">
-        <div class="stat-card stat-card-link" role="button" tabindex="0"
-          onclick={() => nav('external')} onkeydown={a11yKeydown(() => nav('external'))}>
-          <div class="stat-value">{fmtN(links.total_external)}</div><div class="stat-label">{t('report.links.totalExternal')}</div>
+        <div
+          class="stat-card stat-card-link"
+          role="button"
+          tabindex="0"
+          onclick={() => nav('external')}
+          onkeydown={a11yKeydown(() => nav('external'))}
+        >
+          <div class="stat-value">{fmtN(links.total_external)}</div>
+          <div class="stat-label">{t('report.links.totalExternal')}</div>
         </div>
-        <div class="stat-card stat-card-link" role="button" tabindex="0"
-          onclick={() => nav('overview', { external_links_out: '0' })} onkeydown={a11yKeydown(() => nav('overview', { external_links_out: '0' }))}>
-          <div class="stat-value">{fmtN(links.pages_no_external || 0)}</div><div class="stat-label">{t('report.links.noExternal')}</div>
+        <div
+          class="stat-card stat-card-link"
+          role="button"
+          tabindex="0"
+          onclick={() => nav('overview', { external_links_out: '0' })}
+          onkeydown={a11yKeydown(() => nav('overview', { external_links_out: '0' }))}
+        >
+          <div class="stat-value">{fmtN(links.pages_no_external || 0)}</div>
+          <div class="stat-label">{t('report.links.noExternal')}</div>
         </div>
       </div>
     </div>

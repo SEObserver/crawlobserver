@@ -20,7 +20,7 @@
   const SUB_VIEWS = [
     { id: 'internal', label: () => t('links.internal') },
     { id: 'external', label: () => t('links.external') },
-    { id: 'checks',   label: () => t('links.checks') },
+    { id: 'checks', label: () => t('links.checks') },
   ];
 
   let subView = $state(initialSubView);
@@ -116,7 +116,7 @@
   }
 
   function hasActiveFilters() {
-    return Object.values(filters).some(v => v && v !== '');
+    return Object.values(filters).some((v) => v && v !== '');
   }
 
   function urlDetailHref(url) {
@@ -145,50 +145,101 @@
 <div class="links-explorer">
   <div class="pr-subview-bar">
     {#each SUB_VIEWS as sv}
-      <button class="pr-subview-btn" class:pr-subview-active={subView === sv.id}
-        onclick={() => switchSubView(sv.id)}>{sv.label()}</button>
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={subView === sv.id}
+        onclick={() => switchSubView(sv.id)}>{sv.label()}</button
+      >
     {/each}
   </div>
 
   {#if subView === 'internal'}
-    <DataTable columns={[{label:t('common.source')},{label:t('common.target')},{label:t('session.anchorText')},{label:t('session.tag')}]}
-      filterKeys={TAB_FILTERS.internal} {filters} data={intLinks} offset={intLinksOffset} pageSize={PAGE_SIZE}
-      hasMore={hasMoreIntLinks} hasActiveFilters={hasActiveFilters()}
-      onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
+    <DataTable
+      columns={[
+        { label: t('common.source') },
+        { label: t('common.target') },
+        { label: t('session.anchorText') },
+        { label: t('session.tag') },
+      ]}
+      filterKeys={TAB_FILTERS.internal}
+      {filters}
+      data={intLinks}
+      offset={intLinksOffset}
+      pageSize={PAGE_SIZE}
+      hasMore={hasMoreIntLinks}
+      hasActiveFilters={hasActiveFilters()}
+      onsetfilter={setFilter}
+      onapplyfilters={applyFilters}
+      onclearfilters={clearFilters}
+      onnextpage={nextPage}
+      onprevpage={prevPage}
+    >
       {#snippet row(l)}
         <tr>
-          <td class="cell-url"><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}>{l.SourceURL}</a></td>
-          <td class="cell-url"><a href={urlDetailHref(l.TargetURL)} onclick={(e) => goToUrlDetail(e, l.TargetURL)}>{l.TargetURL}</a></td>
+          <td class="cell-url"
+            ><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}
+              >{l.SourceURL}</a
+            ></td
+          >
+          <td class="cell-url"
+            ><a href={urlDetailHref(l.TargetURL)} onclick={(e) => goToUrlDetail(e, l.TargetURL)}
+              >{l.TargetURL}</a
+            ></td
+          >
           <td class="cell-title">{l.AnchorText || '-'}</td>
           <td>{l.Tag}</td>
         </tr>
       {/snippet}
     </DataTable>
-
   {:else if subView === 'external'}
-    <DataTable columns={[{label:t('common.source')},{label:t('common.target')},{label:t('session.anchorText')},{label:t('session.rel')}]}
-      filterKeys={TAB_FILTERS.external} {filters} data={extLinks} offset={extLinksOffset} pageSize={PAGE_SIZE}
-      hasMore={hasMoreExtLinks} hasActiveFilters={hasActiveFilters()}
-      onsetfilter={setFilter} onapplyfilters={applyFilters} onclearfilters={clearFilters} onnextpage={nextPage} onprevpage={prevPage}>
+    <DataTable
+      columns={[
+        { label: t('common.source') },
+        { label: t('common.target') },
+        { label: t('session.anchorText') },
+        { label: t('session.rel') },
+      ]}
+      filterKeys={TAB_FILTERS.external}
+      {filters}
+      data={extLinks}
+      offset={extLinksOffset}
+      pageSize={PAGE_SIZE}
+      hasMore={hasMoreExtLinks}
+      hasActiveFilters={hasActiveFilters()}
+      onsetfilter={setFilter}
+      onapplyfilters={applyFilters}
+      onclearfilters={clearFilters}
+      onnextpage={nextPage}
+      onprevpage={prevPage}
+    >
       {#snippet row(l)}
         <tr>
-          <td class="cell-url"><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}>{l.SourceURL}</a></td>
-          <td class="cell-url"><a href={l.TargetURL} target="_blank" rel="noopener">{l.TargetURL}</a></td>
+          <td class="cell-url"
+            ><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}
+              >{l.SourceURL}</a
+            ></td
+          >
+          <td class="cell-url"
+            ><a href={l.TargetURL} target="_blank" rel="noopener">{l.TargetURL}</a></td
+          >
           <td class="cell-title">{l.AnchorText || '-'}</td>
           <td>{l.Rel || '-'}</td>
         </tr>
       {/snippet}
     </DataTable>
-
   {:else if subView === 'checks'}
-    <ExternalChecksTab {sessionId}
+    <ExternalChecksTab
+      {sessionId}
       basePath={`/sessions/${sessionId}/links/checks`}
       onpushurl={(u) => onpushurl?.(u)}
       onnavigate={(tab, f) => handleChecksViewSources(f?.target_url || '')}
-      onerror={(msg) => onerror?.(msg)} />
+      onerror={(msg) => onerror?.(msg)}
+    />
   {/if}
 </div>
 
 <style>
-  .links-explorer { padding: 16px; }
+  .links-explorer {
+    padding: 16px;
+  }
 </style>

@@ -1,0 +1,17 @@
+pre-commit:
+  parallel: true
+  commands:
+    go-lint:
+      glob: "*.go"
+      run: golangci-lint run --new-from-rev=HEAD {staged_files}
+    go-test:
+      glob: "*.go"
+      run: go test -short ./...
+    eslint:
+      root: "frontend/"
+      glob: "*.{js,svelte}"
+      run: cd frontend && npx eslint {staged_files}
+    prettier:
+      root: "frontend/"
+      glob: "*.{js,svelte,css,json}"
+      run: cd frontend && npx prettier --check {staged_files}

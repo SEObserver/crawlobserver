@@ -3,7 +3,8 @@
   import { fmtN, a11yKeydown } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
 
-  let { session, stats, liveProgress, onerror, onstop, onresume, ondelete, onrefresh, oncompare } = $props();
+  let { session, stats, liveProgress, onerror, onstop, onresume, ondelete, onrefresh, oncompare } =
+    $props();
 
   let showExportDialog = $state(false);
   let exportIncludeHTML = $state(false);
@@ -23,8 +24,11 @@
     try {
       await recomputeDepths(session.ID);
       onrefresh?.();
-    } catch (e) { onerror?.(e.message); }
-    finally { recomputing = false; }
+    } catch (e) {
+      onerror?.(e.message);
+    } finally {
+      recomputing = false;
+    }
   }
 
   async function handleRetryFailed() {
@@ -32,8 +36,11 @@
     try {
       await retryFailed(session.ID);
       setTimeout(() => onrefresh?.(), 2000);
-    } catch (e) { onerror?.(e.message); }
-    finally { retryingFailed = false; }
+    } catch (e) {
+      onerror?.(e.message);
+    } finally {
+      retryingFailed = false;
+    }
   }
 
   async function handleRetryStatus(code) {
@@ -41,8 +48,11 @@
     try {
       await retryFailed(session.ID, code);
       setTimeout(() => onrefresh?.(), 2000);
-    } catch (e) { onerror?.(e.message); }
-    finally { retryingStatus = null; }
+    } catch (e) {
+      onerror?.(e.message);
+    } finally {
+      retryingStatus = null;
+    }
   }
 
   function retryableStatusCodes() {
@@ -55,7 +65,10 @@
   function elapsed() {
     if (!session.StartedAt || session.StartedAt === '1970-01-01T00:00:00Z') return '';
     const start = new Date(session.StartedAt);
-    const end = session.FinishedAt && session.FinishedAt !== '1970-01-01T00:00:00Z' ? new Date(session.FinishedAt) : new Date();
+    const end =
+      session.FinishedAt && session.FinishedAt !== '1970-01-01T00:00:00Z'
+        ? new Date(session.FinishedAt)
+        : new Date();
     const secs = Math.floor((end - start) / 1000);
     if (secs < 60) return `${secs}s`;
     if (secs < 3600) return `${Math.floor(secs / 60)}m ${secs % 60}s`;
@@ -72,64 +85,157 @@
 
 <div class="action-bar">
   {#if session.is_running}
-    <span class="badge badge-info">{t('common.running')}
+    <span class="badge badge-info"
+      >{t('common.running')}
       {#if liveProgress[session.ID]}
-        &middot; {fmtN(liveProgress[session.ID].pages_crawled)} {t('common.pages')} &middot; {fmtN(liveProgress[session.ID].queue_size)} {t('actionBar.inQueue')}
+        &middot; {fmtN(liveProgress[session.ID].pages_crawled)}
+        {t('common.pages')} &middot; {fmtN(liveProgress[session.ID].queue_size)}
+        {t('actionBar.inQueue')}
         {#if liveProgress[session.ID].lost_pages > 0}
-          <span class="text-error font-semibold">&middot; {fmtN(liveProgress[session.ID].lost_pages)} {t('sessions.lost')}</span>
+          <span class="text-error font-semibold"
+            >&middot; {fmtN(liveProgress[session.ID].lost_pages)} {t('sessions.lost')}</span
+          >
         {/if}
       {/if}
     </span>
     {#if session.StartedAt && session.StartedAt !== '1970-01-01T00:00:00Z'}
-      <span class="action-bar-meta">{t('actionBar.started')} {fmtDate(session.StartedAt)} &middot; {elapsed()}</span>
+      <span class="action-bar-meta"
+        >{t('actionBar.started')} {fmtDate(session.StartedAt)} &middot; {elapsed()}</span
+      >
     {/if}
-    <button class="btn btn-sm btn-danger" onclick={() => onstop?.(session.ID)}>{t('common.stop')}</button>
+    <button class="btn btn-sm btn-danger" onclick={() => onstop?.(session.ID)}
+      >{t('common.stop')}</button
+    >
   {:else}
-    <span class="badge" class:badge-success={session.Status==='completed'} class:badge-error={session.Status==='failed' || session.Status==='crashed'} class:badge-warning={session.Status==='stopped' || session.Status==='completed_with_errors'}>{session.Status}</span>
+    <span
+      class="badge"
+      class:badge-success={session.Status === 'completed'}
+      class:badge-error={session.Status === 'failed' || session.Status === 'crashed'}
+      class:badge-warning={session.Status === 'stopped' ||
+        session.Status === 'completed_with_errors'}>{session.Status}</span
+    >
     {#if session.StartedAt && session.StartedAt !== '1970-01-01T00:00:00Z'}
       <span class="action-bar-meta">{fmtDate(session.StartedAt)} &middot; {elapsed()}</span>
     {/if}
-    <button class="btn btn-sm" onclick={() => onresume?.(session.ID)}>{t('sessions.resume')}</button>
+    <button class="btn btn-sm" onclick={() => onresume?.(session.ID)}>{t('sessions.resume')}</button
+    >
     <button class="btn btn-sm" onclick={handleRecomputeDepths} disabled={recomputing}>
       {recomputing ? t('actionBar.recomputing') : t('actionBar.recomputeDepths')}
     </button>
     {#if stats?.status_codes?.[0] > 0}
-      <button class="btn btn-sm" onclick={handleRetryFailed} disabled={retryingFailed} title={t('actionBar.retryFailed', { count: stats.status_codes[0] })}>
-        {retryingFailed ? t('actionBar.retrying') : t('actionBar.retryFailed', { count: stats.status_codes[0] })}
+      <button
+        class="btn btn-sm"
+        onclick={handleRetryFailed}
+        disabled={retryingFailed}
+        title={t('actionBar.retryFailed', { count: stats.status_codes[0] })}
+      >
+        {retryingFailed
+          ? t('actionBar.retrying')
+          : t('actionBar.retryFailed', { count: stats.status_codes[0] })}
       </button>
     {/if}
     {#each retryableStatusCodes() as [code, count]}
-      <button class="btn btn-sm" onclick={() => handleRetryStatus(+code)} disabled={retryingStatus === +code} title={t('actionBar.retryStatus', { count: fmtN(count), status: code })}>
-        {retryingStatus === +code ? t('actionBar.retrying') : t('actionBar.retryStatus', { count: fmtN(count), status: code })}
+      <button
+        class="btn btn-sm"
+        onclick={() => handleRetryStatus(+code)}
+        disabled={retryingStatus === +code}
+        title={t('actionBar.retryStatus', { count: fmtN(count), status: code })}
+      >
+        {retryingStatus === +code
+          ? t('actionBar.retrying')
+          : t('actionBar.retryStatus', { count: fmtN(count), status: code })}
       </button>
     {/each}
-    <button class="btn btn-sm" onclick={() => showExportDialog = true} title={t('actionBar.exportJsonl')}>
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    <button
+      class="btn btn-sm"
+      onclick={() => (showExportDialog = true)}
+      title={t('actionBar.exportJsonl')}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="14"
+        height="14"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
+          points="7 10 12 15 17 10"
+        /><line x1="12" y1="15" x2="12" y2="3" /></svg
+      >
       {t('common.export')}
     </button>
-    <button class="btn btn-sm btn-danger" onclick={() => ondelete?.(session.ID)}>{t('common.delete')}</button>
+    <button class="btn btn-sm btn-danger" onclick={() => ondelete?.(session.ID)}
+      >{t('common.delete')}</button
+    >
   {/if}
   <button class="btn btn-sm" onclick={() => onrefresh?.()}>
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      ><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg
+    >
     {t('common.refresh')}
   </button>
-  <button class="btn btn-sm" onclick={() => oncompare?.(session.ID)} title={t('actionBar.compareWith')}>
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+  <button
+    class="btn btn-sm"
+    onclick={() => oncompare?.(session.ID)}
+    title={t('actionBar.compareWith')}
+  >
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      ><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line
+        x1="6"
+        y1="20"
+        x2="6"
+        y2="14"
+      /></svg
+    >
     {t('compare.title')}
   </button>
 </div>
 
 {#if showExportDialog}
-  <div class="html-modal-overlay" role="button" tabindex="0"
-    onclick={() => showExportDialog = false}
-    onkeydown={a11yKeydown(() => showExportDialog = false)}>
+  <div
+    class="html-modal-overlay"
+    role="button"
+    tabindex="0"
+    onclick={() => (showExportDialog = false)}
+    onkeydown={a11yKeydown(() => (showExportDialog = false))}
+  >
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="html-modal export-modal" role="dialog" onclick={(e) => e.stopPropagation()}>
       <div class="html-modal-header">
         <div class="html-modal-url">{t('actionBar.exportSession')}</div>
         <div class="html-modal-actions">
-          <button class="btn btn-sm" title={t('common.close')} onclick={() => showExportDialog = false}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <button
+            class="btn btn-sm"
+            title={t('common.close')}
+            onclick={() => (showExportDialog = false)}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+            >
           </button>
         </div>
       </div>
@@ -139,8 +245,12 @@
           {t('actionBar.includeHtml')}
         </label>
         <div class="export-actions">
-          <button class="btn btn-sm" onclick={() => showExportDialog = false}>{t('common.cancel')}</button>
-          <button class="btn btn-sm btn-primary" onclick={handleExport}>{t('actionBar.downloadJsonl')}</button>
+          <button class="btn btn-sm" onclick={() => (showExportDialog = false)}
+            >{t('common.cancel')}</button
+          >
+          <button class="btn btn-sm btn-primary" onclick={handleExport}
+            >{t('actionBar.downloadJsonl')}</button
+          >
         </div>
       </div>
     </div>
@@ -156,7 +266,7 @@
   .html-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
     display: flex;
     align-items: center;

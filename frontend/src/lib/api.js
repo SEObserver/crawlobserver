@@ -109,8 +109,11 @@ async function fetchJSON(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, options);
   if (!res.ok) {
     let errorMessage;
-    try { errorMessage = (await res.json()).error; }
-    catch { errorMessage = await res.text().catch(() => res.statusText); }
+    try {
+      errorMessage = (await res.json()).error;
+    } catch {
+      errorMessage = await res.text().catch(() => res.statusText);
+    }
     throw new Error(errorMessage || `API error: ${res.status}`);
   }
   const text = await res.text();
@@ -202,8 +205,17 @@ export async function getPageHTML(sessionId, url) {
  * @param {number} inOffset
  * @returns {Promise<Object>}
  */
-export async function getPageDetail(sessionId, url, outLimit = DEFAULT_LIMIT, outOffset = 0, inLimit = DEFAULT_LIMIT, inOffset = 0) {
-  return fetchJSON(`/sessions/${sessionId}/page-detail?url=${encodeURIComponent(url)}&out_limit=${outLimit}&out_offset=${outOffset}&in_limit=${inLimit}&in_offset=${inOffset}`);
+export async function getPageDetail(
+  sessionId,
+  url,
+  outLimit = DEFAULT_LIMIT,
+  outOffset = 0,
+  inLimit = DEFAULT_LIMIT,
+  inOffset = 0,
+) {
+  return fetchJSON(
+    `/sessions/${sessionId}/page-detail?url=${encodeURIComponent(url)}&out_limit=${outLimit}&out_offset=${outOffset}&in_limit=${inLimit}&in_offset=${inOffset}`,
+  );
 }
 
 /** @returns {Promise<Object>} */
@@ -345,7 +357,11 @@ export async function getPageRankDistribution(sessionId, buckets = PAGERANK_BUCK
  * @param {number} minPages
  * @returns {Promise<Object>}
  */
-export async function getPageRankTreemap(sessionId, depth = TREEMAP_DEPTH, minPages = TREEMAP_MIN_PAGES) {
+export async function getPageRankTreemap(
+  sessionId,
+  depth = TREEMAP_DEPTH,
+  minPages = TREEMAP_MIN_PAGES,
+) {
   return fetchJSON(`/sessions/${sessionId}/pagerank-treemap?depth=${depth}&min_pages=${minPages}`);
 }
 
@@ -356,7 +372,12 @@ export async function getPageRankTreemap(sessionId, depth = TREEMAP_DEPTH, minPa
  * @param {string} directory
  * @returns {Promise<Object[]>}
  */
-export async function getPageRankTop(sessionId, limit = PAGERANK_LIMIT, offset = 0, directory = '') {
+export async function getPageRankTop(
+  sessionId,
+  limit = PAGERANK_LIMIT,
+  offset = 0,
+  directory = '',
+) {
   let url = `/sessions/${sessionId}/pagerank-top?limit=${limit}&offset=${offset}`;
   if (directory) url += `&directory=${encodeURIComponent(directory)}`;
   return fetchJSON(url);
@@ -395,7 +416,9 @@ export async function getSitemaps(sessionId) {
  * @returns {Promise<Object[]>}
  */
 export async function getSitemapURLs(sessionId, url, limit = DEFAULT_LIMIT, offset = 0) {
-  return fetchJSON(`/sessions/${sessionId}/sitemap-urls?url=${encodeURIComponent(url)}&limit=${limit}&offset=${offset}`);
+  return fetchJSON(
+    `/sessions/${sessionId}/sitemap-urls?url=${encodeURIComponent(url)}&limit=${limit}&offset=${offset}`,
+  );
 }
 
 /**
@@ -579,8 +602,11 @@ export async function importSession(file) {
   const res = await fetch(`${BASE}/sessions/import`, { method: 'POST', body: form });
   if (!res.ok) {
     let errorMessage;
-    try { errorMessage = (await res.json()).error; }
-    catch { errorMessage = await res.text().catch(() => res.statusText); }
+    try {
+      errorMessage = (await res.json()).error;
+    } catch {
+      errorMessage = await res.text().catch(() => res.statusText);
+    }
     throw new Error(errorMessage || `API error: ${res.status}`);
   }
   return res.json();
@@ -742,7 +768,12 @@ export async function getGSCInspection(projectId, limit = DEFAULT_LIMIT, offset 
  * @param {Object<string, string>} filters
  * @returns {Promise<Object[]>}
  */
-export async function getExternalLinkChecks(sessionId, limit = DEFAULT_LIMIT, offset = 0, filters = {}) {
+export async function getExternalLinkChecks(
+  sessionId,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  filters = {},
+) {
   let url = `/sessions/${sessionId}/external-checks?limit=${limit}&offset=${offset}`;
   for (const [k, v] of Object.entries(filters)) {
     if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
@@ -757,7 +788,12 @@ export async function getExternalLinkChecks(sessionId, limit = DEFAULT_LIMIT, of
  * @param {Object<string, string>} filters
  * @returns {Promise<Object[]>}
  */
-export async function getExternalLinkCheckDomains(sessionId, limit = DEFAULT_LIMIT, offset = 0, filters = {}) {
+export async function getExternalLinkCheckDomains(
+  sessionId,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  filters = {},
+) {
   let url = `/sessions/${sessionId}/external-checks/domains?limit=${limit}&offset=${offset}`;
   for (const [k, v] of Object.entries(filters)) {
     if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
@@ -772,7 +808,9 @@ export async function getExternalLinkCheckDomains(sessionId, limit = DEFAULT_LIM
  * @returns {Promise<Object[]>}
  */
 export async function getExpiredDomains(sessionId, limit = DEFAULT_LIMIT, offset = 0) {
-  return fetchJSON(`/sessions/${sessionId}/external-checks/expired-domains?limit=${limit}&offset=${offset}`);
+  return fetchJSON(
+    `/sessions/${sessionId}/external-checks/expired-domains?limit=${limit}&offset=${offset}`,
+  );
 }
 
 // --- Check IP ---
@@ -799,7 +837,12 @@ export async function checkIP(sourceIP = '', forceIPv4 = false) {
  * @param {Object<string, string>} filters
  * @returns {Promise<Object[]>}
  */
-export async function getPageResourceChecks(sessionId, limit = DEFAULT_LIMIT, offset = 0, filters = {}) {
+export async function getPageResourceChecks(
+  sessionId,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  filters = {},
+) {
   let url = `/sessions/${sessionId}/resource-checks?limit=${limit}&offset=${offset}`;
   for (const [k, v] of Object.entries(filters)) {
     if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
@@ -923,7 +966,13 @@ export async function runTests(sessionId, rulesetId) {
  * @param {string} search
  * @returns {Promise<Object[]>}
  */
-export async function getLogs(limit = DEFAULT_LIMIT, offset = 0, level = '', component = '', search = '') {
+export async function getLogs(
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  level = '',
+  component = '',
+  search = '',
+) {
   let url = `/logs?limit=${limit}&offset=${offset}`;
   if (level) url += `&level=${encodeURIComponent(level)}`;
   if (component) url += `&component=${encodeURIComponent(component)}`;
@@ -1020,7 +1069,9 @@ export async function getProviderMetrics(projectId, provider) {
  * @returns {Promise<Object[]>}
  */
 export async function getProviderBacklinks(projectId, provider, limit = DEFAULT_LIMIT, offset = 0) {
-  return fetchJSON(`/projects/${projectId}/providers/${provider}/backlinks?limit=${limit}&offset=${offset}`);
+  return fetchJSON(
+    `/projects/${projectId}/providers/${provider}/backlinks?limit=${limit}&offset=${offset}`,
+  );
 }
 
 /**
@@ -1030,8 +1081,15 @@ export async function getProviderBacklinks(projectId, provider, limit = DEFAULT_
  * @param {number} offset
  * @returns {Promise<Object[]>}
  */
-export async function getProviderRefDomains(projectId, provider, limit = DEFAULT_LIMIT, offset = 0) {
-  return fetchJSON(`/projects/${projectId}/providers/${provider}/refdomains?limit=${limit}&offset=${offset}`);
+export async function getProviderRefDomains(
+  projectId,
+  provider,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+) {
+  return fetchJSON(
+    `/projects/${projectId}/providers/${provider}/refdomains?limit=${limit}&offset=${offset}`,
+  );
 }
 
 /**
@@ -1042,7 +1100,9 @@ export async function getProviderRefDomains(projectId, provider, limit = DEFAULT
  * @returns {Promise<Object[]>}
  */
 export async function getProviderRankings(projectId, provider, limit = DEFAULT_LIMIT, offset = 0) {
-  return fetchJSON(`/projects/${projectId}/providers/${provider}/rankings?limit=${limit}&offset=${offset}`);
+  return fetchJSON(
+    `/projects/${projectId}/providers/${provider}/rankings?limit=${limit}&offset=${offset}`,
+  );
 }
 
 /**
@@ -1056,17 +1116,41 @@ export async function getProviderVisibility(projectId, provider) {
 
 /** @returns {Promise<{rows: Array, total: number}>} */
 export async function getProviderTopPages(projectId, provider, limit = 100, offset = 0) {
-  return fetchJSON(`/projects/${projectId}/providers/${provider}/top-pages?limit=${limit}&offset=${offset}`);
+  return fetchJSON(
+    `/projects/${projectId}/providers/${provider}/top-pages?limit=${limit}&offset=${offset}`,
+  );
 }
 
 /** @returns {Promise<{rows: Array, total: number}>} */
 export async function getProviderAPICalls(projectId, provider, limit = 50, offset = 0) {
-  return fetchJSON(`/projects/${projectId}/providers/${provider}/api-calls?limit=${limit}&offset=${offset}`);
+  return fetchJSON(
+    `/projects/${projectId}/providers/${provider}/api-calls?limit=${limit}&offset=${offset}`,
+  );
+}
+
+/**
+ * @param {string} sessionId
+ * @param {number} limit
+ * @param {number} offset
+ * @param {number} threshold
+ * @returns {Promise<{pairs: Array, total: number}>}
+ */
+export async function getNearDuplicates(
+  sessionId,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  threshold = 3,
+) {
+  return fetchJSON(
+    `/sessions/${sessionId}/near-duplicates?limit=${limit}&offset=${offset}&threshold=${threshold}`,
+  );
 }
 
 /** @returns {Promise<{rows: Array, total: number}>} */
 export async function getSessionAuthority(sessionId, projectId, limit = 100, offset = 0) {
-  return fetchJSON(`/sessions/${sessionId}/authority?project_id=${projectId}&limit=${limit}&offset=${offset}`);
+  return fetchJSON(
+    `/sessions/${sessionId}/authority?project_id=${projectId}&limit=${limit}&offset=${offset}`,
+  );
 }
 
 /**
@@ -1096,7 +1180,9 @@ export function subscribeProgress(sessionId, onMessage, onDone) {
     source.onmessage = (e) => {
       try {
         onMessage(JSON.parse(e.data));
-      } catch (_) { /* ignore malformed SSE frames */ }
+      } catch (_) {
+        /* ignore malformed SSE frames */
+      }
     };
 
     source.addEventListener('done', () => {
@@ -1126,6 +1212,6 @@ export function subscribeProgress(sessionId, onMessage, onDone) {
       closed = true;
       if (retryTimer) clearTimeout(retryTimer);
       if (source) source.close();
-    }
+    },
   };
 }

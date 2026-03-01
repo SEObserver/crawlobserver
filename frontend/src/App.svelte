@@ -12,12 +12,22 @@
 
   import { t } from './lib/i18n/index.svelte.js';
   import { onDestroy } from 'svelte';
-  import { getSessions, getStats,  getProgress,
-    stopCrawl, deleteSession,
-    getStorageStats, getGlobalStats, getSessionStorage, getSystemStats,
-    getProjects, createProject,
-    getUpdateStatus, applyUpdate,
-    createBackup } from './lib/api.js';
+  import {
+    getSessions,
+    getStats,
+    getProgress,
+    stopCrawl,
+    deleteSession,
+    getStorageStats,
+    getGlobalStats,
+    getSessionStorage,
+    getSystemStats,
+    getProjects,
+    createProject,
+    getUpdateStatus,
+    applyUpdate,
+    createBackup,
+  } from './lib/api.js';
   import { fmtSize } from './lib/utils.js';
   import { pushURL, parseRoute } from './lib/router.js';
   import { createSSEManager } from './lib/sse.js';
@@ -56,7 +66,12 @@
   let error = $state(null);
 
   // --- UI state ---
-  let theme = $state({ app_name: 'CrawlObserver', logo_url: '', accent_color: '#7c3aed', mode: 'light' });
+  let theme = $state({
+    app_name: 'CrawlObserver',
+    logo_url: '',
+    accent_color: '#7c3aed',
+    mode: 'light',
+  });
   let darkMode = $state(false);
   /** @type {'home'|'settings'|'stats'|'compare'|'logs'|'all-projects'|'api'|'new-crawl'|'project'|'session'} */
   let currentView = $state('home');
@@ -117,9 +132,11 @@
     try {
       const created = await createProject(name);
       projects = await getProjects();
-      const proj = projects.find(p => p.id === created.id) || created;
+      const proj = projects.find((p) => p.id === created.id) || created;
       selectProject(proj);
-    } catch (e) { error = e.message; }
+    } catch (e) {
+      error = e.message;
+    }
   }
 
   // --- Global Stats ---
@@ -152,7 +169,9 @@
       theme = result.theme;
       darkMode = result.darkMode;
       applyTheme(theme, darkMode);
-    } catch (e) { console.warn('Failed to load theme:', e); }
+    } catch (e) {
+      console.warn('Failed to load theme:', e);
+    }
   }
 
   function toggleDarkMode() {
@@ -203,18 +222,28 @@
       selectedSession = null;
       stats = null;
       loading = false;
-      currentView = route.page === 'all-projects' ? 'all-projects'
-        : route.page === 'new-crawl' ? 'new-crawl'
-        : route.page;
+      currentView =
+        route.page === 'all-projects'
+          ? 'all-projects'
+          : route.page === 'new-crawl'
+            ? 'new-crawl'
+            : route.page;
 
       if (route.page === 'project') {
         currentView = 'project';
-        selectedProject = projects.find(p => p.id === route.projectId) || null;
+        selectedProject = projects.find((p) => p.id === route.projectId) || null;
         routeProjectTab = route.projectTab || 'sessions';
-        routeGscSubView = route.projectTab === 'gsc' ? (route.projectSubView || 'overview') : 'overview';
-        routeProviderSubView = route.projectTab === 'providers' ? (route.projectSubView || 'overview') : 'overview';
+        routeGscSubView =
+          route.projectTab === 'gsc' ? route.projectSubView || 'overview' : 'overview';
+        routeProviderSubView =
+          route.projectTab === 'providers' ? route.projectSubView || 'overview' : 'overview';
         if (!selectedProject && projects.length === 0) {
-          getProjects().then(p => { projects = p; selectedProject = p.find(pr => pr.id === route.projectId) || null; }).catch(() => {});
+          getProjects()
+            .then((p) => {
+              projects = p;
+              selectedProject = p.find((pr) => pr.id === route.projectId) || null;
+            })
+            .catch(() => {});
         }
         if (sessions.length === 0) loadSessions();
         return;
@@ -227,7 +256,10 @@
       }
 
       if (sessions.length === 0) loadSessions();
-      if (route.page === 'new-crawl') getProjects().then(p => projects = p).catch(() => {});
+      if (route.page === 'new-crawl')
+        getProjects()
+          .then((p) => (projects = p))
+          .catch(() => {});
       return;
     }
 
@@ -262,7 +294,7 @@
       if (sessions.length === 0) {
         await loadSessions();
       }
-      const found = sessions.find(s => s.ID === route.sessionId);
+      const found = sessions.find((s) => s.ID === route.sessionId);
       if (found) {
         selectedSession = found;
         stats = await getStats(found.ID);
@@ -313,9 +345,21 @@
       sessionStorageMap = storageData || {};
       for (const s of sessions) {
         if ((s.is_running || s.is_queued) && !sse.isConnected(s.ID)) {
-          sse.connect(s.ID,
-            (data) => { liveProgress[s.ID] = data; liveProgress = { ...liveProgress }; if (data.is_running) scheduleStatsRefresh(s.ID); },
-            (id) => { if (selectedSession?.ID === id) { getStats(id).then(st => stats = st).catch(() => {}); } loadSessions(); }
+          sse.connect(
+            s.ID,
+            (data) => {
+              liveProgress[s.ID] = data;
+              liveProgress = { ...liveProgress };
+              if (data.is_running) scheduleStatsRefresh(s.ID);
+            },
+            (id) => {
+              if (selectedSession?.ID === id) {
+                getStats(id)
+                  .then((st) => (stats = st))
+                  .catch(() => {});
+              }
+              loadSessions();
+            },
           );
         }
       }
@@ -334,7 +378,9 @@
       if (selectedSession?.ID === sessionId) {
         try {
           stats = await getStats(sessionId);
-        } catch (e) { console.warn('Stats refresh failed:', e); }
+        } catch (e) {
+          console.warn('Stats refresh failed:', e);
+        }
       }
     }, STATS_REFRESH_MS);
   }
@@ -391,12 +437,14 @@
       await stopCrawl(id);
       setTimeout(async () => {
         await loadSessions();
-        const sess = sessions.find(s => s.ID === id);
+        const sess = sessions.find((s) => s.ID === id);
         if (sess && selectedSession?.ID !== id) {
           selectSession(sess);
         }
       }, STOP_RELOAD_DELAY_MS);
-    } catch (e) { error = e.message; }
+    } catch (e) {
+      error = e.message;
+    }
   }
 
   function openResumeModal(id) {
@@ -412,7 +460,7 @@
   async function onResumeComplete() {
     closeResumeModal();
     await loadSessions();
-    const sess = sessions.find(s => s.ID === resumeSessionId);
+    const sess = sessions.find((s) => s.ID === resumeSessionId);
     if (sess) {
       await selectSession(sess);
     }
@@ -421,26 +469,41 @@
   function handleDelete(id) {
     const sizeBytes = sessionStorageMap[id];
     const sizeText = sizeBytes ? ` and free ${fmtSize(sizeBytes)}` : '';
-    showConfirm(`Delete this session${sizeText}?`, async () => {
-      try {
-        await deleteSession(id);
-        if (selectedSession?.ID === id) { selectedSession = null; pushURL('/'); }
-        loadSessions();
-        getGlobalStats().then(gs => globalStats = gs).catch(() => {});
-      } catch (e) { error = e.message; }
-    }, { danger: true, confirmLabel: t('common.delete') });
+    showConfirm(
+      `Delete this session${sizeText}?`,
+      async () => {
+        try {
+          await deleteSession(id);
+          if (selectedSession?.ID === id) {
+            selectedSession = null;
+            pushURL('/');
+          }
+          loadSessions();
+          getGlobalStats()
+            .then((gs) => (globalStats = gs))
+            .catch(() => {});
+        } catch (e) {
+          error = e.message;
+        }
+      },
+      { danger: true, confirmLabel: t('common.delete') },
+    );
   }
 
   async function loadStorageStats() {
     try {
       storageStats = await getStorageStats();
-    } catch (e) { console.warn('Failed to load storage stats:', e); }
+    } catch (e) {
+      console.warn('Failed to load storage stats:', e);
+    }
   }
 
   async function loadSystemStats() {
     try {
       systemStats = await getSystemStats();
-    } catch (e) { console.warn('Failed to load system stats:', e); }
+    } catch (e) {
+      console.warn('Failed to load system stats:', e);
+    }
   }
 
   function startSystemStatsPolling() {
@@ -453,8 +516,13 @@
   loadTheme();
   applyRoute();
   startSystemStatsPolling();
-  getProjects().then(p => projects = p).catch(() => {});
-  if (!globalStats) getGlobalStats().then(gs => globalStats = gs).catch(() => {});
+  getProjects()
+    .then((p) => (projects = p))
+    .catch(() => {});
+  if (!globalStats)
+    getGlobalStats()
+      .then((gs) => (globalStats = gs))
+      .catch(() => {});
 
   // Cleanup on destroy
   onDestroy(() => {
@@ -467,12 +535,29 @@
 <a class="skip-link" href="#main-content">{t('app.skipToContent')}</a>
 <div class="layout">
   <div class="drag-bar"><span class="drag-bar-title">{theme.app_name}</span></div>
-  <Sidebar {theme} {darkMode} {sessions} {projects} {globalStats} {systemStats}
-    {selectedSession} {selectedProject} {currentView} {liveProgress}
-    ontoggledarkmode={toggleDarkMode} onselectsession={selectSession} onselectproject={selectProject}
-    onnavigate={navigateTo} onopensettings={openSettings}
-    onopenstats={openGlobalStats} onopenapi={openAPI} onopenlogs={openLogs} ongohome={goHome}
-    oncreateproject={handleCreateProject} onviewallprojects={openAllProjects} />
+  <Sidebar
+    {theme}
+    {darkMode}
+    {sessions}
+    {projects}
+    {globalStats}
+    {systemStats}
+    {selectedSession}
+    {selectedProject}
+    {currentView}
+    {liveProgress}
+    ontoggledarkmode={toggleDarkMode}
+    onselectsession={selectSession}
+    onselectproject={selectProject}
+    onnavigate={navigateTo}
+    onopensettings={openSettings}
+    onopenstats={openGlobalStats}
+    onopenapi={openAPI}
+    onopenlogs={openLogs}
+    ongohome={goHome}
+    oncreateproject={handleCreateProject}
+    onviewallprojects={openAllProjects}
+  />
 
   <!-- Main Content -->
   <main class="main" id="main-content">
@@ -480,7 +565,9 @@
       {#if error}
         <div class="alert alert-error">
           <span>{error}</span>
-          <button class="btn btn-sm btn-ghost" onclick={() => error = null}>{t('common.dismiss')}</button>
+          <button class="btn btn-sm btn-ghost" onclick={() => (error = null)}
+            >{t('common.dismiss')}</button
+          >
         </div>
       {/if}
 
@@ -494,67 +581,116 @@
               {#if updateMessage}
                 <span class="text-sm">{updateMessage}</span>
               {/if}
-              <button class="btn btn-sm btn-primary" onclick={doBackupAndUpdate} disabled={updatingApp}>{t('app.backupAndUpdate')}</button>
-              <button class="btn btn-sm btn-ghost" onclick={() => updateDismissed = true}>{t('common.dismiss')}</button>
+              <button
+                class="btn btn-sm btn-primary"
+                onclick={doBackupAndUpdate}
+                disabled={updatingApp}>{t('app.backupAndUpdate')}</button
+              >
+              <button class="btn btn-sm btn-ghost" onclick={() => (updateDismissed = true)}
+                >{t('common.dismiss')}</button
+              >
             {/if}
           </div>
         </div>
       {/if}
 
       {#if currentView === 'settings'}
-        <SettingsPage initialTheme={theme} onerror={(msg) => error = msg} onsave={handleSettingsSave} oncancel={handleSettingsCancel} />
-
+        <SettingsPage
+          initialTheme={theme}
+          onerror={(msg) => (error = msg)}
+          onsave={handleSettingsSave}
+          oncancel={handleSettingsCancel}
+        />
       {:else if currentView === 'stats'}
-        <GlobalStatsPage onerror={(msg) => error = msg} />
-
+        <GlobalStatsPage onerror={(msg) => (error = msg)} />
       {:else if currentView === 'compare'}
-        <ComparePage {sessions} initialA={compareSessionA} initialB={compareSessionB}
-          onerror={(msg) => error = msg} onnavigate={navigateTo} />
-
+        <ComparePage
+          {sessions}
+          initialA={compareSessionA}
+          initialB={compareSessionB}
+          onerror={(msg) => (error = msg)}
+          onnavigate={navigateTo}
+        />
       {:else if currentView === 'logs'}
-        <LogsPage onerror={(msg) => error = msg} />
-
+        <LogsPage onerror={(msg) => (error = msg)} />
       {:else if currentView === 'all-projects'}
-        <AllProjectsPage onerror={(msg) => error = msg}
+        <AllProjectsPage
+          onerror={(msg) => (error = msg)}
           onselectproject={selectProject}
-          oncreateproject={() => navigateTo('/new-crawl')} />
-
+          oncreateproject={() => navigateTo('/new-crawl')}
+        />
       {:else if currentView === 'api'}
-        <APIManagementPage onerror={(msg) => error = msg} onprojectschanged={(p) => projects = p} />
-
+        <APIManagementPage
+          onerror={(msg) => (error = msg)}
+          onprojectschanged={(p) => (projects = p)}
+        />
       {:else if currentView === 'new-crawl'}
-        <NewCrawlForm {projects} initialProjectId={new URLSearchParams(window.location.search).get('project') || ''} onstart={onCrawlStarted} oncancel={() => { const proj = new URLSearchParams(window.location.search).get('project'); proj ? navigateTo(`/projects/${proj}`) : navigateTo('/'); }} onerror={(msg) => error = msg} />
-
+        <NewCrawlForm
+          {projects}
+          initialProjectId={new URLSearchParams(window.location.search).get('project') || ''}
+          onstart={onCrawlStarted}
+          oncancel={() => {
+            const proj = new URLSearchParams(window.location.search).get('project');
+            proj ? navigateTo(`/projects/${proj}`) : navigateTo('/');
+          }}
+          onerror={(msg) => (error = msg)}
+        />
       {:else if currentView === 'project' && selectedProject}
         {#key selectedProject.id}
-          <ProjectPage project={selectedProject}
+          <ProjectPage
+            project={selectedProject}
             initialProjectTab={routeProjectTab}
             initialGscSubView={routeGscSubView}
             initialProviderSubView={routeProviderSubView}
-            onerror={(msg) => error = msg}
+            onerror={(msg) => (error = msg)}
             onselectsession={selectSession}
             ongohome={goHome}
             onnewcrawl={() => navigateTo('/new-crawl', { project: selectedProject?.id })}
-            onprojectrenamed={async (id) => { projects = await getProjects(); selectedProject = projects.find(p => p.id === id) || selectedProject; }}
-            onprojectdeleted={async () => { projects = await getProjects(); goHome(); }}
-            onpushurl={(u) => pushURL(u)} />
+            onprojectrenamed={async (id) => {
+              projects = await getProjects();
+              selectedProject = projects.find((p) => p.id === id) || selectedProject;
+            }}
+            onprojectdeleted={async () => {
+              projects = await getProjects();
+              goHome();
+            }}
+            onpushurl={(u) => pushURL(u)}
+          />
         {/key}
-
       {:else if currentView === 'home'}
-        <SessionsList {sessions} {projects} {liveProgress} {sessionStorageMap} {loading}
-          onselectsession={selectSession} onstop={handleStop} onresume={openResumeModal}
-          ondelete={handleDelete} onnewcrawl={() => navigateTo('/new-crawl')} onrefresh={loadSessions} />
-
+        <SessionsList
+          {sessions}
+          {projects}
+          {liveProgress}
+          {sessionStorageMap}
+          {loading}
+          onselectsession={selectSession}
+          onstop={handleStop}
+          onresume={openResumeModal}
+          ondelete={handleDelete}
+          onnewcrawl={() => navigateTo('/new-crawl')}
+          onrefresh={loadSessions}
+        />
       {:else if currentView === 'session' && selectedSession}
         {#key selectedSession.ID + '-' + routeVersion}
-          <SessionDetailPage session={selectedSession} {stats} {liveProgress}
-            initialTab={routeTab} initialFilters={routeFilters} initialOffset={routeOffset}
+          <SessionDetailPage
+            session={selectedSession}
+            {stats}
+            {liveProgress}
+            initialTab={routeTab}
+            initialFilters={routeFilters}
+            initialOffset={routeOffset}
             initialDetailUrl={routeDetailUrl}
             initialSubView={routeSubView}
-            onerror={(msg) => error = msg} onstop={handleStop} onresume={openResumeModal}
-            ondelete={handleDelete} onrefresh={() => selectSession(selectedSession)}
+            onerror={(msg) => (error = msg)}
+            onstop={handleStop}
+            onresume={openResumeModal}
+            ondelete={handleDelete}
+            onrefresh={() => selectSession(selectedSession)}
             oncompare={(id) => navigateTo(`/compare?a=${id}`)}
-            onnavigate={navigateTo} ongohome={goHome} />
+            onnavigate={navigateTo}
+            ongohome={goHome}
+          />
         {/key}
       {/if}
     </div>
@@ -562,7 +698,13 @@
 </div>
 
 {#if showResumeModal}
-  <ResumeModal sessionId={resumeSessionId} {sessions} onresume={onResumeComplete} onclose={closeResumeModal} onerror={(msg) => error = msg} />
+  <ResumeModal
+    sessionId={resumeSessionId}
+    {sessions}
+    onresume={onResumeComplete}
+    onclose={closeResumeModal}
+    onerror={(msg) => (error = msg)}
+  />
 {/if}
 
 {#if confirmState}
@@ -570,7 +712,10 @@
     message={confirmState.message}
     danger={confirmState.danger}
     confirmLabel={confirmState.confirmLabel}
-    onconfirm={() => { confirmState.onConfirm(); confirmState = null; }}
-    oncancel={() => confirmState = null}
+    onconfirm={() => {
+      confirmState.onConfirm();
+      confirmState = null;
+    }}
+    oncancel={() => (confirmState = null)}
   />
 {/if}

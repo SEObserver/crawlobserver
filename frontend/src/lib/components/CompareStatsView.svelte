@@ -29,7 +29,9 @@
       <span class="val-arrow">→</span>
       <span class="val-b">{fmtN(sb.total_pages)}</span>
     </div>
-    <div class="compare-delta {deltaClass(sa.total_pages, sb.total_pages)}">{delta(sa.total_pages, sb.total_pages)}</div>
+    <div class="compare-delta {deltaClass(sa.total_pages, sb.total_pages)}">
+      {delta(sa.total_pages, sb.total_pages)}
+    </div>
   </div>
   <div class="compare-stat-card">
     <div class="compare-stat-label">{t('compare.internalLinks')}</div>
@@ -38,7 +40,9 @@
       <span class="val-arrow">→</span>
       <span class="val-b">{fmtN(sb.internal_links)}</span>
     </div>
-    <div class="compare-delta {deltaClass(sa.internal_links, sb.internal_links)}">{delta(sa.internal_links, sb.internal_links)}</div>
+    <div class="compare-delta {deltaClass(sa.internal_links, sb.internal_links)}">
+      {delta(sa.internal_links, sb.internal_links)}
+    </div>
   </div>
   <div class="compare-stat-card">
     <div class="compare-stat-label">{t('session.externalLinks')}</div>
@@ -47,7 +51,9 @@
       <span class="val-arrow">→</span>
       <span class="val-b">{fmtN(sb.external_links)}</span>
     </div>
-    <div class="compare-delta {deltaClass(sa.external_links, sb.external_links)}">{delta(sa.external_links, sb.external_links)}</div>
+    <div class="compare-delta {deltaClass(sa.external_links, sb.external_links)}">
+      {delta(sa.external_links, sb.external_links)}
+    </div>
   </div>
   <div class="compare-stat-card">
     <div class="compare-stat-label">{t('compare.errors')}</div>
@@ -56,7 +62,9 @@
       <span class="val-arrow">→</span>
       <span class="val-b">{fmtN(sb.error_count)}</span>
     </div>
-    <div class="compare-delta {deltaClass(sa.error_count, sb.error_count, true)}">{delta(sa.error_count, sb.error_count)}</div>
+    <div class="compare-delta {deltaClass(sa.error_count, sb.error_count, true)}">
+      {delta(sa.error_count, sb.error_count)}
+    </div>
   </div>
   <div class="compare-stat-card">
     <div class="compare-stat-label">{t('compare.avgResponse')}</div>
@@ -65,7 +73,9 @@
       <span class="val-arrow">→</span>
       <span class="val-b">{fmt(Math.round(sb.avg_fetch_ms))}</span>
     </div>
-    <div class="compare-delta {deltaClass(sa.avg_fetch_ms, sb.avg_fetch_ms, true)}">{delta(Math.round(sa.avg_fetch_ms), Math.round(sb.avg_fetch_ms))}</div>
+    <div class="compare-delta {deltaClass(sa.avg_fetch_ms, sb.avg_fetch_ms, true)}">
+      {delta(Math.round(sa.avg_fetch_ms), Math.round(sb.avg_fetch_ms))}
+    </div>
   </div>
   <div class="compare-stat-card">
     <div class="compare-stat-label">{t('compare.pagesPerSec')}</div>
@@ -79,9 +89,16 @@
 
 {#if sa.status_codes || sb.status_codes}
   <h3 class="status-codes-heading">{t('compare.statusCodes')}</h3>
-  {@const allCodes = [...new Set([...Object.keys(sa.status_codes || {}), ...Object.keys(sb.status_codes || {})])].sort()}
+  {@const allCodes = [
+    ...new Set([...Object.keys(sa.status_codes || {}), ...Object.keys(sb.status_codes || {})]),
+  ].sort()}
   <table class="table">
-    <thead><tr><th>{t('compare.code')}</th><th>{t('compare.sessionA')}</th><th>{t('compare.sessionB')}</th><th>{t('compare.delta')}</th></tr></thead>
+    <thead
+      ><tr
+        ><th>{t('compare.code')}</th><th>{t('compare.sessionA')}</th><th>{t('compare.sessionB')}</th
+        ><th>{t('compare.delta')}</th></tr
+      ></thead
+    >
     <tbody>
       {#each allCodes as code}
         {@const countA = (sa.status_codes || {})[code] || 0}
@@ -127,18 +144,54 @@
     font-size: 18px;
     font-weight: 600;
   }
-  .val-a { color: var(--text-secondary); }
-  .val-arrow { color: var(--text-secondary); font-size: 14px; opacity: 0.5; }
-  .val-b { color: var(--text); }
+  .val-a {
+    color: var(--text-secondary);
+  }
+  .val-arrow {
+    color: var(--text-secondary);
+    font-size: 14px;
+    opacity: 0.5;
+  }
+  .val-b {
+    color: var(--text);
+  }
   .compare-delta {
     font-size: 13px;
     font-weight: 500;
     margin-top: 4px;
   }
-  .delta-up { color: var(--success, #22c55e); }
-  .delta-down { color: var(--error, #ef4444); }
-  .status-codes-heading { margin: 20px 0 12px; padding: 0 16px; font-size: 14px; font-weight: 600; color: var(--text); }
-  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .table th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .table td { padding: 6px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+  .delta-up {
+    color: var(--success, #22c55e);
+  }
+  .delta-down {
+    color: var(--error, #ef4444);
+  }
+  .status-codes-heading {
+    margin: 20px 0 12px;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
 </style>

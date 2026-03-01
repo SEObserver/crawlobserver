@@ -60,7 +60,10 @@
 
   async function runRobotsTest() {
     if (!robotsSelectedHost) return;
-    const urls = robotsTestUrls.split('\n').map(u => u.trim()).filter(Boolean);
+    const urls = robotsTestUrls
+      .split('\n')
+      .map((u) => u.trim())
+      .filter(Boolean);
     if (urls.length === 0) return;
     robotsTestLoading = true;
     try {
@@ -78,7 +81,12 @@
     simulateLoading = true;
     simulateResults = null;
     try {
-      simulateResults = await simulateRobots(sessionId, robotsSelectedHost, simulateUA || '*', simulateContent);
+      simulateResults = await simulateRobots(
+        sessionId,
+        robotsSelectedHost,
+        simulateUA || '*',
+        simulateContent,
+      );
       showNewlyBlocked = false;
       showNewlyAllowed = false;
     } catch (e) {
@@ -100,13 +108,31 @@
     {:else}
       <table>
         <thead>
-          <tr><th>{t('robots.host')}</th><th>{t('common.status')}</th><th>{t('robots.fetched')}</th></tr>
+          <tr
+            ><th>{t('robots.host')}</th><th>{t('common.status')}</th><th>{t('robots.fetched')}</th
+            ></tr
+          >
         </thead>
         <tbody>
           {#each robotsHosts as h}
-            <tr class="robots-host-row" class:robots-host-active={robotsSelectedHost === h.Host} role="button" tabindex="0" onclick={() => selectRobotsHost(h.Host)} onkeydown={a11yKeydown(() => selectRobotsHost(h.Host))}>
+            <tr
+              class="robots-host-row"
+              class:robots-host-active={robotsSelectedHost === h.Host}
+              role="button"
+              tabindex="0"
+              onclick={() => selectRobotsHost(h.Host)}
+              onkeydown={a11yKeydown(() => selectRobotsHost(h.Host))}
+            >
               <td class="font-medium">{h.Host}</td>
-              <td><span class="badge {h.StatusCode === 200 ? 'badge-success' : h.StatusCode >= 400 ? 'badge-error' : 'badge-warning'}">{h.StatusCode}</span></td>
+              <td
+                ><span
+                  class="badge {h.StatusCode === 200
+                    ? 'badge-success'
+                    : h.StatusCode >= 400
+                      ? 'badge-error'
+                      : 'badge-warning'}">{h.StatusCode}</span
+                ></td
+              >
               <td class="text-muted text-xs">{new Date(h.FetchedAt).toLocaleString()}</td>
             </tr>
           {/each}
@@ -116,12 +142,23 @@
   </div>
   <div class="robots-detail">
     {#if robotsSelectedHost}
-      <h3 class="robots-detail-title text-secondary font-semibold">robots.txt &mdash; {robotsSelectedHost}</h3>
+      <h3 class="robots-detail-title text-secondary font-semibold">
+        robots.txt &mdash; {robotsSelectedHost}
+      </h3>
 
       <div class="pr-subview-bar">
-        <button class="pr-subview-btn {robotsSubView === 'content' ? 'pr-subview-active' : ''}" onclick={() => robotsSubView = 'content'}>{t('robots.content')}</button>
-        <button class="pr-subview-btn {robotsSubView === 'tester' ? 'pr-subview-active' : ''}" onclick={() => robotsSubView = 'tester'}>{t('robots.urlTester')}</button>
-        <button class="pr-subview-btn {robotsSubView === 'simulator' ? 'pr-subview-active' : ''}" onclick={() => robotsSubView = 'simulator'}>{t('robots.simulator')}</button>
+        <button
+          class="pr-subview-btn {robotsSubView === 'content' ? 'pr-subview-active' : ''}"
+          onclick={() => (robotsSubView = 'content')}>{t('robots.content')}</button
+        >
+        <button
+          class="pr-subview-btn {robotsSubView === 'tester' ? 'pr-subview-active' : ''}"
+          onclick={() => (robotsSubView = 'tester')}>{t('robots.urlTester')}</button
+        >
+        <button
+          class="pr-subview-btn {robotsSubView === 'simulator' ? 'pr-subview-active' : ''}"
+          onclick={() => (robotsSubView = 'simulator')}>{t('robots.simulator')}</button
+        >
       </div>
 
       {#if robotsSubView === 'content'}
@@ -130,17 +167,30 @@
         {:else}
           <p class="text-muted">{t('common.loading')}</p>
         {/if}
-
       {:else if robotsSubView === 'tester'}
         <div class="form-group mb-sm">
           <label>{t('robots.userAgentOptional')}</label>
-          <input type="text" placeholder={t('robots.userAgentDefault')} bind:value={robotsTestUA} class="robots-ua-input" />
+          <input
+            type="text"
+            placeholder={t('robots.userAgentDefault')}
+            bind:value={robotsTestUA}
+            class="robots-ua-input"
+          />
         </div>
         <div class="form-group mb-sm">
           <label>{t('robots.urlsToTest')}</label>
-          <textarea rows="4" bind:value={robotsTestUrls} placeholder="/path/to/page&#10;/another/path" class="robots-mono-textarea"></textarea>
+          <textarea
+            rows="4"
+            bind:value={robotsTestUrls}
+            placeholder="/path/to/page&#10;/another/path"
+            class="robots-mono-textarea"
+          ></textarea>
         </div>
-        <button class="btn btn-primary btn-sm" onclick={runRobotsTest} disabled={robotsTestLoading || !robotsTestUrls.trim()}>
+        <button
+          class="btn btn-primary btn-sm"
+          onclick={runRobotsTest}
+          disabled={robotsTestLoading || !robotsTestUrls.trim()}
+        >
           {robotsTestLoading ? t('robots.testing') : t('robots.test')}
         </button>
 
@@ -148,26 +198,36 @@
           <div class="robots-test-results">
             {#each robotsTestResults as r}
               <div class="robots-test-result">
-                <span class="badge {r.allowed ? 'badge-success' : 'badge-error'}">{r.allowed ? t('robots.allowed') : t('robots.blocked')}</span>
+                <span class="badge {r.allowed ? 'badge-success' : 'badge-error'}"
+                  >{r.allowed ? t('robots.allowed') : t('robots.blocked')}</span
+                >
                 <span class="text-sm robots-test-url">{r.url}</span>
               </div>
             {/each}
           </div>
         {/if}
-
       {:else}
         <p class="text-xs text-muted robots-sim-hint">
           {t('robots.simulatorDesc')}
         </p>
         <div class="form-group mb-sm">
           <label>{t('robots.userAgentOptional')}</label>
-          <input type="text" placeholder={t('robots.userAgentDefault')} bind:value={simulateUA} class="robots-ua-input" />
+          <input
+            type="text"
+            placeholder={t('robots.userAgentDefault')}
+            bind:value={simulateUA}
+            class="robots-ua-input"
+          />
         </div>
         <div class="form-group robots-sim-form-group">
           <label>{t('robots.proposedRobots')}</label>
           <textarea rows="12" bind:value={simulateContent} class="robots-sim-textarea"></textarea>
         </div>
-        <button class="btn btn-primary btn-sm" onclick={runSimulation} disabled={simulateLoading || !simulateContent.trim()}>
+        <button
+          class="btn btn-primary btn-sm"
+          onclick={runSimulation}
+          disabled={simulateLoading || !simulateContent.trim()}
+        >
           {simulateLoading ? t('robots.runningSimulation') : t('robots.runSimulation')}
         </button>
 
@@ -175,8 +235,10 @@
           {@const res = simulateResults}
           {@const newlyBlockedCount = res.newly_blocked?.length || 0}
           {@const newlyAllowedCount = res.newly_allowed?.length || 0}
-          {@const afterAllowed = (res.currently_allowed || 0) - newlyBlockedCount + newlyAllowedCount}
-          {@const afterBlocked = (res.currently_blocked || 0) + newlyBlockedCount - newlyAllowedCount}
+          {@const afterAllowed =
+            (res.currently_allowed || 0) - newlyBlockedCount + newlyAllowedCount}
+          {@const afterBlocked =
+            (res.currently_blocked || 0) + newlyBlockedCount - newlyAllowedCount}
           <div class="sim-compare">
             <div class="sim-compare-header">
               <span></span>
@@ -187,24 +249,42 @@
             </div>
             <div class="sim-compare-row">
               <span class="sim-compare-label">{t('robots.allowed')}</span>
-              <span class="sim-compare-val sim-val-success">{res.currently_allowed?.toLocaleString()}</span>
+              <span class="sim-compare-val sim-val-success"
+                >{res.currently_allowed?.toLocaleString()}</span
+              >
               <span class="sim-compare-arrow">→</span>
               <span class="sim-compare-val sim-val-success">{afterAllowed.toLocaleString()}</span>
               {#if newlyBlockedCount > 0 || newlyAllowedCount > 0}
                 {@const delta = afterAllowed - (res.currently_allowed || 0)}
-                <span class="sim-compare-delta" style="color: {delta > 0 ? 'var(--success)' : delta < 0 ? 'var(--error)' : 'var(--text-muted)'};">{delta > 0 ? '+' : ''}{delta.toLocaleString()}</span>
+                <span
+                  class="sim-compare-delta"
+                  style="color: {delta > 0
+                    ? 'var(--success)'
+                    : delta < 0
+                      ? 'var(--error)'
+                      : 'var(--text-muted)'};">{delta > 0 ? '+' : ''}{delta.toLocaleString()}</span
+                >
               {:else}
                 <span class="sim-compare-delta text-muted">—</span>
               {/if}
             </div>
             <div class="sim-compare-row">
               <span class="sim-compare-label">{t('robots.blocked')}</span>
-              <span class="sim-compare-val sim-val-error">{res.currently_blocked?.toLocaleString()}</span>
+              <span class="sim-compare-val sim-val-error"
+                >{res.currently_blocked?.toLocaleString()}</span
+              >
               <span class="sim-compare-arrow">→</span>
               <span class="sim-compare-val sim-val-error">{afterBlocked.toLocaleString()}</span>
               {#if newlyBlockedCount > 0 || newlyAllowedCount > 0}
                 {@const delta = afterBlocked - (res.currently_blocked || 0)}
-                <span class="sim-compare-delta" style="color: {delta > 0 ? 'var(--error)' : delta < 0 ? 'var(--success)' : 'var(--text-muted)'};">{delta > 0 ? '+' : ''}{delta.toLocaleString()}</span>
+                <span
+                  class="sim-compare-delta"
+                  style="color: {delta > 0
+                    ? 'var(--error)'
+                    : delta < 0
+                      ? 'var(--success)'
+                      : 'var(--text-muted)'};">{delta > 0 ? '+' : ''}{delta.toLocaleString()}</span
+                >
               {:else}
                 <span class="sim-compare-delta text-muted">—</span>
               {/if}
@@ -219,7 +299,10 @@
           </div>
 
           {#if res.newly_blocked?.length > 0}
-            <button class="sim-change-header sim-url-blocked" onclick={() => showNewlyBlocked = !showNewlyBlocked}>
+            <button
+              class="sim-change-header sim-url-blocked"
+              onclick={() => (showNewlyBlocked = !showNewlyBlocked)}
+            >
               <span class="badge badge-error">{res.newly_blocked.length}</span>
               <span>{t('robots.urlsNewlyBlocked')}</span>
               <span class="sim-toggle-icon">{showNewlyBlocked ? '▲' : '▼'}</span>
@@ -234,7 +317,10 @@
           {/if}
 
           {#if res.newly_allowed?.length > 0}
-            <button class="sim-change-header sim-url-allowed" onclick={() => showNewlyAllowed = !showNewlyAllowed}>
+            <button
+              class="sim-change-header sim-url-allowed"
+              onclick={() => (showNewlyAllowed = !showNewlyAllowed)}
+            >
               <span class="badge badge-success">{res.newly_allowed.length}</span>
               <span>{t('robots.urlsNewlyAllowed')}</span>
               <span class="sim-toggle-icon">{showNewlyAllowed ? '▲' : '▼'}</span>
@@ -324,8 +410,12 @@
     color: var(--text-muted);
     text-align: right;
   }
-  .sim-compare-header span:first-child { text-align: left; }
-  .sim-compare-header span:nth-child(3) { text-align: center; }
+  .sim-compare-header span:first-child {
+    text-align: left;
+  }
+  .sim-compare-header span:nth-child(3) {
+    text-align: center;
+  }
   .sim-compare-row {
     display: grid;
     grid-template-columns: 80px 1fr 28px 1fr 80px;
@@ -335,8 +425,13 @@
     align-items: center;
     font-variant-numeric: tabular-nums;
   }
-  .sim-compare-row:last-child { border-bottom: none; }
-  .sim-compare-total { border-top: 1px solid var(--border); background: var(--bg); }
+  .sim-compare-row:last-child {
+    border-bottom: none;
+  }
+  .sim-compare-total {
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
   .sim-compare-label {
     font-size: 13px;
     font-weight: 600;
@@ -375,9 +470,15 @@
     transition: background 0.15s;
     font-family: inherit;
   }
-  .sim-change-header:hover { background: var(--bg-hover); }
-  .sim-url-blocked { border-left: 3px solid var(--error); }
-  .sim-url-allowed { border-left: 3px solid var(--success); }
+  .sim-change-header:hover {
+    background: var(--bg-hover);
+  }
+  .sim-url-blocked {
+    border-left: 3px solid var(--error);
+  }
+  .sim-url-allowed {
+    border-left: 3px solid var(--success);
+  }
   .sim-url-list {
     border: 1px solid var(--border);
     border-top: none;
@@ -394,7 +495,9 @@
     color: var(--text-secondary);
     word-break: break-all;
   }
-  .sim-url-item:last-child { border-bottom: none; }
+  .sim-url-item:last-child {
+    border-bottom: none;
+  }
   .robots-empty-msg {
     padding: 20px;
   }
@@ -429,8 +532,12 @@
     font-size: 12px;
     line-height: 1.6;
   }
-  .sim-val-success { color: var(--success); }
-  .sim-val-error { color: var(--error); }
+  .sim-val-success {
+    color: var(--success);
+  }
+  .sim-val-error {
+    color: var(--error);
+  }
   .sim-toggle-icon {
     margin-left: auto;
     font-size: 12px;

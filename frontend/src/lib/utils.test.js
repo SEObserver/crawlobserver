@@ -97,8 +97,12 @@ describe('trunc', () => {
 });
 
 describe('timeAgo', () => {
-  beforeEach(() => { vi.useFakeTimers(); });
-  afterEach(() => { vi.useRealTimers(); });
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it('returns "just now" for < 60s ago', () => {
     const now = new Date('2024-01-15T12:00:00Z');
@@ -196,12 +200,7 @@ describe('squarify', () => {
   });
 
   it('all rects have reasonable aspect ratios', () => {
-    const items = [
-      { value: 50 },
-      { value: 30 },
-      { value: 15 },
-      { value: 5 },
-    ];
+    const items = [{ value: 50 }, { value: 30 }, { value: 15 }, { value: 5 }];
     const rects = squarify(items, 0, 0, 200, 200);
     for (const r of rects) {
       expect(r.w).toBeGreaterThan(0);

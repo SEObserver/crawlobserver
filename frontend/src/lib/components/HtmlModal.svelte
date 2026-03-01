@@ -25,15 +25,45 @@
   load();
 </script>
 
-<div class="html-modal-overlay" role="button" tabindex="0" onclick={onclose} onkeydown={a11yKeydown(onclose)}>
-  <div class="html-modal" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+<div
+  class="html-modal-overlay"
+  role="button"
+  tabindex="0"
+  onclick={onclose}
+  onkeydown={a11yKeydown(onclose)}
+>
+  <div
+    class="html-modal"
+    role="dialog"
+    tabindex="-1"
+    onclick={(e) => e.stopPropagation()}
+    onkeydown={(e) => e.stopPropagation()}
+  >
     <div class="html-modal-header">
       <div class="html-modal-url" title={htmlModalData.url}>{htmlModalData.url}</div>
       <div class="html-modal-actions">
-        <button class="btn btn-sm" class:btn-primary={htmlModalView === 'render'} onclick={() => htmlModalView = 'render'}>{t('htmlModal.render')}</button>
-        <button class="btn btn-sm" class:btn-primary={htmlModalView === 'source'} onclick={() => htmlModalView = 'source'}>{t('htmlModal.source')}</button>
+        <button
+          class="btn btn-sm"
+          class:btn-primary={htmlModalView === 'render'}
+          onclick={() => (htmlModalView = 'render')}>{t('htmlModal.render')}</button
+        >
+        <button
+          class="btn btn-sm"
+          class:btn-primary={htmlModalView === 'source'}
+          onclick={() => (htmlModalView = 'source')}>{t('htmlModal.source')}</button
+        >
         <button class="btn btn-sm" title={t('common.close')} onclick={onclose}>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+          >
         </button>
       </div>
     </div>
@@ -43,7 +73,12 @@
       {:else if !htmlModalData.body_html}
         <p class="modal-placeholder">{t('htmlModal.noHtml')}</p>
       {:else if htmlModalView === 'render'}
-        <iframe srcdoc={htmlModalData.body_html} title={t('htmlModal.pageRender')} class="html-modal-iframe" sandbox></iframe>
+        <iframe
+          srcdoc={htmlModalData.body_html}
+          title={t('htmlModal.pageRender')}
+          class="html-modal-iframe"
+          sandbox
+        ></iframe>
       {:else}
         <pre class="html-modal-source"><code>{htmlModalData.body_html}</code></pre>
       {/if}
@@ -55,7 +90,7 @@
   .html-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
     display: flex;
     align-items: center;

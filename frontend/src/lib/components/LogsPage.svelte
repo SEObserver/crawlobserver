@@ -24,7 +24,9 @@
       const res = await getLogs(limit, offset, level, component, search);
       logs = res.logs || [];
       total = res.total || 0;
-    } catch (e) { onerror?.(e.message); }
+    } catch (e) {
+      onerror?.(e.message);
+    }
     loading = false;
   }
 
@@ -47,17 +49,32 @@
   }
 
   function prevPage() {
-    if (offset >= limit) { offset -= limit; loadLogs(); }
+    if (offset >= limit) {
+      offset -= limit;
+      loadLogs();
+    }
   }
 
   function nextPage() {
-    if (offset + limit < total) { offset += limit; loadLogs(); }
+    if (offset + limit < total) {
+      offset += limit;
+      loadLogs();
+    }
   }
 
   function fmtTime(ts) {
     if (!ts) return '';
     const d = new Date(ts);
-    return d.toLocaleString(getLocale(), { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+    return d.toLocaleString(getLocale(), {
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      fractionalSecondDigits: 3,
+    });
   }
 
   // Auto-refresh every 5s
@@ -78,24 +95,45 @@
 </div>
 
 <div class="logs-filters">
-  <SearchSelect small bind:value={level} onchange={changeLevel} options={[
-    { value: '', label: t('logs.allLevels') },
-    { value: 'debug', label: t('logs.debug') },
-    { value: 'info', label: t('logs.info') },
-    { value: 'warn', label: t('logs.warn') },
-    { value: 'error', label: t('logs.error') },
-  ]} />
+  <SearchSelect
+    small
+    bind:value={level}
+    onchange={changeLevel}
+    options={[
+      { value: '', label: t('logs.allLevels') },
+      { value: 'debug', label: t('logs.debug') },
+      { value: 'info', label: t('logs.info') },
+      { value: 'warn', label: t('logs.warn') },
+      { value: 'error', label: t('logs.error') },
+    ]}
+  />
 
-  <SearchSelect small bind:value={component} onchange={changeComponent} options={[
-    { value: '', label: t('logs.allComponents') },
-    { value: 'server', label: t('logs.server') },
-    { value: 'crawler', label: t('logs.crawler') },
-    { value: 'gsc', label: t('logs.gsc') },
-    { value: 'storage', label: t('logs.storage') },
-  ]} />
+  <SearchSelect
+    small
+    bind:value={component}
+    onchange={changeComponent}
+    options={[
+      { value: '', label: t('logs.allComponents') },
+      { value: 'server', label: t('logs.server') },
+      { value: 'crawler', label: t('logs.crawler') },
+      { value: 'gsc', label: t('logs.gsc') },
+      { value: 'storage', label: t('logs.storage') },
+    ]}
+  />
 
-  <form class="logs-search-form" onsubmit={(e) => { e.preventDefault(); applySearch(); }}>
-    <input class="logs-search" type="text" placeholder={t('logs.searchMessages')} bind:value={searchInput} />
+  <form
+    class="logs-search-form"
+    onsubmit={(e) => {
+      e.preventDefault();
+      applySearch();
+    }}
+  >
+    <input
+      class="logs-search"
+      type="text"
+      placeholder={t('logs.searchMessages')}
+      bind:value={searchInput}
+    />
     <button class="btn btn-sm" type="submit">{t('common.search')}</button>
   </form>
 </div>
@@ -132,9 +170,15 @@
 
   {#if total > limit}
     <div class="pagination">
-      <button class="btn btn-sm" onclick={prevPage} disabled={offset === 0}>{t('common.previous')}</button>
-      <span class="pagination-info">{offset + 1}-{Math.min(offset + limit, total)} {t('common.of')} {total}</span>
-      <button class="btn btn-sm" onclick={nextPage} disabled={offset + limit >= total}>{t('common.next')}</button>
+      <button class="btn btn-sm" onclick={prevPage} disabled={offset === 0}
+        >{t('common.previous')}</button
+      >
+      <span class="pagination-info"
+        >{offset + 1}-{Math.min(offset + limit, total)} {t('common.of')} {total}</span
+      >
+      <button class="btn btn-sm" onclick={nextPage} disabled={offset + limit >= total}
+        >{t('common.next')}</button
+      >
     </div>
   {/if}
 {/if}
@@ -191,13 +235,34 @@
     text-transform: uppercase;
     letter-spacing: 0.3px;
   }
-  .log-badge-debug { background: var(--surface-hover, #f0f0f0); color: var(--text-muted); }
-  .log-badge-info { background: #dbeafe; color: #1e40af; }
-  .log-badge-warn { background: #fef3c7; color: #92400e; }
-  .log-badge-error { background: #fee2e2; color: #991b1b; }
-  :global([data-theme="dark"]) .log-badge-info { background: #1e3a5f; color: #93c5fd; }
-  :global([data-theme="dark"]) .log-badge-warn { background: #422006; color: #fcd34d; }
-  :global([data-theme="dark"]) .log-badge-error { background: #450a0a; color: #fca5a5; }
+  .log-badge-debug {
+    background: var(--surface-hover, #f0f0f0);
+    color: var(--text-muted);
+  }
+  .log-badge-info {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+  .log-badge-warn {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  .log-badge-error {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  :global([data-theme='dark']) .log-badge-info {
+    background: #1e3a5f;
+    color: #93c5fd;
+  }
+  :global([data-theme='dark']) .log-badge-warn {
+    background: #422006;
+    color: #fcd34d;
+  }
+  :global([data-theme='dark']) .log-badge-error {
+    background: #450a0a;
+    color: #fca5a5;
+  }
   .log-component {
     font-size: 12px;
     color: var(--text-muted);
@@ -213,9 +278,15 @@
     font-size: 13px;
     color: var(--text-muted);
   }
-  .col-timestamp { width: 180px; }
-  .col-level { width: 70px; }
-  .col-component { width: 100px; }
+  .col-timestamp {
+    width: 180px;
+  }
+  .col-level {
+    width: 70px;
+  }
+  .col-component {
+    width: 100px;
+  }
   .logs-empty {
     text-align: center;
     padding: 24px;

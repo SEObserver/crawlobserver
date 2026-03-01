@@ -1,5 +1,12 @@
 <script>
-  import { getRulesets, getRuleset, createRuleset, updateRuleset, deleteRuleset, runTests } from '../api.js';
+  import {
+    getRulesets,
+    getRuleset,
+    createRuleset,
+    updateRuleset,
+    deleteRuleset,
+    runTests,
+  } from '../api.js';
   import ConfirmModal from './ConfirmModal.svelte';
   import { t } from '../i18n/index.svelte.js';
   import SearchSelect from './SearchSelect.svelte';
@@ -30,12 +37,15 @@
   }
 
   function needsExtra(type) {
-    return ['header_contains', 'header_regex', 'css_extract_attr', 'css_extract_all_attr'].includes(type);
+    return ['header_contains', 'header_regex', 'css_extract_attr', 'css_extract_all_attr'].includes(
+      type,
+    );
   }
 
   function getExtraLabel(type) {
     if (type === 'header_contains' || type === 'header_regex') return t('tests.headerValue');
-    if (type === 'css_extract_attr' || type === 'css_extract_all_attr') return t('tests.attributeName');
+    if (type === 'css_extract_attr' || type === 'css_extract_all_attr')
+      return t('tests.attributeName');
     return t('tests.extra');
   }
 
@@ -97,8 +107,14 @@
       const rs = await getRuleset(id);
       editId = rs.id;
       editName = rs.name;
-      editRules = rs.rules.map(r => ({ type: r.type, name: r.name, value: r.value, extra: r.extra || '' }));
-      if (editRules.length === 0) editRules = [{ type: 'string_contains', name: '', value: '', extra: '' }];
+      editRules = rs.rules.map((r) => ({
+        type: r.type,
+        name: r.name,
+        value: r.value,
+        extra: r.extra || '',
+      }));
+      if (editRules.length === 0)
+        editRules = [{ type: 'string_contains', name: '', value: '', extra: '' }];
       view = 'editor';
     } catch (e) {
       onerror?.(e.message);
@@ -108,9 +124,15 @@
   }
 
   async function saveRuleset() {
-    const rules = editRules.filter(r => r.name && r.value);
-    if (!editName.trim()) { onerror?.(t('tests.nameRequired')); return; }
-    if (rules.length === 0) { onerror?.(t('tests.ruleRequired')); return; }
+    const rules = editRules.filter((r) => r.name && r.value);
+    if (!editName.trim()) {
+      onerror?.(t('tests.nameRequired'));
+      return;
+    }
+    if (rules.length === 0) {
+      onerror?.(t('tests.ruleRequired'));
+      return;
+    }
 
     loading = true;
     try {
@@ -129,14 +151,18 @@
   }
 
   function removeRuleset(id) {
-    showConfirm(t('tests.deleteConfirm'), async () => {
-      try {
-        await deleteRuleset(id);
-        await loadRulesets();
-      } catch (e) {
-        onerror?.(e.message);
-      }
-    }, { danger: true, confirmLabel: t('common.delete') });
+    showConfirm(
+      t('tests.deleteConfirm'),
+      async () => {
+        try {
+          await deleteRuleset(id);
+          await loadRulesets();
+        } catch (e) {
+          onerror?.(e.message);
+        }
+      },
+      { danger: true, confirmLabel: t('common.delete') },
+    );
   }
 
   async function runRuleset(rulesetId) {
@@ -164,10 +190,15 @@
 
   // Derived for results pagination
   let pagedResults = $derived(
-    testResult ? testResult.pages.slice(resultsPage * RESULTS_PAGE_SIZE, (resultsPage + 1) * RESULTS_PAGE_SIZE) : []
+    testResult
+      ? testResult.pages.slice(
+          resultsPage * RESULTS_PAGE_SIZE,
+          (resultsPage + 1) * RESULTS_PAGE_SIZE,
+        )
+      : [],
   );
   let hasMoreResults = $derived(
-    testResult ? (resultsPage + 1) * RESULTS_PAGE_SIZE < testResult.pages.length : false
+    testResult ? (resultsPage + 1) * RESULTS_PAGE_SIZE < testResult.pages.length : false,
   );
 
   // Load on mount
@@ -204,12 +235,19 @@
               <td>{t('tests.rulesCount', { count: rs.rules?.length ?? 0 })}</td>
               <td class="text-muted text-sm">{new Date(rs.updated_at).toLocaleDateString()}</td>
               <td>
-                <button class="btn btn-sm" onclick={() => editRulesetById(rs.id)}>{t('common.edit')}</button>
-                <button class="btn btn-primary btn-sm" onclick={() => runRuleset(rs.id)}
-                  disabled={runningRulesetId === rs.id}>
+                <button class="btn btn-sm" onclick={() => editRulesetById(rs.id)}
+                  >{t('common.edit')}</button
+                >
+                <button
+                  class="btn btn-primary btn-sm"
+                  onclick={() => runRuleset(rs.id)}
+                  disabled={runningRulesetId === rs.id}
+                >
                   {runningRulesetId === rs.id ? t('common.running') + '...' : t('tests.run')}
                 </button>
-                <button class="btn btn-sm btn-danger" onclick={() => removeRuleset(rs.id)}>{t('common.delete')}</button>
+                <button class="btn btn-sm btn-danger" onclick={() => removeRuleset(rs.id)}
+                  >{t('common.delete')}</button
+                >
               </td>
             </tr>
           {/each}
@@ -217,7 +255,6 @@
       </table>
     {/if}
   </div>
-
 {:else if view === 'editor'}
   <div class="card mt-md">
     <div class="ct-editor-header">
@@ -226,15 +263,20 @@
       </h3>
       <div class="flex-center-gap">
         <label class="text-sm font-medium">{t('tests.rulesetName')}</label>
-        <input type="text" bind:value={editName} placeholder={t('tests.rulesetNamePlaceholder')}
-          class="ct-name-input" />
+        <input
+          type="text"
+          bind:value={editName}
+          placeholder={t('tests.rulesetNamePlaceholder')}
+          class="ct-name-input"
+        />
       </div>
     </div>
 
     <div class="ct-editor-body">
-      {#if editRules.some(r => isAllRule(r.type))}
+      {#if editRules.some((r) => isAllRule(r.type))}
         <div class="ct-warning">
-          <strong>{t('tests.warning')}</strong> {t('tests.extractAllWarning')}
+          <strong>{t('tests.warning')}</strong>
+          {t('tests.extractAllWarning')}
         </div>
       {/if}
 
@@ -252,21 +294,36 @@
           {#each editRules as rule, i}
             <tr>
               <td class="ct-td-type">
-                <SearchSelect small bind:value={rule.type}
-                  options={getRuleTypes().map(rt => ({ value: rt.value, label: rt.label }))} />
+                <SearchSelect
+                  small
+                  bind:value={rule.type}
+                  options={getRuleTypes().map((rt) => ({ value: rt.value, label: rt.label }))}
+                />
               </td>
               <td>
-                <input type="text" bind:value={rule.name} placeholder={t('tests.ruleLabel')}
-                  class="ct-input" />
+                <input
+                  type="text"
+                  bind:value={rule.name}
+                  placeholder={t('tests.ruleLabel')}
+                  class="ct-input"
+                />
               </td>
               <td>
-                <input type="text" bind:value={rule.value} placeholder={getValueLabel(rule.type)}
-                  class="ct-input" />
+                <input
+                  type="text"
+                  bind:value={rule.value}
+                  placeholder={getValueLabel(rule.type)}
+                  class="ct-input"
+                />
               </td>
               <td>
                 {#if needsExtra(rule.type)}
-                  <input type="text" bind:value={rule.extra} placeholder={getExtraLabel(rule.type)}
-                    class="ct-input" />
+                  <input
+                    type="text"
+                    bind:value={rule.extra}
+                    placeholder={getExtraLabel(rule.type)}
+                    class="ct-input"
+                  />
                 {:else}
                   <span class="text-muted text-xs">-</span>
                 {/if}
@@ -284,14 +341,18 @@
       <div class="flex-center-gap">
         <button class="btn btn-sm" onclick={addRule}>{t('tests.addRule')}</button>
         <div class="ct-spacer"></div>
-        <button class="btn btn-sm" onclick={() => { view = 'list'; }}>{t('common.cancel')}</button>
+        <button
+          class="btn btn-sm"
+          onclick={() => {
+            view = 'list';
+          }}>{t('common.cancel')}</button
+        >
         <button class="btn btn-primary btn-sm" onclick={saveRuleset} disabled={loading}>
           {loading ? t('common.saving') : t('tests.saveRuleset')}
         </button>
       </div>
     </div>
   </div>
-
 {:else if view === 'results' && testResult}
   <div class="card mt-md">
     <div class="ct-card-header">
@@ -299,9 +360,16 @@
         <h3 class="ct-title">
           {t('tests.results', { name: testResult.ruleset_name })}
         </h3>
-        <span class="text-sm text-muted">{t('tests.pagesTested', { count: testResult.total_pages })}</span>
+        <span class="text-sm text-muted"
+          >{t('tests.pagesTested', { count: testResult.total_pages })}</span
+        >
       </div>
-      <button class="btn btn-sm" onclick={() => { view = 'list'; }}>{t('tests.backToRulesets')}</button>
+      <button
+        class="btn btn-sm"
+        onclick={() => {
+          view = 'list';
+        }}>{t('tests.backToRulesets')}</button
+      >
     </div>
 
     <!-- Summary -->
@@ -309,7 +377,7 @@
       {#each testResult.rules as rule}
         {@const count = testResult.summary[rule.id] ?? 0}
         {@const total = testResult.total_pages}
-        {@const pct = total > 0 ? Math.round(count / total * 100) : 0}
+        {@const pct = total > 0 ? Math.round((count / total) * 100) : 0}
         {@const isExtract = rule.type.includes('extract')}
         <div class="ct-result-card">
           <div class="text-xs text-muted mb-xs">{rule.name}</div>
@@ -317,7 +385,16 @@
             <div class="ct-result-value">{count}/{total}</div>
             <div class="ct-result-sublabel">{t('tests.haveValue')}</div>
           {:else}
-            <div class="ct-result-value" style="color: {pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--error)'};">{pct}%</div>
+            <div
+              class="ct-result-value"
+              style="color: {pct >= 80
+                ? 'var(--success)'
+                : pct >= 50
+                  ? 'var(--warning)'
+                  : 'var(--error)'};"
+            >
+              {pct}%
+            </div>
             <div class="ct-result-sublabel">{count}/{total} {t('tests.pass')}</div>
           {/if}
         </div>
@@ -347,7 +424,9 @@
                   {:else if val === 'fail'}
                     <span class="badge badge-error">{t('tests.fail')}</span>
                   {:else}
-                    <span class="text-xs" title={val}>{val.length > 60 ? val.slice(0, 60) + '...' : val || '-'}</span>
+                    <span class="text-xs" title={val}
+                      >{val.length > 60 ? val.slice(0, 60) + '...' : val || '-'}</span
+                    >
                   {/if}
                 </td>
               {/each}
@@ -359,37 +438,134 @@
 
     {#if testResult.pages.length > RESULTS_PAGE_SIZE}
       <div class="pagination">
-        <button class="btn btn-sm" disabled={resultsPage === 0} onclick={() => resultsPage--}>{t('common.previous')}</button>
+        <button class="btn btn-sm" disabled={resultsPage === 0} onclick={() => resultsPage--}
+          >{t('common.previous')}</button
+        >
         <span class="text-sm text-muted">
-          {resultsPage * RESULTS_PAGE_SIZE + 1} - {Math.min((resultsPage + 1) * RESULTS_PAGE_SIZE, testResult.pages.length)} of {testResult.pages.length}
+          {resultsPage * RESULTS_PAGE_SIZE + 1} - {Math.min(
+            (resultsPage + 1) * RESULTS_PAGE_SIZE,
+            testResult.pages.length,
+          )} of {testResult.pages.length}
         </span>
-        <button class="btn btn-sm" disabled={!hasMoreResults} onclick={() => resultsPage++}>{t('common.next')}</button>
+        <button class="btn btn-sm" disabled={!hasMoreResults} onclick={() => resultsPage++}
+          >{t('common.next')}</button
+        >
       </div>
     {/if}
   </div>
 {/if}
 
-{#if confirmState}<ConfirmModal message={confirmState.message} danger={confirmState.danger} confirmLabel={confirmState.confirmLabel} onconfirm={() => { confirmState.onConfirm(); confirmState = null; }} oncancel={() => confirmState = null} />{/if}
+{#if confirmState}<ConfirmModal
+    message={confirmState.message}
+    danger={confirmState.danger}
+    confirmLabel={confirmState.confirmLabel}
+    onconfirm={() => {
+      confirmState.onConfirm();
+      confirmState = null;
+    }}
+    oncancel={() => (confirmState = null)}
+  />{/if}
 
 <style>
-  .ct-card-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-  .ct-title { margin: 0; font-size: 15px; font-weight: 600; }
-  .ct-title-mb { margin: 0 0 12px 0; font-size: 15px; font-weight: 600; }
-  .ct-empty { padding: 40px; text-align: center; color: var(--text-muted); }
-  .ct-col-actions { width: 200px; }
-  .ct-col-type { width: 220px; }
-  .ct-td-type { overflow: visible; position: relative; }
-  .ct-col-remove { width: 40px; }
-  .ct-col-rule { min-width: 100px; }
-  .ct-editor-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }
-  .ct-editor-body { padding: 16px 20px; }
-  .ct-name-input { flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px; }
-  .ct-warning { background: #fff3cd; color: #856404; border: 1px solid #ffc107; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px; }
-  .ct-input { width: 100%; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 12px; }
-  .ct-remove-btn { padding: 2px 6px; font-size: 16px; color: var(--error); }
-  .ct-spacer { flex: 1; }
-  .ct-results-summary { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-  .ct-result-card { background: var(--bg-secondary); border-radius: 8px; padding: 10px 14px; min-width: 140px; }
-  .ct-result-value { font-size: 18px; font-weight: 600; }
-  .ct-result-sublabel { font-size: 11px; color: var(--text-muted); }
+  .ct-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ct-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .ct-title-mb {
+    margin: 0 0 12px 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .ct-empty {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-muted);
+  }
+  .ct-col-actions {
+    width: 200px;
+  }
+  .ct-col-type {
+    width: 220px;
+  }
+  .ct-td-type {
+    overflow: visible;
+    position: relative;
+  }
+  .ct-col-remove {
+    width: 40px;
+  }
+  .ct-col-rule {
+    min-width: 100px;
+  }
+  .ct-editor-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ct-editor-body {
+    padding: 16px 20px;
+  }
+  .ct-name-input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+  }
+  .ct-warning {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .ct-input {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+  }
+  .ct-remove-btn {
+    padding: 2px 6px;
+    font-size: 16px;
+    color: var(--error);
+  }
+  .ct-spacer {
+    flex: 1;
+  }
+  .ct-results-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ct-result-card {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 140px;
+  }
+  .ct-result-value {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .ct-result-sublabel {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
 </style>

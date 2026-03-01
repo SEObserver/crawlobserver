@@ -58,32 +58,65 @@ describe('parseRoute', () => {
 
   it('parses /projects/:id', () => {
     setLocation('/projects/5');
-    expect(parseRoute()).toEqual({ page: 'project', projectId: '5', projectTab: 'sessions', projectSubView: null });
+    expect(parseRoute()).toEqual({
+      page: 'project',
+      projectId: '5',
+      projectTab: 'sessions',
+      projectSubView: null,
+    });
   });
 
   it('parses /projects/:id/:tab', () => {
     setLocation('/projects/5/gsc');
-    expect(parseRoute()).toEqual({ page: 'project', projectId: '5', projectTab: 'gsc', projectSubView: null });
+    expect(parseRoute()).toEqual({
+      page: 'project',
+      projectId: '5',
+      projectTab: 'gsc',
+      projectSubView: null,
+    });
   });
 
   it('parses /projects/:id/:tab/:sub', () => {
     setLocation('/projects/5/gsc/queries');
-    expect(parseRoute()).toEqual({ page: 'project', projectId: '5', projectTab: 'gsc', projectSubView: 'queries' });
+    expect(parseRoute()).toEqual({
+      page: 'project',
+      projectId: '5',
+      projectTab: 'gsc',
+      projectSubView: 'queries',
+    });
   });
 
   it('parses /sessions/:id (overview)', () => {
     setLocation('/sessions/abc123');
-    expect(parseRoute()).toEqual({ sessionId: 'abc123', tab: 'overview', subView: null, filters: {}, offset: 0 });
+    expect(parseRoute()).toEqual({
+      sessionId: 'abc123',
+      tab: 'overview',
+      subView: null,
+      filters: {},
+      offset: 0,
+    });
   });
 
   it('parses /sessions/:id/pages', () => {
     setLocation('/sessions/abc123/pages');
-    expect(parseRoute()).toEqual({ sessionId: 'abc123', tab: 'pages', subView: null, filters: {}, offset: 0 });
+    expect(parseRoute()).toEqual({
+      sessionId: 'abc123',
+      tab: 'pages',
+      subView: null,
+      filters: {},
+      offset: 0,
+    });
   });
 
   it('parses /sessions/:id/pages with query params', () => {
     setLocation('/sessions/abc123/pages', '?status_code=404&offset=50');
-    expect(parseRoute()).toEqual({ sessionId: 'abc123', tab: 'pages', subView: null, filters: { status_code: '404' }, offset: 50 });
+    expect(parseRoute()).toEqual({
+      sessionId: 'abc123',
+      tab: 'pages',
+      subView: null,
+      filters: { status_code: '404' },
+      offset: 50,
+    });
   });
 
   it('parses /sessions/:id/url/... with URL decoding', () => {

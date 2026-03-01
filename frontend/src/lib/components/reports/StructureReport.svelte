@@ -5,13 +5,15 @@
 
   let { stats, audit, sessionId, onnavigate } = $props();
 
-  function nav(tab, filters = {}) { onnavigate?.(`/sessions/${sessionId}/${tab}`, filters); }
+  function nav(tab, filters = {}) {
+    onnavigate?.(`/sessions/${sessionId}/${tab}`, filters);
+  }
 
   const structure = $derived(audit?.structure);
 
   function directoryBars(s) {
     if (!s?.directories) return [];
-    return s.directories.map(d => ({
+    return s.directories.map((d) => ({
       label: d.directory || '/',
       value: d.count,
       color: 'chart-bar-accent',
@@ -50,9 +52,15 @@
   <div class="report-section">
     <h3 class="chart-title">{t('report.structure.orphanPages')}</h3>
     <div class="stats-grid">
-      <div class="stat-card stat-card-link" role="button" tabindex="0"
-        onclick={() => nav('overview')} onkeydown={a11yKeydown(() => nav('overview'))}>
-        <div class="stat-value text-warning">{fmtN(structure.orphan_pages || 0)}</div><div class="stat-label">{t('report.structure.orphanPages')}</div>
+      <div
+        class="stat-card stat-card-link"
+        role="button"
+        tabindex="0"
+        onclick={() => nav('overview')}
+        onkeydown={a11yKeydown(() => nav('overview'))}
+      >
+        <div class="stat-value text-warning">{fmtN(structure.orphan_pages || 0)}</div>
+        <div class="stat-label">{t('report.structure.orphanPages')}</div>
       </div>
     </div>
   </div>

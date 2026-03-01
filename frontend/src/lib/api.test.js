@@ -65,18 +65,12 @@ describe('exportSession', () => {
 
   it('opens export URL without html param', () => {
     exportSession('sess1', false);
-    expect(openSpy).toHaveBeenCalledWith(
-      '/api/sessions/sess1/export?include_html=false',
-      '_blank'
-    );
+    expect(openSpy).toHaveBeenCalledWith('/api/sessions/sess1/export?include_html=false', '_blank');
   });
 
   it('opens export URL with html param', () => {
     exportSession('sess1', true);
-    expect(openSpy).toHaveBeenCalledWith(
-      '/api/sessions/sess1/export?include_html=true',
-      '_blank'
-    );
+    expect(openSpy).toHaveBeenCalledWith('/api/sessions/sess1/export?include_html=true', '_blank');
   });
 });
 
@@ -126,7 +120,7 @@ describe('subscribeProgress', () => {
 
     const es = MockEventSource._lastInstance;
     // Trigger done event
-    const doneHandler = es.addEventListener.mock.calls.find(c => c[0] === 'done')[1];
+    const doneHandler = es.addEventListener.mock.calls.find((c) => c[0] === 'done')[1];
     doneHandler();
 
     expect(es.close).toHaveBeenCalled();

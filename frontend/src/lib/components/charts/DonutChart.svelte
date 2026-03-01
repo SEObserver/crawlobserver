@@ -1,7 +1,13 @@
 <script>
   import { fmtN } from '../../utils.js';
 
-  let { segments = [], size = 200, strokeWidth = 30, centerLabel = '', centerSubLabel = '' } = $props();
+  let {
+    segments = [],
+    size = 200,
+    strokeWidth = 30,
+    centerLabel = '',
+    centerSubLabel = '',
+  } = $props();
 
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -29,27 +35,41 @@
   <svg width={size} height={size} viewBox="0 0 {size} {size}">
     {#each arcs as arc}
       <circle
-        cx={size / 2} cy={size / 2} r={radius}
-        fill="none" stroke={arc.color} stroke-width={strokeWidth}
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke={arc.color}
+        stroke-width={strokeWidth}
         stroke-dasharray="{arc.dash} {arc.gap}"
         stroke-dashoffset={-arc.offset}
         transform="rotate(-90 {size / 2} {size / 2})"
         class="donut-arc"
         style="opacity: {hoveredIndex >= 0 && hoveredIndex !== arc.index ? 0.4 : 1};"
-        onmouseenter={() => hoveredIndex = arc.index}
-        onmouseleave={() => hoveredIndex = -1}
+        onmouseenter={() => (hoveredIndex = arc.index)}
+        onmouseleave={() => (hoveredIndex = -1)}
         onclick={() => arc.onclick?.()}
       />
     {/each}
     {#if centerLabel}
-      <text x={size / 2} y={centerSubLabel ? size / 2 - 6 : size / 2 + 6} text-anchor="middle" dominant-baseline="middle"
+      <text
+        x={size / 2}
+        y={centerSubLabel ? size / 2 - 6 : size / 2 + 6}
+        text-anchor="middle"
+        dominant-baseline="middle"
         class="donut-center-label"
-        style="font-size: {size * 0.16}px;">{centerLabel}</text>
+        style="font-size: {size * 0.16}px;">{centerLabel}</text
+      >
     {/if}
     {#if centerSubLabel}
-      <text x={size / 2} y={size / 2 + 16} text-anchor="middle" dominant-baseline="middle"
+      <text
+        x={size / 2}
+        y={size / 2 + 16}
+        text-anchor="middle"
+        dominant-baseline="middle"
         class="donut-center-sublabel"
-        style="font-size: {size * 0.07}px;">{centerSubLabel}</text>
+        style="font-size: {size * 0.07}px;">{centerSubLabel}</text
+      >
     {/if}
   </svg>
 
@@ -62,10 +82,12 @@
 
   <div class="donut-legend">
     {#each arcs as arc}
-      <div class="donut-legend-item donut-legend-item-interactive"
-        onmouseenter={() => hoveredIndex = arc.index}
-        onmouseleave={() => hoveredIndex = -1}
-        style="opacity: {hoveredIndex >= 0 && hoveredIndex !== arc.index ? 0.5 : 1};">
+      <div
+        class="donut-legend-item donut-legend-item-interactive"
+        onmouseenter={() => (hoveredIndex = arc.index)}
+        onmouseleave={() => (hoveredIndex = -1)}
+        style="opacity: {hoveredIndex >= 0 && hoveredIndex !== arc.index ? 0.5 : 1};"
+      >
         <span class="donut-legend-color" style="background: {arc.color};"></span>
         <span>{arc.label}</span>
         <span class="donut-legend-value">{fmtN(arc.value)}</span>

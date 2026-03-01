@@ -67,10 +67,22 @@
 
   const PLACEHOLDER_ROWS = [
     { url: 'https://example.com/page-one', pagerank: 0.004231, tf: 42, cf: 38, ref_domains: 1240 },
-    { url: 'https://example.com/blog/article', pagerank: 0.003102, tf: 35, cf: 29, ref_domains: 870 },
-    { url: 'https://example.com/products/item', pagerank: 0.001894, tf: 18, cf: 44, ref_domains: 520 },
-    { url: 'https://example.com/about', pagerank: 0.001250, tf: 25, cf: 21, ref_domains: 310 },
-    { url: 'https://example.com/contact', pagerank: 0.000780, tf: 12, cf: 15, ref_domains: 95 },
+    {
+      url: 'https://example.com/blog/article',
+      pagerank: 0.003102,
+      tf: 35,
+      cf: 29,
+      ref_domains: 870,
+    },
+    {
+      url: 'https://example.com/products/item',
+      pagerank: 0.001894,
+      tf: 18,
+      cf: 44,
+      ref_domains: 520,
+    },
+    { url: 'https://example.com/about', pagerank: 0.00125, tf: 25, cf: 21, ref_domains: 310 },
+    { url: 'https://example.com/contact', pagerank: 0.00078, tf: 12, cf: 15, ref_domains: 95 },
   ];
 </script>
 
@@ -79,9 +91,18 @@
     <!-- Disconnected: CTA + blurred preview -->
     <div class="auth-empty">
       <div class="auth-lock-icon">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        <svg
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
         </svg>
       </div>
       <p class="auth-cta-text">{t('authority.connectCta')}</p>
@@ -130,10 +151,8 @@
         </table>
       </div>
     </div>
-
   {:else if loading}
     <p class="loading-msg">{t('common.loading')}</p>
-
   {:else if !rows || rows.length === 0}
     <!-- Connected but no data -->
     <div class="auth-empty">
@@ -142,7 +161,6 @@
         {t('authority.fetchBtn')}
       </button>
     </div>
-
   {:else}
     <!-- Data table -->
     <div class="table-meta">{t('authority.title')} &mdash; {fmtN(total)} rows</div>
@@ -167,8 +185,16 @@
               <a href={r.url} target="_blank" rel="noopener">{r.url}</a>
             </td>
             <td class="auth-pr-cell">{(r.pagerank ?? 0).toFixed(6)}</td>
-            <td><span class="auth-badge {tfCfBadgeClass(r.trust_flow ?? 0)}">{r.trust_flow ?? 0}</span></td>
-            <td><span class="auth-badge {tfCfBadgeClass(r.citation_flow ?? 0)}">{r.citation_flow ?? 0}</span></td>
+            <td
+              ><span class="auth-badge {tfCfBadgeClass(r.trust_flow ?? 0)}"
+                >{r.trust_flow ?? 0}</span
+              ></td
+            >
+            <td
+              ><span class="auth-badge {tfCfBadgeClass(r.citation_flow ?? 0)}"
+                >{r.citation_flow ?? 0}</span
+              ></td
+            >
             <td>{fmtN(r.ref_domains ?? 0)}</td>
             <td class="auth-mismatch-cell">
               {#if m === 'up'}
@@ -186,13 +212,27 @@
 
     {#if total > PAGE_LIMIT}
       <div class="pagination">
-        <button class="btn btn-sm" disabled={offset === 0} onclick={() => { offset = Math.max(0, offset - PAGE_LIMIT); loadData(); }}>
+        <button
+          class="btn btn-sm"
+          disabled={offset === 0}
+          onclick={() => {
+            offset = Math.max(0, offset - PAGE_LIMIT);
+            loadData();
+          }}
+        >
           {t('common.previous')}
         </button>
         <span class="pagination-info">
           {offset + 1} - {Math.min(offset + PAGE_LIMIT, total)} of {fmtN(total)}
         </span>
-        <button class="btn btn-sm" disabled={offset + PAGE_LIMIT >= total} onclick={() => { offset += PAGE_LIMIT; loadData(); }}>
+        <button
+          class="btn btn-sm"
+          disabled={offset + PAGE_LIMIT >= total}
+          onclick={() => {
+            offset += PAGE_LIMIT;
+            loadData();
+          }}
+        >
           {t('common.next')}
         </button>
       </div>
@@ -229,8 +269,13 @@
     cursor: pointer;
     font-weight: 600;
   }
-  .btn-primary:hover { opacity: 0.9; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 
   /* Blurred preview */
   .auth-preview-wrapper {

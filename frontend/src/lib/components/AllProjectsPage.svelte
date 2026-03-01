@@ -20,7 +20,9 @@
       const res = await getProjectsPaginated(limit, offset, search);
       projects = res.projects || [];
       total = res.total || 0;
-    } catch (e) { onerror?.(e.message); }
+    } catch (e) {
+      onerror?.(e.message);
+    }
     loading = false;
   }
 
@@ -31,11 +33,17 @@
   }
 
   function prevPage() {
-    if (offset >= limit) { offset -= limit; loadProjects(); }
+    if (offset >= limit) {
+      offset -= limit;
+      loadProjects();
+    }
   }
 
   function nextPage() {
-    if (offset + limit < total) { offset += limit; loadProjects(); }
+    if (offset + limit < total) {
+      offset += limit;
+      loadProjects();
+    }
   }
 
   loadProjects();
@@ -47,13 +55,26 @@
     <button class="btn btn-sm" onclick={loadProjects} disabled={loading}>
       {loading ? t('common.loading') : t('common.refresh')}
     </button>
-    <button class="btn btn-sm btn-primary" onclick={() => oncreateproject?.()}>{t('projects.newProject')}</button>
+    <button class="btn btn-sm btn-primary" onclick={() => oncreateproject?.()}
+      >{t('projects.newProject')}</button
+    >
   </div>
 </div>
 
 <div class="projects-filters">
-  <form class="projects-search-form" onsubmit={(e) => { e.preventDefault(); applySearch(); }}>
-    <input class="projects-search" type="text" placeholder={t('projects.searchProjects')} bind:value={searchInput} />
+  <form
+    class="projects-search-form"
+    onsubmit={(e) => {
+      e.preventDefault();
+      applySearch();
+    }}
+  >
+    <input
+      class="projects-search"
+      type="text"
+      placeholder={t('projects.searchProjects')}
+      bind:value={searchInput}
+    />
     <button class="btn btn-sm" type="submit">{t('common.search')}</button>
   </form>
   <span class="projects-count">{total} {t('projects.projectCount')}</span>
@@ -87,9 +108,15 @@
 
   {#if total > limit}
     <div class="pagination">
-      <button class="btn btn-sm" onclick={prevPage} disabled={offset === 0}>{t('common.previous')}</button>
-      <span class="pagination-info">{offset + 1}-{Math.min(offset + limit, total)} {t('common.of')} {total}</span>
-      <button class="btn btn-sm" onclick={nextPage} disabled={offset + limit >= total}>{t('common.next')}</button>
+      <button class="btn btn-sm" onclick={prevPage} disabled={offset === 0}
+        >{t('common.previous')}</button
+      >
+      <span class="pagination-info"
+        >{offset + 1}-{Math.min(offset + limit, total)} {t('common.of')} {total}</span
+      >
+      <button class="btn btn-sm" onclick={nextPage} disabled={offset + limit >= total}
+        >{t('common.next')}</button
+      >
     </div>
   {/if}
 {/if}
@@ -136,7 +163,7 @@
   .col-created {
     width: 180px;
   }
-.empty-message {
+  .empty-message {
     text-align: center;
     padding: 24px;
     color: var(--text-muted);

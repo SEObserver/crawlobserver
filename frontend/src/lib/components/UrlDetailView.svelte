@@ -14,7 +14,14 @@
   async function loadPageDetail(outOffset = 0, inOffset = 0) {
     pageDetailLoading = true;
     try {
-      pageDetail = await getPageDetail(sessionId, url, LINKS_PER_PAGE, outOffset, LINKS_PER_PAGE, inOffset);
+      pageDetail = await getPageDetail(
+        sessionId,
+        url,
+        LINKS_PER_PAGE,
+        outOffset,
+        LINKS_PER_PAGE,
+        inOffset,
+      );
       outLinksPage = Math.floor(outOffset / LINKS_PER_PAGE);
       inLinksPage = Math.floor(inOffset / LINKS_PER_PAGE);
     } catch (e) {
@@ -27,19 +34,40 @@
   async function loadOutLinksPage(offset) {
     if (!pageDetail?.page) return;
     try {
-      const data = await getPageDetail(sessionId, pageDetail.page.URL, LINKS_PER_PAGE, offset, LINKS_PER_PAGE, inLinksPage * LINKS_PER_PAGE);
-      pageDetail = { ...pageDetail, links: { ...pageDetail.links, out_links: data.links.out_links } };
+      const data = await getPageDetail(
+        sessionId,
+        pageDetail.page.URL,
+        LINKS_PER_PAGE,
+        offset,
+        LINKS_PER_PAGE,
+        inLinksPage * LINKS_PER_PAGE,
+      );
+      pageDetail = {
+        ...pageDetail,
+        links: { ...pageDetail.links, out_links: data.links.out_links },
+      };
       outLinksPage = Math.floor(offset / LINKS_PER_PAGE);
-    } catch (e) { onerror?.(e.message); }
+    } catch (e) {
+      onerror?.(e.message);
+    }
   }
 
   async function loadInLinksPage(offset) {
     if (!pageDetail?.page) return;
     try {
-      const data = await getPageDetail(sessionId, pageDetail.page.URL, LINKS_PER_PAGE, outLinksPage * LINKS_PER_PAGE, LINKS_PER_PAGE, offset);
+      const data = await getPageDetail(
+        sessionId,
+        pageDetail.page.URL,
+        LINKS_PER_PAGE,
+        outLinksPage * LINKS_PER_PAGE,
+        LINKS_PER_PAGE,
+        offset,
+      );
       pageDetail = { ...pageDetail, links: { ...pageDetail.links, in_links: data.links.in_links } };
       inLinksPage = Math.floor(offset / LINKS_PER_PAGE);
-    } catch (e) { onerror?.(e.message); }
+    } catch (e) {
+      onerror?.(e.message);
+    }
   }
 
   function urlDetailHref(u) {
@@ -66,39 +94,86 @@
   <!-- Header -->
   <div class="page-header detail-header-wrap">
     <div class="detail-header-left">
-      <button class="btn btn-sm" onclick={() => onnavigate?.(`/sessions/${sessionId}/overview`)} title={t('common.back')}>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      <button
+        class="btn btn-sm"
+        onclick={() => onnavigate?.(`/sessions/${sessionId}/overview`)}
+        title={t('common.back')}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg
+        >
       </button>
       <h1 class="detail-title" title={pg.URL}>{pg.URL}</h1>
       <span class="badge {statusBadge(pg.StatusCode)}">{pg.StatusCode}</span>
     </div>
     <div class="detail-actions">
-      <a class="btn btn-sm" href={pg.URL} target="_blank" rel="noopener">{t('urlDetail.openUrl')}</a>
+      <a class="btn btn-sm" href={pg.URL} target="_blank" rel="noopener">{t('urlDetail.openUrl')}</a
+      >
       {#if pg.BodySize > 0}
-        <button class="btn btn-sm" onclick={() => onopenhtml?.(pg.URL)}>{t('urlDetail.viewHtml')}</button>
+        <button class="btn btn-sm" onclick={() => onopenhtml?.(pg.URL)}
+          >{t('urlDetail.viewHtml')}</button
+        >
       {/if}
     </div>
   </div>
 
   <!-- Summary Cards -->
   <div class="stats-grid">
-    <div class="stat-card"><div class="stat-value"><span class="badge {statusBadge(pg.StatusCode)} badge-lg">{pg.StatusCode}</span></div><div class="stat-label">{t('urlDetail.statusCode')}</div></div>
-    <div class="stat-card"><div class="stat-value stat-value-sm">{pg.ContentType || '-'}</div><div class="stat-label">{t('urlDetail.contentType')}</div></div>
-    <div class="stat-card"><div class="stat-value">{fmtSize(pg.BodySize)}</div><div class="stat-label">{t('common.size')}</div></div>
-    <div class="stat-card"><div class="stat-value">{fmt(pg.FetchDurationMs)}</div><div class="stat-label">{t('urlDetail.responseTime')}</div></div>
-    <div class="stat-card"><div class="stat-value">{pg.Depth}</div><div class="stat-label">{t('urlDetail.depth')}</div></div>
+    <div class="stat-card">
+      <div class="stat-value">
+        <span class="badge {statusBadge(pg.StatusCode)} badge-lg">{pg.StatusCode}</span>
+      </div>
+      <div class="stat-label">{t('urlDetail.statusCode')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value stat-value-sm">{pg.ContentType || '-'}</div>
+      <div class="stat-label">{t('urlDetail.contentType')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{fmtSize(pg.BodySize)}</div>
+      <div class="stat-label">{t('common.size')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{fmt(pg.FetchDurationMs)}</div>
+      <div class="stat-label">{t('urlDetail.responseTime')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{pg.Depth}</div>
+      <div class="stat-label">{t('urlDetail.depth')}</div>
+    </div>
     {#if pg.PageRank > 0}
-      <div class="stat-card"><div class="stat-value text-accent">{pg.PageRank.toFixed(1)}</div><div class="stat-label">{t('urlDetail.pageRank')}</div></div>
+      <div class="stat-card">
+        <div class="stat-value text-accent">{pg.PageRank.toFixed(1)}</div>
+        <div class="stat-label">{t('urlDetail.pageRank')}</div>
+      </div>
     {/if}
     {#if pg.FoundOn}
-      <div class="stat-card"><div class="stat-value stat-value-xs truncate"><a href={urlDetailHref(pg.FoundOn)} onclick={(e) => goToUrlDetail(e, pg.FoundOn)}>{pg.FoundOn}</a></div><div class="stat-label">{t('urlDetail.foundOn')}</div></div>
+      <div class="stat-card">
+        <div class="stat-value stat-value-xs truncate">
+          <a href={urlDetailHref(pg.FoundOn)} onclick={(e) => goToUrlDetail(e, pg.FoundOn)}
+            >{pg.FoundOn}</a
+          >
+        </div>
+        <div class="stat-label">{t('urlDetail.foundOn')}</div>
+      </div>
     {/if}
-    <div class="stat-card"><div class="stat-value stat-value-xs">{new Date(pg.CrawledAt).toLocaleString()}</div><div class="stat-label">{t('urlDetail.crawledAt')}</div></div>
+    <div class="stat-card">
+      <div class="stat-value stat-value-xs">{new Date(pg.CrawledAt).toLocaleString()}</div>
+      <div class="stat-label">{t('urlDetail.crawledAt')}</div>
+    </div>
   </div>
 
   {#if pg.Error}
     <div class="alert alert-error card-section">
-      <strong>{t('urlDetail.errorLabel')}</strong> {pg.Error}
+      <strong>{t('urlDetail.errorLabel')}</strong>
+      {pg.Error}
     </div>
   {/if}
 
@@ -109,7 +184,7 @@
       <table>
         <thead><tr><th>{t('urlDetail.header')}</th><th>{t('common.value')}</th></tr></thead>
         <tbody>
-          {#each Object.entries(pg.Headers).sort((a,b) => a[0].localeCompare(b[0])) as [key, val]}
+          {#each Object.entries(pg.Headers).sort((a, b) => a[0].localeCompare(b[0])) as [key, val]}
             <tr><td class="font-medium nowrap">{key}</td><td class="word-break">{val}</td></tr>
           {/each}
         </tbody>
@@ -122,14 +197,51 @@
     <h3 class="section-title">{t('urlDetail.seo')}</h3>
     <table>
       <tbody>
-        <tr><td class="detail-label">{t('urlDetail.title')}</td><td>{pg.Title || '-'} <span class="text-muted">({pg.TitleLength} {t('urlDetail.chars')})</span></td></tr>
-        <tr><td class="font-medium">{t('urlDetail.metaDescription')}</td><td>{pg.MetaDescription || '-'} <span class="text-muted">({pg.MetaDescLength} {t('urlDetail.chars')})</span></td></tr>
-        {#if pg.MetaKeywords}<tr><td class="font-medium">{t('urlDetail.metaKeywords')}</td><td>{pg.MetaKeywords}</td></tr>{/if}
-        <tr><td class="font-medium">{t('urlDetail.metaRobots')}</td><td>{pg.MetaRobots || '-'}</td></tr>
-        {#if pg.XRobotsTag}<tr><td class="font-medium">{t('urlDetail.xRobotsTag')}</td><td>{pg.XRobotsTag}</td></tr>{/if}
-        <tr><td class="font-medium">{t('urlDetail.canonical')}</td><td>{pg.Canonical || '-'} {#if pg.CanonicalIsSelf}<span class="badge badge-success badge-xs">{t('urlDetail.selfCanonical')}</span>{/if}</td></tr>
-        <tr><td class="font-medium">{t('urlDetail.indexable')}</td><td><span class="badge" class:badge-success={pg.IsIndexable} class:badge-error={!pg.IsIndexable}>{pg.IsIndexable ? t('common.yes') : t('common.no')}</span> {#if pg.IndexReason}<span class="text-muted">({pg.IndexReason})</span>{/if}</td></tr>
-        {#if pg.Lang}<tr><td class="font-medium">{t('urlDetail.language')}</td><td>{pg.Lang}</td></tr>{/if}
+        <tr
+          ><td class="detail-label">{t('urlDetail.title')}</td><td
+            >{pg.Title || '-'}
+            <span class="text-muted">({pg.TitleLength} {t('urlDetail.chars')})</span></td
+          ></tr
+        >
+        <tr
+          ><td class="font-medium">{t('urlDetail.metaDescription')}</td><td
+            >{pg.MetaDescription || '-'}
+            <span class="text-muted">({pg.MetaDescLength} {t('urlDetail.chars')})</span></td
+          ></tr
+        >
+        {#if pg.MetaKeywords}<tr
+            ><td class="font-medium">{t('urlDetail.metaKeywords')}</td><td>{pg.MetaKeywords}</td
+            ></tr
+          >{/if}
+        <tr
+          ><td class="font-medium">{t('urlDetail.metaRobots')}</td><td>{pg.MetaRobots || '-'}</td
+          ></tr
+        >
+        {#if pg.XRobotsTag}<tr
+            ><td class="font-medium">{t('urlDetail.xRobotsTag')}</td><td>{pg.XRobotsTag}</td></tr
+          >{/if}
+        <tr
+          ><td class="font-medium">{t('urlDetail.canonical')}</td><td
+            >{pg.Canonical || '-'}
+            {#if pg.CanonicalIsSelf}<span class="badge badge-success badge-xs"
+                >{t('urlDetail.selfCanonical')}</span
+              >{/if}</td
+          ></tr
+        >
+        <tr
+          ><td class="font-medium">{t('urlDetail.indexable')}</td><td
+            ><span
+              class="badge"
+              class:badge-success={pg.IsIndexable}
+              class:badge-error={!pg.IsIndexable}
+              >{pg.IsIndexable ? t('common.yes') : t('common.no')}</span
+            >
+            {#if pg.IndexReason}<span class="text-muted">({pg.IndexReason})</span>{/if}</td
+          ></tr
+        >
+        {#if pg.Lang}<tr
+            ><td class="font-medium">{t('urlDetail.language')}</td><td>{pg.Lang}</td></tr
+          >{/if}
       </tbody>
     </table>
   </div>
@@ -140,11 +252,24 @@
       <h3 class="section-title">{t('urlDetail.openGraph')}</h3>
       <table>
         <tbody>
-          {#if pg.OGTitle}<tr><td class="detail-label">{t('urlDetail.ogTitle')}</td><td>{pg.OGTitle}</td></tr>{/if}
-          {#if pg.OGDescription}<tr><td class="font-medium">{t('urlDetail.ogDescription')}</td><td>{pg.OGDescription}</td></tr>{/if}
+          {#if pg.OGTitle}<tr
+              ><td class="detail-label">{t('urlDetail.ogTitle')}</td><td>{pg.OGTitle}</td></tr
+            >{/if}
+          {#if pg.OGDescription}<tr
+              ><td class="font-medium">{t('urlDetail.ogDescription')}</td><td>{pg.OGDescription}</td
+              ></tr
+            >{/if}
           {#if pg.OGImage}
-            <tr><td class="font-medium">{t('urlDetail.ogImage')}</td><td><a href={pg.OGImage} target="_blank" rel="noopener">{pg.OGImage}</a></td></tr>
-            <tr><td></td><td><img src={pg.OGImage} alt={t('urlDetail.ogPreview')} class="og-preview" /></td></tr>
+            <tr
+              ><td class="font-medium">{t('urlDetail.ogImage')}</td><td
+                ><a href={pg.OGImage} target="_blank" rel="noopener">{pg.OGImage}</a></td
+              ></tr
+            >
+            <tr
+              ><td></td><td
+                ><img src={pg.OGImage} alt={t('urlDetail.ogPreview')} class="og-preview" /></td
+              ></tr
+            >
           {/if}
         </tbody>
       </table>
@@ -158,7 +283,8 @@
       {#each [['H1', pg.H1], ['H2', pg.H2], ['H3', pg.H3], ['H4', pg.H4], ['H5', pg.H5], ['H6', pg.H6]] as [label, items]}
         {#if items?.length}
           <div class="mb-sm">
-            <strong class="text-detail">{label}</strong> <span class="text-muted">({items.length})</span>
+            <strong class="text-detail">{label}</strong>
+            <span class="text-muted">({items.length})</span>
             <ul class="heading-list">
               {#each items as h}<li class="heading-item">{h}</li>{/each}
             </ul>
@@ -223,11 +349,28 @@
   <div class="card card-section">
     <h3 class="section-title">{t('urlDetail.content')}</h3>
     <div class="stats-grid">
-      <div class="stat-card"><div class="stat-value">{fmtN(pg.WordCount)}</div><div class="stat-label">{t('urlDetail.words')}</div></div>
-      <div class="stat-card"><div class="stat-value">{pg.ImagesCount}</div><div class="stat-label">{t('urlDetail.imagesCount')}</div></div>
-      <div class="stat-card"><div class="stat-value" style={pg.ImagesNoAlt > 0 ? 'color: var(--warning)' : ''}>{pg.ImagesNoAlt}</div><div class="stat-label">{t('urlDetail.imagesNoAlt')}</div></div>
-      <div class="stat-card"><div class="stat-value">{fmtN(pg.InternalLinksOut)}</div><div class="stat-label">{t('urlDetail.internalLinksOut')}</div></div>
-      <div class="stat-card"><div class="stat-value">{fmtN(pg.ExternalLinksOut)}</div><div class="stat-label">{t('urlDetail.externalLinksOut')}</div></div>
+      <div class="stat-card">
+        <div class="stat-value">{fmtN(pg.WordCount)}</div>
+        <div class="stat-label">{t('urlDetail.words')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{pg.ImagesCount}</div>
+        <div class="stat-label">{t('urlDetail.imagesCount')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style={pg.ImagesNoAlt > 0 ? 'color: var(--warning)' : ''}>
+          {pg.ImagesNoAlt}
+        </div>
+        <div class="stat-label">{t('urlDetail.imagesNoAlt')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{fmtN(pg.InternalLinksOut)}</div>
+        <div class="stat-label">{t('urlDetail.internalLinksOut')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{fmtN(pg.ExternalLinksOut)}</div>
+        <div class="stat-label">{t('urlDetail.externalLinksOut')}</div>
+      </div>
     </div>
   </div>
 
@@ -236,48 +379,99 @@
     <div class="card card-section">
       <h3 class="section-title">{t('urlDetail.jsRendering')}</h3>
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-value">{fmt(pg.JSRenderDurationMs)}</div><div class="stat-label">{t('urlDetail.renderTime')}</div></div>
+        <div class="stat-card">
+          <div class="stat-value">{fmt(pg.JSRenderDurationMs)}</div>
+          <div class="stat-label">{t('urlDetail.renderTime')}</div>
+        </div>
         {#if pg.JSRenderError}
-          <div class="stat-card"><div class="stat-value stat-value-xs" style="color: var(--error)">{pg.JSRenderError}</div><div class="stat-label">{t('urlDetail.renderError')}</div></div>
+          <div class="stat-card">
+            <div class="stat-value stat-value-xs" style="color: var(--error)">
+              {pg.JSRenderError}
+            </div>
+            <div class="stat-label">{t('urlDetail.renderError')}</div>
+          </div>
         {/if}
       </div>
       {#if !pg.JSRenderError}
         <h4 class="subsection-title">{t('urlDetail.staticVsRendered')}</h4>
         <table>
-          <thead><tr><th>{t('urlDetail.field')}</th><th>{t('urlDetail.staticValue')}</th><th>{t('urlDetail.renderedValue')}</th><th>{t('common.status')}</th></tr></thead>
+          <thead
+            ><tr
+              ><th>{t('urlDetail.field')}</th><th>{t('urlDetail.staticValue')}</th><th
+                >{t('urlDetail.renderedValue')}</th
+              ><th>{t('common.status')}</th></tr
+            ></thead
+          >
           <tbody>
             <tr>
               <td class="font-medium">{t('urlDetail.title')}</td>
               <td class="cell-title">{pg.Title || '-'}</td>
               <td class="cell-title">{pg.RenderedTitle || '-'}</td>
-              <td>{#if pg.JSChangedTitle}<span class="badge badge-warning">{t('urlDetail.changed')}</span>{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td>
+              <td
+                >{#if pg.JSChangedTitle}<span class="badge badge-warning"
+                    >{t('urlDetail.changed')}</span
+                  >{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td
+              >
             </tr>
             <tr>
               <td class="font-medium">H1</td>
               <td class="cell-title">{pg.H1?.join(', ') || '-'}</td>
               <td class="cell-title">{pg.RenderedH1?.join(', ') || '-'}</td>
-              <td>{#if pg.JSChangedH1}<span class="badge badge-warning">{t('urlDetail.changed')}</span>{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td>
+              <td
+                >{#if pg.JSChangedH1}<span class="badge badge-warning"
+                    >{t('urlDetail.changed')}</span
+                  >{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td
+              >
             </tr>
             <tr>
               <td class="font-medium">{t('urlDetail.metaDescription')}</td>
               <td class="cell-title">{pg.MetaDescription || '-'}</td>
               <td class="cell-title">{pg.RenderedMetaDescription || '-'}</td>
-              <td>{#if pg.JSChangedDescription}<span class="badge badge-warning">{t('urlDetail.changed')}</span>{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td>
+              <td
+                >{#if pg.JSChangedDescription}<span class="badge badge-warning"
+                    >{t('urlDetail.changed')}</span
+                  >{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td
+              >
             </tr>
             <tr>
               <td class="font-medium">{t('urlDetail.canonical')}</td>
               <td class="cell-url">{pg.Canonical || '-'}</td>
               <td class="cell-url">{pg.RenderedCanonical || '-'}</td>
-              <td>{#if pg.JSChangedCanonical}<span class="badge badge-warning">{t('urlDetail.changed')}</span>{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td>
+              <td
+                >{#if pg.JSChangedCanonical}<span class="badge badge-warning"
+                    >{t('urlDetail.changed')}</span
+                  >{:else}<span class="badge badge-success">{t('urlDetail.same')}</span>{/if}</td
+              >
             </tr>
           </tbody>
         </table>
         <div class="stats-grid" style="margin-top: 12px">
-          <div class="stat-card"><div class="stat-value">{pg.WordCount} → {pg.RenderedWordCount}</div><div class="stat-label">{t('urlDetail.words')} {#if pg.JSChangedContent}<span class="badge badge-warning badge-xs">{t('urlDetail.changed')}</span>{/if}</div></div>
-          <div class="stat-card"><div class="stat-value" style={pg.JSAddedLinks > 0 ? 'color: var(--warning)' : ''}>{pg.JSAddedLinks > 0 ? '+' : ''}{pg.JSAddedLinks}</div><div class="stat-label">{t('urlDetail.deltaLinks')}</div></div>
-          <div class="stat-card"><div class="stat-value" style={pg.JSAddedImages > 0 ? 'color: var(--warning)' : ''}>{pg.JSAddedImages > 0 ? '+' : ''}{pg.JSAddedImages}</div><div class="stat-label">{t('urlDetail.deltaImages')}</div></div>
+          <div class="stat-card">
+            <div class="stat-value">{pg.WordCount} → {pg.RenderedWordCount}</div>
+            <div class="stat-label">
+              {t('urlDetail.words')}
+              {#if pg.JSChangedContent}<span class="badge badge-warning badge-xs"
+                  >{t('urlDetail.changed')}</span
+                >{/if}
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style={pg.JSAddedLinks > 0 ? 'color: var(--warning)' : ''}>
+              {pg.JSAddedLinks > 0 ? '+' : ''}{pg.JSAddedLinks}
+            </div>
+            <div class="stat-label">{t('urlDetail.deltaLinks')}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style={pg.JSAddedImages > 0 ? 'color: var(--warning)' : ''}>
+              {pg.JSAddedImages > 0 ? '+' : ''}{pg.JSAddedImages}
+            </div>
+            <div class="stat-label">{t('urlDetail.deltaImages')}</div>
+          </div>
           {#if pg.JSAddedSchema}
-            <div class="stat-card"><div class="stat-value" style="color: var(--warning)">{t('common.yes')}</div><div class="stat-label">{t('urlDetail.newSchema')}</div></div>
+            <div class="stat-card">
+              <div class="stat-value" style="color: var(--warning)">{t('common.yes')}</div>
+              <div class="stat-label">{t('urlDetail.newSchema')}</div>
+            </div>
           {/if}
         </div>
       {/if}
@@ -287,21 +481,39 @@
   <!-- Outbound Links -->
   {#if outLinks.length > 0}
     <div class="card card-section">
-      <h3 class="section-title">{t('urlDetail.outboundLinks')} <span class="text-muted">({fmtN(outLinksCount)})</span></h3>
+      <h3 class="section-title">
+        {t('urlDetail.outboundLinks')} <span class="text-muted">({fmtN(outLinksCount)})</span>
+      </h3>
       <table>
-        <thead><tr><th>{t('urlDetail.targetUrl')}</th><th>{t('urlDetail.anchor')}</th><th>{t('common.type')}</th><th>{t('session.tag')}</th><th>{t('session.rel')}</th></tr></thead>
+        <thead
+          ><tr
+            ><th>{t('urlDetail.targetUrl')}</th><th>{t('urlDetail.anchor')}</th><th
+              >{t('common.type')}</th
+            ><th>{t('session.tag')}</th><th>{t('session.rel')}</th></tr
+          ></thead
+        >
         <tbody>
           {#each outLinks as l}
             <tr>
               <td class="cell-url">
                 {#if l.IsInternal}
-                  <a href={urlDetailHref(l.TargetURL)} onclick={(e) => goToUrlDetail(e, l.TargetURL)}>{l.TargetURL}</a>
+                  <a
+                    href={urlDetailHref(l.TargetURL)}
+                    onclick={(e) => goToUrlDetail(e, l.TargetURL)}>{l.TargetURL}</a
+                  >
                 {:else}
                   <a href={l.TargetURL} target="_blank" rel="noopener">{l.TargetURL}</a>
                 {/if}
               </td>
               <td class="cell-title">{l.AnchorText || '-'}</td>
-              <td><span class="badge" class:badge-success={l.IsInternal} class:badge-warning={!l.IsInternal}>{l.IsInternal ? t('common.internal') : t('common.external')}</span></td>
+              <td
+                ><span
+                  class="badge"
+                  class:badge-success={l.IsInternal}
+                  class:badge-warning={!l.IsInternal}
+                  >{l.IsInternal ? t('common.internal') : t('common.external')}</span
+                ></td
+              >
               <td>{l.Tag || '-'}</td>
               <td>{l.Rel || '-'}</td>
             </tr>
@@ -310,9 +522,26 @@
       </table>
       {#if outLinksCount > LINKS_PER_PAGE}
         <div class="links-pagination">
-          <button class="btn btn-sm" disabled={outLinksPage === 0} onclick={() => loadOutLinksPage((outLinksPage - 1) * LINKS_PER_PAGE)}>{t('common.prev')}</button>
-          <span class="links-info">{outLinksPage * LINKS_PER_PAGE + 1}–{Math.min((outLinksPage + 1) * LINKS_PER_PAGE, outLinksCount)} {t('common.of')} {fmtN(outLinksCount)}</span>
-          <button class="btn btn-sm" disabled={(outLinksPage + 1) * LINKS_PER_PAGE >= outLinksCount} onclick={() => loadOutLinksPage((outLinksPage + 1) * LINKS_PER_PAGE)}>{t('common.next')}</button>
+          <button
+            class="btn btn-sm"
+            disabled={outLinksPage === 0}
+            onclick={() => loadOutLinksPage((outLinksPage - 1) * LINKS_PER_PAGE)}
+            >{t('common.prev')}</button
+          >
+          <span class="links-info"
+            >{outLinksPage * LINKS_PER_PAGE + 1}–{Math.min(
+              (outLinksPage + 1) * LINKS_PER_PAGE,
+              outLinksCount,
+            )}
+            {t('common.of')}
+            {fmtN(outLinksCount)}</span
+          >
+          <button
+            class="btn btn-sm"
+            disabled={(outLinksPage + 1) * LINKS_PER_PAGE >= outLinksCount}
+            onclick={() => loadOutLinksPage((outLinksPage + 1) * LINKS_PER_PAGE)}
+            >{t('common.next')}</button
+          >
         </div>
       {/if}
     </div>
@@ -321,13 +550,25 @@
   <!-- Inbound Links -->
   {#if inLinksCount > 0}
     <div class="card card-section">
-      <h3 class="section-title">{t('urlDetail.inboundLinks')} <span class="text-muted">({fmtN(inLinksCount)})</span></h3>
+      <h3 class="section-title">
+        {t('urlDetail.inboundLinks')} <span class="text-muted">({fmtN(inLinksCount)})</span>
+      </h3>
       <table>
-        <thead><tr><th>{t('urlDetail.sourceUrl')}</th><th>{t('urlDetail.anchor')}</th><th>{t('session.tag')}</th><th>{t('session.rel')}</th></tr></thead>
+        <thead
+          ><tr
+            ><th>{t('urlDetail.sourceUrl')}</th><th>{t('urlDetail.anchor')}</th><th
+              >{t('session.tag')}</th
+            ><th>{t('session.rel')}</th></tr
+          ></thead
+        >
         <tbody>
           {#each inLinks as l}
             <tr>
-              <td class="cell-url"><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}>{l.SourceURL}</a></td>
+              <td class="cell-url"
+                ><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}
+                  >{l.SourceURL}</a
+                ></td
+              >
               <td class="cell-title">{l.AnchorText || '-'}</td>
               <td>{l.Tag || '-'}</td>
               <td>{l.Rel || '-'}</td>
@@ -337,9 +578,26 @@
       </table>
       {#if inLinksCount > LINKS_PER_PAGE}
         <div class="links-pagination">
-          <button class="btn btn-sm" disabled={inLinksPage === 0} onclick={() => loadInLinksPage((inLinksPage - 1) * LINKS_PER_PAGE)}>{t('common.prev')}</button>
-          <span class="links-info">{inLinksPage * LINKS_PER_PAGE + 1}–{Math.min((inLinksPage + 1) * LINKS_PER_PAGE, inLinksCount)} {t('common.of')} {fmtN(inLinksCount)}</span>
-          <button class="btn btn-sm" disabled={(inLinksPage + 1) * LINKS_PER_PAGE >= inLinksCount} onclick={() => loadInLinksPage((inLinksPage + 1) * LINKS_PER_PAGE)}>{t('common.next')}</button>
+          <button
+            class="btn btn-sm"
+            disabled={inLinksPage === 0}
+            onclick={() => loadInLinksPage((inLinksPage - 1) * LINKS_PER_PAGE)}
+            >{t('common.prev')}</button
+          >
+          <span class="links-info"
+            >{inLinksPage * LINKS_PER_PAGE + 1}–{Math.min(
+              (inLinksPage + 1) * LINKS_PER_PAGE,
+              inLinksCount,
+            )}
+            {t('common.of')}
+            {fmtN(inLinksCount)}</span
+          >
+          <button
+            class="btn btn-sm"
+            disabled={(inLinksPage + 1) * LINKS_PER_PAGE >= inLinksCount}
+            onclick={() => loadInLinksPage((inLinksPage + 1) * LINKS_PER_PAGE)}
+            >{t('common.next')}</button
+          >
         </div>
       {/if}
     </div>
@@ -349,21 +607,80 @@
 {/if}
 
 <style>
-  .detail-header-wrap { gap: 12px; flex-wrap: wrap; }
-  .detail-header-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
-  .detail-title { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .detail-actions { display: flex; gap: 6px; }
-  .badge-lg { font-size: 1.2rem; }
-  .badge-xs { font-size: 0.7rem; }
-  .stat-value-sm { font-size: 0.95rem; }
-  .stat-value-xs { font-size: 0.8rem; }
-  .detail-label { font-weight: 500; width: 160px; }
-  .text-detail { font-size: 0.85rem; }
-  .heading-list { margin: 4px 0 0 20px; padding: 0; }
-  .heading-item { font-size: 0.85rem; color: var(--text-secondary); }
-  .og-preview { max-width: 300px; max-height: 200px; border-radius: 6px; border: 1px solid var(--border); margin-top: 4px; }
-  .schema-badges { display: flex; flex-wrap: wrap; gap: 6px; }
-  .links-pagination { display: flex; gap: 8px; align-items: center; margin-top: 12px; justify-content: center; }
-  .links-info { color: var(--text-muted); font-size: 0.85rem; }
-  .subsection-title { font-size: 0.9rem; margin: 16px 0 8px; color: var(--text-secondary); }
+  .detail-header-wrap {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .detail-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+  .detail-title {
+    font-size: 1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .detail-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .badge-lg {
+    font-size: 1.2rem;
+  }
+  .badge-xs {
+    font-size: 0.7rem;
+  }
+  .stat-value-sm {
+    font-size: 0.95rem;
+  }
+  .stat-value-xs {
+    font-size: 0.8rem;
+  }
+  .detail-label {
+    font-weight: 500;
+    width: 160px;
+  }
+  .text-detail {
+    font-size: 0.85rem;
+  }
+  .heading-list {
+    margin: 4px 0 0 20px;
+    padding: 0;
+  }
+  .heading-item {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+  .og-preview {
+    max-width: 300px;
+    max-height: 200px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    margin-top: 4px;
+  }
+  .schema-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .links-pagination {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+    justify-content: center;
+  }
+  .links-info {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+  .subsection-title {
+    font-size: 0.9rem;
+    margin: 16px 0 8px;
+    color: var(--text-secondary);
+  }
 </style>

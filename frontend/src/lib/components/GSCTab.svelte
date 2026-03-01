@@ -1,8 +1,19 @@
 <script>
   import { onDestroy } from 'svelte';
-  import { getGSCStatus, startGSCAuthorize, fetchGSCData, stopGSCFetch, disconnectGSC,
-    getGSCOverview, getGSCQueries, getGSCPages, getGSCCountries, getGSCDevices,
-    getGSCTimeline, getGSCInspection } from '../api.js';
+  import {
+    getGSCStatus,
+    startGSCAuthorize,
+    fetchGSCData,
+    stopGSCFetch,
+    disconnectGSC,
+    getGSCOverview,
+    getGSCQueries,
+    getGSCPages,
+    getGSCCountries,
+    getGSCDevices,
+    getGSCTimeline,
+    getGSCInspection,
+  } from '../api.js';
   import { fmtN } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
   import SearchSelect from './SearchSelect.svelte';
@@ -128,10 +139,7 @@
     if (!fetchingData) loading = true;
     try {
       if (view === 'overview') {
-        const [ov, tl] = await Promise.all([
-          getGSCOverview(projectId),
-          getGSCTimeline(projectId),
-        ]);
+        const [ov, tl] = await Promise.all([getGSCOverview(projectId), getGSCTimeline(projectId)]);
         overview = ov;
         timeline = tl;
       } else if (view === 'queries') {
@@ -139,10 +147,7 @@
       } else if (view === 'pages') {
         pages = await getGSCPages(projectId, PAGE_LIMIT, pagesOffset);
       } else if (view === 'countries') {
-        const [c, d] = await Promise.all([
-          getGSCCountries(projectId),
-          getGSCDevices(projectId),
-        ]);
+        const [c, d] = await Promise.all([getGSCCountries(projectId), getGSCDevices(projectId)]);
         countries = c;
         devices = d;
       } else if (view === 'inspection') {
@@ -150,7 +155,10 @@
       }
     } catch (e) {
       // No data yet is OK
-      if (view === 'overview') { overview = null; timeline = null; }
+      if (view === 'overview') {
+        overview = null;
+        timeline = null;
+      }
     } finally {
       loading = false;
     }
@@ -176,10 +184,8 @@
       <p>{t('gsc.notAssociated')}</p>
       <p class="text-muted text-sm">{t('gsc.associateFirst')}</p>
     </div>
-
   {:else if !status}
     <p class="loading-msg">{t('common.loading')}</p>
-
   {:else if !status.connected}
     <div class="gsc-empty">
       <h3 class="gsc-connect-title">{t('gsc.connectTitle')}</h3>
@@ -188,7 +194,6 @@
       </p>
       <button class="btn btn-primary" onclick={authorize}>{t('gsc.connectBtn')}</button>
     </div>
-
   {:else if status.connected && !status.property_url}
     <div class="gsc-empty">
       <h3 class="gsc-connect-title">{t('gsc.selectProperty')}</h3>
@@ -197,19 +202,32 @@
       </p>
       {#if status.properties?.length > 0}
         <div class="flex-center-gap gsc-property-wrap">
-          <SearchSelect bind:value={selectedProperty}
+          <SearchSelect
+            bind:value={selectedProperty}
             placeholder={t('gsc.selectPlaceholder')}
-            options={[{ value: '', label: t('gsc.selectPlaceholder') }, ...status.properties.map(p => ({ value: p.site_url, label: `${p.site_url} (${p.permission_level})` }))]} />
-          <button class="btn btn-primary" onclick={selectPropertyAndFetch} disabled={!selectedProperty || fetchingData}>
+            options={[
+              { value: '', label: t('gsc.selectPlaceholder') },
+              ...status.properties.map((p) => ({
+                value: p.site_url,
+                label: `${p.site_url} (${p.permission_level})`,
+              })),
+            ]}
+          />
+          <button
+            class="btn btn-primary"
+            onclick={selectPropertyAndFetch}
+            disabled={!selectedProperty || fetchingData}
+          >
             {fetchingData ? t('gsc.fetching') : t('gsc.selectFetch')}
           </button>
         </div>
       {:else}
         <p class="text-muted">{t('gsc.noProperties')}</p>
       {/if}
-      <button class="btn btn-sm gsc-disconnect-btn" onclick={doDisconnect}>{t('common.disconnect')}</button>
+      <button class="btn btn-sm gsc-disconnect-btn" onclick={doDisconnect}
+        >{t('common.disconnect')}</button
+      >
     </div>
-
   {:else}
     <!-- Connected with property selected -->
     <div class="gsc-toolbar">
@@ -220,42 +238,83 @@
         {#if fetchingData}
           <span class="fetch-indicator">
             <span class="fetch-spinner"></span>
-            {fetchStatus?.rows_so_far ? t('gsc.fetchingRows', { count: fmtN(fetchStatus.rows_so_far) }) : t('gsc.fetching')}
+            {fetchStatus?.rows_so_far
+              ? t('gsc.fetchingRows', { count: fmtN(fetchStatus.rows_so_far) })
+              : t('gsc.fetching')}
           </span>
           <button class="btn btn-sm text-danger" onclick={doStop}>{t('common.stop')}</button>
         {:else}
           <button class="btn btn-sm" onclick={() => doFetch()}>{t('gsc.refreshData')}</button>
         {/if}
-        <button class="btn btn-sm text-muted" onclick={doDisconnect}>{t('common.disconnect')}</button>
+        <button class="btn btn-sm text-muted" onclick={doDisconnect}
+          >{t('common.disconnect')}</button
+        >
       </div>
     </div>
 
     <div class="pr-subview-bar">
-      <button class="pr-subview-btn" class:pr-subview-active={subView === 'overview'} onclick={() => switchSubView('overview')}>{t('gsc.overview')}</button>
-      <button class="pr-subview-btn" class:pr-subview-active={subView === 'queries'} onclick={() => switchSubView('queries')}>{t('gsc.queries')}</button>
-      <button class="pr-subview-btn" class:pr-subview-active={subView === 'pages'} onclick={() => switchSubView('pages')}>{t('common.pages')}</button>
-      <button class="pr-subview-btn" class:pr-subview-active={subView === 'countries'} onclick={() => switchSubView('countries')}>{t('gsc.countries')}</button>
-      <button class="pr-subview-btn" class:pr-subview-active={subView === 'inspection'} onclick={() => switchSubView('inspection')}>{t('gsc.inspection')}</button>
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={subView === 'overview'}
+        onclick={() => switchSubView('overview')}>{t('gsc.overview')}</button
+      >
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={subView === 'queries'}
+        onclick={() => switchSubView('queries')}>{t('gsc.queries')}</button
+      >
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={subView === 'pages'}
+        onclick={() => switchSubView('pages')}>{t('common.pages')}</button
+      >
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={subView === 'countries'}
+        onclick={() => switchSubView('countries')}>{t('gsc.countries')}</button
+      >
+      <button
+        class="pr-subview-btn"
+        class:pr-subview-active={subView === 'inspection'}
+        onclick={() => switchSubView('inspection')}>{t('gsc.inspection')}</button
+      >
     </div>
 
     {#if loading}
       <p class="loading-msg">{t('common.loading')}</p>
-
     {:else if subView === 'overview'}
       {#if overview && overview.total_clicks > 0}
         <div class="stats-grid gsc-stats">
-          <div class="stat-card"><div class="stat-value">{fmtN(overview.total_clicks)}</div><div class="stat-label">{t('gsc.totalClicks')}</div></div>
-          <div class="stat-card"><div class="stat-value">{fmtN(overview.total_impressions)}</div><div class="stat-label">{t('gsc.totalImpressions')}</div></div>
-          <div class="stat-card"><div class="stat-value">{(overview.avg_ctr * 100).toFixed(1)}%</div><div class="stat-label">{t('gsc.avgCTR')}</div></div>
-          <div class="stat-card"><div class="stat-value">{overview.avg_position.toFixed(1)}</div><div class="stat-label">{t('gsc.avgPosition')}</div></div>
-          <div class="stat-card"><div class="stat-value">{fmtN(overview.total_queries)}</div><div class="stat-label">{t('gsc.uniqueQueries')}</div></div>
-          <div class="stat-card"><div class="stat-value">{fmtN(overview.total_pages)}</div><div class="stat-label">{t('gsc.uniquePages')}</div></div>
+          <div class="stat-card">
+            <div class="stat-value">{fmtN(overview.total_clicks)}</div>
+            <div class="stat-label">{t('gsc.totalClicks')}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{fmtN(overview.total_impressions)}</div>
+            <div class="stat-label">{t('gsc.totalImpressions')}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{(overview.avg_ctr * 100).toFixed(1)}%</div>
+            <div class="stat-label">{t('gsc.avgCTR')}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{overview.avg_position.toFixed(1)}</div>
+            <div class="stat-label">{t('gsc.avgPosition')}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{fmtN(overview.total_queries)}</div>
+            <div class="stat-label">{t('gsc.uniqueQueries')}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{fmtN(overview.total_pages)}</div>
+            <div class="stat-label">{t('gsc.uniquePages')}</div>
+          </div>
         </div>
 
         <!-- Timeline Chart -->
         {#if timeline?.length > 1}
-          {@const maxClicks = Math.max(...timeline.map(t => t.clicks), 1)}
-          {@const maxImpr = Math.max(...timeline.map(t => t.impressions), 1)}
+          {@const maxClicks = Math.max(...timeline.map((t) => t.clicks), 1)}
+          {@const maxImpr = Math.max(...timeline.map((t) => t.impressions), 1)}
           {@const chartW = 700}
           {@const chartH = 200}
           {@const margin = { left: 50, right: 20, top: 10, bottom: 30 }}
@@ -264,21 +323,51 @@
           <h4 class="sub-heading">{t('gsc.clicksImpressions')}</h4>
           <svg viewBox="0 0 {chartW} {chartH}" class="gsc-chart-svg">
             <!-- Impressions area -->
-            <path d="M {margin.left},{margin.top + plotH}
-              {timeline.map((t, i) => `L ${margin.left + (i / (timeline.length - 1)) * plotW},${margin.top + plotH - (t.impressions / maxImpr) * plotH}`).join(' ')}
+            <path
+              d="M {margin.left},{margin.top + plotH}
+              {timeline
+                .map(
+                  (t, i) =>
+                    `L ${margin.left + (i / (timeline.length - 1)) * plotW},${margin.top + plotH - (t.impressions / maxImpr) * plotH}`,
+                )
+                .join(' ')}
               L {margin.left + plotW},{margin.top + plotH} Z"
-              fill="var(--accent)" opacity="0.1" />
+              fill="var(--accent)"
+              opacity="0.1"
+            />
             <!-- Impressions line -->
             <polyline
-              points={timeline.map((t, i) => `${margin.left + (i / (timeline.length - 1)) * plotW},${margin.top + plotH - (t.impressions / maxImpr) * plotH}`).join(' ')}
-              fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.4" />
+              points={timeline
+                .map(
+                  (t, i) =>
+                    `${margin.left + (i / (timeline.length - 1)) * plotW},${margin.top + plotH - (t.impressions / maxImpr) * plotH}`,
+                )
+                .join(' ')}
+              fill="none"
+              stroke="var(--accent)"
+              stroke-width="1"
+              opacity="0.4"
+            />
             <!-- Clicks line -->
             <polyline
-              points={timeline.map((t, i) => `${margin.left + (i / (timeline.length - 1)) * plotW},${margin.top + plotH - (t.clicks / maxClicks) * plotH}`).join(' ')}
-              fill="none" stroke="var(--accent)" stroke-width="2" />
+              points={timeline
+                .map(
+                  (t, i) =>
+                    `${margin.left + (i / (timeline.length - 1)) * plotW},${margin.top + plotH - (t.clicks / maxClicks) * plotH}`,
+                )
+                .join(' ')}
+              fill="none"
+              stroke="var(--accent)"
+              stroke-width="2"
+            />
             <!-- Axis labels -->
             {#each [0, Math.floor(timeline.length / 2), timeline.length - 1] as idx}
-              <text x={margin.left + (idx / (timeline.length - 1)) * plotW} y={chartH - 4} text-anchor="middle" class="gsc-axis-label">
+              <text
+                x={margin.left + (idx / (timeline.length - 1)) * plotW}
+                y={chartH - 4}
+                text-anchor="middle"
+                class="gsc-axis-label"
+              >
                 {timeline[idx].date.slice(5)}
               </text>
             {/each}
@@ -293,7 +382,13 @@
             {#await getGSCQueries(projectId, 10, 0) then data}
               {#if data.rows?.length > 0}
                 <table>
-                  <thead><tr><th>{t('gsc.query')}</th><th>{t('gsc.clicks')}</th><th>{t('gsc.impressions')}</th><th>{t('gsc.ctr')}</th><th>{t('gsc.pos')}</th></tr></thead>
+                  <thead
+                    ><tr
+                      ><th>{t('gsc.query')}</th><th>{t('gsc.clicks')}</th><th
+                        >{t('gsc.impressions')}</th
+                      ><th>{t('gsc.ctr')}</th><th>{t('gsc.pos')}</th></tr
+                    ></thead
+                  >
                   <tbody>
                     {#each data.rows as r}
                       <tr>
@@ -314,11 +409,19 @@
             {#await getGSCPages(projectId, 10, 0) then data}
               {#if data.rows?.length > 0}
                 <table>
-                  <thead><tr><th>{t('gsc.page')}</th><th>{t('gsc.clicks')}</th><th>{t('gsc.impressions')}</th><th>{t('gsc.ctr')}</th><th>{t('gsc.pos')}</th></tr></thead>
+                  <thead
+                    ><tr
+                      ><th>{t('gsc.page')}</th><th>{t('gsc.clicks')}</th><th
+                        >{t('gsc.impressions')}</th
+                      ><th>{t('gsc.ctr')}</th><th>{t('gsc.pos')}</th></tr
+                    ></thead
+                  >
                   <tbody>
                     {#each data.rows as r}
                       <tr>
-                        <td class="cell-url gsc-cell-page">{r.page.replace(/^https?:\/\/[^/]+/, '') || '/'}</td>
+                        <td class="cell-url gsc-cell-page"
+                          >{r.page.replace(/^https?:\/\/[^/]+/, '') || '/'}</td
+                        >
                         <td>{fmtN(r.clicks)}</td>
                         <td>{fmtN(r.impressions)}</td>
                         <td>{(r.ctr * 100).toFixed(1)}%</td>
@@ -334,12 +437,17 @@
       {:else}
         <p class="chart-empty">{t('gsc.noData')}</p>
       {/if}
-
     {:else if subView === 'queries'}
       {#if queries?.rows?.length > 0}
         <div class="table-meta">{t('gsc.queriesCount', { count: fmtN(queries.total) })}</div>
         <table>
-          <thead><tr><th>#</th><th>{t('gsc.query')}</th><th>{t('gsc.clicks')}</th><th>{t('gsc.impressions')}</th><th>{t('gsc.ctr')}</th><th>{t('gsc.position')}</th></tr></thead>
+          <thead
+            ><tr
+              ><th>#</th><th>{t('gsc.query')}</th><th>{t('gsc.clicks')}</th><th
+                >{t('gsc.impressions')}</th
+              ><th>{t('gsc.ctr')}</th><th>{t('gsc.position')}</th></tr
+            ></thead
+          >
           <tbody>
             {#each queries.rows as r, i}
               <tr>
@@ -355,20 +463,43 @@
         </table>
         {#if queries.total > PAGE_LIMIT}
           <div class="pagination">
-            <button class="btn btn-sm" disabled={queriesOffset === 0} onclick={() => { queriesOffset = Math.max(0, queriesOffset - PAGE_LIMIT); loadSubView('queries'); }}>{t('common.previous')}</button>
-            <span class="pagination-info">{queriesOffset + 1} - {Math.min(queriesOffset + PAGE_LIMIT, queries.total)} of {fmtN(queries.total)}</span>
-            <button class="btn btn-sm" disabled={queriesOffset + PAGE_LIMIT >= queries.total} onclick={() => { queriesOffset += PAGE_LIMIT; loadSubView('queries'); }}>{t('common.next')}</button>
+            <button
+              class="btn btn-sm"
+              disabled={queriesOffset === 0}
+              onclick={() => {
+                queriesOffset = Math.max(0, queriesOffset - PAGE_LIMIT);
+                loadSubView('queries');
+              }}>{t('common.previous')}</button
+            >
+            <span class="pagination-info"
+              >{queriesOffset + 1} - {Math.min(queriesOffset + PAGE_LIMIT, queries.total)} of {fmtN(
+                queries.total,
+              )}</span
+            >
+            <button
+              class="btn btn-sm"
+              disabled={queriesOffset + PAGE_LIMIT >= queries.total}
+              onclick={() => {
+                queriesOffset += PAGE_LIMIT;
+                loadSubView('queries');
+              }}>{t('common.next')}</button
+            >
           </div>
         {/if}
       {:else}
         <p class="chart-empty">{t('gsc.noQueryData')}</p>
       {/if}
-
     {:else if subView === 'pages'}
       {#if pages?.rows?.length > 0}
         <div class="table-meta">{t('gsc.pagesCount', { count: fmtN(pages.total) })}</div>
         <table>
-          <thead><tr><th>#</th><th>{t('gsc.page')}</th><th>{t('gsc.clicks')}</th><th>{t('gsc.impressions')}</th><th>{t('gsc.ctr')}</th><th>{t('gsc.position')}</th></tr></thead>
+          <thead
+            ><tr
+              ><th>#</th><th>{t('gsc.page')}</th><th>{t('gsc.clicks')}</th><th
+                >{t('gsc.impressions')}</th
+              ><th>{t('gsc.ctr')}</th><th>{t('gsc.position')}</th></tr
+            ></thead
+          >
           <tbody>
             {#each pages.rows as r, i}
               <tr>
@@ -384,30 +515,52 @@
         </table>
         {#if pages.total > PAGE_LIMIT}
           <div class="pagination">
-            <button class="btn btn-sm" disabled={pagesOffset === 0} onclick={() => { pagesOffset = Math.max(0, pagesOffset - PAGE_LIMIT); loadSubView('pages'); }}>{t('common.previous')}</button>
-            <span class="pagination-info">{pagesOffset + 1} - {Math.min(pagesOffset + PAGE_LIMIT, pages.total)} of {fmtN(pages.total)}</span>
-            <button class="btn btn-sm" disabled={pagesOffset + PAGE_LIMIT >= pages.total} onclick={() => { pagesOffset += PAGE_LIMIT; loadSubView('pages'); }}>{t('common.next')}</button>
+            <button
+              class="btn btn-sm"
+              disabled={pagesOffset === 0}
+              onclick={() => {
+                pagesOffset = Math.max(0, pagesOffset - PAGE_LIMIT);
+                loadSubView('pages');
+              }}>{t('common.previous')}</button
+            >
+            <span class="pagination-info"
+              >{pagesOffset + 1} - {Math.min(pagesOffset + PAGE_LIMIT, pages.total)} of {fmtN(
+                pages.total,
+              )}</span
+            >
+            <button
+              class="btn btn-sm"
+              disabled={pagesOffset + PAGE_LIMIT >= pages.total}
+              onclick={() => {
+                pagesOffset += PAGE_LIMIT;
+                loadSubView('pages');
+              }}>{t('common.next')}</button
+            >
           </div>
         {/if}
       {:else}
         <p class="chart-empty">{t('gsc.noPageData')}</p>
       {/if}
-
     {:else if subView === 'countries'}
       <div class="gsc-grid-2col">
         <div>
           <h4 class="sub-heading">{t('gsc.byCountry')}</h4>
           {#if countries?.length > 0}
             {@const totalCountryClicks = countries.reduce((s, c) => s + c.clicks, 0) || 1}
-            {@const maxCountryClicks = Math.max(...countries.map(c => c.clicks), 1)}
+            {@const maxCountryClicks = Math.max(...countries.map((c) => c.clicks), 1)}
             {#each countries as c}
               <div class="gsc-bar-row">
                 <span class="gsc-country-code">{c.country}</span>
                 <div class="gsc-bar-track">
-                  <div class="gsc-bar-fill" style="width: {(c.clicks / maxCountryClicks) * 100}%;"></div>
+                  <div
+                    class="gsc-bar-fill"
+                    style="width: {(c.clicks / maxCountryClicks) * 100}%;"
+                  ></div>
                 </div>
                 <span class="gsc-bar-value">{fmtN(c.clicks)}</span>
-                <span class="gsc-bar-pct">{(c.clicks / totalCountryClicks * 100).toFixed(1)}%</span>
+                <span class="gsc-bar-pct"
+                  >{((c.clicks / totalCountryClicks) * 100).toFixed(1)}%</span
+                >
               </div>
             {/each}
           {:else}
@@ -418,15 +571,19 @@
           <h4 class="sub-heading">{t('gsc.byDevice')}</h4>
           {#if devices?.length > 0}
             {@const totalDeviceClicks = devices.reduce((s, d) => s + d.clicks, 0) || 1}
-            {@const maxDeviceClicks = Math.max(...devices.map(d => d.clicks), 1)}
+            {@const maxDeviceClicks = Math.max(...devices.map((d) => d.clicks), 1)}
             {#each devices as d}
               <div class="gsc-bar-row">
                 <span class="gsc-device-name">{d.device}</span>
                 <div class="gsc-bar-track">
-                  <div class="gsc-bar-fill" style="width: {(d.clicks / maxDeviceClicks) * 100}%;"></div>
+                  <div
+                    class="gsc-bar-fill"
+                    style="width: {(d.clicks / maxDeviceClicks) * 100}%;"
+                  ></div>
                 </div>
                 <span class="gsc-bar-value">{fmtN(d.clicks)}</span>
-                <span class="gsc-bar-pct">{(d.clicks / totalDeviceClicks * 100).toFixed(1)}%</span>
+                <span class="gsc-bar-pct">{((d.clicks / totalDeviceClicks) * 100).toFixed(1)}%</span
+                >
               </div>
             {/each}
           {:else}
@@ -434,15 +591,17 @@
           {/if}
         </div>
       </div>
-
     {:else if subView === 'inspection'}
       {#if inspection?.rows?.length > 0}
         <div class="table-meta">{t('gsc.urlsInspected', { count: fmtN(inspection.total) })}</div>
         <table>
           <thead>
             <tr>
-              <th>#</th><th>{t('common.url')}</th><th>{t('gsc.verdict')}</th><th>{t('gsc.coverage')}</th><th>{t('gsc.indexing')}</th>
-              <th>{t('gsc.robots')}</th><th>{t('gsc.lastCrawl')}</th><th>{t('gsc.canonical')}</th><th>{t('gsc.mobile')}</th><th>{t('gsc.rich')}</th>
+              <th>#</th><th>{t('common.url')}</th><th>{t('gsc.verdict')}</th><th
+                >{t('gsc.coverage')}</th
+              ><th>{t('gsc.indexing')}</th>
+              <th>{t('gsc.robots')}</th><th>{t('gsc.lastCrawl')}</th><th>{t('gsc.canonical')}</th
+              ><th>{t('gsc.mobile')}</th><th>{t('gsc.rich')}</th>
             </tr>
           </thead>
           <tbody>
@@ -450,11 +609,20 @@
               <tr>
                 <td class="row-num">{inspectionOffset + i + 1}</td>
                 <td class="cell-url gsc-cell-insp-url">{r.url}</td>
-                <td><span class="badge" class:badge-success={r.verdict === 'PASS'} class:badge-danger={r.verdict !== 'PASS' && r.verdict !== ''}>{r.verdict || '-'}</span></td>
+                <td
+                  ><span
+                    class="badge"
+                    class:badge-success={r.verdict === 'PASS'}
+                    class:badge-danger={r.verdict !== 'PASS' && r.verdict !== ''}
+                    >{r.verdict || '-'}</span
+                  ></td
+                >
                 <td class="text-xs">{r.coverage_state || '-'}</td>
                 <td class="text-xs">{r.indexing_state || '-'}</td>
                 <td class="text-xs">{r.robots_txt_state || '-'}</td>
-                <td class="text-xs nowrap">{r.last_crawl_time ? r.last_crawl_time.slice(0, 10) : '-'}</td>
+                <td class="text-xs nowrap"
+                  >{r.last_crawl_time ? r.last_crawl_time.slice(0, 10) : '-'}</td
+                >
                 <td class="cell-url gsc-cell-canonical">{r.canonical_url || '-'}</td>
                 <td class="text-xs">{r.mobile_usability || '-'}</td>
                 <td>{r.rich_results_items || 0}</td>
@@ -464,9 +632,26 @@
         </table>
         {#if inspection.total > PAGE_LIMIT}
           <div class="pagination">
-            <button class="btn btn-sm" disabled={inspectionOffset === 0} onclick={() => { inspectionOffset = Math.max(0, inspectionOffset - PAGE_LIMIT); loadSubView('inspection'); }}>{t('common.previous')}</button>
-            <span class="pagination-info">{inspectionOffset + 1} - {Math.min(inspectionOffset + PAGE_LIMIT, inspection.total)} of {fmtN(inspection.total)}</span>
-            <button class="btn btn-sm" disabled={inspectionOffset + PAGE_LIMIT >= inspection.total} onclick={() => { inspectionOffset += PAGE_LIMIT; loadSubView('inspection'); }}>{t('common.next')}</button>
+            <button
+              class="btn btn-sm"
+              disabled={inspectionOffset === 0}
+              onclick={() => {
+                inspectionOffset = Math.max(0, inspectionOffset - PAGE_LIMIT);
+                loadSubView('inspection');
+              }}>{t('common.previous')}</button
+            >
+            <span class="pagination-info"
+              >{inspectionOffset + 1} - {Math.min(inspectionOffset + PAGE_LIMIT, inspection.total)} of
+              {fmtN(inspection.total)}</span
+            >
+            <button
+              class="btn btn-sm"
+              disabled={inspectionOffset + PAGE_LIMIT >= inspection.total}
+              onclick={() => {
+                inspectionOffset += PAGE_LIMIT;
+                loadSubView('inspection');
+              }}>{t('common.next')}</button
+            >
           </div>
         {/if}
       {:else}
@@ -491,10 +676,21 @@
     cursor: pointer;
     font-weight: 600;
   }
-  .btn-primary:hover { opacity: 0.9; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .badge-success { background: #22c55e22; color: #16a34a; }
-  .badge-danger { background: #ef444422; color: #dc2626; }
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .badge-success {
+    background: #22c55e22;
+    color: #16a34a;
+  }
+  .badge-danger {
+    background: #ef444422;
+    color: #dc2626;
+  }
   .fetch-indicator {
     display: flex;
     align-items: center;
@@ -511,26 +707,116 @@
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .gsc-connect-title { margin-bottom: 12px; font-size: 16px; }
-  .gsc-property-wrap :global(.ss-wrap) { min-width: 300px; }
-  .gsc-property-wrap { flex-wrap: wrap; }
-  .gsc-disconnect-btn { margin-top: 12px; }
-  .gsc-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-  .gsc-stats { margin-bottom: 20px; }
-  .gsc-chart-svg { width: 100%; max-width: 800px; height: auto; margin-bottom: 24px; }
-  .gsc-axis-label { font-size: 10px; fill: var(--text-muted); }
-  .gsc-chart-legend { font-size: 9px; fill: var(--accent); }
-  .gsc-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-  .gsc-cell-query { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .gsc-cell-page { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .gsc-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px; }
-  .gsc-country-code { width: 36px; font-weight: 600; text-transform: uppercase; }
-  .gsc-device-name { width: 70px; font-weight: 600; text-transform: capitalize; }
-  .gsc-bar-track { flex: 1; height: 18px; background: var(--bg-alt); border-radius: 4px; overflow: hidden; }
-  .gsc-bar-fill { height: 100%; background: var(--accent); opacity: 0.7; border-radius: 4px; }
-  .gsc-bar-value { width: 60px; text-align: right; color: var(--text-muted); }
-  .gsc-bar-pct { width: 50px; text-align: right; color: var(--text-muted); font-size: 11px; }
-  .gsc-cell-insp-url { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .gsc-cell-canonical { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .gsc-connect-title {
+    margin-bottom: 12px;
+    font-size: 16px;
+  }
+  .gsc-property-wrap :global(.ss-wrap) {
+    min-width: 300px;
+  }
+  .gsc-property-wrap {
+    flex-wrap: wrap;
+  }
+  .gsc-disconnect-btn {
+    margin-top: 12px;
+  }
+  .gsc-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .gsc-stats {
+    margin-bottom: 20px;
+  }
+  .gsc-chart-svg {
+    width: 100%;
+    max-width: 800px;
+    height: auto;
+    margin-bottom: 24px;
+  }
+  .gsc-axis-label {
+    font-size: 10px;
+    fill: var(--text-muted);
+  }
+  .gsc-chart-legend {
+    font-size: 9px;
+    fill: var(--accent);
+  }
+  .gsc-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .gsc-cell-query {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .gsc-cell-page {
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .gsc-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .gsc-country-code {
+    width: 36px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .gsc-device-name {
+    width: 70px;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .gsc-bar-track {
+    flex: 1;
+    height: 18px;
+    background: var(--bg-alt);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .gsc-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    opacity: 0.7;
+    border-radius: 4px;
+  }
+  .gsc-bar-value {
+    width: 60px;
+    text-align: right;
+    color: var(--text-muted);
+  }
+  .gsc-bar-pct {
+    width: 50px;
+    text-align: right;
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+  .gsc-cell-insp-url {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .gsc-cell-canonical {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+  }
 </style>

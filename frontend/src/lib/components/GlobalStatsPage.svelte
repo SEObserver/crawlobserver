@@ -12,7 +12,9 @@
     globalStatsLoading = true;
     try {
       globalStats = await getGlobalStats();
-    } catch (e) { onerror?.(e.message); }
+    } catch (e) {
+      onerror?.(e.message);
+    }
     globalStatsLoading = false;
   }
 
@@ -30,12 +32,30 @@
   <div class="loading">{t('stats.loadingStats')}</div>
 {:else if globalStats}
   <div class="stats-grid mb-lg">
-    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_pages)}</div><div class="stat-label">{t('stats.totalPages')}</div></div>
-    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_links)}</div><div class="stat-label">{t('stats.totalLinks')}</div></div>
-    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_errors)}</div><div class="stat-label">{t('stats.totalErrors')}</div></div>
-    <div class="stat-card"><div class="stat-value">{globalStats.avg_fetch_ms?.toFixed(0) || 0}ms</div><div class="stat-label">{t('stats.avgResponse')}</div></div>
-    <div class="stat-card"><div class="stat-value">{fmtSize(globalStats.total_storage)}</div><div class="stat-label">{t('stats.totalStorage')}</div></div>
-    <div class="stat-card"><div class="stat-value">{fmtN(globalStats.total_sessions)}</div><div class="stat-label">{t('stats.sessions')}</div></div>
+    <div class="stat-card">
+      <div class="stat-value">{fmtN(globalStats.total_pages)}</div>
+      <div class="stat-label">{t('stats.totalPages')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{fmtN(globalStats.total_links)}</div>
+      <div class="stat-label">{t('stats.totalLinks')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{fmtN(globalStats.total_errors)}</div>
+      <div class="stat-label">{t('stats.totalErrors')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{globalStats.avg_fetch_ms?.toFixed(0) || 0}ms</div>
+      <div class="stat-label">{t('stats.avgResponse')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{fmtSize(globalStats.total_storage)}</div>
+      <div class="stat-label">{t('stats.totalStorage')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{fmtN(globalStats.total_sessions)}</div>
+      <div class="stat-label">{t('stats.sessions')}</div>
+    </div>
   </div>
 
   {#if globalStats.projects?.length > 0}
@@ -66,7 +86,12 @@
               <td class="text-right">{fmtSize(p.storage_bytes)}</td>
               <td>
                 <div class="progress-track">
-                  <div class="progress-fill" style="width: {globalStats.total_storage > 0 ? (p.storage_bytes / globalStats.total_storage * 100) : 0}%;"></div>
+                  <div
+                    class="progress-fill"
+                    style="width: {globalStats.total_storage > 0
+                      ? (p.storage_bytes / globalStats.total_storage) * 100
+                      : 0}%;"
+                  ></div>
                 </div>
               </td>
             </tr>

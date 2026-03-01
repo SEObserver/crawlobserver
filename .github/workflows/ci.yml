@@ -23,7 +23,15 @@ jobs:
         run: go test ./... -v -race -coverprofile=coverage.out
 
       - name: Coverage
-        run: go tool cover -func=coverage.out
+        run: |
+          go tool cover -func=coverage.out
+          TOTAL=$(go tool cover -func=coverage.out | grep ^total: | awk '{print $NF}' | tr -d '%')
+          echo "Total coverage: ${TOTAL}%"
+          THRESHOLD=25
+          if [ "$(echo "$TOTAL < $THRESHOLD" | bc -l)" -eq 1 ]; then
+            echo "::error::Coverage ${TOTAL}% is below threshold ${THRESHOLD}%"
+            exit 1
+          fi
 
   integration:
     runs-on: ubuntu-latest
@@ -56,6 +64,9 @@ jobs:
 
       - name: Frontend tests
         run: cd frontend && npm ci && npm test
+
+      - name: Lint & format check
+        run: cd frontend && npm run lint && npm run format:check
 
   lint:
     runs-on: ubuntu-latest
