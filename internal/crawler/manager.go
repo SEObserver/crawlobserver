@@ -374,11 +374,100 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 	return deleted, nil
 }
 
+// markSessionCrashed updates a session's status to "crashed" in ClickHouse.
+func (m *Manager) markSessionCrashed(sessionID string, engine *Engine, reason string) {
+	ctx := context.Background()
+	sess, err := m.store.GetSession(ctx, sessionID)
+	if err != nil {
+		applog.Errorf("crawler", "markSessionCrashed: could not load session %s: %v", sessionID, err)
+		return
+	}
+	sess.Status = "crashed"
+	sess.FinishedAt = time.Now()
+	if engine != nil {
+		sess.PagesCrawled = uint64(engine.PagesCrawled())
+	}
+	if err := m.store.InsertSession(ctx, sess); err != nil {
+		applog.Errorf("crawler", "markSessionCrashed: could not update session %s: %v", sessionID, err)
+	}
+	applog.Warnf("crawler", "Session %s marked as crashed: %s", sessionID, reason)
+}
+
+// Shutdown gracefully stops all running engines within the given timeout.
+// Engines still running after the timeout are marked as "crashed".
+func (m *Manager) Shutdown(timeout time.Duration) {
+	m.mu.RLock()
+	snapshot := make(map[string]*Engine, len(m.engines))
+	for id, e := range m.engines {
+		snapshot[id] = e
+	}
+	m.mu.RUnlock()
+
+	if len(snapshot) == 0 {
+		return
+	}
+
+	applog.Infof("crawler", "Shutdown: stopping %d running engine(s)...", len(snapshot))
+	for _, e := range snapshot {
+		e.Stop()
+	}
+
+	deadline := time.After(timeout)
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-deadline:
+			m.mu.Lock()
+			remaining := make(map[string]*Engine, len(m.engines))
+			for id, e := range m.engines {
+				remaining[id] = e
+			}
+			m.mu.Unlock()
+			for id, e := range remaining {
+				applog.Errorf("crawler", "Shutdown timeout: engine %s still running, marking crashed", id)
+				m.markSessionCrashed(id, e, "shutdown timeout")
+			}
+			return
+		case <-ticker.C:
+			m.mu.RLock()
+			n := len(m.engines)
+			m.mu.RUnlock()
+			if n == 0 {
+				applog.Info("crawler", "Shutdown: all engines stopped cleanly")
+				return
+			}
+		}
+	}
+}
+
+// RecoverOrphanedSessions marks any sessions still in "running" status as "crashed".
+// Should be called at startup to clean up after a previous unclean shutdown.
+func (m *Manager) RecoverOrphanedSessions(ctx context.Context) {
+	sessions, err := m.store.ListSessions(ctx)
+	if err != nil {
+		applog.Errorf("crawler", "RecoverOrphanedSessions: could not list sessions: %v", err)
+		return
+	}
+	for _, sess := range sessions {
+		if sess.Status == "running" {
+			sess.Status = "crashed"
+			sess.FinishedAt = time.Now()
+			if err := m.store.InsertSession(ctx, &sess); err != nil {
+				applog.Errorf("crawler", "RecoverOrphanedSessions: could not update session %s: %v", sess.ID, err)
+				continue
+			}
+			applog.Warnf("crawler", "Recovered orphaned session %s (was running, now crashed)", sess.ID)
+		}
+	}
+}
+
 // runEngine runs the crawl engine and records the outcome.
 func (m *Manager) runEngine(sessionID string, engine *Engine, seeds []string) {
 	defer func() {
 		if r := recover(); r != nil {
 			applog.Errorf("crawler", "panic in crawl engine %s: %v\n%s", sessionID, r, debug.Stack())
+			m.markSessionCrashed(sessionID, engine, fmt.Sprintf("panic: %v", r))
 			m.mu.Lock()
 			delete(m.engines, sessionID)
 			m.lastErrors[sessionID] = fmt.Sprintf("panic: %v", r)

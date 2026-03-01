@@ -266,6 +266,8 @@ func (s *Server) buildHandler() (http.Handler, error) {
 func (s *Server) Start() error {
 	applog.Init(s.store)
 
+	s.manager.RecoverOrphanedSessions(context.Background())
+
 	handler, err := s.buildHandler()
 	if err != nil {
 		return err
@@ -313,6 +315,7 @@ func openBrowser(url string) {
 
 // Stop gracefully shuts down the server.
 func (s *Server) Stop(ctx context.Context) error {
+	s.manager.Shutdown(30 * time.Second)
 	if s.rateLimiter != nil {
 		s.rateLimiter.Stop()
 	}

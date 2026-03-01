@@ -95,7 +95,7 @@
     {/if}
     <button class="btn btn-sm btn-danger" onclick={() => onstop?.(session.ID)}>{t('common.stop')}</button>
   {:else}
-    <span class="badge" class:badge-success={session.Status==='completed'} class:badge-error={session.Status==='failed'} class:badge-warning={session.Status==='stopped' || session.Status==='completed_with_errors'}>{session.Status}</span>
+    <span class="badge" class:badge-success={session.Status==='completed'} class:badge-error={session.Status==='failed' || session.Status==='crashed'} class:badge-warning={session.Status==='stopped' || session.Status==='completed_with_errors'}>{session.Status}</span>
     {#if session.StartedAt && session.StartedAt !== '1970-01-01T00:00:00Z'}
       <span class="action-bar-meta">{fmtDate(session.StartedAt)} &middot; {elapsed()}</span>
     {/if}

@@ -448,6 +448,10 @@ func (m *mockManager) LastError(sessionID string) string {
 	return ""
 }
 
+func (m *mockManager) Shutdown(timeout time.Duration) {}
+
+func (m *mockManager) RecoverOrphanedSessions(ctx context.Context) {}
+
 // ---------------------------------------------------------------------------
 // newTestServer helper
 // ---------------------------------------------------------------------------

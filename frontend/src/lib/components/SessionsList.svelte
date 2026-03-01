@@ -70,7 +70,7 @@
                 {/if}
               </span>
             {:else}
-              <span class="badge" class:badge-success={s.Status==='completed'} class:badge-error={s.Status==='failed'} class:badge-warning={s.Status==='stopped' || s.Status==='completed_with_errors'}>{s.Status}</span>
+              <span class="badge" class:badge-success={s.Status==='completed'} class:badge-error={s.Status==='failed' || s.Status==='crashed'} class:badge-warning={s.Status==='stopped' || s.Status==='completed_with_errors'}>{s.Status}</span>
             {/if}
             {#if s.ProjectID}
               <span class="badge badge-project">{projects.find(p => p.id === s.ProjectID)?.name || 'Project'}</span>

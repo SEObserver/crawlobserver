@@ -136,6 +136,8 @@
                   <span class="badge badge-info">{t('common.running')}</span>
                 {:else if s.Status === 'completed'}
                   <span class="badge badge-success">{t('common.completed')}</span>
+                {:else if s.Status === 'failed' || s.Status === 'crashed'}
+                  <span class="badge badge-error">{s.Status}</span>
                 {:else}
                   <span class="badge">{s.Status || t('common.unknown')}</span>
                 {/if}

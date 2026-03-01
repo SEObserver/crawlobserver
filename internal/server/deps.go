@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/crawler"
@@ -107,4 +108,6 @@ type CrawlService interface {
 	StopCrawl(sessionID string) error
 	ResumeCrawl(sessionID string, overrides *crawler.CrawlRequest) (string, error)
 	RetryFailed(sessionID string, overrides *crawler.CrawlRequest) (int, error)
+	Shutdown(timeout time.Duration)
+	RecoverOrphanedSessions(ctx context.Context)
 }
