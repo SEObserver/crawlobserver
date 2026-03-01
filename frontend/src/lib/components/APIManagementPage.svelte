@@ -399,40 +399,7 @@
   </div>
 {/if}
 
-<!-- API Reference -->
-<div class="card mb-lg api-ref-card">
-  <div class="flex-center-gap api-endpoint-header">
-    <div>
-      <h3 class="api-endpoint-title">{t('api.reference')}</h3>
-      <p class="text-xs text-muted" style="margin-top:4px">{t('api.referenceDesc')}</p>
-    </div>
-    <button class="btn btn-primary btn-sm" onclick={handleCopyRef}>
-      {copiedRef ? t('api.copied') : t('api.copyForLLM')}
-    </button>
-  </div>
-  <div class="api-ref-sections">
-    {#each apiRef as group}
-      <div class="api-ref-group">
-        <h4 class="api-ref-group-title">{group.section}</h4>
-        {#each group.endpoints as ep}
-          <div class="api-ref-row">
-            <span
-              class="api-ref-method"
-              class:method-get={ep.method === 'GET'}
-              class:method-post={ep.method === 'POST'}
-              class:method-put={ep.method === 'PUT'}
-              class:method-delete={ep.method === 'DELETE'}>{ep.method}</span
-            >
-            <code class="api-ref-path">{serverInfo?.api_url || '/api'}{ep.path}</code>
-            <span class="api-ref-desc">{ep.desc}</span>
-          </div>
-        {/each}
-      </div>
-    {/each}
-  </div>
-</div>
-
-<!-- API Keys Header -->
+<!-- API Keys -->
 <div class="page-header api-keys-header">
   <h1>{t('api.apiKeys')}</h1>
 </div>
@@ -446,77 +413,45 @@
         <code class="word-break key-created-code">{createdKeyFull}</code>
       </div>
       <div class="key-created-actions">
-        <button class="btn btn-sm" onclick={() => copyToClipboard(createdKeyFull)}
-          >{t('common.copy')}</button
-        >
-        <button class="btn btn-sm" onclick={() => (createdKeyFull = null)}
-          >{t('common.dismiss')}</button
-        >
+        <button class="btn btn-sm" onclick={() => copyToClipboard(createdKeyFull)}>{t('common.copy')}</button>
+        <button class="btn btn-sm" onclick={() => (createdKeyFull = null)}>{t('common.dismiss')}</button>
       </div>
     </div>
   </div>
 {/if}
 
-<!-- Create API Key -->
 <div class="card mb-md">
   <div class="form-grid">
     <div class="form-group">
       <label for="key-name">{t('api.keyName')}</label>
-      <input
-        id="key-name"
-        type="text"
-        bind:value={newKeyName}
-        placeholder={t('api.keyNamePlaceholder')}
-      />
+      <input id="key-name" type="text" bind:value={newKeyName} placeholder={t('api.keyNamePlaceholder')} />
     </div>
     <div class="form-group">
       <label for="key-type">{t('api.keyType')}</label>
-      <SearchSelect
-        id="key-type"
-        bind:value={newKeyType}
-        options={[
-          { value: 'general', label: t('api.generalAccess') },
-          { value: 'project', label: t('api.projectReadOnly') },
-        ]}
-      />
+      <SearchSelect id="key-type" bind:value={newKeyType} options={[
+        { value: 'general', label: t('api.generalAccess') },
+        { value: 'project', label: t('api.projectReadOnly') },
+      ]} />
     </div>
     {#if newKeyType === 'project'}
       <div class="form-group">
         <label for="key-project">{t('stats.project')}</label>
-        <SearchSelect
-          id="key-project"
-          bind:value={newKeyProjectId}
+        <SearchSelect id="key-project" bind:value={newKeyProjectId}
           placeholder={t('api.selectProject')}
-          options={[
-            { value: '', label: t('api.selectProject') },
-            ...projects.map((p) => ({ value: p.id, label: p.name })),
-          ]}
-          onsearch={projects.length > 20
-            ? async (q) => {
-                const lq = q.toLowerCase();
-                return [
-                  { value: '', label: t('api.selectProject') },
-                  ...projects
-                    .filter((p) => p.name.toLowerCase().includes(lq))
-                    .map((p) => ({ value: p.id, label: p.name })),
-                ];
-              }
-            : undefined}
-        />
+          options={[{ value: '', label: t('api.selectProject') }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
+          onsearch={projects.length > 20 ? async (q) => {
+            const lq = q.toLowerCase();
+            return [{ value: '', label: t('api.selectProject') }, ...projects.filter((p) => p.name.toLowerCase().includes(lq)).map((p) => ({ value: p.id, label: p.name }))];
+          } : undefined} />
       </div>
     {/if}
   </div>
   <div class="mt-md">
-    <button
-      class="btn btn-primary"
-      onclick={handleCreateAPIKey}
-      disabled={!newKeyName.trim() || (newKeyType === 'project' && !newKeyProjectId)}
-      >{t('api.createKey')}</button
-    >
+    <button class="btn btn-primary" onclick={handleCreateAPIKey}
+      disabled={!newKeyName.trim() || (newKeyType === 'project' && !newKeyProjectId)}>{t('api.createKey')}</button>
   </div>
 </div>
 
-<!-- API Keys List -->
 {#if apiKeys.length === 0}
   <div class="card text-center text-muted empty-state">{t('api.noKeys')}</div>
 {:else}
@@ -526,34 +461,62 @@
         <div class="session-info">
           <div class="session-seed">{k.name}</div>
           <div class="session-meta">
-            <span
-              class="badge"
-              class:badge-info={k.type === 'general'}
-              class:badge-warning={k.type === 'project'}>{k.type}</span
-            >
+            <span class="badge" class:badge-info={k.type === 'general'} class:badge-warning={k.type === 'project'}>{k.type}</span>
             {#if k.project_id}
-              <span class="badge badge-accent"
-                >{projects.find((p) => p.id === k.project_id)?.name || k.project_id}</span
-              >
+              <span class="badge badge-accent">{projects.find((p) => p.id === k.project_id)?.name || k.project_id}</span>
             {/if}
             <code class="key-prefix-code">{k.key_prefix}</code>
             <span>{new Date(k.created_at).toLocaleDateString()}</span>
-            <span
-              >{k.last_used_at
-                ? t('api.used') + ' ' + timeAgo(k.last_used_at)
-                : t('api.neverUsed')}</span
-            >
+            <span>{k.last_used_at ? t('api.used') + ' ' + timeAgo(k.last_used_at) : t('api.neverUsed')}</span>
           </div>
         </div>
         <div class="session-actions">
-          <button class="btn btn-sm btn-danger" onclick={() => handleDeleteAPIKey(k.id)}
-            >{t('api.revoke')}</button
-          >
+          <button class="btn btn-sm btn-danger" onclick={() => handleDeleteAPIKey(k.id)}>{t('api.revoke')}</button>
         </div>
       </div>
     {/each}
   </div>
 {/if}
+
+<!-- API Reference -->
+<div class="page-header api-ref-header">
+  <h1>{t('api.reference')}</h1>
+  <button class="btn btn-primary" onclick={handleCopyRef}>
+    {copiedRef ? t('api.copied') : t('api.copyForLLM')}
+  </button>
+</div>
+<p class="text-xs text-muted mb-md api-subtitle">{t('api.referenceDesc')}</p>
+
+<div class="card api-ref-card">
+  {#if serverInfo}
+    <div class="api-ref-base">
+      Base URL: <code>{serverInfo.api_url}</code>
+    </div>
+  {/if}
+  {#each apiRef as group, i}
+    <details class="api-ref-group" open={i === 0}>
+      <summary class="api-ref-group-summary">
+        <span class="api-ref-group-title">{group.section}</span>
+        <span class="api-ref-group-count">{group.endpoints.length}</span>
+      </summary>
+      <div class="api-ref-table-wrap">
+        <table class="api-ref-table">
+          <tbody>
+            {#each group.endpoints as ep}
+              <tr>
+                <td class="api-ref-method-cell">
+                  <span class="api-ref-method" class:method-get={ep.method === 'GET'} class:method-post={ep.method === 'POST'} class:method-put={ep.method === 'PUT'} class:method-delete={ep.method === 'DELETE'}>{ep.method}</span>
+                </td>
+                <td class="api-ref-path-cell"><code>{ep.path}</code></td>
+                <td class="api-ref-desc-cell">{ep.desc}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {/each}
+</div>
 
 {#if confirmState}<ConfirmModal
     message={confirmState.message}
@@ -567,228 +530,137 @@
   />{/if}
 
 <style>
-  .api-endpoint-card {
-    border: 1px solid var(--border);
-  }
+  /* --- Endpoint card --- */
+  .api-endpoint-card { border: 1px solid var(--border); }
+  .api-endpoint-header { margin-bottom: 12px; }
+  .api-endpoint-title { margin: 0; font-size: 15px; font-weight: 600; }
+  .badge-xs { font-size: 11px; }
+  .api-url-row { margin-bottom: 10px; }
+  .api-url-code { flex: 1; padding: 8px 12px; background: var(--bg-secondary); border-radius: 6px; }
+  .usage-summary { cursor: pointer; user-select: none; }
+  .code-example { display: block; padding: 6px 10px; background: var(--bg-secondary); border-radius: 4px; margin-top: 4px; font-size: 12px; }
+  .code-example-wrap { white-space: pre-wrap; }
 
-  .api-endpoint-header {
-    margin-bottom: 12px;
-  }
+  /* --- API Keys --- */
+  .api-keys-header { margin-top: 8px; }
+  .key-created-card { border: 1px solid var(--success); background: var(--success-bg); }
+  .key-created-inner { display: flex; align-items: flex-start; gap: 12px; }
+  .key-created-code { font-size: 0.85rem; margin-top: 6px; display: inline-block; }
+  .key-created-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .badge-accent { background: var(--accent-light); color: var(--accent); }
+  .key-prefix-code { font-size: 0.8rem; }
+  .empty-state { padding: 32px; }
+  .flex-1 { flex: 1; }
 
-  .api-endpoint-title {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 600;
-  }
+  /* --- Shared row styles --- */
+  .session-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border-light); transition: background 0.1s; gap: 16px; }
+  .session-row:last-child { border-bottom: none; }
+  .session-row:hover { background: var(--bg-hover); }
+  .session-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+  .session-seed { font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .session-meta { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 12px; }
+  .session-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-  .badge-xs {
-    font-size: 11px;
-  }
+  /* --- Subtitle --- */
+  .api-subtitle { margin-top: -8px; }
 
-  .api-url-row {
-    margin-bottom: 10px;
-  }
-
-  .api-url-code {
-    flex: 1;
-    padding: 8px 12px;
-    background: var(--bg-secondary);
-    border-radius: 6px;
-  }
-
-  .usage-summary {
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .code-example {
-    display: block;
-    padding: 6px 10px;
-    background: var(--bg-secondary);
-    border-radius: 4px;
-    margin-top: 4px;
-    font-size: 12px;
-  }
-
-  .code-example-wrap {
-    white-space: pre-wrap;
-  }
-
-  .empty-state {
-    padding: 32px;
-  }
-
-  .flex-1 {
-    flex: 1;
-  }
-
-  .api-keys-header {
-    margin-top: 32px;
-  }
-
-  .key-created-card {
-    border: 1px solid var(--success);
-    background: var(--success-bg);
-  }
-
-  .key-created-inner {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .key-created-code {
-    font-size: 0.85rem;
-    margin-top: 6px;
-    display: inline-block;
-  }
-
-  .key-created-actions {
-    display: flex;
-    gap: 6px;
-    flex-shrink: 0;
-  }
-
-  .badge-accent {
-    background: var(--accent-light);
-    color: var(--accent);
-  }
-
-  .key-prefix-code {
-    font-size: 0.8rem;
-  }
-
-  .api-subtitle {
-    margin-top: -8px;
-  }
+  /* --- API Reference --- */
+  .api-ref-header { margin-top: 32px; display: flex; align-items: center; justify-content: space-between; }
+  .api-ref-header h1 { margin: 0; }
 
   .api-ref-card {
     border: 1px solid var(--border);
+    padding: 0;
+    overflow: hidden;
   }
 
-  .api-ref-sections {
-    margin-top: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-
-  .api-ref-group-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    margin: 0 0 6px 0;
-    padding-bottom: 4px;
+  .api-ref-base {
+    padding: 12px 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-light);
   }
+  .api-ref-base code {
+    color: var(--text);
+    font-weight: 600;
+  }
 
-  .api-ref-row {
+  .api-ref-group {
+    border-bottom: 1px solid var(--border-light);
+  }
+  .api-ref-group:last-child { border-bottom: none; }
+
+  .api-ref-group-summary {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 8px;
-    padding: 3px 0;
+    padding: 10px 20px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+    transition: background 0.1s;
+  }
+  .api-ref-group-summary:hover { background: var(--bg-hover); }
+
+  .api-ref-group-title {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .api-ref-group-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+
+  .api-ref-table-wrap {
+    padding: 0 20px 12px 20px;
+    overflow-x: auto;
+  }
+
+  .api-ref-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .api-ref-table td {
+    padding: 5px 8px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    vertical-align: baseline;
+  }
+
+  .api-ref-method-cell { width: 56px; }
+  .api-ref-path-cell code {
     font-size: 12px;
-    line-height: 1.6;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .api-ref-desc-cell {
+    color: var(--text-muted);
+    font-size: 12px;
   }
 
   .api-ref-method {
+    display: inline-block;
     font-size: 10px;
     font-weight: 700;
-    padding: 1px 5px;
+    padding: 2px 6px;
     border-radius: 3px;
-    flex-shrink: 0;
+    text-align: center;
     font-family: var(--font-mono, monospace);
+    letter-spacing: 0.02em;
   }
 
-  .method-get {
-    background: #e8f5e9;
-    color: #2e7d32;
-  }
-  .method-post {
-    background: #e3f2fd;
-    color: #1565c0;
-  }
-  .method-put {
-    background: #fff3e0;
-    color: #e65100;
-  }
-  .method-delete {
-    background: #fce4ec;
-    color: #c62828;
-  }
-
-  :global([data-theme='dark']) .method-get {
-    background: #1b3a1e;
-    color: #66bb6a;
-  }
-  :global([data-theme='dark']) .method-post {
-    background: #0d2744;
-    color: #64b5f6;
-  }
-  :global([data-theme='dark']) .method-put {
-    background: #3e2000;
-    color: #ffb74d;
-  }
-  :global([data-theme='dark']) .method-delete {
-    background: #3e0a0a;
-    color: #ef9a9a;
-  }
-
-  .api-ref-path {
-    font-size: 11.5px;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 480px;
-  }
-
-  .api-ref-desc {
-    color: var(--text-muted);
-    font-size: 11.5px;
-  }
-
-  .session-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border-light);
-    transition: background 0.1s;
-    gap: 16px;
-  }
-  .session-row:last-child {
-    border-bottom: none;
-  }
-  .session-row:hover {
-    background: var(--bg-hover);
-  }
-  .session-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-    flex: 1;
-  }
-  .session-seed {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .session-meta {
-    font-size: 12px;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .session-actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-  }
+  .method-get { background: #e8f5e9; color: #2e7d32; }
+  .method-post { background: #e3f2fd; color: #1565c0; }
+  .method-put { background: #fff3e0; color: #e65100; }
+  .method-delete { background: #fce4ec; color: #c62828; }
+  :global([data-theme='dark']) .method-get { background: #1b3a1e; color: #66bb6a; }
+  :global([data-theme='dark']) .method-post { background: #0d2744; color: #64b5f6; }
+  :global([data-theme='dark']) .method-put { background: #3e2000; color: #ffb74d; }
+  :global([data-theme='dark']) .method-delete { background: #3e0a0a; color: #ef9a9a; }
 </style>
