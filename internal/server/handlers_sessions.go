@@ -188,7 +188,7 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 
 	var lastPages int64
 	var lastQueue int
-	var lastRunning bool
+	var lastRunning, lastQueued bool
 	var lastLostPages, lastLostLinks int64
 	first := true
 
@@ -203,18 +203,20 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 		}
 
 		pages, queue, running := s.manager.Progress(sessionID)
+		queued := s.manager.IsQueued(sessionID)
 		bufState := s.manager.BufferState(sessionID)
 
 		// Only send if data changed or first message
 		if !first && pages == lastPages && queue == lastQueue && running == lastRunning &&
+			queued == lastQueued &&
 			bufState.LostPages == lastLostPages && bufState.LostLinks == lastLostLinks {
 			continue
 		}
-		lastPages, lastQueue, lastRunning = pages, queue, running
+		lastPages, lastQueue, lastRunning, lastQueued = pages, queue, running, queued
 		lastLostPages, lastLostLinks = bufState.LostPages, bufState.LostLinks
 		first = false
 
-		data := fmt.Sprintf(`{"pages_crawled":%d,"queue_size":%d,"is_running":%t`, pages, queue, running)
+		data := fmt.Sprintf(`{"pages_crawled":%d,"queue_size":%d,"is_running":%t,"is_queued":%t`, pages, queue, running, queued)
 		if bufState.LostPages > 0 {
 			data += fmt.Sprintf(`,"lost_pages":%d`, bufState.LostPages)
 		}
@@ -224,6 +226,11 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 		data += "}"
 		fmt.Fprintf(w, "data: %s\n\n", data)
 		flusher.Flush()
+
+		// Don't close if session is queued — wait for it to start
+		if queued {
+			continue
+		}
 
 		if !running {
 			errMsg := s.manager.LastError(sessionID)

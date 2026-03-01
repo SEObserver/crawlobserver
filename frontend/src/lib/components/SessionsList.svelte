@@ -60,16 +60,19 @@
       <div class="session-row" onclick={() => onselectsession?.(s)}>
         <div class="session-info">
           <div class="session-seed">{s.SeedURLs?.[0] || 'Unknown'}</div>
+          {@const live = liveProgress[s.ID]}
+          {@const isQueued = live ? live.is_queued : s.is_queued}
+          {@const isRunning = live ? live.is_running : s.is_running}
           <div class="session-meta">
-            {#if s.is_queued}
+            {#if isQueued}
               <span class="badge badge-queued">{t('session.queued')}</span>
-            {:else if s.is_running}
+            {:else if isRunning}
               <span class="badge badge-info">
                 {t('common.running')}
-                {#if liveProgress[s.ID]}
-                  &middot; {fmtN(liveProgress[s.ID].pages_crawled)} {t('common.pages')} &middot; {fmtN(liveProgress[s.ID].queue_size)} {t('sessions.queued')}
-                  {#if liveProgress[s.ID].lost_pages > 0}
-                    <span class="text-error font-semibold">&middot; {fmtN(liveProgress[s.ID].lost_pages)} {t('sessions.lost')}</span>
+                {#if live}
+                  &middot; {fmtN(live.pages_crawled)} {t('common.pages')} &middot; {fmtN(live.queue_size)} {t('sessions.queued')}
+                  {#if live.lost_pages > 0}
+                    <span class="text-error font-semibold">&middot; {fmtN(live.lost_pages)} {t('sessions.lost')}</span>
                   {/if}
                 {/if}
               </span>
@@ -85,7 +88,7 @@
           </div>
         </div>
         <div class="session-actions" onclick={(e) => e.stopPropagation()}>
-          {#if s.is_running || s.is_queued}
+          {#if isRunning || isQueued}
             <button class="btn btn-sm btn-danger" onclick={() => onstop?.(s.ID)}>{t('common.stop')}</button>
           {:else}
             <button class="btn btn-sm" onclick={() => onresume?.(s.ID)}>{t('sessions.resume')}</button>

@@ -312,9 +312,9 @@
       sessions = sessionsData || [];
       sessionStorageMap = storageData || {};
       for (const s of sessions) {
-        if (s.is_running && !sse.isConnected(s.ID)) {
+        if ((s.is_running || s.is_queued) && !sse.isConnected(s.ID)) {
           sse.connect(s.ID,
-            (data) => { liveProgress[s.ID] = data; liveProgress = { ...liveProgress }; scheduleStatsRefresh(s.ID); },
+            (data) => { liveProgress[s.ID] = data; liveProgress = { ...liveProgress }; if (data.is_running) scheduleStatsRefresh(s.ID); },
             (id) => { if (selectedSession?.ID === id) { getStats(id).then(st => stats = st).catch(() => {}); } loadSessions(); }
           );
         }
