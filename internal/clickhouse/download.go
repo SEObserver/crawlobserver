@@ -32,6 +32,9 @@ func downloadURL() (string, error) {
 			return base + "/clickhouse-linux-aarch64", nil
 		}
 	}
+	if runtime.GOOS == "windows" {
+		return "", fmt.Errorf("managed mode auto-download is not supported on Windows; use clickhouse.mode=external with Docker, or set clickhouse.binary_path to a local ClickHouse binary")
+	}
 	return "", fmt.Errorf("unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH)
 }
 

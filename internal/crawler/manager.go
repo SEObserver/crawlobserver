@@ -3,6 +3,7 @@ package crawler
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -375,6 +376,15 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 
 // runEngine runs the crawl engine and records the outcome.
 func (m *Manager) runEngine(sessionID string, engine *Engine, seeds []string) {
+	defer func() {
+		if r := recover(); r != nil {
+			applog.Errorf("crawler", "panic in crawl engine %s: %v\n%s", sessionID, r, debug.Stack())
+			m.mu.Lock()
+			delete(m.engines, sessionID)
+			m.lastErrors[sessionID] = fmt.Sprintf("panic: %v", r)
+			m.mu.Unlock()
+		}
+	}()
 	err := engine.Run(seeds)
 	m.mu.Lock()
 	delete(m.engines, sessionID)

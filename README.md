@@ -21,6 +21,11 @@
   <a href="https://goreportcard.com/report/github.com/SEObserver/crawlobserver"><img src="https://goreportcard.com/badge/github.com/SEObserver/crawlobserver" alt="Go Report Card"></a>
 </p>
 
+<!-- TODO: Replace with actual screenshot of the Web UI -->
+<p align="center">
+  <img src="docs/screenshot.png" alt="CrawlObserver Web UI" width="900">
+</p>
+
 ---
 
 ## Why CrawlObserver?
@@ -65,7 +70,7 @@ docker compose up -d
 # Open http://127.0.0.1:8899
 ```
 
-> **Managed mode:** Don't have Docker? CrawlObserver can download and run ClickHouse for you automatically. Set `clickhouse.mode: managed` in your config.
+> **Managed mode:** Don't have Docker? CrawlObserver can download and run ClickHouse for you automatically. Set `clickhouse.mode: managed` in your config. Supported on **macOS** (Intel & Apple Silicon) and **Linux** (x86_64 & ARM64). On **Windows**, use Docker or provide your own ClickHouse binary via `clickhouse.binary_path`.
 
 ---
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -287,6 +288,11 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 		fetchWg.Add(1)
 		go func(id int) {
 			defer fetchWg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					applog.Errorf("crawler", "panic in fetch worker %d: %v\n%s", id, r, debug.Stack())
+				}
+			}()
 			e.fetchWorker(id, fetchCh, parseCh)
 		}(i)
 	}
@@ -297,6 +303,11 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 		parseWg.Add(1)
 		go func(id int) {
 			defer parseWg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					applog.Errorf("crawler", "panic in parse worker %d: %v\n%s", id, r, debug.Stack())
+				}
+			}()
 			e.parseWorker(id, parseCh)
 		}(i)
 	}
@@ -306,6 +317,11 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 	retryWg.Add(1)
 	go func() {
 		defer retryWg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				applog.Errorf("crawler", "panic in retry dispatcher: %v\n%s", r, debug.Stack())
+			}
+		}()
 		e.retryDispatcher(retryCtx, fetchCh)
 	}()
 
@@ -320,6 +336,11 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 			extWg.Add(1)
 			go func() {
 				defer extWg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						applog.Errorf("crawler", "panic in external check worker: %v\n%s", r, debug.Stack())
+					}
+				}()
 				e.externalCheckWorker()
 			}()
 		}
@@ -333,6 +354,11 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 			renderWg.Add(1)
 			go func(id int) {
 				defer renderWg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						applog.Errorf("crawler", "panic in render worker %d: %v\n%s", id, r, debug.Stack())
+					}
+				}()
 				e.renderWorker(id, e.renderCh)
 			}(i)
 		}
@@ -350,6 +376,11 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 			resWg.Add(1)
 			go func() {
 				defer resWg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						applog.Errorf("crawler", "panic in resource check worker: %v\n%s", r, debug.Stack())
+					}
+				}()
 				e.resourceCheckWorker()
 			}()
 		}

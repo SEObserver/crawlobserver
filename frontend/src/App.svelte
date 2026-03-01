@@ -1,12 +1,7 @@
 <script>
-  // TODO: Refactor monolithic components into smaller sub-components:
-  //   - ComparePage (542 lines) → ComparePagesTab, CompareLinksTab
-  //   - GSCTab (538 lines) → GSCOverview, GSCQueries, GSCPages, etc.
-  //   - ProvidersTab (498 lines) → ProviderCard, ProviderDetail
-  //   - Sidebar (479 lines) → ProjectList, SessionsList, ProjectSearch
-  //   - PageRankTab (469 lines) → PageRankTop, PageRankDirectory, PageRankDistribution
-  //   - SessionDetailPage (437 lines) → extract tab state + data loading
-  //   - Extract shared patterns: useAsyncData, usePagination utilities
+  // TODO: Continue component decomposition:
+  //   - GSCTab → extract overview chart + countries/devices into sub-components
+  //   - ProvidersTab → extract overview chart + settings into sub-components
   //   - Consider a lightweight store to reduce prop drilling from App.svelte
 
   // TODO: Increase test coverage (frontend + backend):

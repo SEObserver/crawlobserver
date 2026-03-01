@@ -1,6 +1,5 @@
 # Binaries
 crawlobserver
-seocrawler
 /cmd/crawlobserver/crawlobserver
 *.exe
 *.dll
