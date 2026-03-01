@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/applog"
@@ -200,6 +201,9 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 	if err := row.Scan(&stats.TotalPages, &stats.AvgFetchMs, &stats.ErrorCount); err != nil {
 		return nil, fmt.Errorf("querying page stats: %w", err)
 	}
+	if math.IsNaN(stats.AvgFetchMs) {
+		stats.AvgFetchMs = 0
+	}
 
 	// Link stats
 	row = s.conn.QueryRow(ctx, `
@@ -293,6 +297,9 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 	if err := jsRow.Scan(&stats.JSRenderedPages, &stats.JSChangedTitleCount,
 		&stats.JSChangedH1Count, &stats.JSChangedContentCount, &stats.AvgJSRenderMs); err != nil {
 		applog.Warnf("storage", "querying JS render stats: %v", err)
+	}
+	if math.IsNaN(stats.AvgJSRenderMs) {
+		stats.AvgJSRenderMs = 0
 	}
 
 	return stats, nil
