@@ -132,7 +132,7 @@
 </div>
 
 <!-- Create Project -->
-<div class="card">
+<div class="card mb-md">
   <div class="form-grid">
     <div class="form-group form-group-full">
       <label for="new-project">{t('api.newProject')}</label>
@@ -197,7 +197,7 @@
 {/if}
 
 <!-- Create API Key -->
-<div class="card">
+<div class="card mb-md">
   <div class="form-grid">
     <div class="form-group">
       <label for="key-name">{t('api.keyName')}</label>
