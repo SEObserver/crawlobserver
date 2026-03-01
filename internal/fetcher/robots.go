@@ -29,18 +29,19 @@ type RobotsCache struct {
 
 // NewRobotsCache creates a new RobotsCache.
 func NewRobotsCache(userAgent string, timeout time.Duration, allowPrivateIPs bool, tlsProfile TLSProfile) *RobotsCache {
-	transport := &http.Transport{}
+	transport := &http.Transport{
+		DialContext: SafeDialContext(allowPrivateIPs),
+	}
+	var rt http.RoundTripper = transport
 	if tlsProfile != "" {
-		transport.DialTLSContext = utlsDialTLSContext(tlsProfile, SafeDialContext(allowPrivateIPs))
-	} else {
-		transport.DialContext = SafeDialContext(allowPrivateIPs)
+		rt = utlsTransport(tlsProfile, SafeDialContext(allowPrivateIPs), transport)
 	}
 	return &RobotsCache{
 		cache:     make(map[string]*RobotsCacheEntry),
 		userAgent: userAgent,
 		client: &http.Client{
 			Timeout:   timeout,
-			Transport: transport,
+			Transport: rt,
 		},
 	}
 }

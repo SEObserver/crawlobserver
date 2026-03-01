@@ -43,16 +43,17 @@ func New(userAgent string, timeout time.Duration, maxBodySize int64, allowPrivat
 		MaxIdleConnsPerHost:    2,
 		MaxResponseHeaderBytes: 1 << 20, // 1MB
 		IdleConnTimeout:        90 * time.Second,
+		DialContext:            SafeDialContext(allowPrivateIPs),
 	}
+
+	var rt http.RoundTripper = transport
 	if tlsProfile != "" {
-		transport.DialTLSContext = utlsDialTLSContext(tlsProfile, SafeDialContext(allowPrivateIPs))
-	} else {
-		transport.DialContext = SafeDialContext(allowPrivateIPs)
+		rt = utlsTransport(tlsProfile, SafeDialContext(allowPrivateIPs), transport)
 	}
 
 	f.client = &http.Client{
 		Timeout:   timeout,
-		Transport: transport,
+		Transport: rt,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return fmt.Errorf("stopped after 10 redirects")
