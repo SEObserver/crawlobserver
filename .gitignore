@@ -27,6 +27,9 @@ Thumbs.db
 config.yaml
 !config.example.yaml
 
+# Environment files
+.env*
+
 # Vendor (optional)
 /vendor/
 
