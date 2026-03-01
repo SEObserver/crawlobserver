@@ -51,10 +51,12 @@ export const TAB_ICONS = {
     '<line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
   pagerank:
     '<circle cx="11" cy="11" r="2.5" fill="currentColor" stroke="none"/><circle cx="13" cy="4" r="1.5" fill="currentColor" stroke="none"/><circle cx="20" cy="10" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="17" r="1.5" fill="currentColor" stroke="none"/><circle cx="5" cy="17" r="1.5" fill="currentColor" stroke="none"/><path d="M11 11l2-7M11 11l9-1M11 11l5 6M11 11l-6 6M20 10l-4 7M20 10l-7-6"/>',
-  directives: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  directives:
+    '<path d="M4 4h16v2H4z"/><path d="M4 10h16v2H4z"/><path d="M4 16h10v2H4z"/><circle cx="19" cy="17" r="3"/><path d="M19 15.5v1.5l1 1"/>',
   tests:
     '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
-  authority: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4m0 4h.01"/>',
+  authority:
+    '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
   duplicates:
     '<rect x="4" y="4" width="11" height="14" rx="2"/><rect x="9" y="6" width="11" height="14" rx="2"/>',
 };
@@ -62,13 +64,13 @@ export const TAB_ICONS = {
 export function getTabs() {
   return [
     { id: 'reports', label: t('tabs.reports'), icon: TAB_ICONS.reports },
-    { id: 'pages', label: t('tabs.pages'), icon: TAB_ICONS.pages },
-    { id: 'links', label: t('tabs.links'), icon: TAB_ICONS.links },
-    { id: 'resources', label: t('tabs.resources'), icon: TAB_ICONS.resources },
-    { id: 'pagerank', label: t('tabs.pagerank'), icon: TAB_ICONS.pagerank },
     { id: 'directives', label: t('tabs.directives'), icon: TAB_ICONS.directives },
+    { id: 'pages', label: t('tabs.pages'), icon: TAB_ICONS.pages },
     { id: 'duplicates', label: t('tabs.nearDuplicates'), icon: TAB_ICONS.duplicates },
-    { id: 'authority', label: t('tabs.authority'), icon: TAB_ICONS.authority },
+    { id: 'resources', label: t('tabs.resources'), icon: TAB_ICONS.resources },
+    { id: 'links', label: t('tabs.links'), icon: TAB_ICONS.links },
+    { id: 'pagerank', label: t('tabs.pagerank'), icon: TAB_ICONS.pagerank },
+    { id: 'authority', label: t('tabs.authority'), icon: TAB_ICONS.authority, premium: true },
     { id: 'tests', label: t('tabs.tests'), icon: TAB_ICONS.tests },
   ];
 }

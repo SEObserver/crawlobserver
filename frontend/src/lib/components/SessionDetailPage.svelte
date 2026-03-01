@@ -127,7 +127,12 @@
 
   <div class="tab-bar">
     {#each getTabs() as tb}
-      <button class="tab" class:tab-active={tab === tb.id} onclick={() => switchTab(tb.id)}>
+      <button
+        class="tab"
+        class:tab-active={tab === tb.id}
+        class:tab-premium={tb.premium}
+        onclick={() => switchTab(tb.id)}
+      >
         <svg
           class="tab-icon"
           viewBox="0 0 24 24"
@@ -237,5 +242,23 @@
     border-top-left-radius: 0;
     border-top-right-radius: 0;
     border-top: none;
+  }
+  .tab-premium {
+    color: #b8960c;
+  }
+  .tab-premium .tab-icon {
+    stroke: #c9a227;
+    opacity: 0.8;
+  }
+  .tab-premium:hover {
+    color: #a0820a;
+  }
+  .tab-premium.tab-active {
+    color: #b8960c;
+    border-bottom-color: #c9a227;
+  }
+  .tab-premium.tab-active .tab-icon {
+    stroke: #c9a227;
+    opacity: 1;
   }
 </style>
