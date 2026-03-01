@@ -16,7 +16,15 @@ const (
 	defaultExternalWorkers = 3
 	defaultResourceWorkers = 3
 	maxLastErrors          = 1000
+	defaultMaxPages        = 100000
 )
+
+// queuedCrawl holds a crawl waiting for a semaphore slot.
+type queuedCrawl struct {
+	sessionID string
+	engine    *Engine
+	seeds     []string
+}
 
 // Manager manages running crawl engines.
 type Manager struct {
@@ -25,15 +33,26 @@ type Manager struct {
 	lastErrors map[string]string  // sessionID -> error message (persists after engine cleanup)
 	cfg        *config.Config
 	store      *storage.Store
+
+	sem       chan struct{}    // semaphore limiting concurrent sessions
+	queueMu   sync.Mutex
+	queue      []queuedCrawl   // FIFO of crawls waiting for a slot
+	queuedSet  map[string]bool // sessionID -> true for fast lookup
 }
 
 // NewManager creates a new crawl manager.
 func NewManager(cfg *config.Config, store *storage.Store) *Manager {
+	maxSessions := cfg.Crawler.MaxConcurrentSessions
+	if maxSessions <= 0 {
+		maxSessions = 20
+	}
 	return &Manager{
 		engines:    make(map[string]*Engine),
 		lastErrors: make(map[string]string),
 		cfg:        cfg,
 		store:      store,
+		sem:        make(chan struct{}, maxSessions),
+		queuedSet:  make(map[string]bool),
 	}
 }
 
@@ -69,6 +88,8 @@ type CrawlRequest struct {
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
+// If all semaphore slots are taken, the crawl is queued and starts automatically
+// when a slot becomes available.
 func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	if len(req.Seeds) == 0 {
 		return "", fmt.Errorf("at least one seed URL is required")
@@ -95,6 +116,21 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	if req.CrawlScope != "" {
 		crawlerCfg.CrawlScope = req.CrawlScope
 	}
+
+	// Guardrails: cap workers to MaxWorkers
+	maxWorkers := m.cfg.Crawler.MaxWorkers
+	if maxWorkers <= 0 {
+		maxWorkers = 100
+	}
+	if crawlerCfg.Workers > maxWorkers {
+		crawlerCfg.Workers = maxWorkers
+	}
+
+	// Guardrails: default max_pages to avoid infinite crawl
+	if crawlerCfg.MaxPages <= 0 {
+		crawlerCfg.MaxPages = defaultMaxPages
+	}
+
 	cfg.Crawler = crawlerCfg
 
 	if req.UserAgent != "" {
@@ -139,18 +175,38 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	// JS rendering
 	engine.followJSLinks = req.FollowJSLinks
 
-	m.mu.Lock()
-	m.engines[sessionID] = engine
-	m.mu.Unlock()
-
-	// Run in background
-	go m.runEngine(sessionID, engine, req.Seeds)
+	// Try to acquire a semaphore slot (non-blocking)
+	select {
+	case m.sem <- struct{}{}:
+		// Got a slot — start immediately
+		m.mu.Lock()
+		m.engines[sessionID] = engine
+		m.mu.Unlock()
+		go m.runEngine(sessionID, engine, req.Seeds)
+	default:
+		// All slots taken — enqueue
+		m.enqueue(sessionID, engine, req.Seeds)
+	}
 
 	return sessionID, nil
 }
 
-// StopCrawl stops a running crawl session.
+// StopCrawl stops a running crawl session or removes it from the queue.
 func (m *Manager) StopCrawl(sessionID string) error {
+	// Check if queued first
+	if m.dequeue(sessionID) {
+		applog.Infof("crawler", "Removed queued session %s", sessionID)
+		// Mark as stopped in ClickHouse
+		ctx := context.Background()
+		sess, err := m.store.GetSession(ctx, sessionID)
+		if err == nil {
+			sess.Status = "stopped"
+			sess.FinishedAt = time.Now()
+			_ = m.store.InsertSession(ctx, sess)
+		}
+		return nil
+	}
+
 	m.mu.RLock()
 	engine, ok := m.engines[sessionID]
 	m.mu.RUnlock()
@@ -277,11 +333,16 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 	// Pre-seed dedup with already crawled URLs
 	engine.PreSeedDedup(crawled)
 
-	m.mu.Lock()
-	m.engines[sessionID] = engine
-	m.mu.Unlock()
-
-	go m.runEngine(sessionID, engine, uncrawled)
+	// Try to acquire a semaphore slot (non-blocking)
+	select {
+	case m.sem <- struct{}{}:
+		m.mu.Lock()
+		m.engines[sessionID] = engine
+		m.mu.Unlock()
+		go m.runEngine(sessionID, engine, uncrawled)
+	default:
+		m.enqueue(sessionID, engine, uncrawled)
+	}
 
 	return sessionID, nil
 }
@@ -367,11 +428,16 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 	engine.session.ProjectID = originalSession.ProjectID
 	engine.PreSeedDedup(crawled)
 
-	m.mu.Lock()
-	m.engines[sessionID] = engine
-	m.mu.Unlock()
-
-	go m.runEngine(sessionID, engine, failedURLs)
+	// Try to acquire a semaphore slot (non-blocking)
+	select {
+	case m.sem <- struct{}{}:
+		m.mu.Lock()
+		m.engines[sessionID] = engine
+		m.mu.Unlock()
+		go m.runEngine(sessionID, engine, failedURLs)
+	default:
+		m.enqueue(sessionID, engine, failedURLs)
+	}
 
 	return deleted, nil
 }
@@ -397,7 +463,25 @@ func (m *Manager) markSessionCrashed(sessionID string, engine *Engine, reason st
 
 // Shutdown gracefully stops all running engines within the given timeout.
 // Engines still running after the timeout are marked as "crashed".
+// Queued sessions are marked as "stopped".
 func (m *Manager) Shutdown(timeout time.Duration) {
+	// Drain the queue first
+	m.queueMu.Lock()
+	queued := m.queue
+	m.queue = nil
+	m.queuedSet = make(map[string]bool)
+	m.queueMu.Unlock()
+	for _, qc := range queued {
+		ctx := context.Background()
+		sess, err := m.store.GetSession(ctx, qc.sessionID)
+		if err == nil {
+			sess.Status = "stopped"
+			sess.FinishedAt = time.Now()
+			_ = m.store.InsertSession(ctx, sess)
+		}
+		applog.Infof("crawler", "Shutdown: queued session %s marked stopped", qc.sessionID)
+	}
+
 	m.mu.RLock()
 	snapshot := make(map[string]*Engine, len(m.engines))
 	for id, e := range m.engines {
@@ -460,12 +544,100 @@ func (m *Manager) RecoverOrphanedSessions(ctx context.Context) {
 				continue
 			}
 			applog.Warnf("crawler", "Recovered orphaned session %s (was running, now crashed)", sess.ID)
+		} else if sess.Status == "queued" {
+			sess.Status = "stopped"
+			sess.FinishedAt = time.Now()
+			if err := m.store.InsertSession(ctx, &sess); err != nil {
+				applog.Errorf("crawler", "RecoverOrphanedSessions: could not update session %s: %v", sess.ID, err)
+				continue
+			}
+			applog.Warnf("crawler", "Recovered orphaned session %s (was queued, now stopped)", sess.ID)
 		}
 	}
 }
 
+// enqueue adds a crawl to the FIFO queue and persists a "queued" session in ClickHouse.
+func (m *Manager) enqueue(sessionID string, engine *Engine, seeds []string) {
+	m.queueMu.Lock()
+	m.queue = append(m.queue, queuedCrawl{sessionID: sessionID, engine: engine, seeds: seeds})
+	m.queuedSet[sessionID] = true
+	m.queueMu.Unlock()
+
+	// Persist queued status
+	engine.session.Status = "queued"
+	if err := m.store.InsertSession(context.Background(), engine.session.ToStorageRow()); err != nil {
+		applog.Errorf("crawler", "enqueue: could not persist queued session %s: %v", sessionID, err)
+	}
+	applog.Infof("crawler", "Session %s queued (all slots busy)", sessionID)
+}
+
+// dequeue removes a session from the queue. Returns true if it was found and removed.
+func (m *Manager) dequeue(sessionID string) bool {
+	m.queueMu.Lock()
+	defer m.queueMu.Unlock()
+	if !m.queuedSet[sessionID] {
+		return false
+	}
+	for i, qc := range m.queue {
+		if qc.sessionID == sessionID {
+			m.queue = append(m.queue[:i], m.queue[i+1:]...)
+			delete(m.queuedSet, sessionID)
+			return true
+		}
+	}
+	delete(m.queuedSet, sessionID)
+	return false
+}
+
+// promoteNext pops the next queued crawl and starts it.
+// Must be called after releasing a semaphore slot.
+func (m *Manager) promoteNext() {
+	m.queueMu.Lock()
+	if len(m.queue) == 0 {
+		m.queueMu.Unlock()
+		return
+	}
+	next := m.queue[0]
+	m.queue = m.queue[1:]
+	delete(m.queuedSet, next.sessionID)
+	m.queueMu.Unlock()
+
+	// Acquire the semaphore slot (should succeed immediately since caller just released one)
+	m.sem <- struct{}{}
+
+	m.mu.Lock()
+	m.engines[next.sessionID] = next.engine
+	m.mu.Unlock()
+
+	applog.Infof("crawler", "Promoting queued session %s", next.sessionID)
+	go m.runEngine(next.sessionID, next.engine, next.seeds)
+}
+
+// IsQueued returns true if the session is waiting in the queue.
+func (m *Manager) IsQueued(sessionID string) bool {
+	m.queueMu.Lock()
+	defer m.queueMu.Unlock()
+	return m.queuedSet[sessionID]
+}
+
+// QueuedSessions returns the IDs of sessions waiting in the queue.
+func (m *Manager) QueuedSessions() []string {
+	m.queueMu.Lock()
+	defer m.queueMu.Unlock()
+	ids := make([]string, 0, len(m.queue))
+	for _, qc := range m.queue {
+		ids = append(ids, qc.sessionID)
+	}
+	return ids
+}
+
 // runEngine runs the crawl engine and records the outcome.
 func (m *Manager) runEngine(sessionID string, engine *Engine, seeds []string) {
+	defer func() {
+		// Release semaphore slot and promote next queued crawl
+		<-m.sem
+		m.promoteNext()
+	}()
 	defer func() {
 		if r := recover(); r != nil {
 			applog.Errorf("crawler", "panic in crawl engine %s: %v\n%s", sessionID, r, debug.Stack())

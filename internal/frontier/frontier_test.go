@@ -6,7 +6,7 @@ import (
 )
 
 func TestFrontierAddAndNext(t *testing.T) {
-	f := New(0) // no delay
+	f := New(0, 0) // no delay
 
 	added := f.Add(CrawlURL{URL: "https://example.com/a", Priority: 2, Depth: 0})
 	if !added {
@@ -43,7 +43,7 @@ func TestFrontierAddAndNext(t *testing.T) {
 }
 
 func TestFrontierDedup(t *testing.T) {
-	f := New(0)
+	f := New(0, 0)
 
 	if !f.Add(CrawlURL{URL: "https://example.com/page"}) {
 		t.Error("first add should succeed")
@@ -60,7 +60,7 @@ func TestFrontierDedup(t *testing.T) {
 }
 
 func TestFrontierPerHostDelay(t *testing.T) {
-	f := New(100 * time.Millisecond)
+	f := New(100*time.Millisecond, 0)
 
 	f.Add(CrawlURL{URL: "https://example.com/a", Priority: 1})
 	f.Add(CrawlURL{URL: "https://example.com/b", Priority: 2})
@@ -95,7 +95,7 @@ func TestFrontierPerHostDelay(t *testing.T) {
 }
 
 func TestFrontierClose(t *testing.T) {
-	f := New(0)
+	f := New(0, 0)
 	f.Add(CrawlURL{URL: "https://example.com/a"})
 	f.Close()
 
@@ -107,6 +107,32 @@ func TestFrontierClose(t *testing.T) {
 	next := f.Next()
 	if next == nil {
 		t.Error("should still get existing items after close")
+	}
+}
+
+func TestFrontierMaxSize(t *testing.T) {
+	f := New(0, 2) // max 2 items in queue
+
+	if !f.Add(CrawlURL{URL: "https://example.com/a", Priority: 1}) {
+		t.Error("first add should succeed")
+	}
+	if !f.Add(CrawlURL{URL: "https://example.com/b", Priority: 2}) {
+		t.Error("second add should succeed")
+	}
+	if f.Add(CrawlURL{URL: "https://example.com/c", Priority: 3}) {
+		t.Error("third add should fail (maxSize=2)")
+	}
+	if f.Len() != 2 {
+		t.Errorf("expected Len() = 2, got %d", f.Len())
+	}
+
+	// After dequeuing one, should be able to add again
+	next := f.Next()
+	if next == nil {
+		t.Fatal("expected a URL")
+	}
+	if !f.Add(CrawlURL{URL: "https://example.com/d", Priority: 4}) {
+		t.Error("add after dequeue should succeed")
 	}
 }
 

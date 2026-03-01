@@ -61,7 +61,9 @@
         <div class="session-info">
           <div class="session-seed">{s.SeedURLs?.[0] || 'Unknown'}</div>
           <div class="session-meta">
-            {#if s.is_running}
+            {#if s.is_queued}
+              <span class="badge badge-queued">{t('session.queued')}</span>
+            {:else if s.is_running}
               <span class="badge badge-info">
                 {t('common.running')}
                 {#if liveProgress[s.ID]}
@@ -83,7 +85,7 @@
           </div>
         </div>
         <div class="session-actions" onclick={(e) => e.stopPropagation()}>
-          {#if s.is_running}
+          {#if s.is_running || s.is_queued}
             <button class="btn btn-sm btn-danger" onclick={() => onstop?.(s.ID)}>{t('common.stop')}</button>
           {:else}
             <button class="btn btn-sm" onclick={() => onresume?.(s.ID)}>{t('sessions.resume')}</button>
@@ -144,6 +146,10 @@
     opacity: 0;
     width: 0;
     height: 0;
+  }
+  .badge-queued {
+    background: #fef3c7;
+    color: #92400e;
   }
   .badge-project {
     background: var(--accent-light);

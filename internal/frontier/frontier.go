@@ -27,17 +27,19 @@ type Frontier struct {
 	hostCount map[string]int // number of URLs per host in the queue
 	minDepth  map[uint64]int // minimum depth seen per URL (keyed by hash)
 	bestFound map[uint64]string // best foundOn per URL (the one with min depth)
+	maxSize   int  // max queue size; 0 = unlimited
 	closed    bool
 }
 
-// New creates a new Frontier.
-func New(delay time.Duration) *Frontier {
+// New creates a new Frontier. maxSize limits the priority queue size (0 = unlimited).
+func New(delay time.Duration, maxSize int) *Frontier {
 	f := &Frontier{
 		urldb:     NewURLDb(),
 		hostQueue: NewHostQueue(delay),
 		hostCount: make(map[string]int),
 		minDepth:  make(map[uint64]int),
 		bestFound: make(map[uint64]string),
+		maxSize:   maxSize,
 	}
 	heap.Init(&f.pq)
 	return f
@@ -51,6 +53,11 @@ func (f *Frontier) Add(crawlURL CrawlURL) bool {
 	defer f.mu.Unlock()
 
 	if f.closed {
+		return false
+	}
+
+	// Reject if frontier is at capacity
+	if f.maxSize > 0 && f.pq.Len() >= f.maxSize {
 		return false
 	}
 

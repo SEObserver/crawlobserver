@@ -34,6 +34,9 @@ type CrawlerConfig struct {
 	CrawlScope      string        `mapstructure:"crawl_scope"`      // "host" (default) or "domain" (eTLD+1)
 	AllowPrivateIPs bool          `mapstructure:"allow_private_ips"` // allow crawling private/reserved IPs (default: false)
 	TLSProfile      string        `mapstructure:"tls_profile"`      // "", "chrome", "firefox", "edge"
+	MaxConcurrentSessions int    `mapstructure:"max_concurrent_sessions"` // 0 = 20
+	MaxFrontierSize       int    `mapstructure:"max_frontier_size"`       // 0 = 5_000_000
+	MaxWorkers            int    `mapstructure:"max_workers"`             // 0 = 100
 	Retry           RetryConfig   `mapstructure:"retry"`
 	JSRender        JSRenderConfig `mapstructure:"js_render"`
 }
@@ -125,6 +128,9 @@ func SetDefaults() {
 	viper.SetDefault("crawler.store_html", false)
 	viper.SetDefault("crawler.crawl_scope", "host")
 	viper.SetDefault("crawler.allow_private_ips", false)
+	viper.SetDefault("crawler.max_concurrent_sessions", 20)
+	viper.SetDefault("crawler.max_frontier_size", 5000000)
+	viper.SetDefault("crawler.max_workers", 100)
 	viper.SetDefault("crawler.retry.max_retries", 3)
 	viper.SetDefault("crawler.retry.base_delay", "2s")
 	viper.SetDefault("crawler.retry.max_delay", "60s")
@@ -243,6 +249,15 @@ func validate(cfg *Config) error {
 		if cfg.ClickHouse.Port <= 0 || cfg.ClickHouse.Port > 65535 {
 			return fmt.Errorf("clickhouse.port must be 1-65535")
 		}
+	}
+	if cfg.Crawler.MaxConcurrentSessions < 0 {
+		return fmt.Errorf("crawler.max_concurrent_sessions must be >= 0")
+	}
+	if cfg.Crawler.MaxFrontierSize < 0 {
+		return fmt.Errorf("crawler.max_frontier_size must be >= 0")
+	}
+	if cfg.Crawler.MaxWorkers < 0 {
+		return fmt.Errorf("crawler.max_workers must be >= 0")
 	}
 	if cfg.Crawler.Retry.MaxRetries < 0 {
 		return fmt.Errorf("crawler.retry.max_retries must be >= 0")
