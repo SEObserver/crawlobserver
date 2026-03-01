@@ -99,48 +99,38 @@
   loadRobotsHosts();
 </script>
 
-<div class="robots-layout">
-  <div class="robots-hosts">
+<div class="split-layout">
+  <div class="split-list">
     {#if robotsLoading && robotsHosts.length === 0}
       <p class="robots-empty-msg text-muted">{t('common.loading')}</p>
     {:else if robotsHosts.length === 0}
       <p class="robots-empty-msg text-muted">{t('robots.noData')}</p>
     {:else}
-      <table>
-        <thead>
-          <tr
-            ><th>{t('robots.host')}</th><th>{t('common.status')}</th><th>{t('robots.fetched')}</th
-            ></tr
-          >
-        </thead>
-        <tbody>
-          {#each robotsHosts as h}
-            <tr
-              class="robots-host-row"
-              class:robots-host-active={robotsSelectedHost === h.Host}
-              role="button"
-              tabindex="0"
-              onclick={() => selectRobotsHost(h.Host)}
-              onkeydown={a11yKeydown(() => selectRobotsHost(h.Host))}
+      {#each robotsHosts as h}
+        <div
+          class="host-item"
+          class:host-item-active={robotsSelectedHost === h.Host}
+          role="button"
+          tabindex="0"
+          onclick={() => selectRobotsHost(h.Host)}
+          onkeydown={a11yKeydown(() => selectRobotsHost(h.Host))}
+        >
+          <div class="host-item-top">
+            <span class="host-item-name">{h.Host}</span>
+            <span
+              class="badge {h.StatusCode === 200
+                ? 'badge-success'
+                : h.StatusCode >= 400
+                  ? 'badge-error'
+                  : 'badge-warning'}">{h.StatusCode}</span
             >
-              <td class="font-medium">{h.Host}</td>
-              <td
-                ><span
-                  class="badge {h.StatusCode === 200
-                    ? 'badge-success'
-                    : h.StatusCode >= 400
-                      ? 'badge-error'
-                      : 'badge-warning'}">{h.StatusCode}</span
-                ></td
-              >
-              <td class="text-muted text-xs">{new Date(h.FetchedAt).toLocaleString()}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+          </div>
+          <div class="host-item-meta">{new Date(h.FetchedAt).toLocaleString()}</div>
+        </div>
+      {/each}
     {/if}
   </div>
-  <div class="robots-detail">
+  <div class="split-detail">
     {#if robotsSelectedHost}
       <h3 class="robots-detail-title text-secondary font-semibold">
         robots.txt &mdash; {robotsSelectedHost}
@@ -348,24 +338,37 @@
 </div>
 
 <style>
-  .robots-layout {
-    display: grid;
-    grid-template-columns: 340px 1fr;
-    min-height: 400px;
+  .host-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-light);
+    transition: background 0.15s;
   }
-  .robots-hosts {
-    border-right: 1px solid var(--border);
-    overflow-y: auto;
-    max-height: 70vh;
+  .host-item:hover {
+    background: var(--bg-hover);
   }
-  .robots-host-active td {
+  .host-item-active {
     background: var(--accent-light);
+  }
+  .host-item-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .host-item-name {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .host-item-active .host-item-name {
     color: var(--accent);
   }
-  .robots-detail {
-    padding: 20px;
-    overflow-y: auto;
-    max-height: 70vh;
+  .host-item-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
   }
   .robots-content-pre {
     background: var(--bg);
@@ -500,9 +503,6 @@
   }
   .robots-empty-msg {
     padding: 20px;
-  }
-  .robots-host-row {
-    cursor: pointer;
   }
   .robots-detail-title {
     font-size: 14px;

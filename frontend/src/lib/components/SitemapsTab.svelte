@@ -80,8 +80,8 @@
   loadSitemaps();
 </script>
 
-<div class="robots-layout">
-  <div class="robots-hosts">
+<div class="split-layout">
+  <div class="split-list">
     {#if sitemapsLoading && sitemaps.length === 0}
       <p class="panel-message text-muted">{t('common.loading')}</p>
     {:else if sitemaps.length === 0}
@@ -98,7 +98,7 @@
         <tbody>
           {#each sitemaps as s}
             <tr
-              class:robots-host-active={selectedSitemap === s.URL}
+              class:split-item-active={selectedSitemap === s.URL}
               class="clickable-row"
               role="button"
               tabindex="0"
@@ -133,7 +133,7 @@
       </table>
     {/if}
   </div>
-  <div class="robots-detail">
+  <div class="split-detail">
     {#if selectedSitemap}
       <h3 class="sitemap-detail-title font-semibold text-secondary word-break">
         {selectedSitemap}
