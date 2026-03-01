@@ -17,6 +17,7 @@
   let dropdownEl = $state(null);
   let inputEl = $state(null);
   let flipUp = $state(false);
+  let dropStyle = $state('');
   let asyncOptions = $state([]);
   let asyncLoading = $state(false);
   let debounceTimer = null;
@@ -63,6 +64,11 @@
     const spaceBelow = window.innerHeight - rect.bottom;
     const dropH = Math.min(dropdownEl.scrollHeight, 280);
     flipUp = spaceBelow < dropH + 8 && rect.top > dropH + 8;
+    if (flipUp) {
+      dropStyle = `position:fixed;left:${rect.left}px;bottom:${window.innerHeight - rect.top + 4}px;width:${rect.width}px;`;
+    } else {
+      dropStyle = `position:fixed;left:${rect.left}px;top:${rect.bottom + 4}px;width:${rect.width}px;`;
+    }
   }
 
   function selectOption(opt) {
@@ -139,7 +145,13 @@
   $effect(() => {
     if (open) {
       document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      window.addEventListener('scroll', positionDropdown, true);
+      window.addEventListener('resize', positionDropdown);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        window.removeEventListener('scroll', positionDropdown, true);
+        window.removeEventListener('resize', positionDropdown);
+      };
     }
   });
 </script>
@@ -172,7 +184,7 @@
   </button>
 
   {#if open}
-    <div bind:this={dropdownEl} class="ss-dropdown" class:ss-flip={flipUp} role="listbox">
+    <div bind:this={dropdownEl} class="ss-dropdown" class:ss-flip={flipUp} style={dropStyle} role="listbox">
       <div class="ss-search-wrap">
         <input
           bind:this={inputEl}
@@ -284,24 +296,12 @@
   }
 
   .ss-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    margin-top: 4px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-md);
-    z-index: 200;
+    z-index: 9999;
     overflow: hidden;
-  }
-
-  .ss-dropdown.ss-flip {
-    top: auto;
-    bottom: 100%;
-    margin-top: 0;
-    margin-bottom: 4px;
   }
 
   .ss-search-wrap {
