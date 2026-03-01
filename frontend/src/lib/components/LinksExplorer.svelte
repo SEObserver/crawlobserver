@@ -240,6 +240,6 @@
 
 <style>
   .links-explorer {
-    padding: 16px;
+    padding: 24px;
   }
 </style>

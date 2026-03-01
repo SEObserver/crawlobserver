@@ -38,6 +38,6 @@
 
 <style>
   .directives-tab {
-    padding: 16px;
+    padding: 24px;
   }
 </style>
