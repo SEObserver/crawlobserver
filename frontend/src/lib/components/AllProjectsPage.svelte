@@ -68,26 +68,18 @@
         <tr>
           <th>{t('common.name')}</th>
           <th class="col-created">{t('projects.created')}</th>
-          <th class="col-actions"></th>
         </tr>
       </thead>
       <tbody>
         {#each projects as proj}
-          <tr>
-            <td>
-              <a href={`/projects/${proj.id}`} onclick={(e) => { e.preventDefault(); onselectproject?.(proj); }}>
-                {proj.name}
-              </a>
-            </td>
+          <tr class="clickable-row" onclick={() => onselectproject?.(proj)}>
+            <td>{proj.name}</td>
             <td class="nowrap text-muted text-sm">
               {proj.created_at ? timeAgo(proj.created_at) : '-'}
             </td>
-            <td>
-              <button class="btn btn-sm" onclick={() => onselectproject?.(proj)}>{t('common.view')}</button>
-            </td>
           </tr>
         {:else}
-          <tr><td colspan="3" class="empty-message">{t('projects.noProjects')}</td></tr>
+          <tr><td colspan="2" class="empty-message">{t('projects.noProjects')}</td></tr>
         {/each}
       </tbody>
     </table>
@@ -144,10 +136,7 @@
   .col-created {
     width: 180px;
   }
-  .col-actions {
-    width: 100px;
-  }
-  .empty-message {
+.empty-message {
     text-align: center;
     padding: 24px;
     color: var(--text-muted);

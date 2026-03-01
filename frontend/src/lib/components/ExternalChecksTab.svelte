@@ -181,23 +181,21 @@
           <th>{t('extChecks.redirect')}</th>
           <th>{t('common.error')}</th>
           <th>{t('extChecks.timeMs')}</th>
-          <th>{t('extChecks.sources')}</th>
         </tr>
       </thead>
       <tbody>
         {#each checks as c}
-          <tr>
-            <td class="cell-url"><a href={c.url} target="_blank" rel="noopener">{c.url}</a></td>
+          <tr class="clickable-row" onclick={() => viewSources(c.url)}>
+            <td class="cell-url"><a href={c.url} target="_blank" rel="noopener" onclick={(e) => e.stopPropagation()}>{c.url}</a></td>
             <td><span class="badge {statusClass(c.status_code)}">{c.status_code || t('extChecks.deadLabel')}</span></td>
             <td>{c.content_type || '-'}</td>
             <td class="cell-url">{c.redirect_url || '-'}</td>
             <td class="cell-error" title={c.error}>{c.error ? c.error.substring(0, 60) : '-'}</td>
             <td class="num">{c.response_time_ms}</td>
-            <td><button class="link-btn" onclick={() => viewSources(c.url)} title={t('extChecks.viewSources')}>{t('common.view')}</button></td>
           </tr>
         {/each}
         {#if checks.length === 0}
-          <tr><td colspan="7" class="ext-empty">{t('extChecks.noChecksFound')}</td></tr>
+          <tr><td colspan="6" class="ext-empty">{t('extChecks.noChecksFound')}</td></tr>
         {/if}
       </tbody>
     </table>

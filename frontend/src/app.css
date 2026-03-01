@@ -307,6 +307,7 @@ th {
 }
 tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--bg) 50%, var(--bg-hover)); }
 tr:hover td { background: var(--bg-hover); }
+tr.clickable-row { cursor: pointer; }
 
 .table-wrap { overflow-x: auto; }
 

@@ -120,17 +120,12 @@
             <th>{t('common.status')}</th>
             <th>{t('common.pages')}</th>
             <th>{t('actionBar.started')}</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
           {#each projSessions as s}
-            <tr>
-              <td class="cell-url">
-                <a href={`/sessions/${s.ID}/overview`} onclick={(e) => { e.preventDefault(); onselectsession?.(s); }}>
-                  {s.SeedURLs?.[0] || s.ID}
-                </a>
-              </td>
+            <tr class="clickable-row" onclick={() => onselectsession?.(s)}>
+              <td class="cell-url">{s.SeedURLs?.[0] || s.ID}</td>
               <td>
                 {#if s.is_running}
                   <span class="badge badge-info">{t('common.running')}</span>
@@ -144,9 +139,6 @@
               </td>
               <td>{fmtN(s.PagesCrawled || 0)}</td>
               <td class="nowrap text-muted text-sm">{s.StartedAt ? timeAgo(s.StartedAt) : '-'}</td>
-              <td>
-                <button class="btn btn-sm" onclick={() => onselectsession?.(s)}>{t('common.view')}</button>
-              </td>
             </tr>
           {/each}
         </tbody>
