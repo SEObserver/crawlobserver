@@ -1,7 +1,6 @@
 <script>
   import { t } from '../i18n/index.svelte.js';
-  import { statusBadge, fmt, fmtSize, fmtN } from '../utils.js';
-  import { getTabs, TAB_SUB_VIEWS, TAB_DEFAULT_SUB_VIEW } from '../tabColumns.js';
+  import { getTabs, TAB_DEFAULT_SUB_VIEW } from '../tabColumns.js';
   import { pushURL } from '../router.js';
   import HtmlModal from './HtmlModal.svelte';
   import SessionActionBar from './SessionActionBar.svelte';
@@ -15,7 +14,7 @@
   import DirectivesTab from './DirectivesTab.svelte';
 
   let {
-    session, stats, liveProgress, sessionStorageMap,
+    session, stats, liveProgress,
     initialTab = 'reports', initialFilters = {}, initialOffset = 0,
     initialDetailUrl = '',
     initialSubView = null,
@@ -85,31 +84,6 @@
     ondelete={(id) => ondelete?.(id)} onrefresh={() => onrefresh?.()}
     oncompare={(id) => oncompare?.(id)} />
 
-  {#if stats}
-    {@const non200 = stats.status_codes ? Object.entries(stats.status_codes).filter(([k]) => k !== '200').reduce((a, [, v]) => a + v, 0) : stats.error_count}
-    {@const maxDepth = stats.depth_distribution ? Math.max(...Object.keys(stats.depth_distribution).map(Number)) : 0}
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-value">{fmtN(stats.total_pages)}</div><div class="stat-label">{t('common.pages')}</div></div>
-      <div class="stat-card"><div class="stat-value" style={non200 > 0 ? 'color: var(--error)' : ''}>{fmtN(non200)}</div><div class="stat-label">{t('session.non200')}</div></div>
-      <div class="stat-card"><div class="stat-value">{fmtN(stats.internal_links)}</div><div class="stat-label">{t('session.internalLinks')}</div></div>
-      <div class="stat-card"><div class="stat-value">{fmtN(stats.external_links)}</div><div class="stat-label">{t('session.externalLinks')}</div></div>
-      <div class="stat-card"><div class="stat-value">{maxDepth}</div><div class="stat-label">{t('session.maxDepth')}</div></div>
-      <div class="stat-card"><div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div><div class="stat-label">{t('session.avgResponse')}</div></div>
-    </div>
-    {#if stats.status_codes && Object.keys(stats.status_codes).length > 1}
-      <div class="stats-mini mt-sm">
-        {#each Object.entries(stats.status_codes).sort((a, b) => Number(a[0]) - Number(b[0])) as [code, count]}
-          <span class="stats-mini-item"><span class="badge {statusBadge(Number(code))}">{code}</span> {fmtN(count)}</span>
-        {/each}
-      </div>
-    {/if}
-    <div class="stats-secondary stats-secondary-gap">
-      {#if stats.pages_per_second > 0}<span>{stats.pages_per_second.toFixed(1)} pages/sec</span>{/if}
-      {#if stats.crawl_duration_sec > 0}<span>{stats.crawl_duration_sec < 60 ? stats.crawl_duration_sec.toFixed(0) + 's' : (stats.crawl_duration_sec / 60).toFixed(1) + 'min'}</span>{/if}
-      {#if sessionStorageMap[session.ID]}<span>{fmtSize(sessionStorageMap[session.ID])} {t('stats.storage')}</span>{/if}
-    </div>
-  {/if}
-
   <div class="tab-bar">
     {#each getTabs() as tb}
       <button class="tab" class:tab-active={tab === tb.id} onclick={() => switchTab(tb.id)}>
@@ -154,7 +128,8 @@
       <PageRankTab sessionId={session.ID} initialSubView={subView || 'top'}
         onnavigate={(url) => goToUrlDetail({preventDefault:()=>{}}, url)}
         onpushurl={(u) => pushURL(u)}
-        onerror={(msg) => onerror?.(msg)} />
+        onerror={(msg) => onerror?.(msg)}
+        onrefresh={() => onrefresh?.()} />
 
     {:else if tab === 'directives'}
       <DirectivesTab sessionId={session.ID} initialSubView={subView || 'robots'}
@@ -179,8 +154,5 @@
     border-top-left-radius: 0;
     border-top-right-radius: 0;
     border-top: none;
-  }
-  .stats-secondary-gap {
-    margin-top: 10px;
   }
 </style>

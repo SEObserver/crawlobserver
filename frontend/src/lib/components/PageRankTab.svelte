@@ -1,5 +1,5 @@
 <script>
-  import { getPageRankTop, getPageRankTreemap, getPageRankDistribution } from '../api.js';
+  import { getPageRankTop, getPageRankTreemap, getPageRankDistribution, computePageRank } from '../api.js';
   import { t } from '../i18n/index.svelte.js';
   import PageRankTopView from './PageRankTopView.svelte';
   import PageRankTreemap from './PageRankTreemap.svelte';
@@ -7,7 +7,7 @@
   import PageRankTableView from './PageRankTableView.svelte';
   import PageRankTooltip from './PageRankTooltip.svelte';
 
-  let { sessionId, initialSubView = 'top', onnavigate, onpushurl, onerror } = $props();
+  let { sessionId, initialSubView = 'top', onnavigate, onpushurl, onerror, onrefresh } = $props();
 
   let prSubView = $state(initialSubView);
   let prLoading = $state(false);
@@ -22,11 +22,16 @@
   let prTableOffset = $state(0);
   let prTableDir = $state('');
   let prTooltip = $state(null);
+  let hasData = $state(null); // null = unknown, true/false after first load
+  let computingPR = $state(false);
 
   async function loadPRSubView(view) {
     prLoading = true;
     try {
-      if (view === 'top') prTopData = await getPageRankTop(sessionId, prTopLimit, prTopOffset);
+      if (view === 'top') {
+        prTopData = await getPageRankTop(sessionId, prTopLimit, prTopOffset);
+        if (hasData === null) hasData = (prTopData?.total > 0);
+      }
       else if (view === 'directory') prTreemapData = await getPageRankTreemap(sessionId, prTreemapDepth, prTreemapMinPages);
       else if (view === 'distribution') prDistData = await getPageRankDistribution(sessionId, 20);
       else if (view === 'table') prTableData = await getPageRankTop(sessionId, 50, prTableOffset, prTableDir);
@@ -58,6 +63,17 @@
     loadPRSubView('table');
   }
 
+  async function handleComputePageRank() {
+    computingPR = true;
+    try {
+      await computePageRank(sessionId);
+      hasData = true;
+      loadPRSubView(prSubView);
+      onrefresh?.();
+    } catch (e) { onerror?.(e.message); }
+    finally { computingPR = false; }
+  }
+
   loadPRSubView(prSubView);
 </script>
 
@@ -71,6 +87,17 @@
 
   {#if prLoading}
     <p class="loading-msg">{t('common.loading')}</p>
+  {:else if hasData === false}
+    <div class="pr-empty-state">
+      <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="pr-empty-icon">
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+      </svg>
+      <p class="pr-empty-text">{t('pagerank.noData')}</p>
+      <button class="btn btn-primary" onclick={handleComputePageRank} disabled={computingPR}>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        {computingPR ? t('actionBar.computing') : t('actionBar.computePageRank')}
+      </button>
+    </div>
   {:else if prSubView === 'top'}
     <PageRankTopView data={prTopData} offset={prTopOffset} limit={prTopLimit}
       {onnavigate} ontooltip={(t) => prTooltip = t}
@@ -92,3 +119,23 @@
 </div>
 
 <PageRankTooltip tooltip={prTooltip} />
+
+<style>
+  .pr-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 64px 20px;
+    text-align: center;
+  }
+  .pr-empty-icon {
+    color: var(--text-muted);
+    opacity: 0.4;
+  }
+  .pr-empty-text {
+    color: var(--text-muted);
+    font-size: 15px;
+    margin: 0;
+  }
+</style>

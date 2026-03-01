@@ -1,5 +1,5 @@
 <script>
-  import { recomputeDepths, computePageRank, retryFailed, exportSession } from '../api.js';
+  import { recomputeDepths, retryFailed, exportSession } from '../api.js';
   import { fmtN, a11yKeydown } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
 
@@ -15,7 +15,6 @@
   }
 
   let recomputing = $state(false);
-  let computingPR = $state(false);
   let retryingFailed = $state(false);
   let retryingStatus = $state(null);
 
@@ -26,15 +25,6 @@
       onrefresh?.();
     } catch (e) { onerror?.(e.message); }
     finally { recomputing = false; }
-  }
-
-  async function handleComputePageRank() {
-    computingPR = true;
-    try {
-      await computePageRank(session.ID);
-      onrefresh?.();
-    } catch (e) { onerror?.(e.message); }
-    finally { computingPR = false; }
   }
 
   async function handleRetryFailed() {
@@ -102,9 +92,6 @@
     <button class="btn btn-sm" onclick={() => onresume?.(session.ID)}>{t('sessions.resume')}</button>
     <button class="btn btn-sm" onclick={handleRecomputeDepths} disabled={recomputing}>
       {recomputing ? t('actionBar.recomputing') : t('actionBar.recomputeDepths')}
-    </button>
-    <button class="btn btn-sm" onclick={handleComputePageRank} disabled={computingPR}>
-      {computingPR ? t('actionBar.computing') : t('actionBar.computePageRank')}
     </button>
     {#if stats?.status_codes?.[0] > 0}
       <button class="btn btn-sm" onclick={handleRetryFailed} disabled={retryingFailed} title={t('actionBar.retryFailed', { count: stats.status_codes[0] })}>

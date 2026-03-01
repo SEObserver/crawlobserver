@@ -191,6 +191,7 @@
 
   async function navigateTo(path, queryFilters = {}) {
     pushURL(path, queryFilters);
+    routeVersion++;
     await applyRoute();
   }
 
@@ -542,7 +543,7 @@
 
       {:else if currentView === 'session' && selectedSession}
         {#key selectedSession.ID + '-' + routeVersion}
-          <SessionDetailPage session={selectedSession} {stats} {liveProgress} {sessionStorageMap}
+          <SessionDetailPage session={selectedSession} {stats} {liveProgress}
             initialTab={routeTab} initialFilters={routeFilters} initialOffset={routeOffset}
             initialDetailUrl={routeDetailUrl}
             initialSubView={routeSubView}
