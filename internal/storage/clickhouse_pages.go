@@ -1120,6 +1120,7 @@ func (s *Store) NearDuplicates(ctx context.Context, sessionID string, threshold 
 		SELECT
 			a.url, b.url,
 			a.title, b.title,
+			a.canonical, b.canonical,
 			a.word_count, b.word_count,
 			1.0 - (bitCount(bitXor(a.content_hash, b.content_hash)) / 64.0) AS similarity
 		FROM crawlobserver.pages AS a
@@ -1143,7 +1144,7 @@ func (s *Store) NearDuplicates(ctx context.Context, sessionID string, threshold 
 	result := &NearDuplicatesResult{Total: total, Pairs: []NearDuplicatePair{}}
 	for rows.Next() {
 		var p NearDuplicatePair
-		if err := rows.Scan(&p.URLa, &p.URLb, &p.TitleA, &p.TitleB, &p.WordCountA, &p.WordCountB, &p.Similarity); err != nil {
+		if err := rows.Scan(&p.URLa, &p.URLb, &p.TitleA, &p.TitleB, &p.CanonicalA, &p.CanonicalB, &p.WordCountA, &p.WordCountB, &p.Similarity); err != nil {
 			return nil, fmt.Errorf("scanning near-duplicate: %w", err)
 		}
 		result.Pairs = append(result.Pairs, p)

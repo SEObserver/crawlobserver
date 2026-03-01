@@ -895,5 +895,16 @@
   "neardup.similarity": "Similarité",
   "neardup.noPairs": "Aucune paire quasi-dupliquée trouvée.",
   "neardup.threshold": "Seuil",
-  "neardup.pairs": "paires"
+  "neardup.pairs": "paires",
+  "neardup.actionNeeded": "Action requise",
+  "neardup.canonicalized": "Canonicalisé",
+  "neardup.filterAll": "Tout",
+  "neardup.filterAction": "Action requise",
+  "neardup.filterCanon": "Canonicalisé",
+  "neardup.canonical": "Canonical",
+  "neardup.summaryAction": "{count} paires à traiter",
+  "neardup.summaryCanon": "{count} gérées par canonical",
+  "neardup.noCanonical": "Pas de canonical",
+  "neardup.selfCanonical": "Self-canonical",
+  "neardup.crossCanonical": "Pointe vers l'autre"
 }

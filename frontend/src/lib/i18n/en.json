@@ -895,5 +895,16 @@
   "neardup.similarity": "Similarity",
   "neardup.noPairs": "No near-duplicate pairs found.",
   "neardup.threshold": "Threshold",
-  "neardup.pairs": "pairs"
+  "neardup.pairs": "pairs",
+  "neardup.actionNeeded": "Action needed",
+  "neardup.canonicalized": "Canonicalized",
+  "neardup.filterAll": "All",
+  "neardup.filterAction": "Action needed",
+  "neardup.filterCanon": "Canonicalized",
+  "neardup.canonical": "Canonical",
+  "neardup.summaryAction": "{count} pairs need action",
+  "neardup.summaryCanon": "{count} handled by canonical",
+  "neardup.noCanonical": "No canonical",
+  "neardup.selfCanonical": "Self-canonical",
+  "neardup.crossCanonical": "Points to other"
 }

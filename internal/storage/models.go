@@ -385,12 +385,14 @@ type PageResourceRef struct {
 
 // NearDuplicatePair represents two pages with near-identical content.
 type NearDuplicatePair struct {
-	URLa      string `json:"url_a"`
-	URLb      string `json:"url_b"`
-	TitleA    string `json:"title_a"`
-	TitleB    string `json:"title_b"`
-	WordCountA uint32 `json:"word_count_a"`
-	WordCountB uint32 `json:"word_count_b"`
+	URLa       string  `json:"url_a"`
+	URLb       string  `json:"url_b"`
+	TitleA     string  `json:"title_a"`
+	TitleB     string  `json:"title_b"`
+	CanonicalA string  `json:"canonical_a"`
+	CanonicalB string  `json:"canonical_b"`
+	WordCountA uint32  `json:"word_count_a"`
+	WordCountB uint32  `json:"word_count_b"`
 	Similarity float64 `json:"similarity"` // 0–1, 1 = exact duplicate
 }
 
