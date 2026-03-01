@@ -426,6 +426,7 @@
         await deleteSession(id);
         if (selectedSession?.ID === id) { selectedSession = null; pushURL('/'); }
         loadSessions();
+        getGlobalStats().then(gs => globalStats = gs).catch(() => {});
       } catch (e) { error = e.message; }
     }, { danger: true, confirmLabel: t('common.delete') });
   }
