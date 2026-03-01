@@ -28,13 +28,14 @@ type RobotsCache struct {
 }
 
 // NewRobotsCache creates a new RobotsCache.
-func NewRobotsCache(userAgent string, timeout time.Duration, allowPrivateIPs bool, tlsProfile TLSProfile) *RobotsCache {
+func NewRobotsCache(userAgent string, timeout time.Duration, dialOpts DialOptions, tlsProfile TLSProfile) *RobotsCache {
+	dialFn := SafeDialContextWithOpts(dialOpts)
 	transport := &http.Transport{
-		DialContext: SafeDialContext(allowPrivateIPs),
+		DialContext: dialFn,
 	}
 	var rt http.RoundTripper = transport
 	if tlsProfile != "" {
-		rt = utlsTransport(tlsProfile, SafeDialContext(allowPrivateIPs), transport)
+		rt = utlsTransport(tlsProfile, dialFn, transport)
 	}
 	return &RobotsCache{
 		cache:     make(map[string]*RobotsCacheEntry),

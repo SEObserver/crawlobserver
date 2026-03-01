@@ -37,13 +37,21 @@ type gscFetchStatus struct {
 	cancel    context.CancelFunc
 }
 
+// phaseResult tracks the outcome of a single fetch phase.
+type phaseResult struct {
+	Rows  int    `json:"rows"`
+	Error string `json:"error,omitempty"`
+}
+
 // providerFetchStatus tracks the progress of a background provider data fetch.
 type providerFetchStatus struct {
-	Fetching  bool   `json:"fetching"`
-	Phase     string `json:"phase"`
-	RowsSoFar int    `json:"rows_so_far"`
-	Error     string `json:"error,omitempty"`
-	cancel    context.CancelFunc
+	Fetching     bool                   `json:"fetching"`
+	Phase        string                 `json:"phase"`
+	RowsSoFar    int                    `json:"rows_so_far"`
+	Error        string                 `json:"error,omitempty"`
+	CompletedAt  *time.Time             `json:"completed_at,omitempty"`
+	PhaseResults map[string]phaseResult `json:"phase_results,omitempty"`
+	cancel       context.CancelFunc
 }
 
 // Server serves the web GUI and REST API.
@@ -135,6 +143,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 
 	// API routes - write
 	mux.HandleFunc("PUT /api/theme", s.handleUpdateTheme)
+	mux.HandleFunc("POST /api/check-ip", s.handleCheckIP)
 	mux.HandleFunc("POST /api/crawl", s.handleStartCrawl)
 	mux.HandleFunc("POST /api/sessions/{id}/stop", s.handleStopCrawl)
 	mux.HandleFunc("POST /api/sessions/{id}/resume", s.handleResumeCrawl)
@@ -194,6 +203,11 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/refdomains", s.handleProviderRefDomains)
 	mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/rankings", s.handleProviderRankings)
 	mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/visibility", s.handleProviderVisibility)
+	mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/top-pages", s.handleProviderTopPages)
+	mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/api-calls", s.handleProviderAPICalls)
+
+	// Authority (crawl pages enriched with provider data)
+	mux.HandleFunc("GET /api/sessions/{id}/authority", s.handleSessionAuthority)
 
 	// Application Logs routes
 	mux.HandleFunc("GET /api/logs", s.handleListLogs)

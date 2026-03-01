@@ -31,26 +31,28 @@ type Fetcher struct {
 
 // New creates a new Fetcher. When tlsProfile is non-empty, the transport uses
 // utls to mimic the chosen browser's TLS fingerprint.
-func New(userAgent string, timeout time.Duration, maxBodySize int64, allowPrivateIPs bool, tlsProfile TLSProfile) *Fetcher {
+func New(userAgent string, timeout time.Duration, maxBodySize int64, dialOpts DialOptions, tlsProfile TLSProfile) *Fetcher {
 	f := &Fetcher{
 		userAgent:   userAgent,
 		maxBodySize: maxBodySize,
 	}
 
+	dialFn := SafeDialContextWithOpts(dialOpts)
 	transport := &http.Transport{
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout:  15 * time.Second,
 		MaxIdleConnsPerHost:    2,
 		MaxResponseHeaderBytes: 1 << 20, // 1MB
 		IdleConnTimeout:        90 * time.Second,
-		DialContext:            SafeDialContext(allowPrivateIPs),
+		DialContext:            dialFn,
 	}
 
 	var rt http.RoundTripper = transport
 	if tlsProfile != "" {
-		rt = utlsTransport(tlsProfile, SafeDialContext(allowPrivateIPs), transport)
+		rt = utlsTransport(tlsProfile, dialFn, transport)
 	}
 
+	allowPrivate := dialOpts.AllowPrivateIPs
 	f.client = &http.Client{
 		Timeout:   timeout,
 		Transport: rt,
@@ -59,7 +61,7 @@ func New(userAgent string, timeout time.Duration, maxBodySize int64, allowPrivat
 				return fmt.Errorf("stopped after 10 redirects")
 			}
 			// SSRF: block redirects to private IP literals
-			if !allowPrivateIPs {
+			if !allowPrivate {
 				if ip := net.ParseIP(req.URL.Hostname()); ip != nil && IsPrivateIP(ip) {
 					return fmt.Errorf("%w: redirect to %s", ErrPrivateIP, req.URL.Hostname())
 				}

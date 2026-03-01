@@ -1,6 +1,6 @@
 <script>
   import { t } from '../i18n/index.svelte.js';
-  import { startCrawl } from '../api.js';
+  import { startCrawl, checkIP } from '../api.js';
   import SearchSelect from './SearchSelect.svelte';
 
   let { projects = [], initialProjectId = '', onstart, oncancel, onerror } = $props();
@@ -22,6 +22,10 @@
   let jsRenderMode = $state('off');
   let jsRenderMaxPages = $state(4);
   let followJSLinks = $state(false);
+  let sourceIP = $state('');
+  let forceIPv4 = $state(false);
+  let checkingIP = $state(false);
+  let checkedIP = $state('');
   let starting = $state(false);
 
   let userAgentPresets = $derived([
@@ -38,13 +42,27 @@
     if (preset) tlsProfile = preset.tls;
   }
 
+  async function handleCheckIP() {
+    checkingIP = true;
+    checkedIP = '';
+    try {
+      const res = await checkIP(sourceIP, forceIPv4);
+      checkedIP = res.ip;
+    } catch (e) {
+      checkedIP = '';
+      onerror?.(e.message);
+    } finally {
+      checkingIP = false;
+    }
+  }
+
   async function handleStartCrawl() {
     const seeds = seedInput.split('\n').map(s => s.trim()).filter(Boolean);
     if (seeds.length === 0) return;
     starting = true;
     const ua = userAgentPreset === 'custom' ? userAgentCustom : userAgentPreset;
     try {
-      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null, check_external_links: checkExternalLinks, external_link_workers: externalLinkWorkers, user_agent: ua || undefined, crawl_sitemap_only: crawlSitemapOnly, tls_profile: tlsProfile || undefined, js_render_mode: jsRenderMode !== 'off' ? jsRenderMode : undefined, js_render_max_pages: jsRenderMode !== 'off' ? jsRenderMaxPages : undefined, follow_js_links: jsRenderMode !== 'off' ? followJSLinks : undefined });
+      await startCrawl(seeds, { max_pages: maxPages, max_depth: maxDepth, workers, delay: crawlDelay, store_html: storeHtml, crawl_scope: crawlScope, project_id: crawlProjectId || null, check_external_links: checkExternalLinks, external_link_workers: externalLinkWorkers, user_agent: ua || undefined, crawl_sitemap_only: crawlSitemapOnly, tls_profile: tlsProfile || undefined, source_ip: sourceIP || undefined, force_ipv4: forceIPv4 || undefined, js_render_mode: jsRenderMode !== 'off' ? jsRenderMode : undefined, js_render_max_pages: jsRenderMode !== 'off' ? jsRenderMaxPages : undefined, follow_js_links: jsRenderMode !== 'off' ? followJSLinks : undefined });
       onstart?.();
     } catch (e) {
       onerror?.(e.message);
@@ -95,6 +113,21 @@
         ]} />
       </div>
     {/if}
+    <div class="form-group">
+      <label for="sourceip">{t('newCrawl.sourceIP')}</label>
+      <div class="input-with-btn">
+        <input id="sourceip" type="text" bind:value={sourceIP} placeholder={t('newCrawl.sourceIPPlaceholder')} />
+        <button class="btn btn-sm" onclick={handleCheckIP} disabled={checkingIP}>
+          {checkingIP ? t('newCrawl.checking') : t('newCrawl.checkIP')}
+        </button>
+        {#if checkedIP}
+          <span class="badge badge-info">{checkedIP}</span>
+        {/if}
+      </div>
+    </div>
+    <div class="form-group form-checkbox-row">
+      <input id="forceipv4" type="checkbox" bind:checked={forceIPv4} /><label for="forceipv4" class="form-checkbox-label">{t('newCrawl.forceIPv4')}</label>
+    </div>
     <div class="form-group form-checkbox-row">
       <input id="storehtml" type="checkbox" bind:checked={storeHtml} /><label for="storehtml" class="form-checkbox-label">{t('newCrawl.storeHtml')}</label>
     </div>
@@ -152,6 +185,20 @@
     padding-top: 24px;
   }
   .form-checkbox-label { margin: 0; }
+  .input-with-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .input-with-btn input { flex: 1; }
+  .badge-info {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--accent, #7c3aed);
+    color: #fff;
+    white-space: nowrap;
+  }
   .form-actions {
     display: flex;
     gap: 8px;

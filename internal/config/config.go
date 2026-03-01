@@ -34,6 +34,8 @@ type CrawlerConfig struct {
 	CrawlScope      string        `mapstructure:"crawl_scope"`      // "host" (default) or "domain" (eTLD+1)
 	AllowPrivateIPs bool          `mapstructure:"allow_private_ips"` // allow crawling private/reserved IPs (default: false)
 	TLSProfile      string        `mapstructure:"tls_profile"`      // "", "chrome", "firefox", "edge"
+	SourceIP        string        `mapstructure:"source_ip"`        // local IP to bind outgoing connections
+	ForceIPv4       bool          `mapstructure:"force_ipv4"`       // force IPv4-only DNS and connections
 	MaxConcurrentSessions int    `mapstructure:"max_concurrent_sessions"` // 0 = 20
 	MaxFrontierSize       int    `mapstructure:"max_frontier_size"`       // 0 = 5_000_000
 	MaxWorkers            int    `mapstructure:"max_workers"`             // 0 = 100

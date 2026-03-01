@@ -85,6 +85,8 @@ type CrawlRequest struct {
 	JSRenderMaxPages    int      `json:"js_render_max_pages"`
 	JSRenderTimeout     string   `json:"js_render_timeout"`
 	FollowJSLinks       bool     `json:"follow_js_links"`
+	SourceIP            string   `json:"source_ip"`
+	ForceIPv4           bool     `json:"force_ipv4"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -138,6 +140,12 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	}
 	if req.TLSProfile != "" {
 		cfg.Crawler.TLSProfile = req.TLSProfile
+	}
+	if req.SourceIP != "" {
+		cfg.Crawler.SourceIP = req.SourceIP
+	}
+	if req.ForceIPv4 {
+		cfg.Crawler.ForceIPv4 = true
 	}
 
 	// JS rendering overrides
@@ -320,6 +328,12 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		}
 		if overrides.TLSProfile != "" {
 			crawlerCfg.TLSProfile = overrides.TLSProfile
+		}
+		if overrides.SourceIP != "" {
+			crawlerCfg.SourceIP = overrides.SourceIP
+		}
+		if overrides.ForceIPv4 {
+			crawlerCfg.ForceIPv4 = true
 		}
 		cfg.Crawler = crawlerCfg
 	}

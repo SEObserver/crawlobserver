@@ -90,12 +90,17 @@ type resourceCheckItem struct {
 // NewEngine creates a new crawl engine.
 func NewEngine(cfg *config.Config, store *storage.Store) *Engine {
 	ctx, cancel := context.WithCancel(context.Background())
+	dialOpts := fetcher.DialOptions{
+		SourceIP:        cfg.Crawler.SourceIP,
+		ForceIPv4:       cfg.Crawler.ForceIPv4,
+		AllowPrivateIPs: cfg.Crawler.AllowPrivateIPs,
+	}
 	return &Engine{
 		cfg:    cfg,
 		store:  store,
 		front:  frontier.New(cfg.Crawler.Delay, cfg.Crawler.MaxFrontierSize),
-		fetch:  fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize, cfg.Crawler.AllowPrivateIPs, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
-		robots: fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.AllowPrivateIPs, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
+		fetch:  fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize, dialOpts, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
+		robots: fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, dialOpts, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
 		retryQueue: NewRetryQueue(),
 		hostHealth: NewHostHealth(),
 		retryPolicy: &RetryPolicy{
@@ -1173,10 +1178,15 @@ func (e *Engine) finalizeSession(bufState storage.BufferErrorState) {
 
 // newCheckClient creates an HTTP client for external/resource check workers.
 func (e *Engine) newCheckClient() *http.Client {
+	dialOpts := fetcher.DialOptions{
+		SourceIP:        e.cfg.Crawler.SourceIP,
+		ForceIPv4:       e.cfg.Crawler.ForceIPv4,
+		AllowPrivateIPs: e.cfg.Crawler.AllowPrivateIPs,
+	}
 	return &http.Client{
 		Timeout: 15 * time.Second,
 		Transport: &http.Transport{
-			DialContext: fetcher.SafeDialContext(e.cfg.Crawler.AllowPrivateIPs),
+			DialContext: fetcher.SafeDialContextWithOpts(dialOpts),
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {

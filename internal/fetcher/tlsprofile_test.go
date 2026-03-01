@@ -21,7 +21,7 @@ func TestTLSProfileChromeFetch(t *testing.T) {
 	for _, profile := range profiles {
 		t.Run(string(profile), func(t *testing.T) {
 			f := New("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-				15*time.Second, 10*1024*1024, false, profile)
+				15*time.Second, 10*1024*1024, DialOptions{}, profile)
 
 			result := f.Fetch("https://www.google.com/", 0, "")
 			if result.Error != "" {
@@ -61,7 +61,7 @@ func TestTLSProfileSitemapFetch(t *testing.T) {
 				ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 			}
 
-			f := New(ua, 15*time.Second, 10*1024*1024, false, tc.profile)
+			f := New(ua, 15*time.Second, 10*1024*1024, DialOptions{}, tc.profile)
 			entry := FetchSitemap(f.Client(), sitemapURL, ua)
 
 			if entry.StatusCode == 0 {
@@ -94,7 +94,7 @@ func TestTLSProfileCloudflare(t *testing.T) {
 
 	for _, tc := range profiles {
 		t.Run(tc.name, func(t *testing.T) {
-			f := New(tc.ua, 15*time.Second, 10*1024*1024, false, tc.profile)
+			f := New(tc.ua, 15*time.Second, 10*1024*1024, DialOptions{}, tc.profile)
 			entry := FetchSitemap(f.Client(), testURL, tc.ua)
 
 			if entry.StatusCode == 0 {
@@ -124,7 +124,7 @@ func TestTLSProfileHTTPClientReuse(t *testing.T) {
 	}
 
 	f := New("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-		15*time.Second, 10*1024*1024, false, TLSChrome)
+		15*time.Second, 10*1024*1024, DialOptions{}, TLSChrome)
 
 	for i := 0; i < 3; i++ {
 		req, err := http.NewRequest("GET", "https://www.google.com/robots.txt", nil)
@@ -165,7 +165,7 @@ func TestTLSProfileDiscoverSitemaps(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			f := New(tc.ua, 15*time.Second, 10*1024*1024, false, tc.profile)
+			f := New(tc.ua, 15*time.Second, 10*1024*1024, DialOptions{}, tc.profile)
 
 			entries := DiscoverSitemaps(f.Client(), tc.ua, []string{
 				"https://www.melty.fr/sitemap.xml",
@@ -196,7 +196,7 @@ func TestTLSProfileParallelFetch(t *testing.T) {
 	}
 
 	f := New("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-		15*time.Second, 10*1024*1024, false, TLSChrome)
+		15*time.Second, 10*1024*1024, DialOptions{}, TLSChrome)
 
 	urls := []string{
 		"https://www.google.com/",
@@ -233,7 +233,7 @@ func TestTLSProfileParallelFetch(t *testing.T) {
 // TestFetchSitemapReturnsZeroOnError verifies that FetchSitemap returns
 // status 0 when the HTTP request fails.
 func TestFetchSitemapReturnsZeroOnError(t *testing.T) {
-	f := New("TestBot", 2*time.Second, 10*1024*1024, false, "")
+	f := New("TestBot", 2*time.Second, 10*1024*1024, DialOptions{}, "")
 
 	entry := FetchSitemap(f.Client(), "https://this-domain-does-not-exist-12345.example.com/sitemap.xml", "TestBot")
 

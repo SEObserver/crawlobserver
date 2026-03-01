@@ -42,14 +42,36 @@ func IsPrivateIP(ip net.IP) bool {
 	return false
 }
 
+// DialOptions configures network-level behavior for the safe dialer.
+type DialOptions struct {
+	SourceIP        string
+	ForceIPv4       bool
+	AllowPrivateIPs bool
+}
+
 // SafeDialContext returns a DialContext function that blocks connections to private IPs
 // after DNS resolution (anti DNS-rebinding). When allowPrivate is true, no filtering is applied.
 func SafeDialContext(allowPrivate bool) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return SafeDialContextWithOpts(DialOptions{AllowPrivateIPs: allowPrivate})
+}
+
+// SafeDialContextWithOpts returns a DialContext function with full network options:
+// source IP binding, IPv4-only mode, and private IP filtering.
+func SafeDialContextWithOpts(opts DialOptions) func(ctx context.Context, network, addr string) (net.Conn, error) {
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
-	if allowPrivate {
+	if opts.SourceIP != "" {
+		if ip := net.ParseIP(opts.SourceIP); ip != nil {
+			dialer.LocalAddr = &net.TCPAddr{IP: ip}
+		}
+	}
+	if opts.AllowPrivateIPs && !opts.ForceIPv4 {
 		return dialer.DialContext
 	}
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		if opts.ForceIPv4 {
+			network = "tcp4"
+		}
+
 		host, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, err
@@ -57,7 +79,10 @@ func SafeDialContext(allowPrivate bool) func(ctx context.Context, network, addr 
 
 		// If host is already an IP literal, check directly
 		if ip := net.ParseIP(host); ip != nil {
-			if IsPrivateIP(ip) {
+			if opts.ForceIPv4 && ip.To4() == nil {
+				return nil, fmt.Errorf("IPv6 address %s rejected (force_ipv4 enabled)", ip)
+			}
+			if !opts.AllowPrivateIPs && IsPrivateIP(ip) {
 				return nil, fmt.Errorf("%w: %s", ErrPrivateIP, ip)
 			}
 			return dialer.DialContext(ctx, network, addr)
@@ -68,13 +93,27 @@ func SafeDialContext(allowPrivate bool) func(ctx context.Context, network, addr 
 		if err != nil {
 			return nil, err
 		}
+
+		// Filter IPv4-only if requested
+		if opts.ForceIPv4 {
+			filtered := ips[:0]
+			for _, ip := range ips {
+				if ip.IP.To4() != nil {
+					filtered = append(filtered, ip)
+				}
+			}
+			ips = filtered
+		}
+
 		if len(ips) == 0 {
 			return nil, fmt.Errorf("no addresses found for host %s", host)
 		}
 
-		for _, ip := range ips {
-			if IsPrivateIP(ip.IP) {
-				return nil, fmt.Errorf("%w: %s resolves to %s", ErrPrivateIP, host, ip.IP)
+		if !opts.AllowPrivateIPs {
+			for _, ip := range ips {
+				if IsPrivateIP(ip.IP) {
+					return nil, fmt.Errorf("%w: %s resolves to %s", ErrPrivateIP, host, ip.IP)
+				}
 			}
 		}
 

@@ -775,6 +775,21 @@ export async function getExpiredDomains(sessionId, limit = DEFAULT_LIMIT, offset
   return fetchJSON(`/sessions/${sessionId}/external-checks/expired-domains?limit=${limit}&offset=${offset}`);
 }
 
+// --- Check IP ---
+
+/**
+ * @param {string} sourceIP
+ * @param {boolean} forceIPv4
+ * @returns {Promise<{ip: string}>}
+ */
+export async function checkIP(sourceIP = '', forceIPv4 = false) {
+  return fetchJSON('/check-ip', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source_ip: sourceIP || undefined, force_ipv4: forceIPv4 || undefined }),
+  });
+}
+
 // --- Page Resource Checks ---
 
 /**
@@ -1037,6 +1052,21 @@ export async function getProviderRankings(projectId, provider, limit = DEFAULT_L
  */
 export async function getProviderVisibility(projectId, provider) {
   return fetchJSON(`/projects/${projectId}/providers/${provider}/visibility`);
+}
+
+/** @returns {Promise<{rows: Array, total: number}>} */
+export async function getProviderTopPages(projectId, provider, limit = 100, offset = 0) {
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/top-pages?limit=${limit}&offset=${offset}`);
+}
+
+/** @returns {Promise<{rows: Array, total: number}>} */
+export async function getProviderAPICalls(projectId, provider, limit = 50, offset = 0) {
+  return fetchJSON(`/projects/${projectId}/providers/${provider}/api-calls?limit=${limit}&offset=${offset}`);
+}
+
+/** @returns {Promise<{rows: Array, total: number}>} */
+export async function getSessionAuthority(sessionId, projectId, limit = 100, offset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/authority?project_id=${projectId}&limit=${limit}&offset=${offset}`);
 }
 
 /**

@@ -22,7 +22,7 @@ func TestFetchContentTypeEarlyCheck_Image(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, true, "")
+	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, DialOptions{AllowPrivateIPs: true}, "")
 	result := f.Fetch(server.URL, 0, "")
 
 	if result.Error != "" {
@@ -53,7 +53,7 @@ func TestFetchContentTypeEarlyCheck_PDF(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, true, "")
+	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, DialOptions{AllowPrivateIPs: true}, "")
 	result := f.Fetch(server.URL, 0, "")
 
 	if result.Error != "" {
@@ -71,7 +71,7 @@ func TestFetchContentTypeEarlyCheck_XHTML(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, true, "")
+	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, DialOptions{AllowPrivateIPs: true}, "")
 	result := f.Fetch(server.URL, 0, "")
 
 	if result.Error != "" {
@@ -93,7 +93,7 @@ func TestFetchContentTypeEarlyCheck_NoContentType(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, true, "")
+	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, DialOptions{AllowPrivateIPs: true}, "")
 	result := f.Fetch(server.URL, 0, "")
 
 	if result.Error != "" {
@@ -113,7 +113,7 @@ func TestFetchBodyTruncated(t *testing.T) {
 	defer server.Close()
 
 	// Limit to 1KB
-	f := New("TestBot/1.0", 10*time.Second, 1024, true, "")
+	f := New("TestBot/1.0", 10*time.Second, 1024, DialOptions{AllowPrivateIPs: true}, "")
 	result := f.Fetch(server.URL, 0, "")
 
 	if result.Error != "" {
@@ -134,7 +134,7 @@ func TestFetchBodyNotTruncated(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := New("TestBot/1.0", 10*time.Second, 1024, true, "")
+	f := New("TestBot/1.0", 10*time.Second, 1024, DialOptions{AllowPrivateIPs: true}, "")
 	result := f.Fetch(server.URL, 0, "")
 
 	if result.Error != "" {
@@ -161,7 +161,7 @@ func TestFetchRedirectChainNoConcurrentRace(t *testing.T) {
 	server = httptest.NewServer(mux)
 	defer server.Close()
 
-	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, true, "")
+	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, DialOptions{AllowPrivateIPs: true}, "")
 
 	// Run concurrent fetches — with the old code this would race on f.client.CheckRedirect
 	var wg sync.WaitGroup
@@ -261,7 +261,7 @@ func TestCategorizeErrorTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := New("TestBot/1.0", 100*time.Millisecond, 10*1024*1024, true, "")
+	f := New("TestBot/1.0", 100*time.Millisecond, 10*1024*1024, DialOptions{AllowPrivateIPs: true}, "")
 	result := f.Fetch(server.URL, 0, "")
 
 	if result.Error == "" {
@@ -308,7 +308,7 @@ func TestFetchDepthAndFoundOnPreserved(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, true, "")
+	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, DialOptions{AllowPrivateIPs: true}, "")
 	result := f.Fetch(server.URL, 3, "https://parent.com/page")
 
 	if result.Depth != 3 {
@@ -320,7 +320,7 @@ func TestFetchDepthAndFoundOnPreserved(t *testing.T) {
 }
 
 func TestFetchInvalidURL(t *testing.T) {
-	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, true, "")
+	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, DialOptions{AllowPrivateIPs: true}, "")
 	result := f.Fetch("://invalid", 0, "")
 
 	if result.Error == "" {
@@ -336,7 +336,7 @@ func TestFetchHeadersCollected(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, true, "")
+	f := New("TestBot/1.0", 10*time.Second, 10*1024*1024, DialOptions{AllowPrivateIPs: true}, "")
 	result := f.Fetch(server.URL, 0, "")
 
 	// Headers should be collected even for non-HTML responses

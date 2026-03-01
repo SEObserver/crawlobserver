@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/apikeys"
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/crawler"
+	"github.com/SEObserver/crawlobserver/internal/fetcher"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 	"github.com/temoto/robotstxt"
 )
@@ -899,6 +901,49 @@ func (s *Server) handlePageResourceChecksSummary(w http.ResponseWriter, r *http.
 		summary = []storage.ResourceTypeSummary{}
 	}
 	writeJSON(w, summary)
+}
+
+func (s *Server) handleCheckIP(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	var req struct {
+		SourceIP  string `json:"source_ip"`
+		ForceIPv4 bool   `json:"force_ipv4"`
+	}
+	if r.Body != nil && r.ContentLength > 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+	}
+
+	dialOpts := fetcher.DialOptions{
+		SourceIP:        req.SourceIP,
+		ForceIPv4:       req.ForceIPv4,
+		AllowPrivateIPs: true,
+	}
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			DialContext: fetcher.SafeDialContextWithOpts(dialOpts),
+		},
+	}
+	httpReq, err := http.NewRequestWithContext(r.Context(), "GET", "https://ifconfig.me", nil)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	httpReq.Header.Set("User-Agent", "curl/8.0")
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, fmt.Sprintf("check failed: %v", err))
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+	ip := strings.TrimSpace(string(body))
+	writeJSON(w, map[string]string{"ip": ip})
 }
 
 func (s *Server) handleNearDuplicates(w http.ResponseWriter, r *http.Request) {
