@@ -103,18 +103,11 @@ func (rl *rateLimitMiddleware) Handler(next http.Handler) http.Handler {
 	})
 }
 
+// clientIP returns the client's IP from RemoteAddr only.
+// X-Forwarded-For and X-Real-IP are ignored because the server
+// runs directly (not behind a trusted reverse proxy), so those
+// headers could be spoofed to bypass rate limiting.
 func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if parts := strings.SplitN(xff, ",", 2); len(parts) > 0 {
-			ip := strings.TrimSpace(parts[0])
-			if ip != "" {
-				return ip
-			}
-		}
-	}
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return strings.TrimSpace(xri)
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr

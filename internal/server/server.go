@@ -247,7 +247,9 @@ func (s *Server) buildHandler() (http.Handler, error) {
 			case strings.HasSuffix(path, ".ico"):
 				w.Header().Set("Content-Type", "image/x-icon")
 			}
-			w.Write(f)
+			if _, err := w.Write(f); err != nil {
+				applog.Errorf("server", "write static %s: %v", path, err)
+			}
 			return
 		}
 		r.URL.Path = "/"
@@ -539,13 +541,17 @@ func parseFilters(r *http.Request, whitelist map[string]storage.FilterDef) []sto
 
 func writeJSON(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		applog.Errorf("server", "writeJSON: %v", err)
+	}
 }
 
 func writeError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
+		applog.Errorf("server", "writeError: %v", err)
+	}
 }
 
 // internalError logs the real error server-side and returns a generic message to the client.
