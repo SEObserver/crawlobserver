@@ -15,15 +15,19 @@ jobs:
           - os: macos-latest
             goos: darwin
             goarch: arm64
+            label: macOS-ARM
           - os: ubuntu-latest
             goos: darwin
             goarch: amd64
+            label: macOS-Intel
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
+            label: Linux
           - os: windows-latest
             goos: windows
             goarch: amd64
+            label: Windows
             suffix: .exe
 
     runs-on: ${{ matrix.os }}
@@ -53,13 +57,13 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: |
-          go build -ldflags "-X github.com/SEObserver/crawlobserver/internal/updater.Version=${{ github.ref_name }}" -o "crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix || '' }}" ./cmd/crawlobserver
+          go build -ldflags "-X github.com/SEObserver/crawlobserver/internal/updater.Version=${{ github.ref_name }}" -o "CrawlObserver-${{ matrix.label }}${{ matrix.suffix || '' }}" ./cmd/crawlobserver
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
-          name: crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}*
+          name: CrawlObserver-${{ matrix.label }}
+          path: CrawlObserver-${{ matrix.label }}*
 
   desktop:
     runs-on: macos-latest
@@ -130,7 +134,7 @@ jobs:
           cp -R CrawlObserver.app dmg_staging/
           ln -s /Applications dmg_staging/Applications
           hdiutil create -volname "CrawlObserver" -srcfolder dmg_staging \
-            -ov -format UDZO "CrawlObserver-darwin-arm64.dmg"
+            -ov -format UDZO "CrawlObserver-macOS.dmg"
 
       - name: Sign DMG
         if: env.APPLE_CERTIFICATE_P12 != ''
@@ -138,7 +142,7 @@ jobs:
           APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
         run: |
           codesign --force --sign "Developer ID Application: Kevin Richard (48HGS54WHP)" \
-            "CrawlObserver-darwin-arm64.dmg"
+            "CrawlObserver-macOS.dmg"
 
       - name: Notarize DMG
         if: env.APPLE_CERTIFICATE_P12 != ''
@@ -148,9 +152,9 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          xcrun notarytool submit "CrawlObserver-darwin-arm64.dmg" \
+          xcrun notarytool submit "CrawlObserver-macOS.dmg" \
             --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
-          xcrun stapler staple "CrawlObserver-darwin-arm64.dmg"
+          xcrun stapler staple "CrawlObserver-macOS.dmg"
 
       - name: Cleanup keychain
         if: always()
@@ -161,8 +165,8 @@ jobs:
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CrawlObserver-darwin-arm64
-          path: CrawlObserver-darwin-arm64.dmg
+          name: CrawlObserver-macOS
+          path: CrawlObserver-macOS.dmg
 
   release:
     needs: [build, desktop]
