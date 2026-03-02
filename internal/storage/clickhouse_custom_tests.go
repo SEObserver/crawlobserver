@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"regexp/syntax"
 	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -20,59 +21,125 @@ type PageHTMLRow struct {
 	HTML string
 }
 
-// chEscapeString escapes a string for safe embedding in a ClickHouse single-quoted literal.
-// Backslashes must be escaped first, then single quotes.
-func chEscapeString(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, `'`, `\'`)
-	return s
+// maxRegexLen limits regex pattern length to prevent resource abuse.
+const maxRegexLen = 1000
+
+// validateRegex checks that a pattern is valid RE2 syntax and within size limits.
+func validateRegex(pattern string) error {
+	if len(pattern) > maxRegexLen {
+		return fmt.Errorf("regex pattern too long (%d chars, max %d)", len(pattern), maxRegexLen)
+	}
+	if _, err := syntax.Parse(pattern, syntax.Perl); err != nil {
+		return fmt.Errorf("invalid regex pattern: %w", err)
+	}
+	return nil
 }
 
-// buildRuleExpr returns a ClickHouse SQL expression for a single rule.
-func buildRuleExpr(r customtests.TestRule) string {
-	v := chEscapeString(r.Value)
-	ex := chEscapeString(r.Extra)
+// ruleExpr holds a parameterized SQL expression and its named arguments.
+type ruleExpr struct {
+	sql  string
+	args []any
+}
+
+// buildRuleExpr returns a parameterized ClickHouse SQL expression for a single rule.
+// All user-provided values are passed as named parameters, never interpolated.
+func buildRuleExpr(r customtests.TestRule, idx int) (ruleExpr, error) {
+	vName := fmt.Sprintf("v%d", idx)
+	exName := fmt.Sprintf("ex%d", idx)
+
 	switch r.Type {
 	case customtests.StringContains:
-		return fmt.Sprintf("position(body_html, '%s') > 0", v)
+		return ruleExpr{
+			sql:  fmt.Sprintf("position(body_html, {%s:String}) > 0", vName),
+			args: []any{clickhouse.Named(vName, r.Value)},
+		}, nil
+
 	case customtests.StringNotContains:
-		return fmt.Sprintf("position(body_html, '%s') = 0", v)
+		return ruleExpr{
+			sql:  fmt.Sprintf("position(body_html, {%s:String}) = 0", vName),
+			args: []any{clickhouse.Named(vName, r.Value)},
+		}, nil
+
 	case customtests.RegexMatch:
-		return fmt.Sprintf("match(body_html, '%s')", v)
+		if err := validateRegex(r.Value); err != nil {
+			return ruleExpr{}, fmt.Errorf("rule %q: %w", r.ID, err)
+		}
+		return ruleExpr{
+			sql:  fmt.Sprintf("match(body_html, {%s:String})", vName),
+			args: []any{clickhouse.Named(vName, r.Value)},
+		}, nil
+
 	case customtests.RegexNotMatch:
-		return fmt.Sprintf("NOT match(body_html, '%s')", v)
+		if err := validateRegex(r.Value); err != nil {
+			return ruleExpr{}, fmt.Errorf("rule %q: %w", r.ID, err)
+		}
+		return ruleExpr{
+			sql:  fmt.Sprintf("NOT match(body_html, {%s:String})", vName),
+			args: []any{clickhouse.Named(vName, r.Value)},
+		}, nil
+
 	case customtests.HeaderExists:
-		return fmt.Sprintf("mapContains(headers, '%s')", v)
+		return ruleExpr{
+			sql:  fmt.Sprintf("mapContains(headers, {%s:String})", vName),
+			args: []any{clickhouse.Named(vName, r.Value)},
+		}, nil
+
 	case customtests.HeaderNotExists:
-		return fmt.Sprintf("NOT mapContains(headers, '%s')", v)
+		return ruleExpr{
+			sql:  fmt.Sprintf("NOT mapContains(headers, {%s:String})", vName),
+			args: []any{clickhouse.Named(vName, r.Value)},
+		}, nil
+
 	case customtests.HeaderContains:
-		return fmt.Sprintf("mapContains(headers, '%s') AND position(headers['%s'], '%s') > 0", v, v, ex)
+		return ruleExpr{
+			sql:  fmt.Sprintf("mapContains(headers, {%s:String}) AND position(headers[{%s:String}], {%s:String}) > 0", vName, vName, exName),
+			args: []any{clickhouse.Named(vName, r.Value), clickhouse.Named(exName, r.Extra)},
+		}, nil
+
 	case customtests.HeaderRegex:
-		return fmt.Sprintf("mapContains(headers, '%s') AND match(headers['%s'], '%s')", v, v, ex)
+		if err := validateRegex(r.Extra); err != nil {
+			return ruleExpr{}, fmt.Errorf("rule %q: %w", r.ID, err)
+		}
+		return ruleExpr{
+			sql:  fmt.Sprintf("mapContains(headers, {%s:String}) AND match(headers[{%s:String}], {%s:String})", vName, vName, exName),
+			args: []any{clickhouse.Named(vName, r.Value), clickhouse.Named(exName, r.Extra)},
+		}, nil
+
 	default:
-		return "0"
+		return ruleExpr{sql: "0", args: nil}, nil
 	}
 }
 
 // RunCustomTestsSQL runs ClickHouse-native test rules as a single query.
+// All user values are parameterized via named placeholders.
 func (s *Store) RunCustomTestsSQL(ctx context.Context, sessionID string, rules []customtests.TestRule) (map[string]map[string]string, error) {
 	if len(rules) == 0 {
 		return map[string]map[string]string{}, nil
 	}
 
 	var selects []string
+	var allArgs []any
 	selects = append(selects, "url")
-	for _, r := range rules {
+	allArgs = append(allArgs, clickhouse.Named("sessionID", sessionID))
+
+	for i, r := range rules {
 		if !safeRuleID.MatchString(r.ID) {
 			return nil, fmt.Errorf("invalid rule ID: %q", r.ID)
 		}
-		selects = append(selects, fmt.Sprintf("(%s) AS `%s`", buildRuleExpr(r), r.ID))
+		expr, err := buildRuleExpr(r, i)
+		if err != nil {
+			return nil, err
+		}
+		selects = append(selects, fmt.Sprintf("(%s) AS `%s`", expr.sql, r.ID))
+		for _, arg := range expr.args {
+			allArgs = append(allArgs, arg)
+		}
 	}
 
 	query := fmt.Sprintf("SELECT %s FROM crawlobserver.pages WHERE crawl_session_id = {sessionID:String}",
 		strings.Join(selects, ", "))
 
-	rows, err := s.conn.Query(ctx, query, clickhouse.Named("sessionID", sessionID))
+	rows, err := s.conn.Query(ctx, query, allArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("running custom tests SQL: %w", err)
 	}
