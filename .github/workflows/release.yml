@@ -2,8 +2,7 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ["v*"]
 
 permissions:
   contents: write
@@ -15,20 +14,17 @@ jobs:
         include:
           - os: macos-latest
             goos: darwin
-            goarch: amd64
-            suffix: ''
-          - os: macos-latest
-            goos: darwin
             goarch: arm64
-            suffix: ''
+          - os: macos-13
+            goos: darwin
+            goarch: amd64
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
-            suffix: ''
           - os: windows-latest
             goos: windows
             goarch: amd64
-            suffix: '.exe'
+            suffix: .exe
 
     runs-on: ${{ matrix.os }}
 
@@ -41,31 +37,23 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 22
 
       - name: Build frontend
-        run: |
-          cd frontend && npm ci && npm run build
-          mkdir -p ../internal/server/frontend
-          cp -r dist ../internal/server/frontend/
+        run: cd frontend && npm ci && npm run build
+
+      - name: Copy frontend dist
+        shell: bash
+        run: mkdir -p internal/server/frontend && cp -r frontend/dist internal/server/frontend/dist
 
       - name: Build binary
+        shell: bash
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
+          CGO_ENABLED: "0"
         run: |
-          go build -ldflags "-X github.com/SEObserver/crawlobserver/internal/updater.Version=${{ github.ref_name }}" \
-            -o crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }} ./cmd/crawlobserver
-
-      - name: Create DMG (macOS)
-        if: matrix.goos == 'darwin'
-        run: |
-          mkdir -p dmg_contents
-          cp crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }} dmg_contents/crawlobserver
-          chmod +x dmg_contents/crawlobserver
-          hdiutil create -volname "CrawlObserver" -srcfolder dmg_contents \
-            -ov -format UDZO crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}.dmg
+          go build -ldflags "-X github.com/SEObserver/crawlobserver/internal/updater.Version=${{ github.ref_name }}" -o "crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix || '' }}" ./cmd/crawlobserver
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
@@ -73,7 +61,7 @@ jobs:
           name: crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}
           path: crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}*
 
-  desktop-build:
+  desktop:
     strategy:
       matrix:
         include:
@@ -93,150 +81,102 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 22
 
       - name: Build frontend
-        run: |
-          cd frontend && npm ci && npm run build
-          mkdir -p ../internal/server/frontend
-          cp -r dist ../internal/server/frontend/
+        run: cd frontend && npm ci && npm run build
 
-      - name: Build desktop app
+      - name: Copy frontend dist
+        run: mkdir -p internal/server/frontend && cp -r frontend/dist internal/server/frontend/dist
+
+      - name: Build desktop binary
         env:
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 1
+          CGO_ENABLED: "1"
         run: |
           go build -tags desktop \
             -ldflags "-X github.com/SEObserver/crawlobserver/internal/updater.Version=${{ github.ref_name }}" \
             -o CrawlObserver ./cmd/crawlobserver
 
-      - name: Package .app bundle
+      - name: Create .app bundle
         run: |
-          APP_DIR="CrawlObserver.app/Contents/MacOS"
-          RESOURCES_DIR="CrawlObserver.app/Contents/Resources"
-          mkdir -p "$APP_DIR" "$RESOURCES_DIR"
-          cp CrawlObserver "$APP_DIR/CrawlObserver"
-          chmod +x "$APP_DIR/CrawlObserver"
-
-          # Copy icon if available
-          if [ -f build/darwin/iconfile.icns ]; then
-            cp build/darwin/iconfile.icns "$RESOURCES_DIR/iconfile.icns"
-          fi
-
-          # Create Info.plist
-          VERSION="${GITHUB_REF_NAME#v}"
-          cat > CrawlObserver.app/Contents/Info.plist <<PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-          <key>CFBundleExecutable</key>
-          <string>CrawlObserver</string>
-          <key>CFBundleIdentifier</key>
-          <string>com.seobserver.crawlobserver</string>
-          <key>CFBundleName</key>
-          <string>CrawlObserver</string>
-          <key>CFBundlePackageType</key>
-          <string>APPL</string>
-          <key>CFBundleShortVersionString</key>
-          <string>${VERSION}</string>
-          <key>CFBundleVersion</key>
-          <string>${VERSION}</string>
-          <key>CFBundleIconFile</key>
-          <string>iconfile</string>
-          <key>NSHighResolutionCapable</key>
-          <true/>
-          </dict>
-          </plist>
-          PLIST
+          BUNDLE="CrawlObserver.app"
+          mkdir -p "${BUNDLE}/Contents/MacOS" "${BUNDLE}/Contents/Resources"
+          cp build/darwin/Info.plist "${BUNDLE}/Contents/Info.plist"
+          cp CrawlObserver "${BUNDLE}/Contents/MacOS/CrawlObserver"
+          chmod +x "${BUNDLE}/Contents/MacOS/CrawlObserver"
+          cp build/darwin/iconfile.icns "${BUNDLE}/Contents/Resources/iconfile.icns"
 
       - name: Import code signing certificate
+        if: env.APPLE_CERTIFICATE_P12 != ''
         env:
           APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
-          # Decode certificate
           echo "$APPLE_CERTIFICATE_P12" | base64 --decode > certificate.p12
-
-          # Create temporary keychain
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          # Import certificate
-          security import certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" \
-            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: \
-            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
-
-          # Cleanup
           rm certificate.p12
 
       - name: Code sign the app
+        if: env.APPLE_CERTIFICATE_P12 != ''
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
         run: |
           codesign --force --options runtime --deep \
             --entitlements build/darwin/entitlements.plist \
             --sign "Developer ID Application: Kevin Richard (48HGS54WHP)" \
             CrawlObserver.app
-
-          # Verify signature
           codesign --verify --deep --strict CrawlObserver.app
-          echo "Code signing verified successfully"
 
       - name: Create DMG
         run: |
           mkdir -p dmg_staging
           cp -R CrawlObserver.app dmg_staging/
           ln -s /Applications dmg_staging/Applications
-
           hdiutil create -volname "CrawlObserver" -srcfolder dmg_staging \
             -ov -format UDZO "CrawlObserver-darwin-${{ matrix.goarch }}.dmg"
 
-          # Sign the DMG too
+      - name: Sign DMG
+        if: env.APPLE_CERTIFICATE_P12 != ''
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+        run: |
           codesign --force --sign "Developer ID Application: Kevin Richard (48HGS54WHP)" \
             "CrawlObserver-darwin-${{ matrix.goarch }}.dmg"
 
       - name: Notarize DMG
+        if: env.APPLE_CERTIFICATE_P12 != ''
         env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
           xcrun notarytool submit "CrawlObserver-darwin-${{ matrix.goarch }}.dmg" \
-            --apple-id "$APPLE_ID" \
-            --team-id "$APPLE_TEAM_ID" \
-            --password "$APPLE_APP_PASSWORD" \
-            --wait
-
-          # Staple the notarization ticket
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
           xcrun stapler staple "CrawlObserver-darwin-${{ matrix.goarch }}.dmg"
-          echo "Notarization and stapling complete"
-
-      - name: Create tar.gz of signed app
-        run: |
-          tar -czf CrawlObserver-darwin-${{ matrix.goarch }}.app.tar.gz CrawlObserver.app
 
       - name: Cleanup keychain
         if: always()
         run: |
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
-          if [ -f "$KEYCHAIN_PATH" ]; then
-            security delete-keychain "$KEYCHAIN_PATH"
-          fi
+          [ -f "$KEYCHAIN_PATH" ] && security delete-keychain "$KEYCHAIN_PATH" || true
 
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CrawlObserver-darwin-${{ matrix.goarch }}-desktop
-          path: |
-            CrawlObserver-darwin-${{ matrix.goarch }}.dmg
-            CrawlObserver-darwin-${{ matrix.goarch }}.app.tar.gz
+          name: CrawlObserver-darwin-${{ matrix.goarch }}
+          path: CrawlObserver-darwin-${{ matrix.goarch }}.dmg
 
   release:
-    needs: [build, desktop-build]
+    needs: [build, desktop]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -244,8 +184,8 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/*
-          generate_release_notes: true
+      - name: Upload to release
+        run: gh release upload "${{ github.ref_name }}" artifacts/* --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
