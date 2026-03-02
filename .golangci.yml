@@ -8,6 +8,11 @@ linters:
     - gocritic
     - misspell
   settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.DB).Close
     gocritic:
       enabled-checks:
         - appendAssign
