@@ -890,6 +890,53 @@ func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs 
 	return nil
 }
 
+// ListRedirectPages retrieves pages with 3xx status codes and their inbound internal link count.
+func (s *Store) ListRedirectPages(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter, sort *SortParam) ([]RedirectPageRow, error) {
+	query := `
+		SELECT p.url, p.status_code, p.final_url,
+			count(DISTINCT l.source_url) AS inbound_internal_links
+		FROM crawlobserver.pages AS p
+		LEFT JOIN crawlobserver.links AS l
+			ON l.crawl_session_id = p.crawl_session_id
+			AND l.target_url = p.url
+			AND l.is_internal = true
+		WHERE p.crawl_session_id = ?
+			AND p.status_code >= 300 AND p.status_code < 400`
+	args := []interface{}{sessionID}
+
+	whereExtra, filterArgs, err := BuildWhereClause(filters)
+	if err != nil {
+		return nil, fmt.Errorf("building filter clause: %w", err)
+	}
+	if whereExtra != "" {
+		query += " AND " + whereExtra
+		args = append(args, filterArgs...)
+	}
+
+	query += " GROUP BY p.url, p.status_code, p.final_url"
+	query += BuildOrderByClause(sort, "inbound_internal_links DESC") + ` LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := s.conn.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("querying redirect pages: %w", err)
+	}
+	defer rows.Close()
+
+	var result []RedirectPageRow
+	for rows.Next() {
+		var r RedirectPageRow
+		if err := rows.Scan(&r.URL, &r.StatusCode, &r.FinalURL, &r.InboundInternalLinks); err != nil {
+			return nil, fmt.Errorf("scanning redirect page: %w", err)
+		}
+		result = append(result, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating redirect pages: %w", err)
+	}
+	return result, nil
+}
+
 // PageRankBucket holds one histogram bucket for PageRank distribution.
 type PageRankBucket struct {
 	Min   float64 `json:"min"`

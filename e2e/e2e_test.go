@@ -3,10 +3,12 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -508,6 +510,245 @@ func TestE2E_SessionDelete(t *testing.T) {
 			t.Errorf("session %s still present after deletion", sid)
 		}
 	}
+}
+
+func TestE2E_ExportImport(t *testing.T) {
+	env := setup(t)
+
+	// Step 1: Crawl a site
+	sid := startCrawl(t, env)
+	t.Cleanup(func() {
+		apiDELETE(t, env.apiURL, "/api/sessions/"+sid)
+	})
+	waitForCrawl(t, env.apiURL, sid, 60*time.Second)
+
+	// Collect original data for comparison
+	var origPages []map[string]interface{}
+	mustUnmarshal(t, apiGET(t, env.apiURL, "/api/sessions/"+sid+"/pages?limit=100"), &origPages)
+
+	var origLinks []map[string]interface{}
+	mustUnmarshal(t, apiGET(t, env.apiURL, "/api/sessions/"+sid+"/internal-links?limit=1000"), &origLinks)
+
+	var origStats map[string]interface{}
+	mustUnmarshal(t, apiGET(t, env.apiURL, "/api/sessions/"+sid+"/stats"), &origStats)
+
+	if len(origPages) < 8 {
+		t.Fatalf("expected at least 8 original pages, got %d", len(origPages))
+	}
+	if len(origLinks) == 0 {
+		t.Fatal("expected original links > 0")
+	}
+
+	// Step 2: Export the session
+	exportData := apiGETRaw(t, env.apiURL, "/api/sessions/"+sid+"/export")
+	if len(exportData) == 0 {
+		t.Fatal("export returned empty data")
+	}
+
+	// Step 3: Import the exported file (simulates another user receiving the file)
+	importResp := apiPOSTMultipart(t, env.apiURL, "/api/sessions/import", "file", "crawl.jsonl.gz", exportData)
+	var importedSession map[string]interface{}
+	mustUnmarshal(t, importResp, &importedSession)
+
+	importedID, _ := importedSession["ID"].(string)
+	if importedID == "" {
+		t.Fatal("imported session has empty ID")
+	}
+	t.Cleanup(func() {
+		apiDELETE(t, env.apiURL, "/api/sessions/"+importedID)
+	})
+
+	// Wait for ClickHouse to settle
+	time.Sleep(2 * time.Second)
+
+	// Step 4: Verify imported session metadata
+	if importedID == sid {
+		t.Error("imported session should have a NEW ID, got same as original")
+	}
+
+	status, _ := importedSession["Status"].(string)
+	if status != "imported" {
+		t.Errorf("expected imported session status='imported', got %q", status)
+	}
+
+	// Step 5: Verify imported session appears in session list
+	sessBody := apiGET(t, env.apiURL, "/api/sessions")
+	var sessions []map[string]interface{}
+	mustUnmarshal(t, sessBody, &sessions)
+
+	foundImported := false
+	for _, s := range sessions {
+		if s["ID"] == importedID {
+			foundImported = true
+			break
+		}
+	}
+	if !foundImported {
+		t.Errorf("imported session %s not found in sessions list", importedID)
+	}
+
+	// Step 6: Verify pages are identical
+	var importedPages []map[string]interface{}
+	mustUnmarshal(t, apiGET(t, env.apiURL, "/api/sessions/"+importedID+"/pages?limit=100"), &importedPages)
+
+	if len(importedPages) != len(origPages) {
+		t.Errorf("page count mismatch: original=%d imported=%d", len(origPages), len(importedPages))
+	}
+
+	// Build URL sets for comparison
+	origURLs := make(map[string]bool)
+	for _, p := range origPages {
+		u, _ := p["URL"].(string)
+		origURLs[u] = true
+	}
+	importedURLs := make(map[string]bool)
+	for _, p := range importedPages {
+		u, _ := p["URL"].(string)
+		importedURLs[u] = true
+	}
+	for u := range origURLs {
+		if !importedURLs[u] {
+			t.Errorf("original URL %s missing from imported session", u)
+		}
+	}
+
+	// Step 7: Verify links are preserved
+	var importedLinks []map[string]interface{}
+	mustUnmarshal(t, apiGET(t, env.apiURL, "/api/sessions/"+importedID+"/internal-links?limit=1000"), &importedLinks)
+
+	if len(importedLinks) != len(origLinks) {
+		t.Errorf("link count mismatch: original=%d imported=%d", len(origLinks), len(importedLinks))
+	}
+
+	// Step 8: Verify stats match
+	var importedStats map[string]interface{}
+	mustUnmarshal(t, apiGET(t, env.apiURL, "/api/sessions/"+importedID+"/stats"), &importedStats)
+
+	origTotal, _ := origStats["total_pages"].(float64)
+	importedTotal, _ := importedStats["total_pages"].(float64)
+	if origTotal != importedTotal {
+		t.Errorf("total_pages mismatch: original=%.0f imported=%.0f", origTotal, importedTotal)
+	}
+
+	origIntLinks, _ := origStats["internal_links"].(float64)
+	importedIntLinks, _ := importedStats["internal_links"].(float64)
+	if origIntLinks != importedIntLinks {
+		t.Errorf("internal_links mismatch: original=%.0f imported=%.0f", origIntLinks, importedIntLinks)
+	}
+
+	// Step 9: Verify page details are preserved (title, status_code)
+	// Match pages by URL across both sets
+	origByURL := make(map[string]map[string]interface{})
+	for _, p := range origPages {
+		u, _ := p["URL"].(string)
+		origByURL[u] = p
+	}
+	importedByURL := make(map[string]map[string]interface{})
+	for _, p := range importedPages {
+		u, _ := p["URL"].(string)
+		importedByURL[u] = p
+	}
+
+	for u, orig := range origByURL {
+		imp, ok := importedByURL[u]
+		if !ok {
+			continue // already checked in step 6
+		}
+		origTitle, _ := orig["Title"].(string)
+		impTitle, _ := imp["Title"].(string)
+		if origTitle != impTitle {
+			t.Errorf("title mismatch for %s: original=%q imported=%q", u, origTitle, impTitle)
+		}
+		origSC, _ := orig["StatusCode"].(float64)
+		impSC, _ := imp["StatusCode"].(float64)
+		if origSC != impSC {
+			t.Errorf("status_code mismatch for %s: original=%.0f imported=%.0f", u, origSC, impSC)
+		}
+	}
+
+	// Step 10: Verify robots.txt is preserved
+	var origRobots []map[string]interface{}
+	mustUnmarshal(t, apiGET(t, env.apiURL, "/api/sessions/"+sid+"/robots"), &origRobots)
+	var importedRobots []map[string]interface{}
+	mustUnmarshal(t, apiGET(t, env.apiURL, "/api/sessions/"+importedID+"/robots"), &importedRobots)
+
+	if len(origRobots) != len(importedRobots) {
+		t.Errorf("robots count mismatch: original=%d imported=%d", len(origRobots), len(importedRobots))
+	}
+
+	// Step 11: Double export-import (re-export imported session, re-import)
+	reExportData := apiGETRaw(t, env.apiURL, "/api/sessions/"+importedID+"/export")
+	reImportResp := apiPOSTMultipart(t, env.apiURL, "/api/sessions/import", "file", "crawl2.jsonl.gz", reExportData)
+	var reImportedSession map[string]interface{}
+	mustUnmarshal(t, reImportResp, &reImportedSession)
+
+	reImportedID, _ := reImportedSession["ID"].(string)
+	t.Cleanup(func() {
+		apiDELETE(t, env.apiURL, "/api/sessions/"+reImportedID)
+	})
+
+	time.Sleep(2 * time.Second)
+
+	// Verify the re-imported session also has the same page count
+	var reImportedPages []map[string]interface{}
+	mustUnmarshal(t, apiGET(t, env.apiURL, "/api/sessions/"+reImportedID+"/pages?limit=100"), &reImportedPages)
+
+	if len(reImportedPages) != len(origPages) {
+		t.Errorf("re-imported page count mismatch: original=%d re-imported=%d", len(origPages), len(reImportedPages))
+	}
+
+	// All three sessions should have different IDs
+	if reImportedID == sid || reImportedID == importedID {
+		t.Error("re-imported session should have a unique ID")
+	}
+}
+
+// --- HTTP helpers ---
+
+// apiGETRaw returns the raw response body (for binary data like gzipped exports).
+func apiGETRaw(t *testing.T, baseURL, path string) []byte {
+	t.Helper()
+	req, _ := http.NewRequest("GET", baseURL+path, nil)
+	req.SetBasicAuth(testUser, testPass)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET %s: %v", path, err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		t.Fatalf("GET %s: status %d: %s", path, resp.StatusCode, body)
+	}
+	return body
+}
+
+// apiPOSTMultipart sends a multipart form upload.
+func apiPOSTMultipart(t *testing.T, baseURL, path, fieldName, fileName string, data []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	part, err := w.CreateFormFile(fieldName, fileName)
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	if _, err := part.Write(data); err != nil {
+		t.Fatalf("write form data: %v", err)
+	}
+	w.Close()
+
+	req, _ := http.NewRequest("POST", baseURL+path, &buf)
+	req.SetBasicAuth(testUser, testPass)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST %s: %v", path, err)
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		t.Fatalf("POST %s: status %d: %s", path, resp.StatusCode, respBody)
+	}
+	return respBody
 }
 
 // --- Helpers ---

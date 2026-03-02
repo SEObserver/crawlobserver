@@ -35,6 +35,7 @@ export const TAB_FILTERS = {
     'body_size',
     'fetch_duration_ms',
   ],
+  redirects: ['url', 'status_code', 'final_url'],
   internal: ['source_url', 'target_url', 'anchor_text', 'tag'],
   external: ['source_url', 'target_url', 'anchor_text', 'rel'],
 };
@@ -77,7 +78,7 @@ export function getTabs() {
 
 export const TAB_SUB_VIEWS = {
   reports: ['overview', 'content', 'technical', 'links', 'structure', 'sitemaps', 'international'],
-  pages: ['all', 'titles', 'meta', 'headings', 'images', 'indexability', 'response'],
+  pages: ['all', 'titles', 'meta', 'headings', 'images', 'indexability', 'response', 'redirects'],
   links: ['internal', 'external', 'checks'],
   resources: ['summary', 'urls'],
   pagerank: ['top', 'directory', 'distribution', 'table'],

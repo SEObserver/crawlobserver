@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { getPages } from '../api.js';
+  import { getPages, getRedirectPages } from '../api.js';
   import { statusBadge, fmt, fmtSize, fmtN, trunc, fetchAll, downloadCSV } from '../utils.js';
   import { PAGE_SIZE, TAB_FILTERS } from '../tabColumns.js';
   import { t } from '../i18n/index.svelte.js';
@@ -26,6 +26,7 @@
     { id: 'images', label: () => t('pages.images') },
     { id: 'indexability', label: () => t('pages.indexability') },
     { id: 'response', label: () => t('pages.response') },
+    { id: 'redirects', label: () => t('pages.redirects') },
   ];
 
   // Map sub-view id to TAB_FILTERS key
@@ -40,6 +41,9 @@
   let filters = $state({ ...initialFilters });
   let sortColumn = $state('');
   let sortOrder = $state('');
+  let redirectPages = $state([]);
+  let redirectPagesOffset = $state(0);
+  let hasMoreRedirectPages = $state(false);
 
   function basePath() {
     return `/sessions/${sessionId}/pages`;
@@ -59,16 +63,29 @@
 
   async function loadData() {
     try {
-      const result = await getPages(
-        sessionId,
-        PAGE_SIZE,
-        pagesOffset,
-        filters,
-        sortColumn,
-        sortOrder,
-      );
-      pages = result || [];
-      hasMorePages = pages.length === PAGE_SIZE;
+      if (subView === 'redirects') {
+        const result = await getRedirectPages(
+          sessionId,
+          PAGE_SIZE,
+          redirectPagesOffset,
+          filters,
+          sortColumn,
+          sortOrder,
+        );
+        redirectPages = result || [];
+        hasMoreRedirectPages = redirectPages.length === PAGE_SIZE;
+      } else {
+        const result = await getPages(
+          sessionId,
+          PAGE_SIZE,
+          pagesOffset,
+          filters,
+          sortColumn,
+          sortOrder,
+        );
+        pages = result || [];
+        hasMorePages = pages.length === PAGE_SIZE;
+      }
     } catch (e) {
       onerror?.(e.message);
     }
@@ -78,6 +95,7 @@
     subView = sv;
     filters = {};
     pagesOffset = 0;
+    redirectPagesOffset = 0;
     sortColumn = '';
     sortOrder = '';
     pushFilters(sv, {}, 0);
@@ -92,14 +110,24 @@
   }
 
   async function nextPage() {
-    pagesOffset += PAGE_SIZE;
-    pushFilters(null, null, pagesOffset);
+    if (subView === 'redirects') {
+      redirectPagesOffset += PAGE_SIZE;
+      pushFilters(null, null, redirectPagesOffset);
+    } else {
+      pagesOffset += PAGE_SIZE;
+      pushFilters(null, null, pagesOffset);
+    }
     await loadData();
   }
 
   async function prevPage() {
-    pagesOffset = Math.max(0, pagesOffset - PAGE_SIZE);
-    pushFilters(null, null, pagesOffset);
+    if (subView === 'redirects') {
+      redirectPagesOffset = Math.max(0, redirectPagesOffset - PAGE_SIZE);
+      pushFilters(null, null, redirectPagesOffset);
+    } else {
+      pagesOffset = Math.max(0, pagesOffset - PAGE_SIZE);
+      pushFilters(null, null, pagesOffset);
+    }
     await loadData();
   }
 
@@ -193,6 +221,10 @@
         'FinalURL',
       ],
     },
+    redirects: {
+      headers: ['URL', 'Status', 'Final URL', 'Inbound Internal Links'],
+      keys: ['url', 'status_code', 'final_url', 'inbound_internal_links'],
+    },
   };
 
   let exporting = $state(false);
@@ -210,7 +242,11 @@
   async function exportCSV() {
     const cfg = CSV_CONFIGS[subView];
     if (!cfg) return;
-    const allData = await fetchAll((limit, offset) => getPages(sessionId, limit, offset, filters));
+    const fetcher =
+      subView === 'redirects'
+        ? (limit, offset) => getRedirectPages(sessionId, limit, offset, filters)
+        : (limit, offset) => getPages(sessionId, limit, offset, filters);
+    const allData = await fetchAll(fetcher);
     const keys = cfg.customKeys || cfg.keys;
     let rows = allData;
     if (cfg.transform) rows = allData.map(cfg.transform);
@@ -612,6 +648,44 @@
           <td>{fmtSize(p.BodySize)}</td>
           <td>{fmt(p.FetchDurationMs)}</td>
           <td>{p.FinalURL !== p.URL ? p.FinalURL : '-'}</td>
+        </tr>
+      {/snippet}
+    </DataTable>
+  {:else if subView === 'redirects'}
+    <DataTable
+      columns={[
+        { label: t('session.url'), sortKey: 'url' },
+        { label: t('session.status'), sortKey: 'status_code' },
+        { label: t('session.finalUrl'), sortKey: 'final_url' },
+        { label: t('session.inboundLinks'), sortKey: 'inbound_internal_links' },
+      ]}
+      filterKeys={TAB_FILTERS.redirects}
+      {filters}
+      data={redirectPages}
+      offset={redirectPagesOffset}
+      pageSize={PAGE_SIZE}
+      hasMore={hasMoreRedirectPages}
+      hasActiveFilters={hasActiveFilters()}
+      onsetfilter={setFilter}
+      onapplyfilters={applyFilters}
+      onclearfilters={clearFilters}
+      onnextpage={nextPage}
+      onprevpage={prevPage}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
+    >
+      {#snippet row(p)}
+        <tr>
+          <td class="cell-url"
+            ><span class="cell-url-inner"
+              ><a href={urlDetailHref(p.url)} onclick={(e) => goToUrlDetail(e, p.url)}>{p.url}</a
+              ><UrlActions url={p.url} /></span
+            ></td
+          >
+          <td><span class="badge {statusBadge(p.status_code)}">{p.status_code}</span></td>
+          <td class="cell-url">{p.final_url || '-'}</td>
+          <td class:cell-warn={p.inbound_internal_links > 0}>{p.inbound_internal_links}</td>
         </tr>
       {/snippet}
     </DataTable>

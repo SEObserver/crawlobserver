@@ -91,6 +91,21 @@ var PageResourceCheckFilters = map[string]FilterDef{
 	"error":         {Column: "error", Type: FilterLike},
 }
 
+// RedirectFilters defines the allowed filter columns for the redirect pages view.
+var RedirectFilters = map[string]FilterDef{
+	"url":         {Column: "p.url", Type: FilterLike},
+	"status_code": {Column: "p.status_code", Type: FilterUint},
+	"final_url":   {Column: "p.final_url", Type: FilterLike},
+}
+
+// RedirectSortColumns maps query param names to DB column names for redirect pages.
+var RedirectSortColumns = map[string]string{
+	"url":                    "p.url",
+	"status_code":            "p.status_code",
+	"final_url":              "p.final_url",
+	"inbound_internal_links": "inbound_internal_links",
+}
+
 // SortParam holds a validated sort column and direction.
 type SortParam struct {
 	Column string // DB column name (from whitelist)

@@ -183,6 +183,8 @@
   "session.contentType": "Content Type",
   "session.encoding": "Encodage",
   "session.redirects": "Redirections",
+  "session.finalUrl": "URL finale",
+  "session.inboundLinks": "Liens entrants",
   "session.anchorText": "Texte d'ancre",
   "session.tag": "Balise",
   "session.rel": "Rel",
@@ -447,6 +449,7 @@
   "pages.images": "Images",
   "pages.indexability": "Indexabilité",
   "pages.response": "Réponse",
+  "pages.redirects": "Redirections",
 
   "links.internal": "Internes",
   "links.external": "Externes",

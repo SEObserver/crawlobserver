@@ -56,6 +56,7 @@ type CrawlStore interface {
 	NearDuplicates(ctx context.Context, sessionID string, threshold int, limit, offset int) (*storage.NearDuplicatesResult, error)
 	StreamPagesHTML(ctx context.Context, sessionID string) (<-chan storage.PageHTMLRow, error)
 	PagesWithAuthority(ctx context.Context, sessionID, projectID string, limit, offset int) ([]storage.PageWithAuthority, int, error)
+	ListRedirectPages(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.RedirectPageRow, error)
 }
 
 // GSCStore handles Google Search Console data.

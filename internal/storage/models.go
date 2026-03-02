@@ -402,6 +402,14 @@ type NearDuplicatesResult struct {
 	Total uint64              `json:"total"`
 }
 
+// RedirectPageRow represents a redirect page with inbound internal link count.
+type RedirectPageRow struct {
+	URL                  string `json:"url"`
+	StatusCode           uint16 `json:"status_code"`
+	FinalURL             string `json:"final_url"`
+	InboundInternalLinks uint64 `json:"inbound_internal_links"`
+}
+
 // ResourceTypeSummary holds aggregated stats for one resource type.
 type ResourceTypeSummary struct {
 	ResourceType string `json:"resource_type"`

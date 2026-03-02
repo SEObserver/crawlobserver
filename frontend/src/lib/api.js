@@ -1173,6 +1173,32 @@ export async function getNearDuplicates(
   );
 }
 
+/**
+ * @param {string} sessionId
+ * @param {number} limit
+ * @param {number} offset
+ * @param {Object<string, string>} filters
+ * @param {string} sort
+ * @param {string} order
+ * @returns {Promise<Object[]>}
+ */
+export async function getRedirectPages(
+  sessionId,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  filters = {},
+  sort = '',
+  order = '',
+) {
+  let url = `/sessions/${sessionId}/redirect-pages?limit=${limit}&offset=${offset}`;
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
+  }
+  if (sort) url += `&sort=${encodeURIComponent(sort)}`;
+  if (order) url += `&order=${encodeURIComponent(order)}`;
+  return fetchJSON(url);
+}
+
 /** @returns {Promise<{rows: Array, total: number}>} */
 export async function getSessionAuthority(sessionId, projectId, limit = 100, offset = 0) {
   return fetchJSON(

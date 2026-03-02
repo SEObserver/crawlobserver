@@ -131,6 +131,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/sessions/{id}/resource-checks/summary", s.handlePageResourceChecksSummary)
 	mux.HandleFunc("POST /api/sessions/{id}/reparse-resources", s.handleReparseResources)
 	mux.HandleFunc("GET /api/sessions/{id}/near-duplicates", s.handleNearDuplicates)
+	mux.HandleFunc("GET /api/sessions/{id}/redirect-pages", s.handleRedirectPages)
 	mux.HandleFunc("GET /api/storage-stats", s.handleStorageStats)
 	mux.HandleFunc("GET /api/session-storage", s.handleSessionStorage)
 	mux.HandleFunc("GET /api/global-stats", s.handleGlobalStats)

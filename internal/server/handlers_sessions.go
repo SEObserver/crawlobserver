@@ -437,20 +437,42 @@ func (s *Server) handleImportSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Limit upload to 2 GB
-	r.Body = http.MaxBytesReader(w, r.Body, 2<<30)
+	// Limit upload to 50 GB
+	r.Body = http.MaxBytesReader(w, r.Body, 50<<30)
 
-	file, _, err := r.FormFile("file")
+	// Stream directly from the multipart body — no temp file on disk.
+	mr, err := r.MultipartReader()
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "missing or invalid file upload")
+		writeError(w, http.StatusBadRequest, "invalid multipart request")
 		return
 	}
-	defer file.Close()
 
-	sess, err := s.store.ImportSession(r.Context(), file)
-	if err != nil {
-		applog.Errorf("server", "import session: %v", err)
-		writeError(w, http.StatusBadRequest, "import failed")
+	var sess *storage.CrawlSession
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "error reading multipart data")
+			return
+		}
+		if part.FormName() != "file" {
+			part.Close()
+			continue
+		}
+		sess, err = s.store.ImportSession(r.Context(), part)
+		part.Close()
+		if err != nil {
+			applog.Errorf("server", "import session: %v", err)
+			writeError(w, http.StatusBadRequest, "import failed")
+			return
+		}
+		break
+	}
+
+	if sess == nil {
+		writeError(w, http.StatusBadRequest, "missing file field in upload")
 		return
 	}
 
@@ -967,6 +989,26 @@ func (s *Server) handleNearDuplicates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, result)
+}
+
+func (s *Server) handleRedirectPages(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
+	filters := parseFilters(r, storage.RedirectFilters)
+	sort := parseSort(r, storage.RedirectSortColumns)
+
+	pages, err := s.store.ListRedirectPages(r.Context(), sessionID, limit, offset, filters, sort)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	if pages == nil {
+		pages = []storage.RedirectPageRow{}
+	}
+	writeJSON(w, pages)
 }
 
 // handleReparseResources re-extracts page resources from stored body_html

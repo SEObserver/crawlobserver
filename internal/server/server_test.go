@@ -404,6 +404,9 @@ func (m *mockStore) InsertPageResourceRefs(_ context.Context, _ []storage.PageRe
 func (m *mockStore) InsertPageResourceChecks(_ context.Context, _ []storage.PageResourceCheck) error {
 	return m.err
 }
+func (m *mockStore) ListRedirectPages(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter, _ *storage.SortParam) ([]storage.RedirectPageRow, error) {
+	return []storage.RedirectPageRow{}, m.err
+}
 
 // ---------------------------------------------------------------------------
 // mockManager implements CrawlService
