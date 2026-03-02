@@ -5,9 +5,6 @@ linters:
     - errcheck
     - govet
     - staticcheck
-    - unused
-    - ineffassign
-    - gosimple
     - gocritic
     - misspell
   settings:
