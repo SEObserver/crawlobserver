@@ -395,6 +395,9 @@ func (m *mockStore) ProviderAPICalls(_ context.Context, _, _ string, _, _ int) (
 func (m *mockStore) PagesWithAuthority(_ context.Context, _, _ string, _, _ int) ([]storage.PageWithAuthority, int, error) {
 	return []storage.PageWithAuthority{}, 0, m.err
 }
+func (m *mockStore) GetPageBodies(_ context.Context, _ string, _, _ int) ([]storage.PageBody, error) {
+	return nil, m.err
+}
 
 // ---------------------------------------------------------------------------
 // mockManager implements CrawlService
