@@ -48,11 +48,33 @@
               {col.label}
               <span class="sort-indicator" class:sort-active={sortColumn === col.sortKey}>
                 {#if sortColumn === col.sortKey && sortOrder === 'asc'}
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5m-7 7l7-7 7 7"/></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"><path d="M12 19V5m-7 7l7-7 7 7" /></svg
+                  >
                 {:else if sortColumn === col.sortKey && sortOrder === 'desc'}
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m7-7l-7 7-7-7"/></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"><path d="M12 5v14m7-7l-7 7-7-7" /></svg
+                  >
                 {:else}
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"><path d="M12 5v14m7-7l-7 7-7-7"/></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    opacity="0.3"><path d="M12 5v14m7-7l-7 7-7-7" /></svg
+                  >
                 {/if}
               </span>
             </span>
@@ -121,7 +143,7 @@
     user-select: none;
   }
   th.sortable:hover {
-    background: var(--hover-bg, rgba(255,255,255,0.05));
+    background: var(--hover-bg, rgba(255, 255, 255, 0.05));
   }
   .sort-header {
     display: inline-flex;

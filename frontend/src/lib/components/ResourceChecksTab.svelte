@@ -107,18 +107,38 @@
     exporting = true;
     try {
       if (view === 'summary') {
-        downloadCSV('resources-summary.csv',
+        downloadCSV(
+          'resources-summary.csv',
           ['Type', 'Total', 'Internal', 'External', 'OK', 'Errors'],
           ['resource_type', 'total', 'internal', 'external', 'ok', 'errors'],
           summary,
         );
       } else {
-        const allData = await fetchAll(
-          (limit, offset) => getPageResourceChecks(sessionId, limit, offset, urlFilters),
+        const allData = await fetchAll((limit, offset) =>
+          getPageResourceChecks(sessionId, limit, offset, urlFilters),
         );
-        downloadCSV('resources-urls.csv',
-          ['URL', 'Type', 'Internal', 'Status', 'Content Type', 'Redirect URL', 'Pages', 'Time (ms)'],
-          ['url', 'resource_type', 'is_internal', 'status_code', 'content_type', 'redirect_url', 'page_count', 'response_time_ms'],
+        downloadCSV(
+          'resources-urls.csv',
+          [
+            'URL',
+            'Type',
+            'Internal',
+            'Status',
+            'Content Type',
+            'Redirect URL',
+            'Pages',
+            'Time (ms)',
+          ],
+          [
+            'url',
+            'resource_type',
+            'is_internal',
+            'status_code',
+            'content_type',
+            'redirect_url',
+            'page_count',
+            'response_time_ms',
+          ],
           allData,
         );
       }
@@ -151,10 +171,33 @@
     </div>
     <button class="btn btn-sm res-export" onclick={handleExportCSV} disabled={exporting}>
       {#if exporting}
-        <svg class="csv-spinner" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"/></svg>
+        <svg
+          class="csv-spinner"
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          ><path
+            d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"
+          /></svg
+        >
         {t('common.exportingCsv')}
       {:else}
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
+            points="7 10 12 15 17 10"
+          /><line x1="12" y1="15" x2="12" y2="3" /></svg
+        >
         {t('common.exportCsv')}
       {/if}
     </button>

@@ -133,7 +133,14 @@ export async function getSessions() {
  * @param {Object<string, string>} filters
  * @returns {Promise<Page[]>}
  */
-export async function getPages(sessionId, limit = DEFAULT_LIMIT, offset = 0, filters = {}, sort = '', order = '') {
+export async function getPages(
+  sessionId,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  filters = {},
+  sort = '',
+  order = '',
+) {
   let url = `/sessions/${sessionId}/pages?limit=${limit}&offset=${offset}`;
   for (const [k, v] of Object.entries(filters)) {
     if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
@@ -150,7 +157,14 @@ export async function getPages(sessionId, limit = DEFAULT_LIMIT, offset = 0, fil
  * @param {Object<string, string>} filters
  * @returns {Promise<Link[]>}
  */
-export async function getExternalLinks(sessionId, limit = DEFAULT_LIMIT, offset = 0, filters = {}, sort = '', order = '') {
+export async function getExternalLinks(
+  sessionId,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  filters = {},
+  sort = '',
+  order = '',
+) {
   let url = `/sessions/${sessionId}/links?limit=${limit}&offset=${offset}`;
   for (const [k, v] of Object.entries(filters)) {
     if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
@@ -167,7 +181,14 @@ export async function getExternalLinks(sessionId, limit = DEFAULT_LIMIT, offset 
  * @param {Object<string, string>} filters
  * @returns {Promise<Link[]>}
  */
-export async function getInternalLinks(sessionId, limit = DEFAULT_LIMIT, offset = 0, filters = {}, sort = '', order = '') {
+export async function getInternalLinks(
+  sessionId,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  filters = {},
+  sort = '',
+  order = '',
+) {
   let url = `/sessions/${sessionId}/internal-links?limit=${limit}&offset=${offset}`;
   for (const [k, v] of Object.entries(filters)) {
     if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;

@@ -226,13 +226,7 @@
     {#if checkExternalLinks}
       <div class="form-group form-group-inline">
         <label for="extworkers">{t('newCrawl.extWorkers')}</label>
-        <input
-          id="extworkers"
-          type="number"
-          bind:value={externalLinkWorkers}
-          min="1"
-          max="20"
-        />
+        <input id="extworkers" type="number" bind:value={externalLinkWorkers} min="1" max="20" />
       </div>
     {/if}
     <label class="inline-checkbox">

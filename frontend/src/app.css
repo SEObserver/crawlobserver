@@ -768,7 +768,9 @@ tr:hover .url-actions {
   cursor: pointer;
   padding: 0;
   text-decoration: none;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 .url-action-btn:hover {
   color: var(--accent);
@@ -787,7 +789,9 @@ tr:hover .url-actions {
   animation: spin 0.8s linear infinite;
 }
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ===== Charts ===== */

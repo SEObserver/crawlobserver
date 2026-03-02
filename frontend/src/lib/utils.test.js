@@ -1,5 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { statusBadge, fmt, fmtSize, fmtN, trunc, timeAgo, a11yKeydown, squarify, fetchAll, downloadCSV } from './utils.js';
+import {
+  statusBadge,
+  fmt,
+  fmtSize,
+  fmtN,
+  trunc,
+  timeAgo,
+  a11yKeydown,
+  squarify,
+  fetchAll,
+  downloadCSV,
+} from './utils.js';
 
 describe('statusBadge', () => {
   it('returns badge-success for 2xx', () => {
@@ -191,7 +202,8 @@ describe('fetchAll', () => {
   });
 
   it('fetches multiple pages until exhausted', async () => {
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
       .mockResolvedValueOnce([{ id: 3 }, { id: 4 }])
       .mockResolvedValueOnce([{ id: 5 }]);
@@ -204,7 +216,8 @@ describe('fetchAll', () => {
   });
 
   it('stops when batch returns exactly empty after full pages', async () => {
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
       .mockResolvedValueOnce([]);
     const result = await fetchAll(fn, 2);
@@ -242,10 +255,15 @@ describe('downloadCSV', () => {
   });
 
   it('generates CSV with headers and data rows', () => {
-    downloadCSV('test.csv', ['Name', 'Age'], ['name', 'age'], [
-      { name: 'Alice', age: 30 },
-      { name: 'Bob', age: 25 },
-    ]);
+    downloadCSV(
+      'test.csv',
+      ['Name', 'Age'],
+      ['name', 'age'],
+      [
+        { name: 'Alice', age: 30 },
+        { name: 'Bob', age: 25 },
+      ],
+    );
     expect(clickSpy).toHaveBeenCalledOnce();
     expect(URL.createObjectURL).toHaveBeenCalledOnce();
     const blob = createdUrl;
@@ -308,9 +326,9 @@ describe('downloadCSV', () => {
     const buf = await captured.arrayBuffer();
     const bytes = new Uint8Array(buf);
     // UTF-8 BOM: EF BB BF
-    expect(bytes[0]).toBe(0xEF);
-    expect(bytes[1]).toBe(0xBB);
-    expect(bytes[2]).toBe(0xBF);
+    expect(bytes[0]).toBe(0xef);
+    expect(bytes[1]).toBe(0xbb);
+    expect(bytes[2]).toBe(0xbf);
   });
 
   it('sets correct filename on download link', () => {
