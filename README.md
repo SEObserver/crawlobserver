@@ -21,9 +21,8 @@
   <a href="https://goreportcard.com/report/github.com/SEObserver/crawlobserver"><img src="https://goreportcard.com/badge/github.com/SEObserver/crawlobserver" alt="Go Report Card"></a>
 </p>
 
-<!-- TODO: Replace with actual screenshot of the Web UI -->
 <p align="center">
-  <img src="docs/screenshot.png" alt="CrawlObserver Web UI" width="900">
+  <img src="screenshot.png" alt="CrawlObserver Web UI" width="900">
 </p>
 
 ---
