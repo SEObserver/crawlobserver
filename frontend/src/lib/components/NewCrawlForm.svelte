@@ -115,44 +115,30 @@
   <h1>{t('newCrawl.title')}</h1>
 </div>
 <div class="card">
-  <div class="form-grid">
-    <div class="form-group form-full-width">
-      <label for="seeds">{t('newCrawl.seedUrls')}</label>
-      <textarea id="seeds" bind:value={seedInput} rows="3" placeholder="https://example.com"
-      ></textarea>
+  <!-- Seed URLs -->
+  <div class="form-group">
+    <label for="seeds">{t('newCrawl.seedUrls')}</label>
+    <textarea id="seeds" bind:value={seedInput} rows="3" placeholder="https://example.com"
+    ></textarea>
+  </div>
+
+  <!-- Crawl parameters -->
+  <div class="form-grid form-section">
+    <div class="form-group">
+      <label for="workers">{t('newCrawl.workers')}</label>
+      <input id="workers" type="number" bind:value={workers} min="1" max="100" />
     </div>
     <div class="form-group">
-      <label for="workers">{t('newCrawl.workers')}</label><input
-        id="workers"
-        type="number"
-        bind:value={workers}
-        min="1"
-        max="100"
-      />
+      <label for="delay">{t('newCrawl.delay')}</label>
+      <input id="delay" type="text" bind:value={crawlDelay} placeholder="1s" />
     </div>
     <div class="form-group">
-      <label for="delay">{t('newCrawl.delay')}</label><input
-        id="delay"
-        type="text"
-        bind:value={crawlDelay}
-        placeholder="1s"
-      />
+      <label for="maxpages">{t('newCrawl.maxPages')}</label>
+      <input id="maxpages" type="number" bind:value={maxPages} min="0" />
     </div>
     <div class="form-group">
-      <label for="maxpages">{t('newCrawl.maxPages')}</label><input
-        id="maxpages"
-        type="number"
-        bind:value={maxPages}
-        min="0"
-      />
-    </div>
-    <div class="form-group">
-      <label for="maxdepth">{t('newCrawl.maxDepth')}</label><input
-        id="maxdepth"
-        type="number"
-        bind:value={maxDepth}
-        min="0"
-      />
+      <label for="maxdepth">{t('newCrawl.maxDepth')}</label>
+      <input id="maxdepth" type="number" bind:value={maxDepth} min="0" />
     </div>
     <div class="form-group">
       <label for="scope">{t('newCrawl.crawlScope')}</label>
@@ -200,6 +186,10 @@
         />
       </div>
     {/if}
+  </div>
+
+  <!-- Outgoing IP -->
+  <div class="form-section ip-section">
     <div class="form-group">
       <label for="sourceip">{t('newCrawl.sourceIP')}</label>
       <div class="input-with-btn">
@@ -217,33 +207,26 @@
         {/if}
       </div>
     </div>
-    <div class="form-group form-checkbox-row">
-      <input id="forceipv4" type="checkbox" bind:checked={forceIPv4} /><label
-        for="forceipv4"
-        class="form-checkbox-label">{t('newCrawl.forceIPv4')}</label
-      >
-    </div>
-    <div class="form-group form-checkbox-row">
-      <input id="storehtml" type="checkbox" bind:checked={storeHtml} /><label
-        for="storehtml"
-        class="form-checkbox-label">{t('newCrawl.storeHtml')}</label
-      >
-    </div>
-    <div class="form-group form-checkbox-row">
-      <input id="checkext" type="checkbox" bind:checked={checkExternalLinks} /><label
-        for="checkext"
-        class="form-checkbox-label">{t('newCrawl.checkExternal')}</label
-      >
-    </div>
-    <div class="form-group form-checkbox-row">
-      <input id="sitemaponly" type="checkbox" bind:checked={crawlSitemapOnly} /><label
-        for="sitemaponly"
-        class="form-checkbox-label">{t('newCrawl.sitemapOnly')}</label
-      >
-    </div>
+    <label class="inline-checkbox">
+      <input type="checkbox" bind:checked={forceIPv4} />
+      {t('newCrawl.forceIPv4')}
+    </label>
+  </div>
+
+  <!-- Options -->
+  <div class="form-section options-row">
+    <label class="inline-checkbox">
+      <input type="checkbox" bind:checked={storeHtml} />
+      {t('newCrawl.storeHtml')}
+    </label>
+    <label class="inline-checkbox">
+      <input type="checkbox" bind:checked={checkExternalLinks} />
+      {t('newCrawl.checkExternal')}
+    </label>
     {#if checkExternalLinks}
-      <div class="form-group">
-        <label for="extworkers">{t('newCrawl.extWorkers')}</label><input
+      <div class="form-group form-group-inline">
+        <label for="extworkers">{t('newCrawl.extWorkers')}</label>
+        <input
           id="extworkers"
           type="number"
           bind:value={externalLinkWorkers}
@@ -252,6 +235,14 @@
         />
       </div>
     {/if}
+    <label class="inline-checkbox">
+      <input type="checkbox" bind:checked={crawlSitemapOnly} />
+      {t('newCrawl.sitemapOnly')}
+    </label>
+  </div>
+
+  <!-- JS Rendering / Project -->
+  <div class="form-grid form-section">
     <div class="form-group">
       <label for="jsrender">{t('newCrawl.jsRender')}</label>
       <SearchSelect
@@ -266,20 +257,13 @@
     </div>
     {#if jsRenderMode !== 'off'}
       <div class="form-group">
-        <label for="jsworkers">{t('newCrawl.jsRenderWorkers')}</label><input
-          id="jsworkers"
-          type="number"
-          bind:value={jsRenderMaxPages}
-          min="1"
-          max="8"
-        />
+        <label for="jsworkers">{t('newCrawl.jsRenderWorkers')}</label>
+        <input id="jsworkers" type="number" bind:value={jsRenderMaxPages} min="1" max="8" />
       </div>
-      <div class="form-group form-checkbox-row">
-        <input id="followjs" type="checkbox" bind:checked={followJSLinks} /><label
-          for="followjs"
-          class="form-checkbox-label">{t('newCrawl.followJSLinks')}</label
-        >
-      </div>
+      <label class="inline-checkbox inline-checkbox-align">
+        <input type="checkbox" bind:checked={followJSLinks} />
+        {t('newCrawl.followJSLinks')}
+      </label>
     {/if}
     {#if projects.length > 0}
       <div class="form-group">
@@ -307,6 +291,7 @@
       </div>
     {/if}
   </div>
+
   <div class="form-actions">
     <button
       class="btn btn-primary"
@@ -320,18 +305,20 @@
 </div>
 
 <style>
-  .form-full-width {
-    grid-column: 1 / -1;
+  .form-section {
+    margin-top: 16px;
   }
-  .form-checkbox-row {
+  .ip-section {
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    padding-top: 24px;
+    align-items: flex-end;
+    gap: 16px;
   }
-  .form-checkbox-label {
-    margin: 0;
+  .ip-section .form-group {
+    flex: 1;
+    max-width: 400px;
+  }
+  .ip-section .inline-checkbox {
+    margin-bottom: 8px;
   }
   .input-with-btn {
     display: flex;
@@ -340,6 +327,33 @@
   }
   .input-with-btn input {
     flex: 1;
+  }
+  .options-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 20px;
+  }
+  .inline-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .inline-checkbox-align {
+    align-self: flex-end;
+    padding-bottom: 10px;
+  }
+  .form-group-inline {
+    flex-direction: row;
+    align-items: center;
+  }
+  .form-group-inline input {
+    width: 70px;
   }
   .badge-info {
     font-size: 0.8rem;

@@ -40,6 +40,10 @@
 
   function openDropdown() {
     if (disabled) return;
+    if (triggerEl) {
+      const rect = triggerEl.getBoundingClientRect();
+      dropStyle = `position:fixed;left:${rect.left}px;top:${rect.bottom + 4}px;width:${rect.width}px;`;
+    }
     open = true;
     query = '';
     activeIndex = -1;

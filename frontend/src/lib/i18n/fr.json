@@ -138,7 +138,7 @@
   "newCrawl.jsRenderAlways": "Toujours",
   "newCrawl.jsRenderWorkers": "Workers Chrome",
   "newCrawl.followJSLinks": "Suivre les liens découverts par JS",
-  "newCrawl.sourceIP": "IP source",
+  "newCrawl.sourceIP": "IP de sortie",
   "newCrawl.sourceIPPlaceholder": "Auto",
   "newCrawl.forceIPv4": "Forcer IPv4",
   "newCrawl.checkIP": "Vérifier l'IP",
