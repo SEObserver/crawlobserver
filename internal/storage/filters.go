@@ -91,6 +91,76 @@ var PageResourceCheckFilters = map[string]FilterDef{
 	"error":         {Column: "error", Type: FilterLike},
 }
 
+// SortParam holds a validated sort column and direction.
+type SortParam struct {
+	Column string // DB column name (from whitelist)
+	Order  string // "ASC" or "DESC"
+}
+
+// PageSortColumns maps query param names to DB column names for pages.
+var PageSortColumns = map[string]string{
+	"url":                "url",
+	"status_code":        "status_code",
+	"title":              "title",
+	"title_length":       "title_length",
+	"word_count":         "word_count",
+	"internal_links_out": "internal_links_out",
+	"external_links_out": "external_links_out",
+	"body_size":          "body_size",
+	"fetch_duration_ms":  "fetch_duration_ms",
+	"depth":              "depth",
+	"pagerank":           "pagerank",
+	"content_type":       "content_type",
+	"meta_description":   "meta_description",
+	"meta_desc_length":   "meta_desc_length",
+	"meta_keywords":      "meta_keywords",
+	"canonical":          "canonical",
+	"is_indexable":       "is_indexable",
+	"index_reason":       "index_reason",
+	"meta_robots":        "meta_robots",
+	"canonical_is_self":  "canonical_is_self",
+	"images_count":       "images_count",
+	"images_no_alt":      "images_no_alt",
+	"content_encoding":   "content_encoding",
+	"lang":               "lang",
+	"og_title":           "og_title",
+	"crawled_at":         "crawled_at",
+}
+
+// LinkSortColumns maps query param names to DB column names for links.
+var LinkSortColumns = map[string]string{
+	"source_url":  "source_url",
+	"target_url":  "target_url",
+	"anchor_text": "anchor_text",
+	"rel":         "rel",
+	"tag":         "tag",
+	"crawled_at":  "crawled_at",
+}
+
+// ParseSort validates sort/order params against a whitelist and returns a SortParam or nil.
+func ParseSort(sortKey, orderStr string, whitelist map[string]string) *SortParam {
+	if sortKey == "" {
+		return nil
+	}
+	col, ok := whitelist[sortKey]
+	if !ok {
+		return nil
+	}
+	order := strings.ToUpper(orderStr)
+	if order != "ASC" && order != "DESC" {
+		order = "ASC"
+	}
+	return &SortParam{Column: col, Order: order}
+}
+
+// BuildOrderByClause returns an ORDER BY clause using the sort param or the default.
+func BuildOrderByClause(sort *SortParam, defaultOrderBy string) string {
+	if sort == nil {
+		return " ORDER BY " + defaultOrderBy
+	}
+	return fmt.Sprintf(" ORDER BY %s %s", sort.Column, sort.Order)
+}
+
 // BuildWhereClause generates a SQL WHERE clause fragment and arguments from parsed filters.
 func BuildWhereClause(filters []ParsedFilter) (string, []interface{}, error) {
 	if len(filters) == 0 {

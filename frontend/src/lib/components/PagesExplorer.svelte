@@ -38,6 +38,8 @@
   let pagesOffset = $state(initialOffset);
   let hasMorePages = $state(false);
   let filters = $state({ ...initialFilters });
+  let sortColumn = $state('');
+  let sortOrder = $state('');
 
   function basePath() {
     return `/sessions/${sessionId}/pages`;
@@ -57,7 +59,7 @@
 
   async function loadData() {
     try {
-      const result = await getPages(sessionId, PAGE_SIZE, pagesOffset, filters);
+      const result = await getPages(sessionId, PAGE_SIZE, pagesOffset, filters, sortColumn, sortOrder);
       pages = result || [];
       hasMorePages = pages.length === PAGE_SIZE;
     } catch (e) {
@@ -69,7 +71,16 @@
     subView = sv;
     filters = {};
     pagesOffset = 0;
+    sortColumn = '';
+    sortOrder = '';
     pushFilters(sv, {}, 0);
+    loadData();
+  }
+
+  function handleSort(col, ord) {
+    sortColumn = col;
+    sortOrder = ord;
+    pagesOffset = 0;
     loadData();
   }
 
@@ -215,16 +226,16 @@
   {#if subView === 'all'}
     <DataTable
       columns={[
-        { label: t('session.url') },
-        { label: t('session.status') },
-        { label: t('session.title') },
-        { label: t('session.words') },
-        { label: t('session.intOut') },
-        { label: t('session.extOut') },
-        { label: t('common.size') },
-        { label: t('session.time') },
-        { label: t('session.depth') },
-        { label: t('session.pr') },
+        { label: t('session.url'), sortKey: 'url' },
+        { label: t('session.status'), sortKey: 'status_code' },
+        { label: t('session.title'), sortKey: 'title' },
+        { label: t('session.words'), sortKey: 'word_count' },
+        { label: t('session.intOut'), sortKey: 'internal_links_out' },
+        { label: t('session.extOut'), sortKey: 'external_links_out' },
+        { label: t('common.size'), sortKey: 'body_size' },
+        { label: t('session.time'), sortKey: 'fetch_duration_ms' },
+        { label: t('session.depth'), sortKey: 'depth' },
+        { label: t('session.pr'), sortKey: 'pagerank' },
         { label: '' },
       ]}
       filterKeys={TAB_FILTERS.overview}
@@ -239,6 +250,9 @@
       onclearfilters={clearFilters}
       onnextpage={nextPage}
       onprevpage={prevPage}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
     >
       {#snippet row(p)}
         <tr>
@@ -278,9 +292,9 @@
   {:else if subView === 'titles'}
     <DataTable
       columns={[
-        { label: t('session.url') },
-        { label: t('session.title') },
-        { label: t('session.length') },
+        { label: t('session.url'), sortKey: 'url' },
+        { label: t('session.title'), sortKey: 'title' },
+        { label: t('session.length'), sortKey: 'title_length' },
         { label: t('session.h1') },
       ]}
       filterKeys={TAB_FILTERS.titles}
@@ -295,6 +309,9 @@
       onclearfilters={clearFilters}
       onnextpage={nextPage}
       onprevpage={prevPage}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
     >
       {#snippet row(p)}
         <tr>
@@ -312,11 +329,11 @@
   {:else if subView === 'meta'}
     <DataTable
       columns={[
-        { label: t('session.url') },
-        { label: t('session.metaDescription') },
-        { label: t('session.length') },
-        { label: t('session.metaKeywords') },
-        { label: t('session.ogTitle') },
+        { label: t('session.url'), sortKey: 'url' },
+        { label: t('session.metaDescription'), sortKey: 'meta_description' },
+        { label: t('session.length'), sortKey: 'meta_desc_length' },
+        { label: t('session.metaKeywords'), sortKey: 'meta_keywords' },
+        { label: t('session.ogTitle'), sortKey: 'og_title' },
       ]}
       filterKeys={TAB_FILTERS.meta}
       {filters}
@@ -330,6 +347,9 @@
       onclearfilters={clearFilters}
       onnextpage={nextPage}
       onprevpage={prevPage}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
     >
       {#snippet row(p)}
         <tr>
@@ -350,7 +370,7 @@
   {:else if subView === 'headings'}
     <DataTable
       columns={[
-        { label: t('session.url') },
+        { label: t('session.url'), sortKey: 'url' },
         { label: t('session.h1') },
         { label: t('session.h1Count') },
         { label: t('session.h2') },
@@ -368,6 +388,9 @@
       onclearfilters={clearFilters}
       onnextpage={nextPage}
       onprevpage={prevPage}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
     >
       {#snippet row(p)}
         <tr>
@@ -386,11 +409,11 @@
   {:else if subView === 'images'}
     <DataTable
       columns={[
-        { label: t('session.url') },
-        { label: t('session.images') },
-        { label: t('session.withoutAlt') },
-        { label: t('session.title') },
-        { label: t('session.words') },
+        { label: t('session.url'), sortKey: 'url' },
+        { label: t('session.images'), sortKey: 'images_count' },
+        { label: t('session.withoutAlt'), sortKey: 'images_no_alt' },
+        { label: t('session.title'), sortKey: 'title' },
+        { label: t('session.words'), sortKey: 'word_count' },
       ]}
       filterKeys={TAB_FILTERS.images}
       {filters}
@@ -404,6 +427,9 @@
       onclearfilters={clearFilters}
       onnextpage={nextPage}
       onprevpage={prevPage}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
     >
       {#snippet row(p)}
         <tr>
@@ -420,12 +446,12 @@
   {:else if subView === 'indexability'}
     <DataTable
       columns={[
-        { label: t('session.url') },
-        { label: t('session.indexable') },
-        { label: t('session.reason') },
-        { label: t('session.metaRobots') },
-        { label: t('session.canonical') },
-        { label: t('session.self') },
+        { label: t('session.url'), sortKey: 'url' },
+        { label: t('session.indexable'), sortKey: 'is_indexable' },
+        { label: t('session.reason'), sortKey: 'index_reason' },
+        { label: t('session.metaRobots'), sortKey: 'meta_robots' },
+        { label: t('session.canonical'), sortKey: 'canonical' },
+        { label: t('session.self'), sortKey: 'canonical_is_self' },
       ]}
       filterKeys={TAB_FILTERS.indexability}
       {filters}
@@ -439,6 +465,9 @@
       onclearfilters={clearFilters}
       onnextpage={nextPage}
       onprevpage={prevPage}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
     >
       {#snippet row(p)}
         <tr>
@@ -463,12 +492,12 @@
   {:else if subView === 'response'}
     <DataTable
       columns={[
-        { label: t('session.url') },
-        { label: t('session.status') },
-        { label: t('session.contentType') },
-        { label: t('session.encoding') },
-        { label: t('common.size') },
-        { label: t('session.time') },
+        { label: t('session.url'), sortKey: 'url' },
+        { label: t('session.status'), sortKey: 'status_code' },
+        { label: t('session.contentType'), sortKey: 'content_type' },
+        { label: t('session.encoding'), sortKey: 'content_encoding' },
+        { label: t('common.size'), sortKey: 'body_size' },
+        { label: t('session.time'), sortKey: 'fetch_duration_ms' },
         { label: t('session.redirects') },
       ]}
       filterKeys={TAB_FILTERS.response}
@@ -483,6 +512,9 @@
       onclearfilters={clearFilters}
       onnextpage={nextPage}
       onprevpage={prevPage}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
     >
       {#snippet row(p)}
         <tr>

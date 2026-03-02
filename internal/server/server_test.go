@@ -123,16 +123,16 @@ func (m *mockStore) UpdateSessionProject(_ context.Context, sessionID string, pr
 	return m.err
 }
 
-func (m *mockStore) ListPages(_ context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.PageRow, error) {
+func (m *mockStore) ListPages(_ context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter, _ *storage.SortParam) ([]storage.PageRow, error) {
 	m.listPagesCalls = append(m.listPagesCalls, listPagesCall{sessionID, limit, offset, filters})
 	return m.pages, m.err
 }
 
-func (m *mockStore) ExternalLinksPaginated(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter) ([]storage.LinkRow, error) {
+func (m *mockStore) ExternalLinksPaginated(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter, _ *storage.SortParam) ([]storage.LinkRow, error) {
 	return m.links, m.err
 }
 
-func (m *mockStore) InternalLinksPaginated(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter) ([]storage.LinkRow, error) {
+func (m *mockStore) InternalLinksPaginated(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter, _ *storage.SortParam) ([]storage.LinkRow, error) {
 	return m.links, m.err
 }
 

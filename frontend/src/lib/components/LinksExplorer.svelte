@@ -32,6 +32,8 @@
   let hasMoreIntLinks = $state(false);
   let hasMoreExtLinks = $state(false);
   let filters = $state({ ...initialFilters });
+  let sortColumn = $state('');
+  let sortOrder = $state('');
 
   function basePath() {
     return `/sessions/${sessionId}/links`;
@@ -52,11 +54,11 @@
   async function loadData() {
     try {
       if (subView === 'internal') {
-        const result = await getInternalLinks(sessionId, PAGE_SIZE, intLinksOffset, filters);
+        const result = await getInternalLinks(sessionId, PAGE_SIZE, intLinksOffset, filters, sortColumn, sortOrder);
         intLinks = result || [];
         hasMoreIntLinks = intLinks.length === PAGE_SIZE;
       } else if (subView === 'external') {
-        const result = await getExternalLinks(sessionId, PAGE_SIZE, extLinksOffset, filters);
+        const result = await getExternalLinks(sessionId, PAGE_SIZE, extLinksOffset, filters, sortColumn, sortOrder);
         extLinks = result || [];
         hasMoreExtLinks = extLinks.length === PAGE_SIZE;
       }
@@ -70,12 +72,22 @@
     filters = {};
     intLinksOffset = 0;
     extLinksOffset = 0;
+    sortColumn = '';
+    sortOrder = '';
     if (sv !== 'checks') {
       pushFilters(sv, {}, 0);
       loadData();
     } else {
       pushFilters(sv, {}, 0);
     }
+  }
+
+  function handleSort(col, ord) {
+    sortColumn = col;
+    sortOrder = ord;
+    intLinksOffset = 0;
+    extLinksOffset = 0;
+    loadData();
   }
 
   function currentOffset() {
@@ -209,10 +221,10 @@
   {#if subView === 'internal'}
     <DataTable
       columns={[
-        { label: t('common.source') },
-        { label: t('common.target') },
-        { label: t('session.anchorText') },
-        { label: t('session.tag') },
+        { label: t('common.source'), sortKey: 'source_url' },
+        { label: t('common.target'), sortKey: 'target_url' },
+        { label: t('session.anchorText'), sortKey: 'anchor_text' },
+        { label: t('session.tag'), sortKey: 'tag' },
       ]}
       filterKeys={TAB_FILTERS.internal}
       {filters}
@@ -226,6 +238,9 @@
       onclearfilters={clearFilters}
       onnextpage={nextPage}
       onprevpage={prevPage}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
     >
       {#snippet row(l)}
         <tr>
@@ -247,10 +262,10 @@
   {:else if subView === 'external'}
     <DataTable
       columns={[
-        { label: t('common.source') },
-        { label: t('common.target') },
-        { label: t('session.anchorText') },
-        { label: t('session.rel') },
+        { label: t('common.source'), sortKey: 'source_url' },
+        { label: t('common.target'), sortKey: 'target_url' },
+        { label: t('session.anchorText'), sortKey: 'anchor_text' },
+        { label: t('session.rel'), sortKey: 'rel' },
       ]}
       filterKeys={TAB_FILTERS.external}
       {filters}
@@ -264,6 +279,9 @@
       onclearfilters={clearFilters}
       onnextpage={nextPage}
       onprevpage={prevPage}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
     >
       {#snippet row(l)}
         <tr>

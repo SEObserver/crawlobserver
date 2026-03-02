@@ -521,11 +521,16 @@ func queryInt(r *http.Request, key string, def int) int {
 	return n
 }
 
+// parseSort extracts sort/order query params and validates against a whitelist.
+func parseSort(r *http.Request, whitelist map[string]string) *storage.SortParam {
+	return storage.ParseSort(r.URL.Query().Get("sort"), r.URL.Query().Get("order"), whitelist)
+}
+
 // parseFilters extracts filter parameters from the request query string.
 func parseFilters(r *http.Request, whitelist map[string]storage.FilterDef) []storage.ParsedFilter {
 	var filters []storage.ParsedFilter
 	for key, values := range r.URL.Query() {
-		if key == "limit" || key == "offset" {
+		if key == "limit" || key == "offset" || key == "sort" || key == "order" {
 			continue
 		}
 		def, ok := whitelist[key]

@@ -18,9 +18,9 @@ type CrawlStore interface {
 	GetSession(ctx context.Context, sessionID string) (*storage.CrawlSession, error)
 	DeleteSession(ctx context.Context, sessionID string) error
 	UpdateSessionProject(ctx context.Context, sessionID string, projectID *string) error
-	ListPages(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.PageRow, error)
-	ExternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.LinkRow, error)
-	InternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.LinkRow, error)
+	ListPages(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.PageRow, error)
+	ExternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.LinkRow, error)
+	InternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.LinkRow, error)
 	SessionStats(ctx context.Context, sessionID string) (*storage.SessionStats, error)
 	SessionAudit(ctx context.Context, sessionID string) (*storage.AuditResult, error)
 	GetPageHTML(ctx context.Context, sessionID, url string) (string, error)

@@ -67,7 +67,7 @@ func (s *Store) ExternalLinks(ctx context.Context, sessionID string) ([]LinkRow,
 }
 
 // ExternalLinksPaginated retrieves external links with pagination and optional filters.
-func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]LinkRow, error) {
+func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter, sort *SortParam) ([]LinkRow, error) {
 	query := `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
 		FROM crawlobserver.links
@@ -88,7 +88,7 @@ func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, li
 		args = append(args, filterArgs...)
 	}
 
-	query += ` ORDER BY source_url, target_url LIMIT ? OFFSET ?`
+	query += BuildOrderByClause(sort, "source_url, target_url") + ` LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 
 	rows, err := s.conn.Query(ctx, query, args...)
@@ -112,7 +112,7 @@ func (s *Store) ExternalLinksPaginated(ctx context.Context, sessionID string, li
 }
 
 // InternalLinksPaginated retrieves internal links with pagination and optional filters.
-func (s *Store) InternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]LinkRow, error) {
+func (s *Store) InternalLinksPaginated(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter, sort *SortParam) ([]LinkRow, error) {
 	query := `
 		SELECT crawl_session_id, source_url, target_url, anchor_text, rel, is_internal, tag, crawled_at
 		FROM crawlobserver.links
@@ -128,7 +128,7 @@ func (s *Store) InternalLinksPaginated(ctx context.Context, sessionID string, li
 		args = append(args, filterArgs...)
 	}
 
-	query += ` ORDER BY source_url, target_url LIMIT ? OFFSET ?`
+	query += BuildOrderByClause(sort, "source_url, target_url") + ` LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 
 	rows, err := s.conn.Query(ctx, query, args...)

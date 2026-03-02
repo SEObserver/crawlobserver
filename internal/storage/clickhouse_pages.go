@@ -89,7 +89,7 @@ func (s *Store) CountPages(ctx context.Context, sessionID string) (uint64, error
 }
 
 // ListPages retrieves pages for a session with pagination and optional filters.
-func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]PageRow, error) {
+func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter, sort *SortParam) ([]PageRow, error) {
 	query := `
 		SELECT crawl_session_id, url, final_url, status_code, content_type,
 			title, title_length, canonical, canonical_is_self, is_indexable, index_reason,
@@ -117,7 +117,7 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 		args = append(args, filterArgs...)
 	}
 
-	query += ` ORDER BY crawled_at DESC LIMIT ? OFFSET ?`
+	query += BuildOrderByClause(sort, "crawled_at DESC") + ` LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 
 	rows, err := s.conn.Query(ctx, query, args...)

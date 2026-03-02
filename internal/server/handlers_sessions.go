@@ -110,8 +110,9 @@ func (s *Server) handlePages(w http.ResponseWriter, r *http.Request) {
 	}
 	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	filters := parseFilters(r, storage.PageFilters)
+	sort := parseSort(r, storage.PageSortColumns)
 
-	pages, err := s.store.ListPages(r.Context(), sessionID, limit, offset, filters)
+	pages, err := s.store.ListPages(r.Context(), sessionID, limit, offset, filters, sort)
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -126,8 +127,9 @@ func (s *Server) handleLinks(w http.ResponseWriter, r *http.Request) {
 	}
 	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	filters := parseFilters(r, storage.LinkFilters)
+	sort := parseSort(r, storage.LinkSortColumns)
 
-	links, err := s.store.ExternalLinksPaginated(r.Context(), sessionID, limit, offset, filters)
+	links, err := s.store.ExternalLinksPaginated(r.Context(), sessionID, limit, offset, filters, sort)
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -168,8 +170,9 @@ func (s *Server) handleInternalLinks(w http.ResponseWriter, r *http.Request) {
 	}
 	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	filters := parseFilters(r, storage.LinkFilters)
+	sort := parseSort(r, storage.LinkSortColumns)
 
-	links, err := s.store.InternalLinksPaginated(r.Context(), sessionID, limit, offset, filters)
+	links, err := s.store.InternalLinksPaginated(r.Context(), sessionID, limit, offset, filters, sort)
 	if err != nil {
 		internalError(w, r, err)
 		return
