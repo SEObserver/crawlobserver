@@ -53,6 +53,7 @@ RAPPORT_*.md
 
 # Build artifacts
 build/CrawlObserver.app/
+build/*.dmg
 
 # GH CLI config
 .gh/
