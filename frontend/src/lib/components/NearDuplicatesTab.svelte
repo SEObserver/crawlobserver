@@ -102,10 +102,13 @@
     <!-- Summary chips -->
     <div class="nd-summary">
       {#if actionCount > 0}
-        <span class="nd-chip nd-chip-action">{t('neardup.summaryAction', { count: actionCount })}</span>
+        <span class="nd-chip nd-chip-action"
+          >{t('neardup.summaryAction', { count: actionCount })}</span
+        >
       {/if}
       {#if canonCount > 0}
-        <span class="nd-chip nd-chip-canon">{t('neardup.summaryCanon', { count: canonCount })}</span>
+        <span class="nd-chip nd-chip-canon">{t('neardup.summaryCanon', { count: canonCount })}</span
+        >
       {/if}
     </div>
 
@@ -114,10 +117,18 @@
       <button class="nd-filter" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
         {t('neardup.filterAll')} ({pairs.length})
       </button>
-      <button class="nd-filter" class:active={filter === 'action'} onclick={() => (filter = 'action')}>
+      <button
+        class="nd-filter"
+        class:active={filter === 'action'}
+        onclick={() => (filter = 'action')}
+      >
         {t('neardup.filterAction')} ({actionCount})
       </button>
-      <button class="nd-filter" class:active={filter === 'canon'} onclick={() => (filter = 'canon')}>
+      <button
+        class="nd-filter"
+        class:active={filter === 'canon'}
+        onclick={() => (filter = 'canon')}
+      >
         {t('neardup.filterCanon')} ({canonCount})
       </button>
     </div>
@@ -145,11 +156,16 @@
                   onclick={(e) => {
                     e.preventDefault();
                     onnavigate?.(`/sessions/${sessionId}/url/${encodeURIComponent(p.url_a)}`);
-                  }}>{p.url_a}</a>
+                  }}>{p.url_a}</a
+                >
                 {#if p.title_a}<div class="cell-title">{p.title_a}</div>{/if}
               </td>
               <td class="cell-canon">
-                <span class="canon-tag" class:canon-ok={p.canonical_a === p.url_b} class:canon-self={p.canonical_a === p.url_a || !p.canonical_a}>
+                <span
+                  class="canon-tag"
+                  class:canon-ok={p.canonical_a === p.url_b}
+                  class:canon-self={p.canonical_a === p.url_a || !p.canonical_a}
+                >
                   {canonicalLabel(p.canonical_a, p.url_a, p.url_b)}
                 </span>
               </td>
@@ -159,16 +175,27 @@
                   onclick={(e) => {
                     e.preventDefault();
                     onnavigate?.(`/sessions/${sessionId}/url/${encodeURIComponent(p.url_b)}`);
-                  }}>{p.url_b}</a>
+                  }}>{p.url_b}</a
+                >
                 {#if p.title_b}<div class="cell-title">{p.title_b}</div>{/if}
               </td>
               <td class="cell-canon">
-                <span class="canon-tag" class:canon-ok={p.canonical_b === p.url_a} class:canon-self={p.canonical_b === p.url_b || !p.canonical_b}>
+                <span
+                  class="canon-tag"
+                  class:canon-ok={p.canonical_b === p.url_a}
+                  class:canon-self={p.canonical_b === p.url_b || !p.canonical_b}
+                >
                   {canonicalLabel(p.canonical_b, p.url_b, p.url_a)}
                 </span>
               </td>
               <td class="num">
-                <span class="badge" class:badge-high={!canon && p.similarity >= 0.95} class:badge-medium={!canon && p.similarity >= 0.8 && p.similarity < 0.95} class:badge-low={!canon && p.similarity < 0.8} class:badge-muted={canon}>
+                <span
+                  class="badge"
+                  class:badge-high={!canon && p.similarity >= 0.95}
+                  class:badge-medium={!canon && p.similarity >= 0.8 && p.similarity < 0.95}
+                  class:badge-low={!canon && p.similarity < 0.8}
+                  class:badge-muted={canon}
+                >
                   {(p.similarity * 100).toFixed(1)}%
                 </span>
               </td>
@@ -184,14 +211,16 @@
         onclick={() => {
           offset = Math.max(0, offset - PAGE_SIZE);
           loadData();
-        }}>{t('common.previous')}</button>
+        }}>{t('common.previous')}</button
+      >
       <span>{offset + 1} - {offset + pairs.length}</span>
       <button
         disabled={!hasMore}
         onclick={() => {
           offset += PAGE_SIZE;
           loadData();
-        }}>{t('common.next')}</button>
+        }}>{t('common.next')}</button
+      >
     </div>
   {/if}
 </div>
@@ -272,7 +301,9 @@
     cursor: pointer;
     border-bottom: 2px solid transparent;
     margin-bottom: -2px;
-    transition: color 0.15s, border-color 0.15s;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
   }
   .nd-filter:hover {
     color: var(--fg);

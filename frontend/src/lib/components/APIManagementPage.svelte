@@ -413,8 +413,12 @@
         <code class="word-break key-created-code">{createdKeyFull}</code>
       </div>
       <div class="key-created-actions">
-        <button class="btn btn-sm" onclick={() => copyToClipboard(createdKeyFull)}>{t('common.copy')}</button>
-        <button class="btn btn-sm" onclick={() => (createdKeyFull = null)}>{t('common.dismiss')}</button>
+        <button class="btn btn-sm" onclick={() => copyToClipboard(createdKeyFull)}
+          >{t('common.copy')}</button
+        >
+        <button class="btn btn-sm" onclick={() => (createdKeyFull = null)}
+          >{t('common.dismiss')}</button
+        >
       </div>
     </div>
   </div>
@@ -424,31 +428,57 @@
   <div class="form-grid">
     <div class="form-group">
       <label for="key-name">{t('api.keyName')}</label>
-      <input id="key-name" type="text" bind:value={newKeyName} placeholder={t('api.keyNamePlaceholder')} />
+      <input
+        id="key-name"
+        type="text"
+        bind:value={newKeyName}
+        placeholder={t('api.keyNamePlaceholder')}
+      />
     </div>
     <div class="form-group">
       <label for="key-type">{t('api.keyType')}</label>
-      <SearchSelect id="key-type" bind:value={newKeyType} options={[
-        { value: 'general', label: t('api.generalAccess') },
-        { value: 'project', label: t('api.projectReadOnly') },
-      ]} />
+      <SearchSelect
+        id="key-type"
+        bind:value={newKeyType}
+        options={[
+          { value: 'general', label: t('api.generalAccess') },
+          { value: 'project', label: t('api.projectReadOnly') },
+        ]}
+      />
     </div>
     {#if newKeyType === 'project'}
       <div class="form-group">
         <label for="key-project">{t('stats.project')}</label>
-        <SearchSelect id="key-project" bind:value={newKeyProjectId}
+        <SearchSelect
+          id="key-project"
+          bind:value={newKeyProjectId}
           placeholder={t('api.selectProject')}
-          options={[{ value: '', label: t('api.selectProject') }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
-          onsearch={projects.length > 20 ? async (q) => {
-            const lq = q.toLowerCase();
-            return [{ value: '', label: t('api.selectProject') }, ...projects.filter((p) => p.name.toLowerCase().includes(lq)).map((p) => ({ value: p.id, label: p.name }))];
-          } : undefined} />
+          options={[
+            { value: '', label: t('api.selectProject') },
+            ...projects.map((p) => ({ value: p.id, label: p.name })),
+          ]}
+          onsearch={projects.length > 20
+            ? async (q) => {
+                const lq = q.toLowerCase();
+                return [
+                  { value: '', label: t('api.selectProject') },
+                  ...projects
+                    .filter((p) => p.name.toLowerCase().includes(lq))
+                    .map((p) => ({ value: p.id, label: p.name })),
+                ];
+              }
+            : undefined}
+        />
       </div>
     {/if}
   </div>
   <div class="mt-md">
-    <button class="btn btn-primary" onclick={handleCreateAPIKey}
-      disabled={!newKeyName.trim() || (newKeyType === 'project' && !newKeyProjectId)}>{t('api.createKey')}</button>
+    <button
+      class="btn btn-primary"
+      onclick={handleCreateAPIKey}
+      disabled={!newKeyName.trim() || (newKeyType === 'project' && !newKeyProjectId)}
+      >{t('api.createKey')}</button
+    >
   </div>
 </div>
 
@@ -461,17 +491,29 @@
         <div class="session-info">
           <div class="session-seed">{k.name}</div>
           <div class="session-meta">
-            <span class="badge" class:badge-info={k.type === 'general'} class:badge-warning={k.type === 'project'}>{k.type}</span>
+            <span
+              class="badge"
+              class:badge-info={k.type === 'general'}
+              class:badge-warning={k.type === 'project'}>{k.type}</span
+            >
             {#if k.project_id}
-              <span class="badge badge-accent">{projects.find((p) => p.id === k.project_id)?.name || k.project_id}</span>
+              <span class="badge badge-accent"
+                >{projects.find((p) => p.id === k.project_id)?.name || k.project_id}</span
+              >
             {/if}
             <code class="key-prefix-code">{k.key_prefix}</code>
             <span>{new Date(k.created_at).toLocaleDateString()}</span>
-            <span>{k.last_used_at ? t('api.used') + ' ' + timeAgo(k.last_used_at) : t('api.neverUsed')}</span>
+            <span
+              >{k.last_used_at
+                ? t('api.used') + ' ' + timeAgo(k.last_used_at)
+                : t('api.neverUsed')}</span
+            >
           </div>
         </div>
         <div class="session-actions">
-          <button class="btn btn-sm btn-danger" onclick={() => handleDeleteAPIKey(k.id)}>{t('api.revoke')}</button>
+          <button class="btn btn-sm btn-danger" onclick={() => handleDeleteAPIKey(k.id)}
+            >{t('api.revoke')}</button
+          >
         </div>
       </div>
     {/each}
@@ -505,7 +547,13 @@
             {#each group.endpoints as ep}
               <tr>
                 <td class="api-ref-method-cell">
-                  <span class="api-ref-method" class:method-get={ep.method === 'GET'} class:method-post={ep.method === 'POST'} class:method-put={ep.method === 'PUT'} class:method-delete={ep.method === 'DELETE'}>{ep.method}</span>
+                  <span
+                    class="api-ref-method"
+                    class:method-get={ep.method === 'GET'}
+                    class:method-post={ep.method === 'POST'}
+                    class:method-put={ep.method === 'PUT'}
+                    class:method-delete={ep.method === 'DELETE'}>{ep.method}</span
+                  >
                 </td>
                 <td class="api-ref-path-cell"><code>{ep.path}</code></td>
                 <td class="api-ref-desc-cell">{ep.desc}</td>
@@ -531,42 +579,142 @@
 
 <style>
   /* --- Endpoint card --- */
-  .api-endpoint-card { border: 1px solid var(--border); }
-  .api-endpoint-header { margin-bottom: 12px; }
-  .api-endpoint-title { margin: 0; font-size: 15px; font-weight: 600; }
-  .badge-xs { font-size: 11px; }
-  .api-url-row { margin-bottom: 10px; }
-  .api-url-code { flex: 1; padding: 8px 12px; background: var(--bg-secondary); border-radius: 6px; }
-  .usage-summary { cursor: pointer; user-select: none; }
-  .code-example { display: block; padding: 6px 10px; background: var(--bg-secondary); border-radius: 4px; margin-top: 4px; font-size: 12px; }
-  .code-example-wrap { white-space: pre-wrap; }
+  .api-endpoint-card {
+    border: 1px solid var(--border);
+  }
+  .api-endpoint-header {
+    margin-bottom: 12px;
+  }
+  .api-endpoint-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .badge-xs {
+    font-size: 11px;
+  }
+  .api-url-row {
+    margin-bottom: 10px;
+  }
+  .api-url-code {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+  }
+  .usage-summary {
+    cursor: pointer;
+    user-select: none;
+  }
+  .code-example {
+    display: block;
+    padding: 6px 10px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    margin-top: 4px;
+    font-size: 12px;
+  }
+  .code-example-wrap {
+    white-space: pre-wrap;
+  }
 
   /* --- API Keys --- */
-  .api-keys-header { margin-top: 8px; }
-  .key-created-card { border: 1px solid var(--success); background: var(--success-bg); }
-  .key-created-inner { display: flex; align-items: flex-start; gap: 12px; }
-  .key-created-code { font-size: 0.85rem; margin-top: 6px; display: inline-block; }
-  .key-created-actions { display: flex; gap: 6px; flex-shrink: 0; }
-  .badge-accent { background: var(--accent-light); color: var(--accent); }
-  .key-prefix-code { font-size: 0.8rem; }
-  .empty-state { padding: 32px; }
-  .flex-1 { flex: 1; }
+  .api-keys-header {
+    margin-top: 8px;
+  }
+  .key-created-card {
+    border: 1px solid var(--success);
+    background: var(--success-bg);
+  }
+  .key-created-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .key-created-code {
+    font-size: 0.85rem;
+    margin-top: 6px;
+    display: inline-block;
+  }
+  .key-created-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .badge-accent {
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+  .key-prefix-code {
+    font-size: 0.8rem;
+  }
+  .empty-state {
+    padding: 32px;
+  }
+  .flex-1 {
+    flex: 1;
+  }
 
   /* --- Shared row styles --- */
-  .session-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border-light); transition: background 0.1s; gap: 16px; }
-  .session-row:last-child { border-bottom: none; }
-  .session-row:hover { background: var(--bg-hover); }
-  .session-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
-  .session-seed { font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .session-meta { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 12px; }
-  .session-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .session-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-light);
+    transition: background 0.1s;
+    gap: 16px;
+  }
+  .session-row:last-child {
+    border-bottom: none;
+  }
+  .session-row:hover {
+    background: var(--bg-hover);
+  }
+  .session-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+  }
+  .session-seed {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .session-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .session-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
 
   /* --- Subtitle --- */
-  .api-subtitle { margin-top: -8px; }
+  .api-subtitle {
+    margin-top: -8px;
+  }
 
   /* --- API Reference --- */
-  .api-ref-header { margin-top: 32px; display: flex; align-items: center; justify-content: space-between; }
-  .api-ref-header h1 { margin: 0; }
+  .api-ref-header {
+    margin-top: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .api-ref-header h1 {
+    margin: 0;
+  }
 
   .api-ref-card {
     border: 1px solid var(--border);
@@ -589,7 +737,9 @@
   .api-ref-group {
     border-bottom: 1px solid var(--border-light);
   }
-  .api-ref-group:last-child { border-bottom: none; }
+  .api-ref-group:last-child {
+    border-bottom: none;
+  }
 
   .api-ref-group-summary {
     display: flex;
@@ -601,7 +751,9 @@
     font-size: 13px;
     transition: background 0.1s;
   }
-  .api-ref-group-summary:hover { background: var(--bg-hover); }
+  .api-ref-group-summary:hover {
+    background: var(--bg-hover);
+  }
 
   .api-ref-group-title {
     font-weight: 600;
@@ -633,7 +785,9 @@
     vertical-align: baseline;
   }
 
-  .api-ref-method-cell { width: 56px; }
+  .api-ref-method-cell {
+    width: 56px;
+  }
   .api-ref-path-cell code {
     font-size: 12px;
     color: var(--text);
@@ -655,12 +809,36 @@
     letter-spacing: 0.02em;
   }
 
-  .method-get { background: #e8f5e9; color: #2e7d32; }
-  .method-post { background: #e3f2fd; color: #1565c0; }
-  .method-put { background: #fff3e0; color: #e65100; }
-  .method-delete { background: #fce4ec; color: #c62828; }
-  :global([data-theme='dark']) .method-get { background: #1b3a1e; color: #66bb6a; }
-  :global([data-theme='dark']) .method-post { background: #0d2744; color: #64b5f6; }
-  :global([data-theme='dark']) .method-put { background: #3e2000; color: #ffb74d; }
-  :global([data-theme='dark']) .method-delete { background: #3e0a0a; color: #ef9a9a; }
+  .method-get {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  .method-post {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+  .method-put {
+    background: #fff3e0;
+    color: #e65100;
+  }
+  .method-delete {
+    background: #fce4ec;
+    color: #c62828;
+  }
+  :global([data-theme='dark']) .method-get {
+    background: #1b3a1e;
+    color: #66bb6a;
+  }
+  :global([data-theme='dark']) .method-post {
+    background: #0d2744;
+    color: #64b5f6;
+  }
+  :global([data-theme='dark']) .method-put {
+    background: #3e2000;
+    color: #ffb74d;
+  }
+  :global([data-theme='dark']) .method-delete {
+    background: #3e0a0a;
+    color: #ef9a9a;
+  }
 </style>

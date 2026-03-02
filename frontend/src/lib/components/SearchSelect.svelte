@@ -184,7 +184,13 @@
   </button>
 
   {#if open}
-    <div bind:this={dropdownEl} class="ss-dropdown" class:ss-flip={flipUp} style={dropStyle} role="listbox">
+    <div
+      bind:this={dropdownEl}
+      class="ss-dropdown"
+      class:ss-flip={flipUp}
+      style={dropStyle}
+      role="listbox"
+    >
       <div class="ss-search-wrap">
         <input
           bind:this={inputEl}
