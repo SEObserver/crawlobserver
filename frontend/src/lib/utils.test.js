@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { statusBadge, fmt, fmtSize, fmtN, trunc, timeAgo, a11yKeydown, squarify } from './utils.js';
+import { statusBadge, fmt, fmtSize, fmtN, trunc, timeAgo, a11yKeydown, squarify, fetchAll, downloadCSV } from './utils.js';
 
 describe('statusBadge', () => {
   it('returns badge-success for 2xx', () => {
@@ -163,6 +163,166 @@ describe('a11yKeydown', () => {
     handler({ key: 'Escape', preventDefault: vi.fn() });
     handler({ key: 'a', preventDefault: vi.fn() });
     expect(cb).not.toHaveBeenCalled();
+  });
+});
+
+describe('fetchAll', () => {
+  it('returns empty array when first call returns empty', async () => {
+    const fn = vi.fn().mockResolvedValue([]);
+    const result = await fetchAll(fn, 10);
+    expect(result).toEqual([]);
+    expect(fn).toHaveBeenCalledOnce();
+    expect(fn).toHaveBeenCalledWith(10, 0);
+  });
+
+  it('returns empty array when first call returns null', async () => {
+    const fn = vi.fn().mockResolvedValue(null);
+    const result = await fetchAll(fn, 10);
+    expect(result).toEqual([]);
+    expect(fn).toHaveBeenCalledOnce();
+  });
+
+  it('fetches single page when batch < pageSize', async () => {
+    const batch = [{ id: 1 }, { id: 2 }, { id: 3 }];
+    const fn = vi.fn().mockResolvedValue(batch);
+    const result = await fetchAll(fn, 10);
+    expect(result).toEqual(batch);
+    expect(fn).toHaveBeenCalledOnce();
+  });
+
+  it('fetches multiple pages until exhausted', async () => {
+    const fn = vi.fn()
+      .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
+      .mockResolvedValueOnce([{ id: 3 }, { id: 4 }])
+      .mockResolvedValueOnce([{ id: 5 }]);
+    const result = await fetchAll(fn, 2);
+    expect(result).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }]);
+    expect(fn).toHaveBeenCalledTimes(3);
+    expect(fn).toHaveBeenNthCalledWith(1, 2, 0);
+    expect(fn).toHaveBeenNthCalledWith(2, 2, 2);
+    expect(fn).toHaveBeenNthCalledWith(3, 2, 4);
+  });
+
+  it('stops when batch returns exactly empty after full pages', async () => {
+    const fn = vi.fn()
+      .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
+      .mockResolvedValueOnce([]);
+    const result = await fetchAll(fn, 2);
+    expect(result).toEqual([{ id: 1 }, { id: 2 }]);
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses default pageSize of 100', async () => {
+    const fn = vi.fn().mockResolvedValue([]);
+    await fetchAll(fn);
+    expect(fn).toHaveBeenCalledWith(100, 0);
+  });
+});
+
+describe('downloadCSV', () => {
+  let clickSpy;
+  let createdUrl;
+
+  beforeEach(() => {
+    clickSpy = vi.fn();
+    vi.spyOn(document, 'createElement').mockReturnValue({
+      href: '',
+      download: '',
+      click: clickSpy,
+    });
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      createdUrl = blob;
+      return 'blob:mock-url';
+    });
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('generates CSV with headers and data rows', () => {
+    downloadCSV('test.csv', ['Name', 'Age'], ['name', 'age'], [
+      { name: 'Alice', age: 30 },
+      { name: 'Bob', age: 25 },
+    ]);
+    expect(clickSpy).toHaveBeenCalledOnce();
+    expect(URL.createObjectURL).toHaveBeenCalledOnce();
+    const blob = createdUrl;
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.type).toBe('text/csv;charset=utf-8;');
+  });
+
+  it('escapes values containing commas', async () => {
+    let captured;
+    URL.createObjectURL.mockImplementation((blob) => {
+      captured = blob;
+      return 'blob:mock';
+    });
+    downloadCSV('t.csv', ['Val'], ['v'], [{ v: 'a,b' }]);
+    const text = await captured.text();
+    expect(text).toContain('"a,b"');
+  });
+
+  it('escapes values containing double quotes', async () => {
+    let captured;
+    URL.createObjectURL.mockImplementation((blob) => {
+      captured = blob;
+      return 'blob:mock';
+    });
+    downloadCSV('t.csv', ['Val'], ['v'], [{ v: 'say "hi"' }]);
+    const text = await captured.text();
+    expect(text).toContain('"say ""hi"""');
+  });
+
+  it('escapes values containing newlines', async () => {
+    let captured;
+    URL.createObjectURL.mockImplementation((blob) => {
+      captured = blob;
+      return 'blob:mock';
+    });
+    downloadCSV('t.csv', ['Val'], ['v'], [{ v: 'line1\nline2' }]);
+    const text = await captured.text();
+    expect(text).toContain('"line1\nline2"');
+  });
+
+  it('outputs empty string for null/undefined values', async () => {
+    let captured;
+    URL.createObjectURL.mockImplementation((blob) => {
+      captured = blob;
+      return 'blob:mock';
+    });
+    downloadCSV('t.csv', ['A', 'B'], ['a', 'b'], [{ a: null, b: undefined }]);
+    const text = await captured.text();
+    const lines = text.split('\n');
+    expect(lines[1]).toBe(',');
+  });
+
+  it('starts with UTF-8 BOM', async () => {
+    let captured;
+    URL.createObjectURL.mockImplementation((blob) => {
+      captured = blob;
+      return 'blob:mock';
+    });
+    downloadCSV('t.csv', ['X'], ['x'], []);
+    const buf = await captured.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    // UTF-8 BOM: EF BB BF
+    expect(bytes[0]).toBe(0xEF);
+    expect(bytes[1]).toBe(0xBB);
+    expect(bytes[2]).toBe(0xBF);
+  });
+
+  it('sets correct filename on download link', () => {
+    const el = { href: '', download: '', click: vi.fn() };
+    document.createElement.mockReturnValue(el);
+    downloadCSV('export.csv', ['A'], ['a'], []);
+    expect(el.download).toBe('export.csv');
+  });
+
+  it('revokes the object URL after click', () => {
+    downloadCSV('t.csv', ['A'], ['a'], []);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
   });
 });
 
