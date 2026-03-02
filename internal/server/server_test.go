@@ -398,6 +398,12 @@ func (m *mockStore) PagesWithAuthority(_ context.Context, _, _ string, _, _ int)
 func (m *mockStore) GetPageBodies(_ context.Context, _ string, _, _ int) ([]storage.PageBody, error) {
 	return nil, m.err
 }
+func (m *mockStore) InsertPageResourceRefs(_ context.Context, _ []storage.PageResourceRef) error {
+	return m.err
+}
+func (m *mockStore) InsertPageResourceChecks(_ context.Context, _ []storage.PageResourceCheck) error {
+	return m.err
+}
 
 // ---------------------------------------------------------------------------
 // mockManager implements CrawlService
