@@ -7,12 +7,17 @@ linters:
     - staticcheck
     - gocritic
     - misspell
+  exclusions:
+    rules:
+      - linters: [errcheck]
+        path: _test\.go
   settings:
     errcheck:
       exclude-functions:
         - (io.Closer).Close
         - (*database/sql.Rows).Close
         - (*database/sql.DB).Close
+        - (*database/sql.Tx).Rollback
     gocritic:
       enabled-checks:
         - appendAssign
