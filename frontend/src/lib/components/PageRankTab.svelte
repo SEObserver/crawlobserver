@@ -5,6 +5,7 @@
     getPageRankDistribution,
     computePageRank,
   } from '../api.js';
+  import { fetchAll, downloadCSV } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
   import PageRankTopView from './PageRankTopView.svelte';
   import PageRankTreemap from './PageRankTreemap.svelte';
@@ -85,6 +86,28 @@
     }
   }
 
+  let exporting = $state(false);
+  let canExportCSV = $derived(hasData && (prSubView === 'top' || prSubView === 'table'));
+
+  async function handleExportCSV() {
+    if (exporting) return;
+    exporting = true;
+    try {
+      const dir = prSubView === 'table' ? prTableDir : '';
+      const allData = await fetchAll(
+        (limit, offset) => getPageRankTop(sessionId, limit, offset, dir).then(r => r?.pages || []),
+        50,
+      );
+      downloadCSV(`pagerank-${prSubView}.csv`,
+        ['URL', 'PageRank', 'Depth', 'Internal Links', 'External Links', 'Word Count', 'Status', 'Title'],
+        ['url', 'pagerank', 'depth', 'internal_links_out', 'external_links_out', 'word_count', 'status_code', 'title'],
+        allData,
+      );
+    } finally {
+      exporting = false;
+    }
+  }
+
   loadPRSubView(prSubView);
 </script>
 
@@ -112,6 +135,22 @@
         onclick={() => switchPRSubView('table')}>{t('pagerank.fullTable')}</button
       >
     </div>
+    {#if canExportCSV}
+      <button
+        class="btn btn-sm"
+        onclick={handleExportCSV}
+        disabled={exporting}
+        title={t('common.exportCsv')}
+      >
+        {#if exporting}
+          <svg class="csv-spinner" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"/></svg>
+          {t('common.exportingCsv')}
+        {:else}
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          {t('common.exportCsv')}
+        {/if}
+      </button>
+    {/if}
     {#if hasData}
       <button
         class="btn btn-sm pr-recalc-btn"

@@ -398,10 +398,19 @@ tr.clickable-row {
 }
 
 .cell-url {
-  max-width: 340px;
+  max-width: 400px;
+  white-space: nowrap;
+}
+.cell-url-inner {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+}
+.cell-url-inner a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 .cell-title {
   max-width: 280px;
@@ -733,6 +742,54 @@ tr.clickable-row {
   border-color: var(--accent);
 }
 
+/* ===== URL Actions (hover copy/open) ===== */
+.url-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+tr:hover .url-actions {
+  opacity: 1;
+}
+.url-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+}
+.url-action-btn:hover {
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
+/* ===== Explorer Toolbar (sub-view bar + export) ===== */
+.explorer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.csv-spinner {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ===== Charts ===== */
 .charts-container {
   padding: 24px;
@@ -830,8 +887,10 @@ tr.clickable-row {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 4px;
-  margin-bottom: 24px;
   width: fit-content;
+}
+.pr-subview-bar:last-child {
+  margin-bottom: 24px;
 }
 
 .pr-subview-btn {

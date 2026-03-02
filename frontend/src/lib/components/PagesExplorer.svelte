@@ -1,10 +1,11 @@
 <script>
   import { onMount } from 'svelte';
   import { getPages } from '../api.js';
-  import { statusBadge, fmt, fmtSize, fmtN, trunc } from '../utils.js';
+  import { statusBadge, fmt, fmtSize, fmtN, trunc, fetchAll, downloadCSV } from '../utils.js';
   import { PAGE_SIZE, TAB_FILTERS } from '../tabColumns.js';
   import { t } from '../i18n/index.svelte.js';
   import DataTable from './DataTable.svelte';
+  import UrlActions from './UrlActions.svelte';
 
   let {
     sessionId,
@@ -106,6 +107,70 @@
     return Object.values(filters).some((v) => v && v !== '');
   }
 
+  const CSV_CONFIGS = {
+    all: {
+      headers: ['URL', 'Status', 'Title', 'Words', 'Internal Links Out', 'External Links Out', 'Size', 'Time (ms)', 'Depth', 'PageRank'],
+      keys: ['URL', 'StatusCode', 'Title', 'WordCount', 'InternalLinksOut', 'ExternalLinksOut', 'BodySize', 'FetchDurationMs', 'Depth', 'PageRank'],
+    },
+    titles: {
+      headers: ['URL', 'Title', 'Title Length', 'H1'],
+      keys: ['URL', 'Title', 'TitleLength'],
+      transform: (row) => ({ ...row, H1: row.H1?.[0] || '' }),
+    },
+    meta: {
+      headers: ['URL', 'Meta Description', 'Meta Desc Length', 'Meta Keywords', 'OG Title'],
+      keys: ['URL', 'MetaDescription', 'MetaDescLength', 'MetaKeywords', 'OGTitle'],
+    },
+    headings: {
+      headers: ['URL', 'H1', 'H1 Count', 'H2', 'H2 Count'],
+      keys: ['URL'],
+      transform: (row) => ({ ...row, H1_text: row.H1?.[0] || '', H1Count: row.H1?.length || 0, H2_text: row.H2?.[0] || '', H2Count: row.H2?.length || 0 }),
+      customKeys: ['URL', 'H1_text', 'H1Count', 'H2_text', 'H2Count'],
+    },
+    images: {
+      headers: ['URL', 'Images', 'Without Alt', 'Title', 'Words'],
+      keys: ['URL', 'ImagesCount', 'ImagesNoAlt', 'Title', 'WordCount'],
+    },
+    indexability: {
+      headers: ['URL', 'Indexable', 'Reason', 'Meta Robots', 'Canonical', 'Canonical Is Self'],
+      keys: ['URL', 'IsIndexable', 'IndexReason', 'MetaRobots', 'Canonical', 'CanonicalIsSelf'],
+    },
+    response: {
+      headers: ['URL', 'Status', 'Content Type', 'Encoding', 'Size', 'Time (ms)', 'Final URL'],
+      keys: ['URL', 'StatusCode', 'ContentType', 'ContentEncoding', 'BodySize', 'FetchDurationMs', 'FinalURL'],
+    },
+  };
+
+  let exporting = $state(false);
+
+  async function handleExportCSV() {
+    if (exporting) return;
+    exporting = true;
+    try {
+      await exportCSV();
+    } finally {
+      exporting = false;
+    }
+  }
+
+  async function exportCSV() {
+    const cfg = CSV_CONFIGS[subView];
+    if (!cfg) return;
+    const allData = await fetchAll(
+      (limit, offset) => getPages(sessionId, limit, offset, filters),
+    );
+    const keys = cfg.customKeys || cfg.keys;
+    let rows = allData;
+    if (cfg.transform) rows = allData.map(cfg.transform);
+    // For titles sub-view, H1 needs special handling
+    if (subView === 'titles') {
+      rows = allData.map((r) => ({ ...r, H1_first: r.H1?.[0] || '' }));
+      downloadCSV(`pages-${subView}.csv`, cfg.headers, [...cfg.keys, 'H1_first'], rows);
+      return;
+    }
+    downloadCSV(`pages-${subView}.csv`, cfg.headers, keys, rows);
+  }
+
   function urlDetailHref(url) {
     return `/sessions/${sessionId}/url/${encodeURIComponent(url)}`;
   }
@@ -121,14 +186,30 @@
 </script>
 
 <div class="pages-explorer">
-  <div class="pr-subview-bar">
-    {#each SUB_VIEWS as sv}
-      <button
-        class="pr-subview-btn"
-        class:pr-subview-active={subView === sv.id}
-        onclick={() => switchSubView(sv.id)}>{sv.label()}</button
-      >
-    {/each}
+  <div class="explorer-toolbar">
+    <div class="pr-subview-bar">
+      {#each SUB_VIEWS as sv}
+        <button
+          class="pr-subview-btn"
+          class:pr-subview-active={subView === sv.id}
+          onclick={() => switchSubView(sv.id)}>{sv.label()}</button
+        >
+      {/each}
+    </div>
+    <button
+      class="btn btn-sm"
+      onclick={handleExportCSV}
+      disabled={exporting}
+      title={t('common.exportCsv')}
+    >
+      {#if exporting}
+        <svg class="csv-spinner" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"/></svg>
+        {t('common.exportingCsv')}
+      {:else}
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        {t('common.exportCsv')}
+      {/if}
+    </button>
   </div>
 
   {#if subView === 'all'}
@@ -162,7 +243,7 @@
       {#snippet row(p)}
         <tr>
           <td class="cell-url"
-            ><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td
+            ><span class="cell-url-inner"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a><UrlActions url={p.URL} /></span></td
           >
           <td><span class="badge {statusBadge(p.StatusCode)}">{p.StatusCode}</span></td>
           <td class="cell-title">{trunc(p.Title, 60)}</td>
@@ -218,7 +299,7 @@
       {#snippet row(p)}
         <tr>
           <td class="cell-url"
-            ><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td
+            ><span class="cell-url-inner"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a><UrlActions url={p.URL} /></span></td
           >
           <td class="cell-title" class:cell-warn={p.TitleLength === 0 || p.TitleLength > 60}
             >{p.Title || '-'}</td
@@ -253,7 +334,7 @@
       {#snippet row(p)}
         <tr>
           <td class="cell-url"
-            ><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td
+            ><span class="cell-url-inner"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a><UrlActions url={p.URL} /></span></td
           >
           <td class="cell-title" class:cell-warn={p.MetaDescLength === 0 || p.MetaDescLength > 160}
             >{trunc(p.MetaDescription, 80)}</td
@@ -291,7 +372,7 @@
       {#snippet row(p)}
         <tr>
           <td class="cell-url"
-            ><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td
+            ><span class="cell-url-inner"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a><UrlActions url={p.URL} /></span></td
           >
           <td class="cell-title" class:cell-warn={!p.H1?.length || p.H1.length > 1}
             >{p.H1?.[0] || '-'}</td
@@ -327,7 +408,7 @@
       {#snippet row(p)}
         <tr>
           <td class="cell-url"
-            ><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td
+            ><span class="cell-url-inner"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a><UrlActions url={p.URL} /></span></td
           >
           <td>{p.ImagesCount}</td>
           <td class:cell-warn={p.ImagesNoAlt > 0}>{p.ImagesNoAlt}</td>
@@ -362,7 +443,7 @@
       {#snippet row(p)}
         <tr>
           <td class="cell-url"
-            ><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td
+            ><span class="cell-url-inner"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a><UrlActions url={p.URL} /></span></td
           >
           <td
             ><span
@@ -406,7 +487,7 @@
       {#snippet row(p)}
         <tr>
           <td class="cell-url"
-            ><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a></td
+            ><span class="cell-url-inner"><a href={urlDetailHref(p.URL)} onclick={(e) => goToUrlDetail(e, p.URL)}>{p.URL}</a><UrlActions url={p.URL} /></span></td
           >
           <td><span class="badge {statusBadge(p.StatusCode)}">{p.StatusCode}</span></td>
           <td>{p.ContentType || '-'}</td>

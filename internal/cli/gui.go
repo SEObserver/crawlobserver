@@ -92,6 +92,7 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	// Create native webview window IMMEDIATELY with a loading splash screen
 	w := webview.New(false)
 	defer w.Destroy()
+	setupNativeMenu()
 	w.SetTitle(appName)
 	w.SetSize(1440, 900, webview.HintNone)
 	w.SetSize(800, 600, webview.HintMin)

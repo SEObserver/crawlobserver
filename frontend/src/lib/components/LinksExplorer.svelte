@@ -1,11 +1,12 @@
 <script>
   import { onMount } from 'svelte';
   import { getInternalLinks, getExternalLinks } from '../api.js';
-  import { fmtN, trunc } from '../utils.js';
+  import { fmtN, trunc, fetchAll, downloadCSV } from '../utils.js';
   import { PAGE_SIZE, TAB_FILTERS } from '../tabColumns.js';
   import { t } from '../i18n/index.svelte.js';
   import DataTable from './DataTable.svelte';
   import ExternalChecksTab from './ExternalChecksTab.svelte';
+  import UrlActions from './UrlActions.svelte';
 
   let {
     sessionId,
@@ -119,6 +120,40 @@
     return Object.values(filters).some((v) => v && v !== '');
   }
 
+  let exporting = $state(false);
+
+  async function handleExportCSV() {
+    if (exporting) return;
+    exporting = true;
+    try {
+      await exportCSV();
+    } finally {
+      exporting = false;
+    }
+  }
+
+  async function exportCSV() {
+    if (subView === 'internal') {
+      const allData = await fetchAll(
+        (limit, offset) => getInternalLinks(sessionId, limit, offset, filters),
+      );
+      downloadCSV('links-internal.csv',
+        ['Source URL', 'Target URL', 'Anchor Text', 'Tag'],
+        ['SourceURL', 'TargetURL', 'AnchorText', 'Tag'],
+        allData,
+      );
+    } else if (subView === 'external') {
+      const allData = await fetchAll(
+        (limit, offset) => getExternalLinks(sessionId, limit, offset, filters),
+      );
+      downloadCSV('links-external.csv',
+        ['Source URL', 'Target URL', 'Anchor Text', 'Rel'],
+        ['SourceURL', 'TargetURL', 'AnchorText', 'Rel'],
+        allData,
+      );
+    }
+  }
+
   function urlDetailHref(url) {
     return `/sessions/${sessionId}/url/${encodeURIComponent(url)}`;
   }
@@ -143,14 +178,32 @@
 </script>
 
 <div class="links-explorer">
-  <div class="pr-subview-bar">
-    {#each SUB_VIEWS as sv}
+  <div class="explorer-toolbar">
+    <div class="pr-subview-bar">
+      {#each SUB_VIEWS as sv}
+        <button
+          class="pr-subview-btn"
+          class:pr-subview-active={subView === sv.id}
+          onclick={() => switchSubView(sv.id)}>{sv.label()}</button
+        >
+      {/each}
+    </div>
+    {#if subView !== 'checks'}
       <button
-        class="pr-subview-btn"
-        class:pr-subview-active={subView === sv.id}
-        onclick={() => switchSubView(sv.id)}>{sv.label()}</button
+        class="btn btn-sm"
+        onclick={handleExportCSV}
+        disabled={exporting}
+        title={t('common.exportCsv')}
       >
-    {/each}
+        {#if exporting}
+          <svg class="csv-spinner" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"/></svg>
+          {t('common.exportingCsv')}
+        {:else}
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          {t('common.exportCsv')}
+        {/if}
+      </button>
+    {/if}
   </div>
 
   {#if subView === 'internal'}
@@ -177,14 +230,14 @@
       {#snippet row(l)}
         <tr>
           <td class="cell-url"
-            ><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}
+            ><span class="cell-url-inner"><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}
               >{l.SourceURL}</a
-            ></td
+            ><UrlActions url={l.SourceURL} /></span></td
           >
           <td class="cell-url"
-            ><a href={urlDetailHref(l.TargetURL)} onclick={(e) => goToUrlDetail(e, l.TargetURL)}
+            ><span class="cell-url-inner"><a href={urlDetailHref(l.TargetURL)} onclick={(e) => goToUrlDetail(e, l.TargetURL)}
               >{l.TargetURL}</a
-            ></td
+            ><UrlActions url={l.TargetURL} /></span></td
           >
           <td class="cell-title">{l.AnchorText || '-'}</td>
           <td>{l.Tag}</td>
@@ -215,12 +268,12 @@
       {#snippet row(l)}
         <tr>
           <td class="cell-url"
-            ><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}
+            ><span class="cell-url-inner"><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}
               >{l.SourceURL}</a
-            ></td
+            ><UrlActions url={l.SourceURL} /></span></td
           >
           <td class="cell-url"
-            ><a href={l.TargetURL} target="_blank" rel="noopener">{l.TargetURL}</a></td
+            ><span class="cell-url-inner"><a href={l.TargetURL} target="_blank" rel="noopener">{l.TargetURL}</a><UrlActions url={l.TargetURL} /></span></td
           >
           <td class="cell-title">{l.AnchorText || '-'}</td>
           <td>{l.Rel || '-'}</td>

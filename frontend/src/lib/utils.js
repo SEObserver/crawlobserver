@@ -49,6 +49,56 @@ export function copyToClipboard(text) {
   navigator.clipboard.writeText(text);
 }
 
+/**
+ * Fetch all records from a paginated API endpoint.
+ * @param {(limit: number, offset: number) => Promise<any[]>} fetchFn
+ * @param {number} pageSize
+ * @returns {Promise<any[]>}
+ */
+export async function fetchAll(fetchFn, pageSize = 100) {
+  let all = [];
+  let offset = 0;
+  while (true) {
+    const batch = await fetchFn(pageSize, offset);
+    if (!batch || batch.length === 0) break;
+    all = all.concat(batch);
+    if (batch.length < pageSize) break;
+    offset += pageSize;
+  }
+  return all;
+}
+
+/**
+ * Generate a CSV string and trigger download.
+ * @param {string} filename
+ * @param {string[]} headers - Column labels
+ * @param {string[]} keys - Property keys to extract from each row
+ * @param {any[]} data - Array of row objects
+ */
+export function downloadCSV(filename, headers, keys, data) {
+  const escape = (v) => {
+    if (v == null) return '';
+    const s = String(v);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  };
+
+  const lines = [headers.map(escape).join(',')];
+  for (const row of data) {
+    lines.push(keys.map((k) => escape(row[k])).join(','));
+  }
+
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // Squarified treemap layout algorithm
 export function squarify(items, x, y, w, h) {
   if (items.length === 0 || w <= 0 || h <= 0) return [];
