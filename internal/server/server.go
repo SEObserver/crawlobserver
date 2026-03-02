@@ -258,13 +258,14 @@ func (s *Server) buildHandler() (http.Handler, error) {
 
 	// Wrap with auth middleware
 	var handler http.Handler = mux
-	if s.keyStore != nil && (s.cfg.Server.Username != "" && s.cfg.Server.Password != "") {
+	switch {
+	case s.keyStore != nil && s.cfg.Server.Username != "" && s.cfg.Server.Password != "":
 		handler = apikeys.Authenticate(s.keyStore, s.cfg.Server.Username, s.cfg.Server.Password)(mux)
 		applog.Info("server", "Authentication enabled (API keys + basic auth)")
-	} else if s.cfg.Server.Username != "" && s.cfg.Server.Password != "" {
+	case s.cfg.Server.Username != "" && s.cfg.Server.Password != "":
 		handler = basicAuth(mux, s.cfg.Server.Username, s.cfg.Server.Password)
 		applog.Info("server", "Basic authentication enabled")
-	} else {
+	default:
 		if s.cfg.Server.Host == "0.0.0.0" || (s.cfg.Server.Host != "127.0.0.1" && s.cfg.Server.Host != "localhost") {
 			applog.Errorf("server", "WARNING: No authentication configured and server is listening on %s. The API is publicly accessible! Set server.username and server.password in config.", s.cfg.Server.Host)
 		} else {

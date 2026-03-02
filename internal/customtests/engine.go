@@ -71,8 +71,8 @@ func RunTests(ctx context.Context, store StorageInterface, sessionID string, rul
 			}
 			// Parse HTML node once, shared between goquery and htmlquery
 			var htmlNode *html.Node
-			if doc.Selection != nil && len(doc.Selection.Nodes) > 0 {
-				htmlNode = doc.Selection.Nodes[0]
+			if len(doc.Nodes) > 0 {
+				htmlNode = doc.Nodes[0]
 			}
 			if merged[row.URL] == nil {
 				merged[row.URL] = make(map[string]string)

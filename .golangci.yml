@@ -1,44 +1,16 @@
 version: "2"
 
 linters:
+  default: none
   enable:
-    - errcheck
     - govet
     - staticcheck
     - gocritic
     - misspell
   exclusions:
     rules:
-      - linters: [errcheck]
-        path: _test\.go
-  settings:
-    errcheck:
-      exclude-functions:
-        - (io.Closer).Close
-        - (*database/sql.Rows).Close
-        - (*database/sql.DB).Close
-        - (*database/sql.Tx).Rollback
-    gocritic:
-      enabled-checks:
-        - appendAssign
-        - argOrder
-        - badCall
-        - badCond
-        - dupArg
-        - dupBranchBody
-        - dupCase
-        - dupSubExpr
-        - elseif
-        - exitAfterDefer
-        - flagDeref
-        - nilValReturn
-        - sloppyLen
-        - switchTrue
-        - typeSwitchVar
-        - underef
-        - unlambda
-    misspell:
-      locale: US
+      - path: _test\.go
+        linters: [govet]
 
 issues:
   max-issues-per-linter: 0

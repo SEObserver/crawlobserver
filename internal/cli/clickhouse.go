@@ -27,7 +27,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 
 	var host, username, password string
 	var port int
-	var cleanup func()
+	cleanup := noop
 	var managed *chmanaged.ManagedServer
 
 	switch mode {
@@ -37,7 +37,6 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 		port = cfg.ClickHouse.Port
 		username = cfg.ClickHouse.Username
 		password = cfg.ClickHouse.Password
-		cleanup = noop
 
 	case "managed":
 		dataDir := cfg.ClickHouse.DataDir
@@ -78,17 +77,13 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 	if connectDB != "default" {
 		initStore, err := storage.NewStore(host, port, "default", username, password)
 		if err != nil {
-			if cleanup != nil {
-				cleanup()
-			}
+			cleanup()
 			return nil, noop, nil, fmt.Errorf("connecting for migrations: %w", err)
 		}
 		applog.Info("cli", "Running auto-migrations...")
 		if err := initStore.Migrate(context.Background()); err != nil {
 			initStore.Close()
-			if cleanup != nil {
-				cleanup()
-			}
+			cleanup()
 			return nil, noop, nil, fmt.Errorf("auto-migration: %w", err)
 		}
 		initStore.Close()
@@ -96,9 +91,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 
 	store, err := storage.NewStore(host, port, connectDB, username, password)
 	if err != nil {
-		if cleanup != nil {
-			cleanup()
-		}
+		cleanup()
 		return nil, noop, nil, fmt.Errorf("connecting to ClickHouse: %w", err)
 	}
 
@@ -107,9 +100,7 @@ func setupClickHouse(cfg *config.Config, connectDB string) (*storage.Store, func
 		applog.Info("cli", "Running migrations...")
 		if err := store.Migrate(context.Background()); err != nil {
 			store.Close()
-			if cleanup != nil {
-				cleanup()
-			}
+			cleanup()
 			return nil, noop, nil, fmt.Errorf("migration: %w", err)
 		}
 		applog.Info("cli", "Migrations complete.")

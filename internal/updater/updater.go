@@ -308,10 +308,7 @@ func SelfUpdateDesktop(newAppPath string) error {
 	// Walk up from the binary to find the .app bundle
 	// e.g. /path/to/CrawlObserver.app/Contents/MacOS/CrawlObserver -> /path/to/CrawlObserver.app
 	currentApp := execPath
-	for {
-		if strings.HasSuffix(currentApp, ".app") {
-			break
-		}
+	for !strings.HasSuffix(currentApp, ".app") {
 		parent := filepath.Dir(currentApp)
 		if parent == currentApp {
 			return fmt.Errorf("could not find .app bundle from executable path: %s", execPath)

@@ -47,12 +47,12 @@ func ExtractResources(doc *goquery.Document, baseURL *url.URL) []PageResource {
 		rel, _ := s.Attr("rel")
 		rel = strings.ToLower(strings.TrimSpace(rel))
 
-		switch {
-		case rel == "stylesheet":
+		switch rel {
+		case "stylesheet":
 			add(href, "css")
-		case rel == "icon" || rel == "shortcut icon" || rel == "apple-touch-icon":
+		case "icon", "shortcut icon", "apple-touch-icon":
 			add(href, "icon")
-		case rel == "preload":
+		case "preload":
 			as, _ := s.Attr("as")
 			switch strings.ToLower(strings.TrimSpace(as)) {
 			case "style":
