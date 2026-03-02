@@ -1,5 +1,6 @@
 # Binaries
-crawlobserver
+/crawlobserver
+/CrawlObserver
 /cmd/crawlobserver/crawlobserver
 *.exe
 *.dll
