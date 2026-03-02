@@ -6,10 +6,12 @@ const translations = { en, fr };
 let locale = $state(detectLocale());
 
 function detectLocale() {
-  const saved = localStorage.getItem('locale');
-  if (saved && translations[saved]) return saved;
-  const nav = navigator.language?.slice(0, 2);
-  if (nav && translations[nav]) return nav;
+  try {
+    const saved = localStorage.getItem('locale');
+    if (saved && translations[saved]) return saved;
+    const nav = navigator.language?.slice(0, 2);
+    if (nav && translations[nav]) return nav;
+  } catch {}
   return 'en';
 }
 

@@ -86,12 +86,13 @@ describe('parseRoute', () => {
     });
   });
 
-  it('parses /sessions/:id (overview)', () => {
+  it('parses /sessions/:id (reports)', () => {
     setLocation('/sessions/abc123');
     expect(parseRoute()).toEqual({
       sessionId: 'abc123',
-      tab: 'overview',
+      tab: 'reports',
       subView: null,
+      redirectFrom: null,
       filters: {},
       offset: 0,
     });
@@ -103,6 +104,7 @@ describe('parseRoute', () => {
       sessionId: 'abc123',
       tab: 'pages',
       subView: null,
+      redirectFrom: null,
       filters: {},
       offset: 0,
     });
@@ -114,6 +116,7 @@ describe('parseRoute', () => {
       sessionId: 'abc123',
       tab: 'pages',
       subView: null,
+      redirectFrom: null,
       filters: { status_code: '404' },
       offset: 50,
     });

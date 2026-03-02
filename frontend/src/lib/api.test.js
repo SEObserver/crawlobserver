@@ -15,7 +15,7 @@ describe('fetchJSON', () => {
   it('returns parsed JSON on success', async () => {
     globalThis.fetch.mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve([{ ID: '1' }]),
+      text: () => Promise.resolve(JSON.stringify([{ ID: '1' }])),
     });
     const result = await getSessions();
     expect(result).toEqual([{ ID: '1' }]);
