@@ -10,31 +10,29 @@ linters:
     - gosimple
     - gocritic
     - misspell
-
-linters-settings:
-  gocritic:
-    enabled-checks:
-      - appendAssign
-      - argOrder
-      - badCall
-      - badCond
-      - dupArg
-      - dupBranchBody
-      - dupCase
-      - dupSubExpr
-      - elseif
-      - exitAfterDefer
-      - flagDeref
-      - nilValReturn
-      - sloppyLen
-      - switchTrue
-      - typeSwitchVar
-      - underef
-      - unlambda
-  misspell:
-    locale: US
+  settings:
+    gocritic:
+      enabled-checks:
+        - appendAssign
+        - argOrder
+        - badCall
+        - badCond
+        - dupArg
+        - dupBranchBody
+        - dupCase
+        - dupSubExpr
+        - elseif
+        - exitAfterDefer
+        - flagDeref
+        - nilValReturn
+        - sloppyLen
+        - switchTrue
+        - typeSwitchVar
+        - underef
+        - unlambda
+    misspell:
+      locale: US
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
