@@ -15,7 +15,7 @@ jobs:
           - os: macos-latest
             goos: darwin
             goarch: arm64
-          - os: macos-13
+          - os: ubuntu-latest
             goos: darwin
             goarch: amd64
           - os: ubuntu-latest
@@ -62,15 +62,7 @@ jobs:
           path: crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}*
 
   desktop:
-    strategy:
-      matrix:
-        include:
-          - os: macos-latest
-            goarch: arm64
-          - os: macos-13
-            goarch: amd64
-
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -90,11 +82,8 @@ jobs:
         run: mkdir -p internal/server/frontend && cp -r frontend/dist internal/server/frontend/dist
 
       - name: Build desktop binary
-        env:
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "1"
         run: |
-          go build -tags desktop \
+          GOARCH=arm64 CGO_ENABLED=1 go build -tags desktop \
             -ldflags "-X github.com/SEObserver/crawlobserver/internal/updater.Version=${{ github.ref_name }}" \
             -o CrawlObserver ./cmd/crawlobserver
 
@@ -141,7 +130,7 @@ jobs:
           cp -R CrawlObserver.app dmg_staging/
           ln -s /Applications dmg_staging/Applications
           hdiutil create -volname "CrawlObserver" -srcfolder dmg_staging \
-            -ov -format UDZO "CrawlObserver-darwin-${{ matrix.goarch }}.dmg"
+            -ov -format UDZO "CrawlObserver-darwin-arm64.dmg"
 
       - name: Sign DMG
         if: env.APPLE_CERTIFICATE_P12 != ''
@@ -149,7 +138,7 @@ jobs:
           APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
         run: |
           codesign --force --sign "Developer ID Application: Kevin Richard (48HGS54WHP)" \
-            "CrawlObserver-darwin-${{ matrix.goarch }}.dmg"
+            "CrawlObserver-darwin-arm64.dmg"
 
       - name: Notarize DMG
         if: env.APPLE_CERTIFICATE_P12 != ''
@@ -159,9 +148,9 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          xcrun notarytool submit "CrawlObserver-darwin-${{ matrix.goarch }}.dmg" \
+          xcrun notarytool submit "CrawlObserver-darwin-arm64.dmg" \
             --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
-          xcrun stapler staple "CrawlObserver-darwin-${{ matrix.goarch }}.dmg"
+          xcrun stapler staple "CrawlObserver-darwin-arm64.dmg"
 
       - name: Cleanup keychain
         if: always()
@@ -172,8 +161,8 @@ jobs:
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CrawlObserver-darwin-${{ matrix.goarch }}
-          path: CrawlObserver-darwin-${{ matrix.goarch }}.dmg
+          name: CrawlObserver-darwin-arm64
+          path: CrawlObserver-darwin-arm64.dmg
 
   release:
     needs: [build, desktop]
