@@ -10,10 +10,15 @@ import (
 	"strings"
 	"time"
 
+	"crypto/tls"
+	"sync"
+
+	"github.com/PuerkitoBio/goquery"
 	"github.com/SEObserver/crawlobserver/internal/apikeys"
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/crawler"
 	"github.com/SEObserver/crawlobserver/internal/fetcher"
+	"github.com/SEObserver/crawlobserver/internal/parser"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 	"github.com/temoto/robotstxt"
 )
@@ -959,4 +964,145 @@ func (s *Server) handleNearDuplicates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, result)
+}
+
+// handleReparseResources re-extracts page resources from stored body_html
+// and HTTP-checks each unique resource.
+func (s *Server) handleReparseResources(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+
+	const batchSize = 500
+	var allRefs []storage.PageResourceRef
+	uniqueResources := make(map[string]storage.PageResourceRef) // dedupe by URL+type
+	offset := 0
+	pagesProcessed := 0
+
+	for {
+		pages, err := s.store.GetPageBodies(r.Context(), sessionID, batchSize, offset)
+		if err != nil {
+			internalError(w, r, err)
+			return
+		}
+		if len(pages) == 0 {
+			break
+		}
+
+		for _, page := range pages {
+			pageURL, err := url.Parse(page.URL)
+			if err != nil {
+				continue
+			}
+			doc, err := goquery.NewDocumentFromReader(strings.NewReader(page.BodyHTML))
+			if err != nil {
+				continue
+			}
+			resources := parser.ExtractResources(doc, pageURL)
+			for _, res := range resources {
+				ref := storage.PageResourceRef{
+					CrawlSessionID: sessionID,
+					PageURL:        page.URL,
+					ResourceURL:    res.URL,
+					ResourceType:   res.ResourceType,
+					IsInternal:     res.IsInternal,
+				}
+				allRefs = append(allRefs, ref)
+				key := res.URL + "|" + res.ResourceType
+				if _, exists := uniqueResources[key]; !exists {
+					uniqueResources[key] = ref
+				}
+			}
+		}
+
+		pagesProcessed += len(pages)
+
+		// Flush refs in batches
+		if len(allRefs) >= 5000 {
+			if err := s.store.InsertPageResourceRefs(r.Context(), allRefs); err != nil {
+				internalError(w, r, err)
+				return
+			}
+			allRefs = allRefs[:0]
+		}
+
+		if len(pages) < batchSize {
+			break
+		}
+		offset += batchSize
+	}
+
+	// Flush remaining refs
+	if len(allRefs) > 0 {
+		if err := s.store.InsertPageResourceRefs(r.Context(), allRefs); err != nil {
+			internalError(w, r, err)
+			return
+		}
+	}
+
+	// HTTP HEAD check unique resources (concurrently)
+	var checks []storage.PageResourceCheck
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 10) // 10 concurrent checks
+
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	for _, ref := range uniqueResources {
+		wg.Add(1)
+		go func(ref storage.PageResourceRef) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			check := storage.PageResourceCheck{
+				CrawlSessionID: sessionID,
+				URL:            ref.ResourceURL,
+				ResourceType:   ref.ResourceType,
+				IsInternal:     ref.IsInternal,
+				CheckedAt:      time.Now(),
+			}
+
+			start := time.Now()
+			resp, err := client.Head(ref.ResourceURL)
+			check.ResponseTimeMs = uint32(time.Since(start).Milliseconds())
+
+			if err != nil {
+				check.Error = err.Error()
+			} else {
+				check.StatusCode = uint16(resp.StatusCode)
+				check.ContentType = resp.Header.Get("Content-Type")
+				if loc := resp.Header.Get("Location"); loc != "" {
+					check.RedirectURL = loc
+				}
+				resp.Body.Close()
+			}
+
+			mu.Lock()
+			checks = append(checks, check)
+			mu.Unlock()
+		}(ref)
+	}
+	wg.Wait()
+
+	if err := s.store.InsertPageResourceChecks(r.Context(), checks); err != nil {
+		internalError(w, r, err)
+		return
+	}
+
+	applog.Info("reparse-resources session=%s pages=%d resources=%d checked=%d", sessionID, pagesProcessed, len(uniqueResources), len(checks))
+	writeJSON(w, map[string]any{
+		"pages_processed":   pagesProcessed,
+		"resources_found":   len(uniqueResources),
+		"resources_checked": len(checks),
+	})
 }

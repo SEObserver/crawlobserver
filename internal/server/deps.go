@@ -49,6 +49,9 @@ type CrawlStore interface {
 	GetExpiredDomains(ctx context.Context, sessionID string, limit, offset int) (*storage.ExpiredDomainsResult, error)
 	GetPageResourceChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.PageResourceCheck, error)
 	GetPageResourceTypeSummary(ctx context.Context, sessionID string) ([]storage.ResourceTypeSummary, error)
+	GetPageBodies(ctx context.Context, sessionID string, limit, offset int) ([]storage.PageBody, error)
+	InsertPageResourceRefs(ctx context.Context, refs []storage.PageResourceRef) error
+	InsertPageResourceChecks(ctx context.Context, checks []storage.PageResourceCheck) error
 	RunCustomTestsSQL(ctx context.Context, sessionID string, rules []customtests.TestRule) (map[string]map[string]string, error)
 	NearDuplicates(ctx context.Context, sessionID string, threshold int, limit, offset int) (*storage.NearDuplicatesResult, error)
 	StreamPagesHTML(ctx context.Context, sessionID string) (<-chan storage.PageHTMLRow, error)

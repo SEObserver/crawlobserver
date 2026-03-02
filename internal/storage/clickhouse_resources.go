@@ -141,3 +141,36 @@ func (s *Store) GetPageResourceTypeSummary(ctx context.Context, sessionID string
 	}
 	return results, nil
 }
+
+// PageBody holds a page URL and its raw HTML body for reprocessing.
+type PageBody struct {
+	URL      string
+	BodyHTML string
+}
+
+// GetPageBodies reads URL + body_html for a session in batches.
+func (s *Store) GetPageBodies(ctx context.Context, sessionID string, limit, offset int) ([]PageBody, error) {
+	rows, err := s.conn.Query(ctx, `
+		SELECT url, body_html
+		FROM crawlobserver.pages
+		WHERE crawl_session_id = ?
+			AND status_code >= 200 AND status_code < 300
+			AND length(body_html) > 0
+		ORDER BY url
+		LIMIT ? OFFSET ?`,
+		sessionID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("querying page bodies: %w", err)
+	}
+	defer rows.Close()
+
+	var results []PageBody
+	for rows.Next() {
+		var p PageBody
+		if err := rows.Scan(&p.URL, &p.BodyHTML); err != nil {
+			return nil, fmt.Errorf("scanning page body: %w", err)
+		}
+		results = append(results, p)
+	}
+	return results, nil
+}

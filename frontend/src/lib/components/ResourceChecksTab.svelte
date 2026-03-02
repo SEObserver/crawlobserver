@@ -57,10 +57,13 @@
     }
   }
 
-  function switchToUrls(type) {
-    urlFilters = type
-      ? { url: '', resource_type: type, is_internal: '', status_code: '' }
-      : { url: '', resource_type: '', is_internal: '', status_code: '' };
+  function switchToUrls(filters = {}) {
+    urlFilters = {
+      url: filters.url || '',
+      resource_type: filters.resource_type || '',
+      is_internal: filters.is_internal ?? '',
+      status_code: filters.status_code || '',
+    };
     checksOffset = 0;
     view = 'urls';
     pushFilters();
@@ -110,7 +113,7 @@
       <button class="pr-subview-btn" class:pr-subview-active={view === 'summary'} onclick={switchToSummary}
         >{t('resources.summary')}</button
       >
-      <button class="pr-subview-btn" class:pr-subview-active={view === 'urls'} onclick={() => switchToUrls('')}
+      <button class="pr-subview-btn" class:pr-subview-active={view === 'urls'} onclick={() => switchToUrls()}
         >{t('resources.urls')}</button
       >
     </div>
@@ -198,18 +201,20 @@
           <tr>
             <td><span class="badge badge-type">{typeIcon(s.resource_type)}</span></td>
             <td class="num"
-              ><button class="link-btn" onclick={() => switchToUrls(s.resource_type)}
+              ><button class="link-btn" onclick={() => switchToUrls({ resource_type: s.resource_type })}
                 >{s.total}</button
               ></td
             >
             <td class="num">{s.internal}</td>
             <td class="num"
-              >{#if s.external > 0}<span class="badge badge-hotlink">{s.external}</span
+              >{#if s.external > 0}<button class="link-btn-badge badge badge-hotlink" onclick={() => switchToUrls({ resource_type: s.resource_type, is_internal: 'false' })}
+                >{s.external}</button
                 >{:else}0{/if}</td
             >
             <td class="num">{s.ok}</td>
             <td class="num"
-              >{#if s.errors > 0}<span class="badge badge-error">{s.errors}</span>{:else}0{/if}</td
+              >{#if s.errors > 0}<button class="link-btn-badge badge badge-error" onclick={() => switchToUrls({ resource_type: s.resource_type, status_code: '>=400' })}
+                >{s.errors}</button>{:else}0{/if}</td
             >
             <td class="cell-bar">
               <div class="status-bar">
@@ -373,6 +378,14 @@
   }
   .link-btn:hover {
     text-decoration: underline;
+  }
+  .link-btn-badge {
+    border: none;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .link-btn-badge:hover {
+    filter: brightness(0.9);
   }
   .badge {
     display: inline-block;
