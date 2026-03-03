@@ -2596,6 +2596,69 @@ func TestSSEQueuedSession(t *testing.T) {
 	}
 }
 
+func TestSessionsListReturnsLivePagesCrawled(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+
+	mm := srv.manager.(*mockManager)
+	ms := srv.store.(*mockStore)
+
+	// Session with PagesCrawled=0 in DB (not finalized yet)
+	ms.sessions = []storage.CrawlSession{
+		{ID: "running-sess", Status: "running", PagesCrawled: 0, SeedURLs: []string{"https://example.com"}},
+		{ID: "done-sess", Status: "completed", PagesCrawled: 42, SeedURLs: []string{"https://example.com"}},
+	}
+
+	// Simulate running crawl with 150 pages crawled live
+	mm.running["running-sess"] = true
+	mm.progress["running-sess"] = [2]int64{150, 10}
+
+	// Test non-paginated endpoint
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var sessions []map[string]interface{}
+	decodeJSON(t, rec, &sessions)
+	if len(sessions) != 2 {
+		t.Fatalf("expected 2 sessions, got %d", len(sessions))
+	}
+
+	// Running session should have live PagesCrawled (150), not DB value (0)
+	if sessions[0]["PagesCrawled"] != float64(150) {
+		t.Errorf("running session: expected PagesCrawled=150, got %v", sessions[0]["PagesCrawled"])
+	}
+	// Completed session should keep DB value (42)
+	if sessions[1]["PagesCrawled"] != float64(42) {
+		t.Errorf("completed session: expected PagesCrawled=42, got %v", sessions[1]["PagesCrawled"])
+	}
+
+	// Test paginated endpoint
+	req = authRequest(httptest.NewRequest("GET", "/api/sessions?limit=10&offset=0", nil))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("paginated: expected 200, got %d", rec.Code)
+	}
+
+	var paginated map[string]interface{}
+	decodeJSON(t, rec, &paginated)
+	pSessions := paginated["sessions"].([]interface{})
+	if len(pSessions) != 2 {
+		t.Fatalf("paginated: expected 2 sessions, got %d", len(pSessions))
+	}
+	first := pSessions[0].(map[string]interface{})
+	if first["PagesCrawled"] != float64(150) {
+		t.Errorf("paginated running session: expected PagesCrawled=150, got %v", first["PagesCrawled"])
+	}
+	second := pSessions[1].(map[string]interface{})
+	if second["PagesCrawled"] != float64(42) {
+		t.Errorf("paginated completed session: expected PagesCrawled=42, got %v", second["PagesCrawled"])
+	}
+}
+
 // Verify the mockStore and mockManager satisfy their respective interfaces
 // at compile time.
 var _ StorageService = (*mockStore)(nil)

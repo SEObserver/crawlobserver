@@ -43,6 +43,7 @@
   "common.none": "-",
   "common.stop": "Arrêter",
   "common.running": "En cours",
+  "common.finalizing": "Finalisation",
   "common.completed": "Terminé",
   "common.unknown": "Inconnu",
   "common.clearFilters": "Effacer les filtres",

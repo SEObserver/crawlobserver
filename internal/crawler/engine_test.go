@@ -12,6 +12,7 @@ import (
 
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/extraction"
+	"github.com/SEObserver/crawlobserver/internal/frontier"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
@@ -667,5 +668,77 @@ func TestE2E_CrawlScope_Host(t *testing.T) {
 		if !crawled[server.URL+p] {
 			t.Errorf("expected %s to be crawled (host scope allows all paths)", p)
 		}
+	}
+}
+
+func TestDispatcherIdleTimeout(t *testing.T) {
+	cfg := &config.Config{
+		Crawler: config.CrawlerConfig{
+			Workers: 1,
+			Delay:   0,
+		},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	e := &Engine{
+		cfg:   cfg,
+		front: frontier.New(0, 10000),
+		ctx:   ctx,
+	}
+
+	// Simulate: pending retries exist but frontier is empty and no progress for 31s
+	e.pendingRetries.Store(3)
+	e.lastProgressAt.Store(time.Now().Unix() - 31)
+
+	fetchCh := make(chan *frontier.CrawlURL, 1)
+	done := make(chan struct{})
+	go func() {
+		e.dispatcher(fetchCh)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Dispatcher exited — that's the expected behavior
+	case <-time.After(10 * time.Second):
+		t.Fatal("dispatcher did not exit within 10s despite empty frontier and no progress for 30s")
+	}
+}
+
+func TestDispatcherWaitsForPendingRetries(t *testing.T) {
+	cfg := &config.Config{
+		Crawler: config.CrawlerConfig{
+			Workers: 1,
+			Delay:   0,
+		},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	e := &Engine{
+		cfg:   cfg,
+		front: frontier.New(0, 10000),
+		ctx:   ctx,
+	}
+
+	// Simulate: pending retries exist, frontier is empty, but progress was RECENT
+	e.pendingRetries.Store(3)
+	e.lastProgressAt.Store(time.Now().Unix()) // just now
+
+	fetchCh := make(chan *frontier.CrawlURL, 1)
+	done := make(chan struct{})
+	go func() {
+		e.dispatcher(fetchCh)
+		close(done)
+	}()
+
+	// Dispatcher should NOT exit quickly (it should wait for retries)
+	select {
+	case <-done:
+		t.Fatal("dispatcher exited too early — should wait for pending retries when progress is recent")
+	case <-time.After(2 * time.Second):
+		// Good — dispatcher is still running, waiting for retries
+		cancel() // clean up
 	}
 }

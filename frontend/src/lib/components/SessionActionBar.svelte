@@ -85,16 +85,22 @@
 
 <div class="action-bar">
   {#if session.is_running}
-    <span class="badge badge-info"
-      >{t('common.running')}
-      {#if liveProgress[session.ID]}
-        &middot; {fmtN(liveProgress[session.ID].pages_crawled)}
-        {t('common.pages')} &middot; {fmtN(liveProgress[session.ID].queue_size)}
-        {t('actionBar.inQueue')}
-        {#if liveProgress[session.ID].lost_pages > 0}
-          <span class="text-error font-semibold"
-            >&middot; {fmtN(liveProgress[session.ID].lost_pages)} {t('sessions.lost')}</span
-          >
+    {@const live = liveProgress[session.ID]}
+    <span class="badge badge-info">
+      {#if live && live.queue_size === 0 && live.pages_crawled > 0}
+        {t('common.finalizing')}
+        &middot; {fmtN(live.pages_crawled)} {t('common.pages')}
+      {:else}
+        {t('common.running')}
+        {#if live}
+          &middot; {fmtN(live.pages_crawled)}
+          {t('common.pages')} &middot; {fmtN(live.queue_size)}
+          {t('actionBar.inQueue')}
+          {#if live.lost_pages > 0}
+            <span class="text-error font-semibold"
+              >&middot; {fmtN(live.lost_pages)} {t('sessions.lost')}</span
+            >
+          {/if}
         {/if}
       {/if}
     </span>

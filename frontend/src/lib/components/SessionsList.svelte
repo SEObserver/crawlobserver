@@ -108,15 +108,20 @@
               <span class="badge badge-queued">{t('session.queued')}</span>
             {:else if isRunning}
               <span class="badge badge-info">
-                {t('common.running')}
-                {#if live}
-                  &middot; {fmtN(live.pages_crawled)}
-                  {t('common.pages')} &middot; {fmtN(live.queue_size)}
-                  {t('sessions.queued')}
-                  {#if live.lost_pages > 0}
-                    <span class="text-error font-semibold"
-                      >&middot; {fmtN(live.lost_pages)} {t('sessions.lost')}</span
-                    >
+                {#if live && live.queue_size === 0 && live.pages_crawled > 0}
+                  {t('common.finalizing')}
+                  &middot; {fmtN(live.pages_crawled)} {t('common.pages')}
+                {:else}
+                  {t('common.running')}
+                  {#if live}
+                    &middot; {fmtN(live.pages_crawled)}
+                    {t('common.pages')} &middot; {fmtN(live.queue_size)}
+                    {t('sessions.queued')}
+                    {#if live.lost_pages > 0}
+                      <span class="text-error font-semibold"
+                        >&middot; {fmtN(live.lost_pages)} {t('sessions.lost')}</span
+                      >
+                    {/if}
                   {/if}
                 {/if}
               </span>

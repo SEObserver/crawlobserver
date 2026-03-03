@@ -44,6 +44,10 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 
 		var resp []map[string]interface{}
 		for _, sess := range sessions {
+			pagesCrawled := sess.PagesCrawled
+			if pages, _, running := s.manager.Progress(sess.ID); running {
+				pagesCrawled = uint64(pages)
+			}
 			resp = append(resp, map[string]interface{}{
 				"ID":           sess.ID,
 				"StartedAt":    sess.StartedAt,
@@ -51,7 +55,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 				"Status":       sess.Status,
 				"SeedURLs":     sess.SeedURLs,
 				"Config":       sess.Config,
-				"PagesCrawled": sess.PagesCrawled,
+				"PagesCrawled": pagesCrawled,
 				"UserAgent":    sess.UserAgent,
 				"ProjectID":    sess.ProjectID,
 				"is_running":   s.manager.IsRunning(sess.ID),
@@ -86,6 +90,10 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	// Enrich with running/queued status
 	var resp []map[string]interface{}
 	for _, sess := range sessions {
+		pagesCrawled := sess.PagesCrawled
+		if pages, _, running := s.manager.Progress(sess.ID); running {
+			pagesCrawled = uint64(pages)
+		}
 		resp = append(resp, map[string]interface{}{
 			"ID":           sess.ID,
 			"StartedAt":    sess.StartedAt,
@@ -93,7 +101,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 			"Status":       sess.Status,
 			"SeedURLs":     sess.SeedURLs,
 			"Config":       sess.Config,
-			"PagesCrawled": sess.PagesCrawled,
+			"PagesCrawled": pagesCrawled,
 			"UserAgent":    sess.UserAgent,
 			"ProjectID":    sess.ProjectID,
 			"is_running":   s.manager.IsRunning(sess.ID),

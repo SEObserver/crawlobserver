@@ -35,8 +35,9 @@ type Engine struct {
 	robots   *fetcher.RobotsCache
 	session  *Session
 
-	pagesCrawled atomic.Int64
-	maxPages     int64
+	pagesCrawled   atomic.Int64
+	lastProgressAt atomic.Int64
+	maxPages       int64
 
 	allowedHosts    map[string]bool
 	allowedDomains  map[string]bool
@@ -506,9 +507,17 @@ func (e *Engine) dispatcher(fetchCh chan<- *frontier.CrawlURL) {
 		next := e.front.Next()
 		if next == nil {
 			emptyCount++
-			// If frontier is empty, no pending retries, and idle long enough, we're done
-			if e.front.Len() == 0 && e.pendingRetries.Load() == 0 && emptyCount > 50 {
-				return
+			// If frontier is empty and idle long enough, we're done
+			if e.front.Len() == 0 && emptyCount > 50 {
+				if e.pendingRetries.Load() == 0 {
+					return
+				}
+				// Force exit if no progress for 30 seconds
+				lastProgress := e.lastProgressAt.Load()
+				if lastProgress > 0 && time.Now().Unix()-lastProgress > 30 {
+					applog.Infof("crawler", "No progress for 30s with empty frontier, finishing (pending retries: %d)", e.pendingRetries.Load())
+					return
+				}
 			}
 			// Backoff when nothing is ready
 			wait := backoff * time.Duration(min(emptyCount, 10))
@@ -550,6 +559,7 @@ func (e *Engine) fetchWorker(id int, in <-chan *frontier.CrawlURL, out chan<- *f
 		// Only count first attempts for progress
 		if crawlURL.Attempt == 0 {
 			e.pagesCrawled.Add(1)
+			e.lastProgressAt.Store(time.Now().Unix())
 		}
 
 		count := e.pagesCrawled.Load()

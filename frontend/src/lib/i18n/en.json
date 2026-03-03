@@ -43,6 +43,7 @@
   "common.none": "-",
   "common.stop": "Stop",
   "common.running": "Running",
+  "common.finalizing": "Finalizing",
   "common.completed": "Completed",
   "common.unknown": "Unknown",
   "common.clearFilters": "Clear filters",
