@@ -2,4 +2,7 @@
 
 package cli
 
-func setupNativeMenu() {}
+import "unsafe"
+
+func setupNativeMenu()                          {}
+func installClipboardMonitor(_ unsafe.Pointer)  {}

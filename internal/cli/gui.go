@@ -93,6 +93,8 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	w := webview.New(false)
 	defer w.Destroy()
 	setupNativeMenu()
+	installClipboardMonitor(w.Window())
+
 	w.SetTitle(appName)
 	w.SetSize(1440, 900, webview.HintNone)
 	w.SetSize(800, 600, webview.HintMin)
