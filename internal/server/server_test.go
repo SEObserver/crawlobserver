@@ -17,6 +17,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/crawler"
 	"github.com/SEObserver/crawlobserver/internal/customtests"
+	"github.com/SEObserver/crawlobserver/internal/extraction"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
@@ -406,6 +407,21 @@ func (m *mockStore) InsertPageResourceChecks(_ context.Context, _ []storage.Page
 }
 func (m *mockStore) ListRedirectPages(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter, _ *storage.SortParam) ([]storage.RedirectPageRow, error) {
 	return []storage.RedirectPageRow{}, m.err
+}
+func (m *mockStore) InsertExtractions(_ context.Context, _ []extraction.ExtractionRow) error {
+	return m.err
+}
+func (m *mockStore) GetExtractions(_ context.Context, _ string, _, _ int) (*extraction.ExtractionResult, error) {
+	return nil, m.err
+}
+func (m *mockStore) DeleteExtractions(_ context.Context, _ string) error {
+	return m.err
+}
+func (m *mockStore) HasStoredHTML(_ context.Context, _ string) (bool, error) {
+	return false, m.err
+}
+func (m *mockStore) RunExtractionsPostCrawl(_ context.Context, _ string, _ []extraction.Extractor) (*extraction.ExtractionResult, error) {
+	return nil, m.err
 }
 
 // ---------------------------------------------------------------------------

@@ -7,12 +7,14 @@ import (
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/extraction"
 )
 
 // PageLinkInserter is the subset of Store used by Buffer for flushing data.
 type PageLinkInserter interface {
 	InsertPages(ctx context.Context, pages []PageRow) error
 	InsertLinks(ctx context.Context, links []LinkRow) error
+	InsertExtractions(ctx context.Context, rows []extraction.ExtractionRow) error
 }
 
 type retryBatch[T any] struct {
@@ -37,14 +39,15 @@ type Buffer struct {
 	sessionID     string
 	maxRetries    int
 
-	mu          sync.Mutex
-	pages       []PageRow
-	links       []LinkRow
-	failedPages []retryBatch[PageRow]
-	failedLinks []retryBatch[LinkRow]
-	lostPages   int64
-	lostLinks   int64
-	lastError   error
+	mu           sync.Mutex
+	pages        []PageRow
+	links        []LinkRow
+	extractions  []extraction.ExtractionRow
+	failedPages  []retryBatch[PageRow]
+	failedLinks  []retryBatch[LinkRow]
+	lostPages    int64
+	lostLinks    int64
+	lastError    error
 
 	done chan struct{}
 	wg   sync.WaitGroup
@@ -95,6 +98,21 @@ func (b *Buffer) AddLinks(links []LinkRow) {
 	}
 }
 
+// AddExtractions adds extraction rows to the buffer.
+func (b *Buffer) AddExtractions(rows []extraction.ExtractionRow) {
+	if len(rows) == 0 {
+		return
+	}
+	b.mu.Lock()
+	b.extractions = append(b.extractions, rows...)
+	shouldFlush := len(b.extractions) >= b.batchSize
+	b.mu.Unlock()
+
+	if shouldFlush {
+		b.Flush()
+	}
+}
+
 // SetOnDataLost registers a callback invoked (outside the lock) whenever data is dropped.
 func (b *Buffer) SetOnDataLost(fn func(lostPages, lostLinks int64)) {
 	b.mu.Lock()
@@ -107,8 +125,10 @@ func (b *Buffer) Flush() {
 	b.mu.Lock()
 	pages := b.pages
 	links := b.links
+	extractions := b.extractions
 	b.pages = nil
 	b.links = nil
+	b.extractions = nil
 
 	// Grab failed batches to retry
 	failedPages := b.failedPages
@@ -191,6 +211,16 @@ func (b *Buffer) Flush() {
 			applog.Errorf("storage", "[%s] flushing %d links (will retry): %v", b.sessionID, len(links), err)
 			b.mu.Lock()
 			b.failedLinks = append(b.failedLinks, retryBatch[LinkRow]{data: links, retries: 0})
+			b.lastError = err
+			b.mu.Unlock()
+		}
+	}
+
+	// Flush current extractions
+	if len(extractions) > 0 {
+		if err := b.store.InsertExtractions(ctx, extractions); err != nil {
+			applog.Errorf("storage", "[%s] flushing %d extractions: %v", b.sessionID, len(extractions), err)
+			b.mu.Lock()
 			b.lastError = err
 			b.mu.Unlock()
 		}

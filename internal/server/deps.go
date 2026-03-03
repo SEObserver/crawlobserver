@@ -8,6 +8,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/crawler"
 	"github.com/SEObserver/crawlobserver/internal/customtests"
+	"github.com/SEObserver/crawlobserver/internal/extraction"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
@@ -57,6 +58,11 @@ type CrawlStore interface {
 	StreamPagesHTML(ctx context.Context, sessionID string) (<-chan storage.PageHTMLRow, error)
 	PagesWithAuthority(ctx context.Context, sessionID, projectID string, limit, offset int) ([]storage.PageWithAuthority, int, error)
 	ListRedirectPages(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.RedirectPageRow, error)
+	InsertExtractions(ctx context.Context, rows []extraction.ExtractionRow) error
+	GetExtractions(ctx context.Context, sessionID string, limit, offset int) (*extraction.ExtractionResult, error)
+	DeleteExtractions(ctx context.Context, sessionID string) error
+	HasStoredHTML(ctx context.Context, sessionID string) (bool, error)
+	RunExtractionsPostCrawl(ctx context.Context, sessionID string, extractors []extraction.Extractor) (*extraction.ExtractionResult, error)
 }
 
 // GSCStore handles Google Search Console data.

@@ -60,6 +60,8 @@ export const TAB_ICONS = {
     '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
   duplicates:
     '<rect x="4" y="4" width="11" height="14" rx="2"/><rect x="9" y="6" width="11" height="14" rx="2"/>',
+  extract:
+    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
 };
 
 export function getTabs() {
@@ -73,6 +75,7 @@ export function getTabs() {
     { id: 'pagerank', label: t('tabs.pagerank'), icon: TAB_ICONS.pagerank },
     { id: 'authority', label: t('tabs.authority'), icon: TAB_ICONS.authority, premium: true },
     { id: 'tests', label: t('tabs.tests'), icon: TAB_ICONS.tests },
+    { id: 'extract', label: t('tabs.extract'), icon: TAB_ICONS.extract },
   ];
 }
 
@@ -86,6 +89,7 @@ export const TAB_SUB_VIEWS = {
   duplicates: null,
   authority: null,
   tests: null,
+  extract: null,
 };
 
 export const TAB_DEFAULT_SUB_VIEW = {
@@ -98,6 +102,7 @@ export const TAB_DEFAULT_SUB_VIEW = {
   duplicates: null,
   authority: null,
   tests: null,
+  extract: null,
 };
 
 // Map old flat tab IDs to { tab, subView } for URL compat

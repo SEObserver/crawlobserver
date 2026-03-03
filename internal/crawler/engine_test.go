@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/extraction"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
@@ -123,6 +124,10 @@ func (d *diskFullInserter) InsertPages(_ context.Context, _ []storage.PageRow) e
 }
 
 func (d *diskFullInserter) InsertLinks(_ context.Context, _ []storage.LinkRow) error {
+	return fmt.Errorf("code: 243, Cannot reserve 1073741824 bytes in file")
+}
+
+func (d *diskFullInserter) InsertExtractions(_ context.Context, _ []extraction.ExtractionRow) error {
 	return fmt.Errorf("code: 243, Cannot reserve 1073741824 bytes in file")
 }
 
@@ -277,5 +282,8 @@ func TestNoDiskIssueCompletedNormally(t *testing.T) {
 
 type successInserter struct{}
 
-func (s *successInserter) InsertPages(_ context.Context, _ []storage.PageRow) error { return nil }
-func (s *successInserter) InsertLinks(_ context.Context, _ []storage.LinkRow) error { return nil }
+func (s *successInserter) InsertPages(_ context.Context, _ []storage.PageRow) error  { return nil }
+func (s *successInserter) InsertLinks(_ context.Context, _ []storage.LinkRow) error  { return nil }
+func (s *successInserter) InsertExtractions(_ context.Context, _ []extraction.ExtractionRow) error {
+	return nil
+}

@@ -983,6 +983,48 @@ export async function runTests(sessionId, rulesetId) {
   });
 }
 
+// --- Extractor Sets ---
+
+export async function getExtractorSets() {
+  return fetchJSON('/extractor-sets');
+}
+
+export async function getExtractorSet(id) {
+  return fetchJSON(`/extractor-sets/${id}`);
+}
+
+export async function createExtractorSet(name, extractors) {
+  return fetchJSON('/extractor-sets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, extractors }),
+  });
+}
+
+export async function updateExtractorSet(id, name, extractors) {
+  return fetchJSON(`/extractor-sets/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, extractors }),
+  });
+}
+
+export async function deleteExtractorSet(id) {
+  return fetchJSON(`/extractor-sets/${id}`, { method: 'DELETE' });
+}
+
+export async function getExtractions(sessionId, limit = 100, offset = 0) {
+  return fetchJSON(`/sessions/${sessionId}/extractions?limit=${limit}&offset=${offset}`);
+}
+
+export async function runExtractions(sessionId, extractorSetId) {
+  return fetchJSON(`/sessions/${sessionId}/run-extractions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ extractor_set_id: extractorSetId }),
+  });
+}
+
 // --- Application Logs ---
 
 /**

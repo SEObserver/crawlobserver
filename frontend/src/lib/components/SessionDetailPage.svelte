@@ -8,6 +8,7 @@
   import PageRankTab from './PageRankTab.svelte';
   import ReportsHub from './ReportsHub.svelte';
   import CustomTestsTab from './CustomTestsTab.svelte';
+  import ExtractTab from './ExtractTab.svelte';
   import ResourceChecksTab from './ResourceChecksTab.svelte';
   import PagesExplorer from './PagesExplorer.svelte';
   import LinksExplorer from './LinksExplorer.svelte';
@@ -221,6 +222,12 @@
       />
     {:else if tab === 'tests'}
       <CustomTestsTab sessionId={session.ID} onerror={(msg) => onerror?.(msg)} />
+    {:else if tab === 'extract'}
+      <ExtractTab
+        sessionId={session.ID}
+        sessionConfig={session.Config}
+        onerror={(msg) => onerror?.(msg)}
+      />
     {/if}
   </div>
 {/if}

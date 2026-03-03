@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/SEObserver/crawlobserver/internal/extraction"
 )
 
 // mockInserter implements PageLinkInserter with configurable failure behavior.
@@ -32,6 +34,10 @@ func (m *mockInserter) InsertPages(ctx context.Context, pages []PageRow) error {
 	}
 	m.pageInserts++
 	m.pagesInserted = append(m.pagesInserted, pages...)
+	return nil
+}
+
+func (m *mockInserter) InsertExtractions(ctx context.Context, rows []extraction.ExtractionRow) error {
 	return nil
 }
 

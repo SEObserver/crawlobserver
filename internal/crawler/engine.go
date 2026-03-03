@@ -13,6 +13,7 @@ import (
 
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/extraction"
 	"github.com/SEObserver/crawlobserver/internal/fetcher"
 	"github.com/SEObserver/crawlobserver/internal/frontier"
 	"github.com/SEObserver/crawlobserver/internal/normalizer"
@@ -67,6 +68,8 @@ type Engine struct {
 	renderWorkers int
 	renderCh      chan *renderItem
 	followJSLinks bool
+
+	extractors []extraction.Extractor
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -614,6 +617,19 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 		// Store raw HTML if enabled
 		if e.cfg.Crawler.StoreHTML && result.IsHTML() && len(result.Body) > 0 {
 			pageRow.BodyHTML = string(result.Body)
+		}
+
+		// Run extractors if configured
+		if len(e.extractors) > 0 && result.IsHTML() && len(result.Body) > 0 {
+			rows := extraction.RunExtractors(result.Body, result.URL, e.session.ID, e.extractors, now)
+			if len(rows) > 0 {
+				e.bufferMu.RLock()
+				buf := e.buffer
+				e.bufferMu.RUnlock()
+				if buf != nil {
+					buf.AddExtractions(rows)
+				}
+			}
 		}
 
 		// Parse HTML if applicable

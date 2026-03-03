@@ -3,12 +3,14 @@ package crawler
 import (
 	"context"
 	"fmt"
+	"log"
 	"runtime/debug"
 	"sync"
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/config"
+	"github.com/SEObserver/crawlobserver/internal/extraction"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
@@ -26,6 +28,11 @@ type queuedCrawl struct {
 	seeds     []string
 }
 
+// ExtractorSetLoader loads an extractor set by ID.
+type ExtractorSetLoader interface {
+	GetExtractorSet(id string) (*extraction.ExtractorSet, error)
+}
+
 // Manager manages running crawl engines.
 type Manager struct {
 	mu         sync.RWMutex
@@ -33,6 +40,7 @@ type Manager struct {
 	lastErrors map[string]string  // sessionID -> error message (persists after engine cleanup)
 	cfg        *config.Config
 	store      *storage.Store
+	extractorLoader ExtractorSetLoader
 
 	sem       chan struct{}    // semaphore limiting concurrent sessions
 	queueMu   sync.Mutex
@@ -41,12 +49,12 @@ type Manager struct {
 }
 
 // NewManager creates a new crawl manager.
-func NewManager(cfg *config.Config, store *storage.Store) *Manager {
+func NewManager(cfg *config.Config, store *storage.Store, extractorLoader ...ExtractorSetLoader) *Manager {
 	maxSessions := cfg.Crawler.MaxConcurrentSessions
 	if maxSessions <= 0 {
 		maxSessions = 20
 	}
-	return &Manager{
+	m := &Manager{
 		engines:    make(map[string]*Engine),
 		lastErrors: make(map[string]string),
 		cfg:        cfg,
@@ -54,6 +62,10 @@ func NewManager(cfg *config.Config, store *storage.Store) *Manager {
 		sem:        make(chan struct{}, maxSessions),
 		queuedSet:  make(map[string]bool),
 	}
+	if len(extractorLoader) > 0 {
+		m.extractorLoader = extractorLoader[0]
+	}
+	return m
 }
 
 // LastError returns the error message from the last run of a session, if any.
@@ -87,6 +99,7 @@ type CrawlRequest struct {
 	FollowJSLinks       bool     `json:"follow_js_links"`
 	SourceIP            string   `json:"source_ip"`
 	ForceIPv4           bool     `json:"force_ipv4"`
+	ExtractorSetID      string   `json:"extractor_set_id"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -182,6 +195,16 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 
 	// JS rendering
 	engine.followJSLinks = req.FollowJSLinks
+
+	// Load extractors if requested
+	if req.ExtractorSetID != "" && m.extractorLoader != nil {
+		es, err := m.extractorLoader.GetExtractorSet(req.ExtractorSetID)
+		if err != nil {
+			return "", fmt.Errorf("loading extractor set: %w", err)
+		}
+		engine.extractors = es.Extractors
+		log.Printf("[info] crawler: Loaded extractor set %q with %d extractors", es.Name, len(es.Extractors))
+	}
 
 	// Try to acquire a semaphore slot (non-blocking)
 	select {

@@ -1,6 +1,6 @@
 <script>
   import { t } from '../i18n/index.svelte.js';
-  import { startCrawl, checkIP } from '../api.js';
+  import { startCrawl, checkIP, getExtractorSets } from '../api.js';
   import SearchSelect from './SearchSelect.svelte';
 
   let { projects = [], initialProjectId = '', onstart, oncancel, onerror } = $props();
@@ -24,9 +24,18 @@
   let followJSLinks = $state(false);
   let sourceIP = $state('');
   let forceIPv4 = $state(false);
+  let extractorSetId = $state('');
+  let extractorSets = $state([]);
   let checkingIP = $state(false);
   let checkedIP = $state('');
   let starting = $state(false);
+
+  // Load extractor sets on mount
+  getExtractorSets()
+    .then((sets) => {
+      extractorSets = sets;
+    })
+    .catch(() => {});
 
   let userAgentPresets = $derived([
     { label: t('newCrawl.uaDefault'), value: '', tls: '' },
@@ -101,6 +110,7 @@
         js_render_mode: jsRenderMode !== 'off' ? jsRenderMode : undefined,
         js_render_max_pages: jsRenderMode !== 'off' ? jsRenderMaxPages : undefined,
         follow_js_links: jsRenderMode !== 'off' ? followJSLinks : undefined,
+        extractor_set_id: extractorSetId || undefined,
       });
       onstart?.();
     } catch (e) {
@@ -258,6 +268,20 @@
         <input type="checkbox" bind:checked={followJSLinks} />
         {t('newCrawl.followJSLinks')}
       </label>
+    {/if}
+    {#if extractorSets.length > 0}
+      <div class="form-group">
+        <label for="extractor-set">{t('newCrawl.extractorSet')}</label>
+        <SearchSelect
+          id="extractor-set"
+          bind:value={extractorSetId}
+          placeholder={t('newCrawl.noExtractorSet')}
+          options={[
+            { value: '', label: t('newCrawl.noExtractorSet') },
+            ...extractorSets.map((es) => ({ value: es.id, label: es.name })),
+          ]}
+        />
+      </div>
     {/if}
     {#if projects.length > 0}
       <div class="form-group">

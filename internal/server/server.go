@@ -84,7 +84,7 @@ func New(cfg *config.Config, store *storage.Store, keyStore *apikeys.Store) *Ser
 		cfg:      cfg,
 		store:    store,
 		keyStore: keyStore,
-		manager:  crawler.NewManager(cfg, store),
+		manager:  crawler.NewManager(cfg, store, keyStore),
 	}
 }
 
@@ -223,6 +223,15 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("PUT /api/rulesets/{id}", s.handleUpdateRuleset)
 	mux.HandleFunc("DELETE /api/rulesets/{id}", s.handleDeleteRuleset)
 	mux.HandleFunc("POST /api/sessions/{id}/run-tests", s.handleRunTests)
+
+	// Extraction routes
+	mux.HandleFunc("GET /api/extractor-sets", s.handleListExtractorSets)
+	mux.HandleFunc("POST /api/extractor-sets", s.handleCreateExtractorSet)
+	mux.HandleFunc("GET /api/extractor-sets/{id}", s.handleGetExtractorSet)
+	mux.HandleFunc("PUT /api/extractor-sets/{id}", s.handleUpdateExtractorSet)
+	mux.HandleFunc("DELETE /api/extractor-sets/{id}", s.handleDeleteExtractorSet)
+	mux.HandleFunc("GET /api/sessions/{id}/extractions", s.handleGetExtractions)
+	mux.HandleFunc("POST /api/sessions/{id}/run-extractions", s.handleRunExtractions)
 
 	// Static frontend files with SPA fallback
 	distFS, err := fs.Sub(frontendFS, "frontend/dist")

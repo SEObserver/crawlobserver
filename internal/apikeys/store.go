@@ -10,6 +10,7 @@ import (
 
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/customtests"
+	"github.com/SEObserver/crawlobserver/internal/extraction"
 	"github.com/SEObserver/crawlobserver/internal/providers"
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
@@ -149,6 +150,34 @@ func NewStore(dbPath string) (*Store, error) {
 	`); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("creating provider_connections table: %w", err)
+	}
+
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS extractor_sets (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)
+	`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("creating extractor_sets table: %w", err)
+	}
+
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS extractors (
+			id TEXT PRIMARY KEY,
+			set_id TEXT NOT NULL REFERENCES extractor_sets(id) ON DELETE CASCADE,
+			type TEXT NOT NULL,
+			name TEXT NOT NULL,
+			selector TEXT NOT NULL DEFAULT '',
+			attribute TEXT NOT NULL DEFAULT '',
+			url_pattern TEXT NOT NULL DEFAULT '',
+			sort_order INTEGER DEFAULT 0
+		)
+	`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("creating extractors table: %w", err)
 	}
 
 	return &Store{db: db}, nil
@@ -568,6 +597,143 @@ func (s *Store) DeleteRuleset(id string) error {
 	n, _ := res.RowsAffected()
 	if n == 0 {
 		return fmt.Errorf("ruleset not found")
+	}
+	return nil
+}
+
+// --- Extractor Sets ---
+
+func (s *Store) ListExtractorSets() ([]extraction.ExtractorSet, error) {
+	rows, err := s.db.Query(`
+		SELECT es.id, es.name, es.created_at, es.updated_at, COUNT(e.id) AS extractor_count
+		FROM extractor_sets es
+		LEFT JOIN extractors e ON e.set_id = es.id
+		GROUP BY es.id
+		ORDER BY es.created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sets []extraction.ExtractorSet
+	for rows.Next() {
+		var es extraction.ExtractorSet
+		var count int
+		if err := rows.Scan(&es.ID, &es.Name, &es.CreatedAt, &es.UpdatedAt, &count); err != nil {
+			return nil, err
+		}
+		es.ExtractorCount = count
+		sets = append(sets, es)
+	}
+	if sets == nil {
+		sets = []extraction.ExtractorSet{}
+	}
+	return sets, nil
+}
+
+func (s *Store) GetExtractorSet(id string) (*extraction.ExtractorSet, error) {
+	var es extraction.ExtractorSet
+	err := s.db.QueryRow(`SELECT id, name, created_at, updated_at FROM extractor_sets WHERE id = ?`, id).
+		Scan(&es.ID, &es.Name, &es.CreatedAt, &es.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := s.db.Query(`SELECT id, set_id, type, name, selector, attribute, url_pattern, sort_order FROM extractors WHERE set_id = ? ORDER BY sort_order`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var e extraction.Extractor
+		if err := rows.Scan(&e.ID, &e.SetID, &e.Type, &e.Name, &e.Selector, &e.Attribute, &e.URLPattern, &e.SortOrder); err != nil {
+			return nil, err
+		}
+		es.Extractors = append(es.Extractors, e)
+	}
+	if es.Extractors == nil {
+		es.Extractors = []extraction.Extractor{}
+	}
+	return &es, nil
+}
+
+func (s *Store) CreateExtractorSet(name string, extractors []extraction.Extractor) (*extraction.ExtractorSet, error) {
+	now := time.Now().UTC()
+	es := &extraction.ExtractorSet{
+		ID:        uuid.New().String(),
+		Name:      name,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`INSERT INTO extractor_sets (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+		es.ID, es.Name, es.CreatedAt, es.UpdatedAt); err != nil {
+		return nil, fmt.Errorf("inserting extractor set: %w", err)
+	}
+
+	for i, e := range extractors {
+		e.ID = uuid.New().String()
+		e.SetID = es.ID
+		e.SortOrder = i
+		if _, err := tx.Exec(`INSERT INTO extractors (id, set_id, type, name, selector, attribute, url_pattern, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			e.ID, e.SetID, e.Type, e.Name, e.Selector, e.Attribute, e.URLPattern, e.SortOrder); err != nil {
+			return nil, fmt.Errorf("inserting extractor: %w", err)
+		}
+		es.Extractors = append(es.Extractors, e)
+	}
+	if es.Extractors == nil {
+		es.Extractors = []extraction.Extractor{}
+	}
+
+	return es, tx.Commit()
+}
+
+func (s *Store) UpdateExtractorSet(id, name string, extractors []extraction.Extractor) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`UPDATE extractor_sets SET name = ?, updated_at = ? WHERE id = ?`, name, time.Now().UTC(), id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("extractor set not found")
+	}
+
+	if _, err := tx.Exec(`DELETE FROM extractors WHERE set_id = ?`, id); err != nil {
+		return err
+	}
+
+	for i, e := range extractors {
+		eID := uuid.New().String()
+		if _, err := tx.Exec(`INSERT INTO extractors (id, set_id, type, name, selector, attribute, url_pattern, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			eID, id, e.Type, e.Name, e.Selector, e.Attribute, e.URLPattern, i); err != nil {
+			return fmt.Errorf("inserting extractor: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (s *Store) DeleteExtractorSet(id string) error {
+	res, err := s.db.Exec(`DELETE FROM extractor_sets WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("extractor set not found")
 	}
 	return nil
 }

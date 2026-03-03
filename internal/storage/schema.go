@@ -605,6 +605,18 @@ PARTITION BY toYYYYMM(called_at)
 ORDER BY (project_id, provider, called_at)
 `
 
+const CreateExtractions = `
+CREATE TABLE IF NOT EXISTS crawlobserver.extractions (
+    crawl_session_id UUID,
+    url String,
+    extractor_name LowCardinality(String),
+    value String,
+    crawled_at DateTime64(3)
+) ENGINE = MergeTree()
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, url, extractor_name)
+`
+
 // Migrations is the ordered list of migrations.
 var Migrations = []Migration{
 	{Name: "create database", DDL: CreateDatabase},
@@ -634,4 +646,5 @@ var Migrations = []Migration{
 	{Name: "alter pages v6 content hash", DDL: AlterPagesV6},
 	{Name: "create provider_top_pages", DDL: CreateProviderTopPages},
 	{Name: "create provider_api_calls", DDL: CreateProviderAPICalls},
+	{Name: "create extractions", DDL: CreateExtractions},
 }
