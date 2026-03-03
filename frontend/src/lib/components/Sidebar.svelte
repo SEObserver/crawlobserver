@@ -25,6 +25,7 @@
     ongohome,
     oncreateproject,
     onviewallprojects,
+    appVersion,
   } = $props();
 
   /** @param {HTMLElement} node */
@@ -504,6 +505,9 @@
       >
       {t('sidebar.byBrand')}
     </a>
+    {#if appVersion}
+      <span class="sidebar-version">v{appVersion}</span>
+    {/if}
   </div>
 </aside>
 
@@ -724,6 +728,12 @@
   }
   .sidebar-branding:hover {
     opacity: 1;
+  }
+  .sidebar-version {
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.5;
+    padding: 4px 12px;
   }
   .theme-toggle {
     display: flex;

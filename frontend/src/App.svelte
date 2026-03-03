@@ -82,6 +82,7 @@
   let compareSessionA = $state('');
   let compareSessionB = $state('');
   let updateInfo = $state(null);
+  let appVersion = $state('');
   let updateDismissed = $state(false);
   let updatingApp = $state(false);
   let updateMessage = $state('');
@@ -392,6 +393,7 @@
       attempts++;
       try {
         const status = await getUpdateStatus();
+        if (status.current_version) appVersion = status.current_version;
         if (status.available || status.checked_at || attempts >= UPDATE_POLL_MAX) {
           clearInterval(updatePollTimer);
           updatePollTimer = null;
@@ -557,6 +559,7 @@
     ongohome={goHome}
     oncreateproject={handleCreateProject}
     onviewallprojects={openAllProjects}
+    {appVersion}
   />
 
   <!-- Main Content -->
