@@ -9,6 +9,7 @@
     runExtractions,
   } from '../api.js';
   import ConfirmModal from './ConfirmModal.svelte';
+  import UrlActions from './UrlActions.svelte';
   import { t } from '../i18n/index.svelte.js';
   import SearchSelect from './SearchSelect.svelte';
 
@@ -511,7 +512,22 @@
         <span class="text-sm text-muted">{t('extract.pagesExtracted', { count: totalPages })}</span>
       </div>
       <div class="flex-center-gap">
-        <button class="btn btn-sm" onclick={exportCsv}>{t('common.exportCsv')}</button>
+        <button class="btn btn-sm" onclick={exportCsv} title={t('common.exportCsv')}>
+          <svg
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
+              points="7 10 12 15 17 10"
+            /><line x1="12" y1="15" x2="12" y2="3" /></svg
+          >
+          {t('common.exportCsv')}
+        </button>
         <button
           class="btn btn-sm"
           onclick={() => {
@@ -537,7 +553,13 @@
           <tbody>
             {#each pagedResults as page}
               <tr>
-                <td class="cell-url" title={page.url}>{page.url}</td>
+                <td class="cell-url"
+                  ><span class="cell-url-inner"
+                    ><a href={page.url} target="_blank" rel="noopener">{page.url}</a><UrlActions
+                      url={page.url}
+                    /></span
+                  ></td
+                >
                 {#each extractionResult.extractors as ext}
                   {@const val = page.values?.[ext.name] ?? ''}
                   <td>
