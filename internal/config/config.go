@@ -31,7 +31,7 @@ type CrawlerConfig struct {
 	MaxBodySize   int64         `mapstructure:"max_body_size"`
 	RespectRobots bool          `mapstructure:"respect_robots"`
 	StoreHTML     bool          `mapstructure:"store_html"`
-	CrawlScope      string        `mapstructure:"crawl_scope"`      // "host" (default) or "domain" (eTLD+1)
+	CrawlScope      string        `mapstructure:"crawl_scope"`      // "host" (default), "domain" (eTLD+1), or "subdirectory"
 	AllowPrivateIPs bool          `mapstructure:"allow_private_ips"` // allow crawling private/reserved IPs (default: false)
 	TLSProfile      string        `mapstructure:"tls_profile"`      // "", "chrome", "firefox", "edge"
 	SourceIP        string        `mapstructure:"source_ip"`        // local IP to bind outgoing connections

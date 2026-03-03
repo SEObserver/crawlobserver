@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -37,8 +38,9 @@ type Engine struct {
 	pagesCrawled atomic.Int64
 	maxPages     int64
 
-	allowedHosts   map[string]bool
-	allowedDomains map[string]bool
+	allowedHosts    map[string]bool
+	allowedDomains  map[string]bool
+	allowedPrefixes []string
 
 	retryQueue     *RetryQueue
 	hostHealth     *HostHealth
@@ -157,6 +159,7 @@ func (e *Engine) PreSeedDedup(urls []string) {
 func (e *Engine) buildScope() {
 	e.allowedHosts = make(map[string]bool)
 	e.allowedDomains = make(map[string]bool)
+	e.allowedPrefixes = nil
 
 	seedURLs := e.session.SeedURLs
 	for _, seed := range seedURLs {
@@ -169,6 +172,17 @@ func (e *Engine) buildScope() {
 		domain, err := publicsuffix.EffectiveTLDPlusOne(host)
 		if err == nil {
 			e.allowedDomains[strings.ToLower(domain)] = true
+		}
+		if e.cfg.Crawler.CrawlScope == "subdirectory" {
+			dir := path.Dir(u.Path)
+			if strings.HasSuffix(u.Path, "/") {
+				dir = u.Path
+			}
+			if !strings.HasSuffix(dir, "/") {
+				dir += "/"
+			}
+			prefix := strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Host) + dir
+			e.allowedPrefixes = append(e.allowedPrefixes, prefix)
 		}
 	}
 }
@@ -188,6 +202,14 @@ func (e *Engine) isInScope(targetURL string) bool {
 			return e.allowedHosts[host]
 		}
 		return e.allowedDomains[strings.ToLower(domain)]
+	case "subdirectory":
+		targetLower := strings.ToLower(targetURL)
+		for _, prefix := range e.allowedPrefixes {
+			if strings.HasPrefix(targetLower, prefix) {
+				return true
+			}
+		}
+		return false
 	default: // "host"
 		return e.allowedHosts[host]
 	}

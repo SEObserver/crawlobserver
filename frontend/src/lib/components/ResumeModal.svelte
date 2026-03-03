@@ -123,6 +123,7 @@
             options={[
               { value: 'host', label: t('resumeModal.sameHost') },
               { value: 'domain', label: t('resumeModal.sameDomain') },
+              { value: 'subdirectory', label: t('resumeModal.sameSubdirectory') },
             ]}
           />
         </div>

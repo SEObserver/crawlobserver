@@ -3,6 +3,10 @@ package crawler
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -280,10 +284,388 @@ func TestNoDiskIssueCompletedNormally(t *testing.T) {
 	}
 }
 
+func TestIsInScope_Host(t *testing.T) {
+	cfg := &config.Config{
+		Crawler: config.CrawlerConfig{
+			UserAgent:  "TestBot/1.0",
+			CrawlScope: "host",
+		},
+	}
+	engine := NewEngine(cfg, nil)
+	engine.session = NewSession([]string{"https://example.com/page"}, cfg)
+	engine.buildScope()
+
+	tests := []struct {
+		url  string
+		want bool
+	}{
+		{"https://example.com/other", true},
+		{"https://example.com/", true},
+		{"https://sub.example.com/page", false},
+		{"https://other.com/page", false},
+	}
+	for _, tt := range tests {
+		if got := engine.isInScope(tt.url); got != tt.want {
+			t.Errorf("isInScope(%q) = %v, want %v", tt.url, got, tt.want)
+		}
+	}
+}
+
+func TestIsInScope_Domain(t *testing.T) {
+	cfg := &config.Config{
+		Crawler: config.CrawlerConfig{
+			UserAgent:  "TestBot/1.0",
+			CrawlScope: "domain",
+		},
+	}
+	engine := NewEngine(cfg, nil)
+	engine.session = NewSession([]string{"https://www.example.com/page"}, cfg)
+	engine.buildScope()
+
+	tests := []struct {
+		url  string
+		want bool
+	}{
+		{"https://www.example.com/other", true},
+		{"https://example.com/other", true},
+		{"https://sub.example.com/page", true},
+		{"https://other.com/page", false},
+	}
+	for _, tt := range tests {
+		if got := engine.isInScope(tt.url); got != tt.want {
+			t.Errorf("isInScope(%q) = %v, want %v", tt.url, got, tt.want)
+		}
+	}
+}
+
+func TestIsInScope_Subdirectory(t *testing.T) {
+	cfg := &config.Config{
+		Crawler: config.CrawlerConfig{
+			UserAgent:  "TestBot/1.0",
+			CrawlScope: "subdirectory",
+		},
+	}
+
+	t.Run("seed with path", func(t *testing.T) {
+		engine := NewEngine(cfg, nil)
+		engine.session = NewSession([]string{"https://example.com/blog/article"}, cfg)
+		engine.buildScope()
+
+		tests := []struct {
+			url  string
+			want bool
+		}{
+			{"https://example.com/blog/other", true},
+			{"https://example.com/blog/", true},
+			{"https://example.com/blog/sub/deep", true},
+			{"https://example.com/", false},
+			{"https://example.com/other/page", false},
+			{"https://other.com/blog/article", false},
+		}
+		for _, tt := range tests {
+			if got := engine.isInScope(tt.url); got != tt.want {
+				t.Errorf("isInScope(%q) = %v, want %v", tt.url, got, tt.want)
+			}
+		}
+	})
+
+	t.Run("seed with trailing slash", func(t *testing.T) {
+		engine := NewEngine(cfg, nil)
+		engine.session = NewSession([]string{"https://example.com/blog/"}, cfg)
+		engine.buildScope()
+
+		tests := []struct {
+			url  string
+			want bool
+		}{
+			{"https://example.com/blog/article", true},
+			{"https://example.com/blog/", true},
+			{"https://example.com/", false},
+			{"https://example.com/other", false},
+		}
+		for _, tt := range tests {
+			if got := engine.isInScope(tt.url); got != tt.want {
+				t.Errorf("isInScope(%q) = %v, want %v", tt.url, got, tt.want)
+			}
+		}
+	})
+
+	t.Run("seed at root", func(t *testing.T) {
+		engine := NewEngine(cfg, nil)
+		engine.session = NewSession([]string{"https://example.com/"}, cfg)
+		engine.buildScope()
+
+		tests := []struct {
+			url  string
+			want bool
+		}{
+			{"https://example.com/anything", true},
+			{"https://example.com/blog/deep", true},
+			{"https://other.com/", false},
+		}
+		for _, tt := range tests {
+			if got := engine.isInScope(tt.url); got != tt.want {
+				t.Errorf("isInScope(%q) = %v, want %v", tt.url, got, tt.want)
+			}
+		}
+	})
+
+	t.Run("multiple seeds", func(t *testing.T) {
+		engine := NewEngine(cfg, nil)
+		engine.session = NewSession([]string{
+			"https://example.com/blog/post",
+			"https://example.com/docs/guide",
+		}, cfg)
+		engine.buildScope()
+
+		tests := []struct {
+			url  string
+			want bool
+		}{
+			{"https://example.com/blog/other", true},
+			{"https://example.com/docs/api", true},
+			{"https://example.com/about", false},
+		}
+		for _, tt := range tests {
+			if got := engine.isInScope(tt.url); got != tt.want {
+				t.Errorf("isInScope(%q) = %v, want %v", tt.url, got, tt.want)
+			}
+		}
+	})
+}
+
 type successInserter struct{}
 
 func (s *successInserter) InsertPages(_ context.Context, _ []storage.PageRow) error  { return nil }
 func (s *successInserter) InsertLinks(_ context.Context, _ []storage.LinkRow) error  { return nil }
 func (s *successInserter) InsertExtractions(_ context.Context, _ []extraction.ExtractionRow) error {
 	return nil
+}
+
+// --- E2E crawl scope tests ---
+
+// e2eInserter collects crawled pages and links in memory for assertions.
+type e2eInserter struct {
+	mu    sync.Mutex
+	pages []storage.PageRow
+	links []storage.LinkRow
+}
+
+func (i *e2eInserter) InsertPages(_ context.Context, pages []storage.PageRow) error {
+	i.mu.Lock()
+	i.pages = append(i.pages, pages...)
+	i.mu.Unlock()
+	return nil
+}
+
+func (i *e2eInserter) InsertLinks(_ context.Context, links []storage.LinkRow) error {
+	i.mu.Lock()
+	i.links = append(i.links, links...)
+	i.mu.Unlock()
+	return nil
+}
+
+func (i *e2eInserter) InsertExtractions(_ context.Context, _ []extraction.ExtractionRow) error {
+	return nil
+}
+
+func (i *e2eInserter) crawledURLs() map[string]bool {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	m := make(map[string]bool, len(i.pages))
+	for _, p := range i.pages {
+		m[p.URL] = true
+	}
+	return m
+}
+
+func e2eCrawlerConfig(scope string) *config.Config {
+	return &config.Config{
+		Crawler: config.CrawlerConfig{
+			Workers:         2,
+			Delay:           10 * time.Millisecond,
+			MaxPages:        50,
+			Timeout:         5 * time.Second,
+			UserAgent:       "TestBot/1.0",
+			MaxBodySize:     1 << 20,
+			RespectRobots:   true,
+			CrawlScope:      scope,
+			AllowPrivateIPs: true,
+			MaxFrontierSize: 10000,
+			Retry: config.RetryConfig{
+				MaxRetries:          0,
+				MaxGlobalErrorRate:  1.0,
+				MaxConsecutiveFails: 100,
+			},
+		},
+		Storage: config.StorageConfig{
+			BatchSize:     100,
+			FlushInterval: time.Second,
+		},
+	}
+}
+
+func testHTMLPage(links ...string) string {
+	var sb strings.Builder
+	sb.WriteString(`<!DOCTYPE html><html><head><title>Test</title></head><body>`)
+	for _, link := range links {
+		sb.WriteString(`<a href="` + link + `">link</a> `)
+	}
+	sb.WriteString(`</body></html>`)
+	return sb.String()
+}
+
+// runTestCrawl sets up and runs a full crawl pipeline without ClickHouse.
+// It returns the inserter containing all crawled pages and links.
+func runTestCrawl(t *testing.T, cfg *config.Config, seeds []string) *e2eInserter {
+	t.Helper()
+
+	inserter := &e2eInserter{}
+	engine := NewEngine(cfg, nil)
+	engine.session = NewSession(seeds, cfg)
+	engine.maxPages = int64(cfg.Crawler.MaxPages)
+	engine.buildScope()
+	engine.buffer = storage.NewBuffer(inserter, cfg.Storage.BatchSize, cfg.Storage.FlushInterval, engine.session.ID)
+	engine.seedFrontier(seeds)
+
+	fetchCh, shutdown := engine.startWorkers()
+	engine.dispatcher(fetchCh)
+
+	// shutdown() calls persistRobotsData/finalizeSession which panic on nil store.
+	// Run in a goroutine with recover to get proper worker/channel cleanup.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer func() { recover() }()
+		shutdown()
+	}()
+	<-done
+
+	return inserter
+}
+
+func TestE2E_CrawlScope_Subdirectory(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		switch r.URL.Path {
+		case "/robots.txt":
+			w.Header().Set("Content-Type", "text/plain")
+			fmt.Fprint(w, "User-agent: *\nAllow: /\n")
+		case "/blog", "/blog/":
+			fmt.Fprint(w, testHTMLPage("/blog/post1", "/blog/post2", "/other/page"))
+		case "/blog/post1":
+			fmt.Fprint(w, testHTMLPage("/blog/post2"))
+		case "/blog/post2":
+			fmt.Fprint(w, testHTMLPage("/blog/post1"))
+		case "/other/page":
+			fmt.Fprint(w, testHTMLPage("/blog/post1", "/about"))
+		case "/about":
+			fmt.Fprint(w, testHTMLPage("/"))
+		case "/":
+			fmt.Fprint(w, testHTMLPage("/blog/", "/about"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	cfg := e2eCrawlerConfig("subdirectory")
+	seeds := []string{server.URL + "/blog/"}
+	inserter := runTestCrawl(t, cfg, seeds)
+	crawled := inserter.crawledURLs()
+
+	// Pages under /blog/ must be crawled
+	for _, p := range []string{"/blog/post1", "/blog/post2"} {
+		if !crawled[server.URL+p] {
+			t.Errorf("expected %s to be crawled", p)
+		}
+	}
+
+	// Pages outside /blog/ must NOT be crawled
+	for _, p := range []string{"/other/page", "/about"} {
+		if crawled[server.URL+p] {
+			t.Errorf("expected %s NOT to be crawled (out of subdirectory scope)", p)
+		}
+	}
+}
+
+func TestE2E_CrawlScope_SubdirectoryFileSeed(t *testing.T) {
+	// When the seed is a file (not a directory), the allowed prefix
+	// should be the parent directory.
+	// Seed: /docs/guide → prefix: /docs/
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		switch r.URL.Path {
+		case "/robots.txt":
+			w.Header().Set("Content-Type", "text/plain")
+			fmt.Fprint(w, "User-agent: *\nAllow: /\n")
+		case "/docs/guide":
+			fmt.Fprint(w, testHTMLPage("/docs/api", "/docs/faq", "/blog/news"))
+		case "/docs/api":
+			fmt.Fprint(w, testHTMLPage("/docs/guide"))
+		case "/docs/faq":
+			fmt.Fprint(w, testHTMLPage("/docs/guide"))
+		case "/blog/news":
+			fmt.Fprint(w, testHTMLPage("/docs/guide"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	cfg := e2eCrawlerConfig("subdirectory")
+	seeds := []string{server.URL + "/docs/guide"}
+	inserter := runTestCrawl(t, cfg, seeds)
+	crawled := inserter.crawledURLs()
+
+	// Pages under /docs/ must be crawled
+	for _, p := range []string{"/docs/guide", "/docs/api", "/docs/faq"} {
+		if !crawled[server.URL+p] {
+			t.Errorf("expected %s to be crawled", p)
+		}
+	}
+
+	// /blog/news is outside /docs/ scope
+	if crawled[server.URL+"/blog/news"] {
+		t.Errorf("expected /blog/news NOT to be crawled (out of subdirectory scope)")
+	}
+}
+
+func TestE2E_CrawlScope_Host(t *testing.T) {
+	// With host scope, the crawler should follow links to any directory
+	// on the same host (unlike subdirectory mode which restricts to the seed dir).
+	// We reuse the same server structure as the subdirectory test but with
+	// host scope — /other/page SHOULD be crawled this time.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		switch r.URL.Path {
+		case "/robots.txt":
+			w.Header().Set("Content-Type", "text/plain")
+			fmt.Fprint(w, "User-agent: *\nAllow: /\n")
+		case "/blog", "/blog/":
+			fmt.Fprint(w, testHTMLPage("/blog/post1", "/other/page"))
+		case "/blog/post1":
+			fmt.Fprint(w, testHTMLPage())
+		case "/other/page":
+			fmt.Fprint(w, testHTMLPage("/about"))
+		case "/about":
+			fmt.Fprint(w, testHTMLPage())
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	cfg := e2eCrawlerConfig("host")
+	seeds := []string{server.URL + "/blog/"}
+	inserter := runTestCrawl(t, cfg, seeds)
+	crawled := inserter.crawledURLs()
+
+	// With host scope, ALL pages on the same host must be crawled
+	// (including /other/page which would be blocked by subdirectory scope)
+	for _, p := range []string{"/blog/post1", "/other/page", "/about"} {
+		if !crawled[server.URL+p] {
+			t.Errorf("expected %s to be crawled (host scope allows all paths)", p)
+		}
+	}
 }

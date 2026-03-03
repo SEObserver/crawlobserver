@@ -158,6 +158,7 @@
         options={[
           { value: 'host', label: t('newCrawl.sameHost') },
           { value: 'domain', label: t('newCrawl.sameDomain') },
+          { value: 'subdirectory', label: t('newCrawl.sameSubdirectory') },
         ]}
       />
     </div>
