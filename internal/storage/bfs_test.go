@@ -51,17 +51,17 @@ func TestComputeBFSDepths_OnlySeedGetsDepthZero(t *testing.T) {
 	// Only the REAL seed should have depth 0.
 	seedURLs := []string{"https://example.com"}
 	crawledSet := map[string]bool{
-		"https://example.com":     true,
-		"https://example.com/a":   true,
-		"https://example.com/b":   true,
-		"https://example.com/c":   true,
-		"https://example.com/d":   true,
-		"https://example.com/e":   true,
-		"https://example.com/f":   true,
-		"https://example.com/g":   true,
-		"https://example.com/h":   true,
-		"https://example.com/i":   true,
-		"https://example.com/j":   true,
+		"https://example.com":   true,
+		"https://example.com/a": true,
+		"https://example.com/b": true,
+		"https://example.com/c": true,
+		"https://example.com/d": true,
+		"https://example.com/e": true,
+		"https://example.com/f": true,
+		"https://example.com/g": true,
+		"https://example.com/h": true,
+		"https://example.com/i": true,
+		"https://example.com/j": true,
 	}
 	adj := map[string][]string{
 		"https://example.com":   {"https://example.com/a", "https://example.com/b"},
@@ -175,8 +175,8 @@ func TestComputeBFSDepths_SeedWithoutTrailingSlash(t *testing.T) {
 func TestComputeBFSDepths_Orphans(t *testing.T) {
 	seedURLs := []string{"https://example.com"}
 	crawledSet := map[string]bool{
-		"https://example.com":       true,
-		"https://example.com/a":     true,
+		"https://example.com":        true,
+		"https://example.com/a":      true,
 		"https://example.com/orphan": true,
 	}
 	adj := map[string][]string{
@@ -226,12 +226,12 @@ func TestComputeBFSDepths_OrphanDepthNotInflatedByNonCrawledURLs(t *testing.T) {
 	// depth 5, orphans would be assigned depth 6 instead of 3.
 	seedURLs := []string{"https://example.com"}
 	crawledSet := map[string]bool{
-		"https://example.com":       true,
-		"https://example.com/a":     true,
+		"https://example.com":        true,
+		"https://example.com/a":      true,
 		"https://example.com/orphan": true,
 	}
 	adj := map[string][]string{
-		"https://example.com":   {"https://example.com/a"},
+		"https://example.com": {"https://example.com/a"},
 		// /a links to external targets that weren't crawled
 		"https://example.com/a": {"https://external.com/x", "https://external.com/y"},
 	}

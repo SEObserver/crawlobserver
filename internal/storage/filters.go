@@ -60,11 +60,11 @@ var PageFilters = map[string]FilterDef{
 
 // LinkFilters defines the allowed filter columns for the links table.
 var LinkFilters = map[string]FilterDef{
-	"source_url":   {Column: "source_url", Type: FilterLike},
-	"target_url":   {Column: "target_url", Type: FilterLike},
-	"anchor_text":  {Column: "anchor_text", Type: FilterLike},
-	"rel":          {Column: "rel", Type: FilterLike},
-	"tag":          {Column: "tag", Type: FilterLike},
+	"source_url":  {Column: "source_url", Type: FilterLike},
+	"target_url":  {Column: "target_url", Type: FilterLike},
+	"anchor_text": {Column: "anchor_text", Type: FilterLike},
+	"rel":         {Column: "rel", Type: FilterLike},
+	"tag":         {Column: "tag", Type: FilterLike},
 }
 
 // ExternalCheckFilters defines the allowed filter columns for the external_link_checks table.

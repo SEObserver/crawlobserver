@@ -436,8 +436,8 @@ func TestIsInScope_Subdirectory(t *testing.T) {
 
 type successInserter struct{}
 
-func (s *successInserter) InsertPages(_ context.Context, _ []storage.PageRow) error  { return nil }
-func (s *successInserter) InsertLinks(_ context.Context, _ []storage.LinkRow) error  { return nil }
+func (s *successInserter) InsertPages(_ context.Context, _ []storage.PageRow) error { return nil }
+func (s *successInserter) InsertLinks(_ context.Context, _ []storage.LinkRow) error { return nil }
 func (s *successInserter) InsertExtractions(_ context.Context, _ []extraction.ExtractionRow) error {
 	return nil
 }

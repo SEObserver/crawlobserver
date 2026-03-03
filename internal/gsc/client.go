@@ -9,8 +9,8 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	searchconsole "google.golang.org/api/searchconsole/v1"
 	"google.golang.org/api/option"
+	searchconsole "google.golang.org/api/searchconsole/v1"
 )
 
 type Client struct {
@@ -30,17 +30,17 @@ type AnalyticsRow struct {
 }
 
 type InspectionRow struct {
-	URL              string
-	Verdict          string
-	CoverageState    string
-	IndexingState    string
-	RobotsTxtState   string
-	LastCrawlTime    time.Time
-	CrawledAs        string
-	CanonicalURL     string
+	URL               string
+	Verdict           string
+	CoverageState     string
+	IndexingState     string
+	RobotsTxtState    string
+	LastCrawlTime     time.Time
+	CrawledAs         string
+	CanonicalURL      string
 	IsGoogleCanonical bool
-	MobileUsability  string
-	RichResultsItems int
+	MobileUsability   string
+	RichResultsItems  int
 }
 
 type Property struct {
@@ -49,12 +49,12 @@ type Property struct {
 }
 
 type Sitemap struct {
-	Path         string `json:"path"`
-	Type         string `json:"type"`
-	IsPending    bool   `json:"is_pending"`
-	Warnings     int64  `json:"warnings"`
-	Errors       int64  `json:"errors"`
-	Contents     []SitemapContent `json:"contents"`
+	Path      string           `json:"path"`
+	Type      string           `json:"type"`
+	IsPending bool             `json:"is_pending"`
+	Warnings  int64            `json:"warnings"`
+	Errors    int64            `json:"errors"`
+	Contents  []SitemapContent `json:"contents"`
 }
 
 type SitemapContent struct {

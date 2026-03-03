@@ -39,7 +39,7 @@ func New(userAgent string, timeout time.Duration, maxBodySize int64, dialOpts Di
 
 	dialFn := SafeDialContextWithOpts(dialOpts)
 	transport := &http.Transport{
-		TLSHandshakeTimeout:   10 * time.Second,
+		TLSHandshakeTimeout:    10 * time.Second,
 		ResponseHeaderTimeout:  15 * time.Second,
 		MaxIdleConnsPerHost:    2,
 		MaxResponseHeaderBytes: 1 << 20, // 1MB

@@ -7,10 +7,10 @@ import (
 
 func TestParseDate(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		want    time.Time
-		isZero  bool
+		name   string
+		input  string
+		want   time.Time
+		isZero bool
 	}{
 		{
 			name:  "date only",

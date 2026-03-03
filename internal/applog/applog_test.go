@@ -9,10 +9,10 @@ import (
 )
 
 type mockLogStore struct {
-	mu       sync.Mutex
-	logs     []LogRow
-	err      error
-	calls    int
+	mu    sync.Mutex
+	logs  []LogRow
+	err   error
+	calls int
 }
 
 func (m *mockLogStore) InsertLogs(_ context.Context, logs []LogRow) error {

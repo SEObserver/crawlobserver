@@ -31,9 +31,9 @@ type Engine struct {
 	bufferMu sync.RWMutex
 	buffer   *storage.Buffer
 	front    *frontier.Frontier
-	fetch   *fetcher.Fetcher
-	robots  *fetcher.RobotsCache
-	session *Session
+	fetch    *fetcher.Fetcher
+	robots   *fetcher.RobotsCache
+	session  *Session
 
 	pagesCrawled atomic.Int64
 	maxPages     int64
@@ -101,11 +101,11 @@ func NewEngine(cfg *config.Config, store *storage.Store) *Engine {
 		AllowPrivateIPs: cfg.Crawler.AllowPrivateIPs,
 	}
 	return &Engine{
-		cfg:    cfg,
-		store:  store,
-		front:  frontier.New(cfg.Crawler.Delay, cfg.Crawler.MaxFrontierSize),
-		fetch:  fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize, dialOpts, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
-		robots: fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, dialOpts, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
+		cfg:        cfg,
+		store:      store,
+		front:      frontier.New(cfg.Crawler.Delay, cfg.Crawler.MaxFrontierSize),
+		fetch:      fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize, dialOpts, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
+		robots:     fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, dialOpts, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
 		retryQueue: NewRetryQueue(),
 		hostHealth: NewHostHealth(),
 		retryPolicy: &RetryPolicy{

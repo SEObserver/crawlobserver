@@ -38,11 +38,11 @@ var frameworkMarkers = [][]byte{
 	[]byte("data-react-helmet"),
 	[]byte("ng-app"),
 	[]byte("ng-version"),
-	[]byte("data-v-"),          // Vue scoped styles
-	[]byte("id=\"app\""),       // common Vue/React mount
-	[]byte("id=\"root\""),      // common React mount
-	[]byte("id=\"__next\""),    // Next.js
-	[]byte("id=\"__nuxt\""),    // Nuxt
+	[]byte("data-v-"),              // Vue scoped styles
+	[]byte("id=\"app\""),           // common Vue/React mount
+	[]byte("id=\"root\""),          // common React mount
+	[]byte("id=\"__next\""),        // Next.js
+	[]byte("id=\"__nuxt\""),        // Nuxt
 	[]byte("data-server-rendered"), // Nuxt SSR
 }
 

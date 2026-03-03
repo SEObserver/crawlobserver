@@ -22,25 +22,25 @@ type Config struct {
 }
 
 type CrawlerConfig struct {
-	Workers       int           `mapstructure:"workers"`
-	Delay         time.Duration `mapstructure:"delay"`
-	MaxPages      int           `mapstructure:"max_pages"`
-	MaxDepth      int           `mapstructure:"max_depth"`
-	Timeout       time.Duration `mapstructure:"timeout"`
-	UserAgent     string        `mapstructure:"user_agent"`
-	MaxBodySize   int64         `mapstructure:"max_body_size"`
-	RespectRobots bool          `mapstructure:"respect_robots"`
-	StoreHTML     bool          `mapstructure:"store_html"`
-	CrawlScope      string        `mapstructure:"crawl_scope"`      // "host" (default), "domain" (eTLD+1), or "subdirectory"
-	AllowPrivateIPs bool          `mapstructure:"allow_private_ips"` // allow crawling private/reserved IPs (default: false)
-	TLSProfile      string        `mapstructure:"tls_profile"`      // "", "chrome", "firefox", "edge"
-	SourceIP        string        `mapstructure:"source_ip"`        // local IP to bind outgoing connections
-	ForceIPv4       bool          `mapstructure:"force_ipv4"`       // force IPv4-only DNS and connections
-	MaxConcurrentSessions int    `mapstructure:"max_concurrent_sessions"` // 0 = 20
-	MaxFrontierSize       int    `mapstructure:"max_frontier_size"`       // 0 = 5_000_000
-	MaxWorkers            int    `mapstructure:"max_workers"`             // 0 = 100
-	Retry           RetryConfig   `mapstructure:"retry"`
-	JSRender        JSRenderConfig `mapstructure:"js_render"`
+	Workers               int            `mapstructure:"workers"`
+	Delay                 time.Duration  `mapstructure:"delay"`
+	MaxPages              int            `mapstructure:"max_pages"`
+	MaxDepth              int            `mapstructure:"max_depth"`
+	Timeout               time.Duration  `mapstructure:"timeout"`
+	UserAgent             string         `mapstructure:"user_agent"`
+	MaxBodySize           int64          `mapstructure:"max_body_size"`
+	RespectRobots         bool           `mapstructure:"respect_robots"`
+	StoreHTML             bool           `mapstructure:"store_html"`
+	CrawlScope            string         `mapstructure:"crawl_scope"`             // "host" (default), "domain" (eTLD+1), or "subdirectory"
+	AllowPrivateIPs       bool           `mapstructure:"allow_private_ips"`       // allow crawling private/reserved IPs (default: false)
+	TLSProfile            string         `mapstructure:"tls_profile"`             // "", "chrome", "firefox", "edge"
+	SourceIP              string         `mapstructure:"source_ip"`               // local IP to bind outgoing connections
+	ForceIPv4             bool           `mapstructure:"force_ipv4"`              // force IPv4-only DNS and connections
+	MaxConcurrentSessions int            `mapstructure:"max_concurrent_sessions"` // 0 = 20
+	MaxFrontierSize       int            `mapstructure:"max_frontier_size"`       // 0 = 5_000_000
+	MaxWorkers            int            `mapstructure:"max_workers"`             // 0 = 100
+	Retry                 RetryConfig    `mapstructure:"retry"`
+	JSRender              JSRenderConfig `mapstructure:"js_render"`
 }
 
 type JSRenderConfig struct {
@@ -86,7 +86,7 @@ type StorageConfig struct {
 
 type ResourcesConfig struct {
 	MaxMemoryMB int `mapstructure:"max_memory_mb"` // soft limit, 0 = auto (75% of system RAM)
-	MaxCPU      int `mapstructure:"max_cpu"`        // GOMAXPROCS, 0 = all available
+	MaxCPU      int `mapstructure:"max_cpu"`       // GOMAXPROCS, 0 = all available
 }
 
 type ServerConfig struct {
@@ -156,7 +156,7 @@ func SetDefaults() {
 	viper.SetDefault("storage.flush_interval", "5s")
 
 	viper.SetDefault("resources.max_memory_mb", 0) // auto
-	viper.SetDefault("resources.max_cpu", 0)        // all available
+	viper.SetDefault("resources.max_cpu", 0)       // all available
 
 	viper.SetDefault("server.host", "127.0.0.1")
 	viper.SetDefault("server.port", 8899)

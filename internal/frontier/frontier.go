@@ -24,10 +24,10 @@ type Frontier struct {
 	pq        priorityQueue
 	urldb     *URLDb
 	hostQueue *HostQueue
-	hostCount map[string]int // number of URLs per host in the queue
-	minDepth  map[uint64]int // minimum depth seen per URL (keyed by hash)
+	hostCount map[string]int    // number of URLs per host in the queue
+	minDepth  map[uint64]int    // minimum depth seen per URL (keyed by hash)
 	bestFound map[uint64]string // best foundOn per URL (the one with min depth)
-	maxSize   int  // max queue size; 0 = unlimited
+	maxSize   int               // max queue size; 0 = unlimited
 	closed    bool
 }
 

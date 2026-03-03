@@ -32,8 +32,8 @@ type SitemapEntry struct {
 // XML structures for parsing
 
 type xmlSitemapIndex struct {
-	XMLName  xml.Name           `xml:"sitemapindex"`
-	Sitemaps []xmlSitemapLoc    `xml:"sitemap"`
+	XMLName  xml.Name        `xml:"sitemapindex"`
+	Sitemaps []xmlSitemapLoc `xml:"sitemap"`
 }
 
 type xmlSitemapLoc struct {
@@ -41,8 +41,8 @@ type xmlSitemapLoc struct {
 }
 
 type xmlURLSet struct {
-	XMLName xml.Name       `xml:"urlset"`
-	URLs    []xmlURLEntry  `xml:"url"`
+	XMLName xml.Name      `xml:"urlset"`
+	URLs    []xmlURLEntry `xml:"url"`
 }
 
 type xmlURLEntry struct {

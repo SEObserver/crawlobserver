@@ -32,9 +32,9 @@ var frontendFS embed.FS
 
 // gscFetchStatus tracks the progress of a background GSC fetch.
 type gscFetchStatus struct {
-	Fetching  bool           `json:"fetching"`
-	RowsSoFar int            `json:"rows_so_far"`
-	Error     string         `json:"error,omitempty"`
+	Fetching  bool   `json:"fetching"`
+	RowsSoFar int    `json:"rows_so_far"`
+	Error     string `json:"error,omitempty"`
 	cancel    context.CancelFunc
 }
 
@@ -66,13 +66,13 @@ type Server struct {
 	IsDesktop       bool // true when running as .app desktop bundle
 	UpdateStatus    *updater.UpdateStatus
 	BackupOpts      *backup.BackupOptions
-	StopClickHouse  func()           // stops managed CH (nil if external)
-	StartClickHouse func() error     // restarts managed CH (nil if external)
+	StopClickHouse  func()       // stops managed CH (nil if external)
+	StartClickHouse func() error // restarts managed CH (nil if external)
 
 	rateLimiter *rateLimitMiddleware
 
-	gscFetchMu      sync.Mutex
-	gscFetchStatus  map[string]*gscFetchStatus // projectID -> status
+	gscFetchMu     sync.Mutex
+	gscFetchStatus map[string]*gscFetchStatus // projectID -> status
 
 	providerFetchMu     sync.Mutex
 	providerFetchStatus map[string]*providerFetchStatus // "projectID:provider" -> status

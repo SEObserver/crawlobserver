@@ -433,20 +433,20 @@ func (m *mockStore) RunExtractionsPostCrawl(_ context.Context, _ string, _ []ext
 // ---------------------------------------------------------------------------
 
 type mockManager struct {
-	running      map[string]bool
-	startResult  string
-	startErr     error
-	stopErr      error
-	resumeErr    error
-	retryCount   int
-	retryErr     error
-	progress     map[string][2]int64 // sessionID -> [pages, queue]
-	resumeCalls  []resumeCall
-	startCalls   []crawler.CrawlRequest
-	stopCalls    []string
-	queued       map[string]bool
-	queueOrder   []string
-	shouldQueue  bool
+	running     map[string]bool
+	startResult string
+	startErr    error
+	stopErr     error
+	resumeErr   error
+	retryCount  int
+	retryErr    error
+	progress    map[string][2]int64 // sessionID -> [pages, queue]
+	resumeCalls []resumeCall
+	startCalls  []crawler.CrawlRequest
+	stopCalls   []string
+	queued      map[string]bool
+	queueOrder  []string
+	shouldQueue bool
 }
 
 type resumeCall struct {

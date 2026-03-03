@@ -35,17 +35,17 @@ type ExtractorSetLoader interface {
 
 // Manager manages running crawl engines.
 type Manager struct {
-	mu         sync.RWMutex
-	engines    map[string]*Engine // sessionID -> engine
-	lastErrors map[string]string  // sessionID -> error message (persists after engine cleanup)
-	cfg        *config.Config
-	store      *storage.Store
+	mu              sync.RWMutex
+	engines         map[string]*Engine // sessionID -> engine
+	lastErrors      map[string]string  // sessionID -> error message (persists after engine cleanup)
+	cfg             *config.Config
+	store           *storage.Store
 	extractorLoader ExtractorSetLoader
 
-	sem       chan struct{}    // semaphore limiting concurrent sessions
+	sem       chan struct{} // semaphore limiting concurrent sessions
 	queueMu   sync.Mutex
-	queue      []queuedCrawl   // FIFO of crawls waiting for a slot
-	queuedSet  map[string]bool // sessionID -> true for fast lookup
+	queue     []queuedCrawl   // FIFO of crawls waiting for a slot
+	queuedSet map[string]bool // sessionID -> true for fast lookup
 }
 
 // NewManager creates a new crawl manager.

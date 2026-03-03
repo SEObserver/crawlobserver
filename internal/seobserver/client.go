@@ -169,11 +169,11 @@ func (c *Client) FetchBacklinks(ctx context.Context, domain string, limit int) (
 // --- Referring Domains ---
 
 type RefDomain struct {
-	Domain       string  `json:"domain"`
-	BacklinkCount int64  `json:"backlinks"`
-	DomainRank   float64 `json:"domain_rank"`
-	FirstSeen    string  `json:"first_seen"`
-	LastSeen     string  `json:"last_seen"`
+	Domain        string  `json:"domain"`
+	BacklinkCount int64   `json:"backlinks"`
+	DomainRank    float64 `json:"domain_rank"`
+	FirstSeen     string  `json:"first_seen"`
+	LastSeen      string  `json:"last_seen"`
 }
 
 // FetchRefDomains fetches referring domains via backlinks/refdomains.json.
@@ -332,7 +332,10 @@ func (r *rawTopPage) toTopPage() TopPage {
 		RefDomains:   r.RefDomains,
 		Language:     r.Language,
 	}
-	pairs := []struct{ t string; v uint8 }{
+	pairs := []struct {
+		t string
+		v uint8
+	}{
 		{r.TTFTopic0, r.TTFValue0}, {r.TTFTopic1, r.TTFValue1},
 		{r.TTFTopic2, r.TTFValue2}, {r.TTFTopic3, r.TTFValue3},
 		{r.TTFTopic4, r.TTFValue4}, {r.TTFTopic5, r.TTFValue5},

@@ -17,6 +17,8 @@
 
 <p align="center">
   <a href="https://github.com/SEObserver/crawlobserver/actions"><img src="https://github.com/SEObserver/crawlobserver/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/SEObserver/crawlobserver/releases/latest"><img src="https://img.shields.io/github/v/release/SEObserver/crawlobserver" alt="Latest Release"></a>
+  <a href="https://github.com/SEObserver/crawlobserver/releases"><img src="https://img.shields.io/github/downloads/SEObserver/crawlobserver/total" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="AGPL-3.0 License"></a>
   <a href="https://goreportcard.com/report/github.com/SEObserver/crawlobserver"><img src="https://goreportcard.com/badge/github.com/SEObserver/crawlobserver" alt="Go Report Card"></a>
 </p>

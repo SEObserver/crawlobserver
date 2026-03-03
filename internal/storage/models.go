@@ -19,52 +19,52 @@ type CrawlSession struct {
 
 // PageRow represents a crawled page for storage.
 type PageRow struct {
-	CrawlSessionID  string
-	URL             string
-	FinalURL        string
-	StatusCode      uint16
-	ContentType     string
-	Title           string
-	TitleLength     uint16
-	Canonical       string
-	CanonicalIsSelf bool
-	IsIndexable     bool
-	IndexReason     string // why not indexable
-	MetaRobots      string
-	MetaDescription string
-	MetaDescLength  uint16
-	MetaKeywords    string
-	H1              []string
-	H2              []string
-	H3              []string
-	H4              []string
-	H5              []string
-	H6              []string
-	WordCount       uint32
+	CrawlSessionID   string
+	URL              string
+	FinalURL         string
+	StatusCode       uint16
+	ContentType      string
+	Title            string
+	TitleLength      uint16
+	Canonical        string
+	CanonicalIsSelf  bool
+	IsIndexable      bool
+	IndexReason      string // why not indexable
+	MetaRobots       string
+	MetaDescription  string
+	MetaDescLength   uint16
+	MetaKeywords     string
+	H1               []string
+	H2               []string
+	H3               []string
+	H4               []string
+	H5               []string
+	H6               []string
+	WordCount        uint32
 	InternalLinksOut uint32
 	ExternalLinksOut uint32
-	ImagesCount     uint16
-	ImagesNoAlt     uint16
-	Hreflang        []HreflangRow
-	Lang            string
-	OGTitle         string
-	OGDescription   string
-	OGImage         string
-	SchemaTypes     []string
-	Headers         map[string]string
-	RedirectChain   []RedirectHopRow
-	BodySize        uint64
-	FetchDurationMs uint64
-	ContentEncoding string
-	XRobotsTag      string
-	Error           string
-	Depth           uint16
-	FoundOn         string
-	PageRank        float64
-	ContentHash     uint64
-	BodyHTML        string
-	BodyTruncated   bool
-	CrawledAt       time.Time
+	ImagesCount      uint16
+	ImagesNoAlt      uint16
+	Hreflang         []HreflangRow
+	Lang             string
+	OGTitle          string
+	OGDescription    string
+	OGImage          string
+	SchemaTypes      []string
+	Headers          map[string]string
+	RedirectChain    []RedirectHopRow
+	BodySize         uint64
+	FetchDurationMs  uint64
+	ContentEncoding  string
+	XRobotsTag       string
+	Error            string
+	Depth            uint16
+	FoundOn          string
+	PageRank         float64
+	ContentHash      uint64
+	BodyHTML         string
+	BodyTruncated    bool
+	CrawledAt        time.Time
 
 	// JS Rendering
 	JSRendered         bool
@@ -211,7 +211,7 @@ type ExternalLinkCheck struct {
 	Error          string    `json:"error"`
 	ContentType    string    `json:"content_type"`
 	RedirectURL    string    `json:"redirect_url"`
-	ResponseTimeMs uint32   `json:"response_time_ms"`
+	ResponseTimeMs uint32    `json:"response_time_ms"`
 	CheckedAt      time.Time `json:"checked_at"`
 }
 
@@ -249,65 +249,65 @@ type ExpiredDomainsResult struct {
 // --- Provider Data Models ---
 
 type ProviderDomainMetricsRow struct {
-	Provider        string  `json:"provider"`
-	Domain          string  `json:"domain"`
-	BacklinksTotal  int64   `json:"backlinks_total"`
-	RefDomainsTotal int64   `json:"refdomains_total"`
-	DomainRank      float64 `json:"domain_rank"`
-	OrganicKeywords int64   `json:"organic_keywords"`
-	OrganicTraffic  int64   `json:"organic_traffic"`
-	OrganicCost     float64 `json:"organic_cost"`
+	Provider        string    `json:"provider"`
+	Domain          string    `json:"domain"`
+	BacklinksTotal  int64     `json:"backlinks_total"`
+	RefDomainsTotal int64     `json:"refdomains_total"`
+	DomainRank      float64   `json:"domain_rank"`
+	OrganicKeywords int64     `json:"organic_keywords"`
+	OrganicTraffic  int64     `json:"organic_traffic"`
+	OrganicCost     float64   `json:"organic_cost"`
 	FetchedAt       time.Time `json:"fetched_at"`
 }
 
 type ProviderBacklinkRow struct {
-	Provider     string  `json:"provider"`
-	Domain       string  `json:"domain"`
-	SourceURL    string  `json:"source_url"`
-	TargetURL    string  `json:"target_url"`
-	AnchorText   string  `json:"anchor_text"`
-	SourceDomain string  `json:"source_domain"`
-	LinkType     string  `json:"link_type"`
-	DomainRank   float64 `json:"domain_rank"`
-	PageRank     float64 `json:"page_rank"`
-	Nofollow     bool    `json:"nofollow"`
+	Provider     string    `json:"provider"`
+	Domain       string    `json:"domain"`
+	SourceURL    string    `json:"source_url"`
+	TargetURL    string    `json:"target_url"`
+	AnchorText   string    `json:"anchor_text"`
+	SourceDomain string    `json:"source_domain"`
+	LinkType     string    `json:"link_type"`
+	DomainRank   float64   `json:"domain_rank"`
+	PageRank     float64   `json:"page_rank"`
+	Nofollow     bool      `json:"nofollow"`
 	FirstSeen    time.Time `json:"first_seen"`
 	LastSeen     time.Time `json:"last_seen"`
 	FetchedAt    time.Time `json:"fetched_at"`
 }
 
 type ProviderRefDomainRow struct {
-	Provider      string  `json:"provider"`
-	Domain        string  `json:"domain"`
-	RefDomain     string  `json:"ref_domain"`
-	BacklinkCount int64   `json:"backlink_count"`
-	DomainRank    float64 `json:"domain_rank"`
+	Provider      string    `json:"provider"`
+	Domain        string    `json:"domain"`
+	RefDomain     string    `json:"ref_domain"`
+	BacklinkCount int64     `json:"backlink_count"`
+	DomainRank    float64   `json:"domain_rank"`
 	FirstSeen     time.Time `json:"first_seen"`
 	LastSeen      time.Time `json:"last_seen"`
 	FetchedAt     time.Time `json:"fetched_at"`
 }
 
 type ProviderRankingRow struct {
-	Provider     string  `json:"provider"`
-	Domain       string  `json:"domain"`
-	Keyword      string  `json:"keyword"`
-	URL          string  `json:"url"`
-	SearchBase   string  `json:"search_base"`
-	Position     uint16  `json:"position"`
-	SearchVolume int64   `json:"search_volume"`
-	CPC          float64 `json:"cpc"`
-	Traffic      float64 `json:"traffic"`
-	TrafficPct   float64 `json:"traffic_pct"`
+	Provider     string    `json:"provider"`
+	Domain       string    `json:"domain"`
+	Keyword      string    `json:"keyword"`
+	URL          string    `json:"url"`
+	SearchBase   string    `json:"search_base"`
+	Position     uint16    `json:"position"`
+	SearchVolume int64     `json:"search_volume"`
+	CPC          float64   `json:"cpc"`
+	Traffic      float64   `json:"traffic"`
+	TrafficPct   float64   `json:"traffic_pct"`
 	FetchedAt    time.Time `json:"fetched_at"`
 }
 
 type ProviderVisibilityRow struct {
-	Provider      string  `json:"provider"`
-	Domain        string  `json:"domain"`
-	SearchBase    string  `json:"search_base"`
+	Provider      string    `json:"provider"`
+	Domain        string    `json:"domain"`
+	SearchBase    string    `json:"search_base"`
 	Date          time.Time `json:"date"`
-	Visibility    float64 `json:"visibility"`
-	KeywordsCount int64   `json:"keywords_count"`
+	Visibility    float64   `json:"visibility"`
+	KeywordsCount int64     `json:"keywords_count"`
 	FetchedAt     time.Time `json:"fetched_at"`
 }
 

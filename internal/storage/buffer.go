@@ -39,15 +39,15 @@ type Buffer struct {
 	sessionID     string
 	maxRetries    int
 
-	mu           sync.Mutex
-	pages        []PageRow
-	links        []LinkRow
-	extractions  []extraction.ExtractionRow
-	failedPages  []retryBatch[PageRow]
-	failedLinks  []retryBatch[LinkRow]
-	lostPages    int64
-	lostLinks    int64
-	lastError    error
+	mu          sync.Mutex
+	pages       []PageRow
+	links       []LinkRow
+	extractions []extraction.ExtractionRow
+	failedPages []retryBatch[PageRow]
+	failedLinks []retryBatch[LinkRow]
+	lostPages   int64
+	lostLinks   int64
+	lastError   error
 
 	done chan struct{}
 	wg   sync.WaitGroup

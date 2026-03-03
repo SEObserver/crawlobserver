@@ -169,22 +169,22 @@ type PageRankEntry struct {
 
 // SessionStats holds aggregate stats for a crawl session.
 type SessionStats struct {
-	TotalPages        uint64            `json:"total_pages"`
-	TotalLinks        uint64            `json:"total_links"`
-	InternalLinks     uint64            `json:"internal_links"`
-	ExternalLinks     uint64            `json:"external_links"`
-	AvgFetchMs        float64           `json:"avg_fetch_ms"`
-	ErrorCount        uint64            `json:"error_count"`
-	StatusCodes       map[uint16]uint64 `json:"status_codes"`
-	DepthDistribution map[uint16]uint64 `json:"depth_distribution"`
-	PagesPerSecond    float64           `json:"pages_per_second"`
-	CrawlDurationSec  float64           `json:"crawl_duration_sec"`
-	TopPageRank       []PageRankEntry   `json:"top_pagerank"`
-	JSRenderedPages     uint64  `json:"js_rendered_pages"`
-	JSChangedTitleCount uint64  `json:"js_changed_title_count"`
-	JSChangedH1Count    uint64  `json:"js_changed_h1_count"`
-	JSChangedContentCount uint64 `json:"js_changed_content_count"`
-	AvgJSRenderMs       float64 `json:"avg_js_render_ms"`
+	TotalPages            uint64            `json:"total_pages"`
+	TotalLinks            uint64            `json:"total_links"`
+	InternalLinks         uint64            `json:"internal_links"`
+	ExternalLinks         uint64            `json:"external_links"`
+	AvgFetchMs            float64           `json:"avg_fetch_ms"`
+	ErrorCount            uint64            `json:"error_count"`
+	StatusCodes           map[uint16]uint64 `json:"status_codes"`
+	DepthDistribution     map[uint16]uint64 `json:"depth_distribution"`
+	PagesPerSecond        float64           `json:"pages_per_second"`
+	CrawlDurationSec      float64           `json:"crawl_duration_sec"`
+	TopPageRank           []PageRankEntry   `json:"top_pagerank"`
+	JSRenderedPages       uint64            `json:"js_rendered_pages"`
+	JSChangedTitleCount   uint64            `json:"js_changed_title_count"`
+	JSChangedH1Count      uint64            `json:"js_changed_h1_count"`
+	JSChangedContentCount uint64            `json:"js_changed_content_count"`
+	AvgJSRenderMs         float64           `json:"avg_js_render_ms"`
 }
 
 // SessionStats retrieves aggregate statistics for a crawl session.

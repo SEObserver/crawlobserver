@@ -21,7 +21,7 @@ func (s *Server) handleCreateExtractorSet(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var req struct {
-		Name       string                `json:"name"`
+		Name       string                 `json:"name"`
 		Extractors []extraction.Extractor `json:"extractors"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -57,7 +57,7 @@ func (s *Server) handleUpdateExtractorSet(w http.ResponseWriter, r *http.Request
 	}
 	id := r.PathValue("id")
 	var req struct {
-		Name       string                `json:"name"`
+		Name       string                 `json:"name"`
 		Extractors []extraction.Extractor `json:"extractors"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

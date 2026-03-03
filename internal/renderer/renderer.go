@@ -13,7 +13,7 @@ import (
 
 // RenderResult holds the outcome of rendering a URL with Chrome.
 type RenderResult struct {
-	RenderedHTML    string
+	RenderedHTML   string
 	RenderDuration time.Duration
 	JSErrors       []string
 	Error          error

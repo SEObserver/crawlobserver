@@ -22,7 +22,7 @@ func TestIsPrivateIP(t *testing.T) {
 		{"172.16.0.1", true},
 		{"172.31.255.255", true},
 		{"172.15.255.255", false}, // just below range
-		{"172.32.0.0", false},    // just above range
+		{"172.32.0.0", false},     // just above range
 
 		// RFC1918 - 192.168.0.0/16
 		{"192.168.0.1", true},

@@ -133,11 +133,23 @@ type RetryItem struct {
 // retryHeap implements heap.Interface ordered by ReadyAt (earliest first).
 type retryHeap []*RetryItem
 
-func (h retryHeap) Len() int            { return len(h) }
-func (h retryHeap) Less(i, j int) bool   { return h[i].ReadyAt.Before(h[j].ReadyAt) }
-func (h retryHeap) Swap(i, j int)        { h[i], h[j] = h[j], h[i]; h[i].index = i; h[j].index = j }
-func (h *retryHeap) Push(x interface{})  { item := x.(*RetryItem); item.index = len(*h); *h = append(*h, item) }
-func (h *retryHeap) Pop() interface{}    { old := *h; n := len(old); item := old[n-1]; old[n-1] = nil; item.index = -1; *h = old[:n-1]; return item }
+func (h retryHeap) Len() int           { return len(h) }
+func (h retryHeap) Less(i, j int) bool { return h[i].ReadyAt.Before(h[j].ReadyAt) }
+func (h retryHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i]; h[i].index = i; h[j].index = j }
+func (h *retryHeap) Push(x interface{}) {
+	item := x.(*RetryItem)
+	item.index = len(*h)
+	*h = append(*h, item)
+}
+func (h *retryHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil
+	item.index = -1
+	*h = old[:n-1]
+	return item
+}
 
 // RetryQueue is a thread-safe min-heap of RetryItems ordered by ReadyAt.
 type RetryQueue struct {
@@ -190,8 +202,8 @@ type HostHealth struct {
 }
 
 type hostStats struct {
-	successes          int64
-	failures           int64
+	successes           int64
+	failures            int64
 	consecutiveFailures int
 }
 
