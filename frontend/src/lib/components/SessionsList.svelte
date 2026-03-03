@@ -110,7 +110,8 @@
               <span class="badge badge-info">
                 {#if live && live.queue_size === 0 && live.pages_crawled > 0}
                   {t('common.finalizing')}
-                  &middot; {fmtN(live.pages_crawled)} {t('common.pages')}
+                  &middot; {fmtN(live.pages_crawled)}
+                  {t('common.pages')}
                 {:else}
                   {t('common.running')}
                   {#if live}
