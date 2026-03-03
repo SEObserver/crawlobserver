@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -348,7 +349,14 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
-const apiDiscoveryFile = ".crawlobserver-api.json"
+const apiDiscoveryFileName = ".crawlobserver-api.json"
+
+func apiDiscoveryFilePath() string {
+	if home, err := os.UserHomeDir(); err == nil {
+		return filepath.Join(home, apiDiscoveryFileName)
+	}
+	return apiDiscoveryFileName
+}
 
 func (s *Server) writeAPIDiscoveryFile() {
 	data, err := json.MarshalIndent(s.serverInfoPayload(), "", "  ")
@@ -356,16 +364,18 @@ func (s *Server) writeAPIDiscoveryFile() {
 		applog.Warnf("server", "Could not marshal API discovery file: %v", err)
 		return
 	}
-	if err := os.WriteFile(apiDiscoveryFile, data, 0600); err != nil {
-		applog.Warnf("server", "Could not write %s: %v", apiDiscoveryFile, err)
+	path := apiDiscoveryFilePath()
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		applog.Warnf("server", "Could not write %s: %v", path, err)
 		return
 	}
-	applog.Infof("server", "API discovery file written to %s", apiDiscoveryFile)
+	applog.Infof("server", "API discovery file written to %s", path)
 }
 
 func (s *Server) removeAPIDiscoveryFile() {
-	if err := os.Remove(apiDiscoveryFile); err != nil && !os.IsNotExist(err) {
-		applog.Warnf("server", "Could not remove %s: %v", apiDiscoveryFile, err)
+	path := apiDiscoveryFilePath()
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		applog.Warnf("server", "Could not remove %s: %v", path, err)
 	}
 }
 
