@@ -291,6 +291,14 @@ We welcome contributions. Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** bef
 
 ---
 
+## Acknowledgments
+
+Thanks to the people who helped shape CrawlObserver with their feedback, testing, and ideas:
+
+- **Fabien Raquidel** &mdash; [referenceur-web.pro](https://www.referenceur-web.pro/) · [@fabienr34](https://x.com/fabienr34)
+
+---
+
 ## License
 
 AGPL-3.0 &mdash; see [LICENSE](LICENSE).
