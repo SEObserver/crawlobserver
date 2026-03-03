@@ -15,19 +15,15 @@ jobs:
           - os: macos-latest
             goos: darwin
             goarch: arm64
-            label: macOS-ARM
           - os: ubuntu-latest
             goos: darwin
             goarch: amd64
-            label: macOS-Intel
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
-            label: Linux
           - os: windows-latest
             goos: windows
             goarch: amd64
-            label: Windows
             suffix: .exe
 
     runs-on: ${{ matrix.os }}
@@ -57,13 +53,13 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: |
-          go build -ldflags "-X github.com/SEObserver/crawlobserver/internal/updater.Version=${{ github.ref_name }}" -o "CrawlObserver-${{ matrix.label }}${{ matrix.suffix || '' }}" ./cmd/crawlobserver
+          go build -ldflags "-X github.com/SEObserver/crawlobserver/internal/updater.Version=${{ github.ref_name }}" -o "crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix || '' }}" ./cmd/crawlobserver
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
-          name: CrawlObserver-${{ matrix.label }}
-          path: CrawlObserver-${{ matrix.label }}*
+          name: crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: crawlobserver-${{ matrix.goos }}-${{ matrix.goarch }}*
 
   desktop:
     runs-on: macos-latest
@@ -162,11 +158,17 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           [ -f "$KEYCHAIN_PATH" ] && security delete-keychain "$KEYCHAIN_PATH" || true
 
+      - name: Create update archive
+        run: |
+          tar -czf "CrawlObserver-darwin-arm64.app.tar.gz" CrawlObserver.app
+
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CrawlObserver-macOS
-          path: CrawlObserver-macOS.dmg
+          name: CrawlObserver-desktop
+          path: |
+            CrawlObserver-macOS.dmg
+            CrawlObserver-darwin-arm64.app.tar.gz
 
   release:
     needs: [build, desktop]
