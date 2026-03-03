@@ -14,7 +14,6 @@ const normalizationFlags = purell.FlagLowercaseScheme |
 	purell.FlagDecodeUnnecessaryEscapes |
 	purell.FlagRemoveDefaultPort |
 	purell.FlagRemoveEmptyQuerySeparator |
-	purell.FlagRemoveTrailingSlash |
 	purell.FlagRemoveFragment |
 	purell.FlagRemoveDuplicateSlashes |
 	purell.FlagSortQuery
