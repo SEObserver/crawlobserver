@@ -147,7 +147,7 @@ func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 	// Drop partition on data tables (partitioned by crawl_session_id)
 	dataTables := []string{"pages", "links", "robots_txt", "sitemaps", "sitemap_urls", "external_link_checks", "page_resource_checks", "page_resource_refs"}
 	for _, table := range dataTables {
-		q := fmt.Sprintf("ALTER TABLE crawlobserver.%s DROP PARTITION ID ?", table)
+		q := fmt.Sprintf("ALTER TABLE crawlobserver.%s DROP PARTITION ?", table)
 		if err := s.conn.Exec(ctx, q, sessionID); err != nil {
 			return fmt.Errorf("dropping partition on %s: %w", table, err)
 		}

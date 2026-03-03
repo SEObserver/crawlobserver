@@ -159,6 +159,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/sessions/{id}/export", s.handleExportSession)
 	mux.HandleFunc("POST /api/sessions/import", s.handleImportSession)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
+	mux.HandleFunc("DELETE /api/sessions-unassigned", s.handleDeleteUnassignedSessions)
 
 	// Update & backup routes (desktop mode)
 	mux.HandleFunc("GET /api/update/status", s.handleUpdateStatus)

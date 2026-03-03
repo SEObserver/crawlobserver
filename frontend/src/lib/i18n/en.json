@@ -224,6 +224,9 @@
   "stats.table": "Table",
   "stats.rows": "Rows",
   "stats.diskUsage": "Disk Usage",
+  "stats.deleteUnassigned": "Delete all unassigned sessions",
+  "stats.confirmDeleteUnassigned": "Delete all sessions without a project? This cannot be undone.",
+  "stats.deletedCount": "{count} session(s) deleted",
 
   "compare.title": "Compare Crawls",
   "compare.sessionA": "Session A (before)",

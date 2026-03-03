@@ -224,6 +224,9 @@
   "stats.table": "Table",
   "stats.rows": "Lignes",
   "stats.diskUsage": "Espace disque",
+  "stats.deleteUnassigned": "Supprimer les sessions non assignées",
+  "stats.confirmDeleteUnassigned": "Supprimer toutes les sessions sans projet ? Cette action est irréversible.",
+  "stats.deletedCount": "{count} session(s) supprimée(s)",
 
   "compare.title": "Comparer les crawls",
   "compare.sessionA": "Session A (avant)",

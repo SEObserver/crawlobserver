@@ -24,7 +24,7 @@
       return {};
     }
   });
-  let hasStoredHtml = $derived(!!parsedConfig.store_html);
+  let hasStoredHtml = $derived(!!parsedConfig?.Crawler?.StoreHTML);
 
   const PRESETS = [
     {

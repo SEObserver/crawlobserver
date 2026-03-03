@@ -417,6 +417,51 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "deleted"})
 }
 
+func (s *Server) handleDeleteUnassignedSessions(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+
+	// Get all sessions with metadata
+	sessions, err := s.store.ListSessions(r.Context())
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+
+	// Build set of session IDs that have a project
+	sessionHasProject := map[string]bool{}
+	for _, sess := range sessions {
+		if sess.ProjectID != nil {
+			sessionHasProject[sess.ID] = true
+		}
+	}
+
+	// Get all session IDs from data tables (pages/links stats)
+	globalStats, _, err := s.store.GlobalStats(r.Context())
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+
+	var deleted int
+	for _, gs := range globalStats {
+		if sessionHasProject[gs.SessionID] {
+			continue
+		}
+		if s.manager.IsRunning(gs.SessionID) {
+			continue
+		}
+		if err := s.store.DeleteSession(r.Context(), gs.SessionID); err != nil {
+			applog.Warnf("server", "delete unassigned session %s: %v", gs.SessionID, err)
+			continue
+		}
+		deleted++
+	}
+
+	writeJSON(w, map[string]interface{}{"status": "ok", "deleted": deleted})
+}
+
 func (s *Server) handleExportSession(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
 	if !s.requireSessionAccess(w, r, sessionID) {

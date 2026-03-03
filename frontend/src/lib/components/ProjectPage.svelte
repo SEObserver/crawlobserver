@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import {
     getSessionsPaginated,
     renameProject,
@@ -58,6 +58,7 @@
       });
       projSessions = res.sessions || [];
       projSessionsTotal = res.total || 0;
+      startPollingIfRunning();
     } catch (e) {
       onerror?.(e.message);
     }
@@ -122,10 +123,29 @@
     );
   }
 
-  // --- Mount ---
+  // --- Mount / auto-refresh ---
+  let pollInterval = null;
+
+  function startPollingIfRunning() {
+    stopPolling();
+    const hasRunning = projSessions.some((s) => s.is_running || s.is_queued);
+    if (hasRunning) {
+      pollInterval = setInterval(loadProjectSessions, 3000);
+    }
+  }
+
+  function stopPolling() {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
+  }
+
   onMount(() => {
     loadProjectSessions();
   });
+
+  onDestroy(stopPolling);
 </script>
 
 <div class="breadcrumb">

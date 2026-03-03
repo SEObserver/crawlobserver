@@ -343,6 +343,10 @@ export async function deleteSession(sessionId) {
   return fetchJSON(`/sessions/${sessionId}`, { method: 'DELETE' });
 }
 
+export async function deleteUnassignedSessions() {
+  return fetchJSON('/sessions-unassigned', { method: 'DELETE' });
+}
+
 /**
  * @param {string} sessionId
  * @returns {Promise<Object>}

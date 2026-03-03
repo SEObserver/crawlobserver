@@ -1,12 +1,15 @@
 <script>
-  import { getGlobalStats } from '../api.js';
+  import { getGlobalStats, deleteUnassignedSessions } from '../api.js';
   import { fmtN, fmtSize } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
+  import ConfirmModal from './ConfirmModal.svelte';
 
   let { onerror } = $props();
 
   let globalStats = $state(null);
   let globalStatsLoading = $state(false);
+  let confirmState = $state(null);
+  let deletingUnassigned = $state(false);
 
   async function loadData() {
     globalStatsLoading = true;
@@ -16,6 +19,24 @@
       onerror?.(e.message);
     }
     globalStatsLoading = false;
+  }
+
+  function handleDeleteUnassigned() {
+    confirmState = {
+      message: t('stats.confirmDeleteUnassigned'),
+      danger: true,
+      confirmLabel: t('common.delete'),
+      onConfirm: async () => {
+        deletingUnassigned = true;
+        try {
+          await deleteUnassignedSessions();
+          await loadData();
+        } catch (e) {
+          onerror?.(e.message);
+        }
+        deletingUnassigned = false;
+      },
+    };
   }
 
   loadData();
@@ -77,7 +98,31 @@
         <tbody>
           {#each [...globalStats.projects].sort((a, b) => b.storage_bytes - a.storage_bytes) as p}
             <tr>
-              <td><strong>{p.project_name}</strong></td>
+              <td>
+                <strong>{p.project_name}</strong>
+                {#if !p.project_id}
+                  <button
+                    class="btn btn-sm btn-danger btn-inline-delete"
+                    onclick={handleDeleteUnassigned}
+                    disabled={deletingUnassigned}
+                    title={t('stats.deleteUnassigned')}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="12"
+                      height="12"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      ><polyline points="3 6 5 6 21 6" /><path
+                        d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                      /></svg
+                    >
+                  </button>
+                {/if}
+              </td>
               <td class="text-right">{fmtN(p.sessions)}</td>
               <td class="text-right">{fmtN(p.total_pages)}</td>
               <td class="text-right">{fmtN(p.total_links)}</td>
@@ -126,6 +171,19 @@
   {/if}
 {/if}
 
+{#if confirmState}
+  <ConfirmModal
+    message={confirmState.message}
+    danger={confirmState.danger}
+    confirmLabel={confirmState.confirmLabel}
+    onconfirm={() => {
+      confirmState.onConfirm();
+      confirmState = null;
+    }}
+    oncancel={() => (confirmState = null)}
+  />
+{/if}
+
 <style>
   .card-heading {
     margin: 0 0 16px 0;
@@ -145,5 +203,10 @@
     height: 100%;
     border-radius: 4px;
     transition: width 0.3s;
+  }
+  .btn-inline-delete {
+    margin-left: 8px;
+    padding: 2px 6px;
+    vertical-align: middle;
   }
 </style>
