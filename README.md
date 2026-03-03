@@ -2,7 +2,7 @@
   <h1 align="center">CrawlObserver</h1>
   <p align="center">
     Free, open-source SEO crawler built by <a href="https://www.seobserver.com">SEObserver</a>.<br>
-    Extract 45+ SEO signals per page. Store in ClickHouse. Analyze at scale.
+    Extract 45+ SEO signals per page. Query millions of pages in milliseconds.
   </p>
 </p>
 
@@ -39,7 +39,7 @@ At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We buil
 - Extracts **45+ SEO signals** per page (title, canonical, meta tags, headings, hreflang, Open Graph, schema.org, images, links, indexability...)
 - Respects `robots.txt` and per-host crawl delays
 - Tracks redirect chains, response times, and body sizes
-- Stores everything in **ClickHouse** (fast columnar queries over millions of pages)
+- Stores everything in a columnar database for instant analytical queries
 - Computes **PageRank** and **crawl depth** per session
 - Comes with a **web UI**, a **REST API**, and a **native desktop app**
 
@@ -47,7 +47,7 @@ At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We buil
 
 ## Quick Start
 
-**Prerequisites:** Go 1.25+ and Docker.
+**Prerequisites:** Go 1.25+
 
 ```bash
 # 1. Clone & build
@@ -55,21 +55,17 @@ git clone https://github.com/SEObserver/crawlobserver.git
 cd crawlobserver
 make build
 
-# 2. Start ClickHouse
-docker compose up -d
-
-# 3. Create tables
-./crawlobserver migrate
-
-# 4. Crawl a site
+# 2. Crawl a site
 ./crawlobserver crawl --seed https://example.com --max-pages 1000
 
-# 5. Browse results
+# 3. Browse results
 ./crawlobserver serve
 # Open http://127.0.0.1:8899
 ```
 
-> **Managed mode:** Don't have Docker? CrawlObserver can download and run ClickHouse for you automatically. Set `clickhouse.mode: managed` in your config. Supported on **macOS** (Intel & Apple Silicon) and **Linux** (x86_64 & ARM64). On **Windows**, use Docker or provide your own ClickHouse binary via `clickhouse.binary_path`.
+That's it. CrawlObserver automatically downloads and manages its own database on first run (macOS & Linux). No Docker, no manual setup.
+
+> **Advanced:** You can also point CrawlObserver at an existing database instance (Docker, remote server...). See the [Configuration](#configuration) section for `clickhouse.*` settings.
 
 ---
 
@@ -104,11 +100,11 @@ crawlobserver [command]
 | `crawl` | Start a crawl session |
 | `serve` | Start the web UI |
 | `gui` | Start the native desktop app (macOS) |
-| `migrate` | Create or update ClickHouse tables |
+| `migrate` | Create or update database tables |
 | `sessions` | List all crawl sessions |
 | `report external-links` | Export external links (table or CSV) |
 | `update` | Check for updates and self-update |
-| `install-clickhouse` | Download ClickHouse binary for offline use |
+| `install-clickhouse` | Download database binary for offline use |
 | `version` | Print version |
 
 ### Crawl examples
@@ -166,9 +162,9 @@ All settings can be overridden via **environment variables** with the `CRAWLOBSE
 | `crawler.user_agent` | `CrawlObserver/1.0` | User-Agent string |
 | `crawler.respect_robots` | `true` | Obey robots.txt |
 | `crawler.store_html` | `false` | Store raw HTML (ZSTD compressed) |
-| `crawler.crawl_scope` | `host` | `host` (exact) or `domain` (eTLD+1) |
-| `clickhouse.host` | `localhost` | ClickHouse host |
-| `clickhouse.port` | `19000` | ClickHouse native protocol port |
+| `crawler.crawl_scope` | `host` | `host`, `domain` (eTLD+1), or `subdirectory` |
+| `clickhouse.host` | `localhost` | Database host |
+| `clickhouse.port` | `19000` | Database native protocol port |
 | `clickhouse.mode` | _(auto)_ | `managed`, `external`, or auto-detect |
 | `server.port` | `8899` | Web UI port |
 | `server.username` | `admin` | Basic auth username |
@@ -198,28 +194,23 @@ Parser  (goquery: 45+ SEO signals extracted)
 Storage Buffer  (batch insert, configurable flush)
     |
     v
-ClickHouse  (columnar storage, partitioned by month)
+Columnar DB  (partitioned by month, managed automatically)
     |
     |---> Web UI  (Svelte 5, embedded in binary)
     |---> REST API  (40+ endpoints)
     |---> CLI reports
 ```
 
-### Why ClickHouse (and not SQLite, DuckDB, or a graph database)
+<details>
+<summary><strong>Why a columnar database?</strong></summary>
 
-A crawler has a hard architectural constraint: **it writes and reads at the same time, continuously.** During a crawl, 10+ goroutines batch-insert pages, links, and resources while the web UI polls for live progress every 100ms and users run analytical queries (filtered pages, audit aggregations, PageRank percentiles) on data that's still being written. This is a concurrent read/write workload on an analytical dataset — the worst case for embedded databases.
+A crawl is a link graph, so why not a graph database? Because **a crawler is an analytics pipeline, not a graph explorer.** The questions you ask are analytical — "show me all pages with a missing H1 and a 301 canonical", "give me PageRank percentiles by subdirectory" — and columnar databases answer these instantly, even over millions of rows.
 
-SQLite and DuckDB are single-writer. Under concurrent load, readers block writers or vice versa. You'd need to serialize access behind a mutex, which kills real-time monitoring — or accept that the UI freezes during crawls. ClickHouse is a client/server database: readers and writers never block each other, every goroutine gets its own connection from the pool, and the UI stays live throughout the crawl.
+When we need graph algorithms (PageRank, crawl depth), we compute them in-memory in Go and write the results back. A million-page link graph fits in ~200MB of RAM and computes in seconds — no need for a graph database.
 
-The trick is the **managed mode**: CrawlObserver downloads a ClickHouse static binary and runs it as a subprocess. The user sees one program; under the hood, there's a full analytical database server with concurrent access. Single-binary distribution, server-grade architecture.
+Under the hood, CrawlObserver uses ClickHouse in managed mode: it downloads a static binary and runs it as a subprocess. You see one program; it gets concurrent read/write access, columnar compression (~10:1), and instant session deletion.
 
-The other benefits follow from this choice:
-- **`DROP PARTITION`** deletes a 10M-page session instantly (O(1) metadata operation, not a table scan)
-- **`joinGet()` + Join engine** computes PageRank server-side without round-tripping millions of URL strings to Go
-- **Columnar compression** stores crawl data at ~10:1 ratios; ZSTD(3) on raw HTML bodies
-- **Built-in analytical functions** (`countIf()`, `quantile()`, `domain()`, `arrayJoin()`) replace what would be hundreds of lines of post-processing in Go
-
-We sometimes get asked about graph databases (Neo4j, Dgraph) since a crawl is essentially a link graph. Our take: **a crawler is an analytics pipeline, not a graph explorer.** When we need graph algorithms (PageRank, BFS depth), we compute them in-memory in Go and write the results back. A million-page link graph fits in ~200MB of RAM and computes in seconds — no need for a second database.
+</details>
 
 ### Tech stack
 
