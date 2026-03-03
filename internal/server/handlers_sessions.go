@@ -845,6 +845,29 @@ func (s *Server) handleSitemapURLs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, urls)
 }
 
+func (s *Server) handleSitemapCoverageURLs(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	filter := r.URL.Query().Get("filter")
+	if filter != "sitemap_only" && filter != "in_both" {
+		writeError(w, http.StatusBadRequest, "filter must be sitemap_only or in_both")
+		return
+	}
+	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
+
+	urls, err := s.store.GetSitemapCoverageURLs(r.Context(), sessionID, filter, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	if urls == nil {
+		urls = []storage.SitemapURLRow{}
+	}
+	writeJSON(w, urls)
+}
+
 func (s *Server) handleExternalLinkChecks(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
 	if !s.requireSessionAccess(w, r, sessionID) {

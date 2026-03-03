@@ -125,6 +125,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/sessions/{id}/robots-content", s.handleRobotsContent)
 	mux.HandleFunc("GET /api/sessions/{id}/sitemaps", s.handleSitemaps)
 	mux.HandleFunc("GET /api/sessions/{id}/sitemap-urls", s.handleSitemapURLs)
+	mux.HandleFunc("GET /api/sessions/{id}/sitemap-coverage-urls", s.handleSitemapCoverageURLs)
 	mux.HandleFunc("GET /api/sessions/{id}/external-checks", s.handleExternalLinkChecks)
 	mux.HandleFunc("GET /api/sessions/{id}/external-checks/domains", s.handleExternalLinkCheckDomains)
 	mux.HandleFunc("GET /api/sessions/{id}/external-checks/expired-domains", s.handleExpiredDomains)

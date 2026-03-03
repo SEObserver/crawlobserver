@@ -19,7 +19,7 @@
         value: s.in_both,
         color: 'var(--success)',
         label: t('report.sitemap.inBoth'),
-        onclick: () => nav('sitemaps'),
+        onclick: () => nav('directives/in_both'),
       });
     if (s.crawled_only > 0)
       segs.push({
@@ -33,7 +33,7 @@
         value: s.sitemap_only,
         color: 'var(--error)',
         label: t('report.sitemap.sitemapOnly'),
-        onclick: () => nav('sitemaps'),
+        onclick: () => nav('directives/sitemap_only'),
       });
     return segs;
   }
@@ -63,8 +63,8 @@
           class="stat-card stat-card-link"
           role="button"
           tabindex="0"
-          onclick={() => nav('sitemaps')}
-          onkeydown={a11yKeydown(() => nav('sitemaps'))}
+          onclick={() => nav('directives/in_both')}
+          onkeydown={a11yKeydown(() => nav('directives/in_both'))}
         >
           <div class="stat-value">{fmtN(sitemap.in_both || 0)}</div>
           <div class="stat-label">{t('report.sitemap.inBoth')}</div>
@@ -83,8 +83,8 @@
           class="stat-card stat-card-link"
           role="button"
           tabindex="0"
-          onclick={() => nav('sitemaps')}
-          onkeydown={a11yKeydown(() => nav('sitemaps'))}
+          onclick={() => nav('directives/sitemap_only')}
+          onkeydown={a11yKeydown(() => nav('directives/sitemap_only'))}
         >
           <div class="stat-value text-error">{fmtN(sitemap.sitemap_only || 0)}</div>
           <div class="stat-label">{t('report.sitemap.sitemapOnly')}</div>

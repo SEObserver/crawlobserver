@@ -230,6 +230,10 @@ func (m *mockStore) GetSitemapURLs(_ context.Context, _, _ string, _, _ int) ([]
 	return m.sitemapURLs, m.err
 }
 
+func (m *mockStore) GetSitemapCoverageURLs(_ context.Context, _, _ string, _, _ int) ([]storage.SitemapURLRow, error) {
+	return m.sitemapURLs, m.err
+}
+
 func (m *mockStore) GetURLsByHost(_ context.Context, _ string, host string) ([]string, error) {
 	if m.urlsByHost != nil {
 		return m.urlsByHost[host], m.err

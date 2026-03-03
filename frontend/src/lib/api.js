@@ -448,6 +448,12 @@ export async function getSitemapURLs(sessionId, url, limit = DEFAULT_LIMIT, offs
   );
 }
 
+export async function getSitemapCoverageURLs(sessionId, filter, limit = DEFAULT_LIMIT, offset = 0) {
+  return fetchJSON(
+    `/sessions/${sessionId}/sitemap-coverage-urls?filter=${encodeURIComponent(filter)}&limit=${limit}&offset=${offset}`,
+  );
+}
+
 /**
  * @param {string} sessionId
  * @param {string} host

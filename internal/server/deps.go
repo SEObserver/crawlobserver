@@ -40,6 +40,7 @@ type CrawlStore interface {
 	GetURLsByHost(ctx context.Context, sessionID, host string) ([]string, error)
 	GetSitemaps(ctx context.Context, sessionID string) ([]storage.SitemapRow, error)
 	GetSitemapURLs(ctx context.Context, sessionID, sitemapURL string, limit, offset int) ([]storage.SitemapURLRow, error)
+	GetSitemapCoverageURLs(ctx context.Context, sessionID, filter string, limit, offset int) ([]storage.SitemapURLRow, error)
 	ExportSession(ctx context.Context, sessionID string, w io.Writer, includeHTML bool) error
 	ImportSession(ctx context.Context, r io.Reader) (*storage.CrawlSession, error)
 	CompareStats(ctx context.Context, sessionA, sessionB string) (*storage.CompareStatsResult, error)

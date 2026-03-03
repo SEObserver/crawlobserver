@@ -457,6 +457,8 @@
 
   "directives.robots": "Robots.txt",
   "directives.sitemaps": "Sitemaps",
+  "directives.sitemapOnly": "Sitemap only",
+  "directives.inBoth": "In both",
 
   "pagerank.topPages": "Top Pages",
   "pagerank.byDirectory": "By Directory",

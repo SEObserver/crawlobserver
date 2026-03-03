@@ -181,3 +181,43 @@ func (s *Store) GetSitemapURLs(ctx context.Context, sessionID, sitemapURL string
 	}
 	return result, nil
 }
+
+// GetSitemapCoverageURLs returns paginated sitemap URLs filtered by coverage type.
+// filter must be "sitemap_only" (in sitemap but not crawled) or "in_both" (in sitemap and crawled).
+func (s *Store) GetSitemapCoverageURLs(ctx context.Context, sessionID, filter string, limit, offset int) ([]SitemapURLRow, error) {
+	var query string
+	switch filter {
+	case "sitemap_only":
+		query = `
+			SELECT DISTINCT '' AS crawl_session_id, '' AS sitemap_url, su.loc, su.lastmod, su.changefreq, su.priority
+			FROM crawlobserver.sitemap_urls su
+			WHERE su.crawl_session_id = ?
+			  AND su.loc NOT IN (SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?)
+			ORDER BY su.loc LIMIT ? OFFSET ?`
+	case "in_both":
+		query = `
+			SELECT DISTINCT '' AS crawl_session_id, '' AS sitemap_url, su.loc, su.lastmod, su.changefreq, su.priority
+			FROM crawlobserver.sitemap_urls su
+			WHERE su.crawl_session_id = ?
+			  AND su.loc IN (SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?)
+			ORDER BY su.loc LIMIT ? OFFSET ?`
+	default:
+		return nil, fmt.Errorf("invalid coverage filter: %s", filter)
+	}
+
+	rows, err := s.conn.Query(ctx, query, sessionID, sessionID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("querying sitemap coverage urls: %w", err)
+	}
+	defer rows.Close()
+
+	var result []SitemapURLRow
+	for rows.Next() {
+		var r SitemapURLRow
+		if err := rows.Scan(&r.CrawlSessionID, &r.SitemapURL, &r.Loc, &r.LastMod, &r.ChangeFreq, &r.Priority); err != nil {
+			return nil, fmt.Errorf("scanning sitemap coverage url: %w", err)
+		}
+		result = append(result, r)
+	}
+	return result, nil
+}
