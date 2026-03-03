@@ -95,6 +95,12 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	setupNativeMenu()
 	installClipboardMonitor(w.Window())
 
+	// File save binding for CSV export (WKWebView doesn't support blob downloads)
+	w.Bind("__saveFile", func(filename, content string) error {
+		return nativeSaveFile(filename, content)
+	})
+	w.Init(`window.__isDesktopApp = true;`)
+
 	w.SetTitle(appName)
 	w.SetSize(1440, 900, webview.HintNone)
 	w.SetSize(800, 600, webview.HintMin)

@@ -90,7 +90,15 @@ export function downloadCSV(filename, headers, keys, data) {
     lines.push(keys.map((k) => escape(row[k])).join(','));
   }
 
-  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const content = '\uFEFF' + lines.join('\n');
+
+  // Desktop app: WKWebView doesn't support blob downloads, use native save dialog
+  if (window.__isDesktopApp && window.__saveFile) {
+    window.__saveFile(filename, content);
+    return;
+  }
+
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

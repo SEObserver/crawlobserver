@@ -2,7 +2,11 @@
 
 package cli
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
-func setupNativeMenu()                          {}
-func installClipboardMonitor(_ unsafe.Pointer)  {}
+func setupNativeMenu()                         {}
+func installClipboardMonitor(_ unsafe.Pointer) {}
+func nativeSaveFile(_, _ string) error         { return fmt.Errorf("not supported") }

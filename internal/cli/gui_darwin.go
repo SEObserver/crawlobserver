@@ -109,10 +109,24 @@ void installClipboardMonitor(void *windowPtr) {
 		return event;
 	}];
 }
+
+// showSavePanel opens a native NSSavePanel and returns the chosen path (empty if cancelled).
+// Called from webview binding which already runs on the main thread — no dispatch needed.
+const char* showSavePanel(const char *suggestedName) {
+	NSSavePanel *panel = [NSSavePanel savePanel];
+	[panel setNameFieldStringValue:[NSString stringWithUTF8String:suggestedName]];
+	if ([panel runModal] == NSModalResponseOK) {
+		return strdup([[[panel URL] path] UTF8String]);
+	}
+	return "";
+}
 */
 import "C"
 
-import "unsafe"
+import (
+	"os"
+	"unsafe"
+)
 
 func setupNativeMenu() {
 	C.setupMacOSMenu()
@@ -120,4 +134,15 @@ func setupNativeMenu() {
 
 func installClipboardMonitor(windowPtr unsafe.Pointer) {
 	C.installClipboardMonitor(windowPtr)
+}
+
+// nativeSaveFile opens a save dialog and writes content to the chosen path.
+func nativeSaveFile(filename, content string) error {
+	cname := C.CString(filename)
+	defer C.free(unsafe.Pointer(cname))
+	path := C.GoString(C.showSavePanel(cname))
+	if path == "" {
+		return nil // user cancelled
+	}
+	return os.WriteFile(path, []byte(content), 0644)
 }
