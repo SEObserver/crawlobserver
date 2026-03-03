@@ -81,11 +81,14 @@ jobs:
       - name: Copy frontend dist
         run: mkdir -p internal/server/frontend && cp -r frontend/dist internal/server/frontend/dist
 
-      - name: Build desktop binary
+      - name: Build desktop binary (universal)
         run: |
-          GOARCH=arm64 CGO_ENABLED=1 go build -tags desktop \
-            -ldflags "-X github.com/SEObserver/crawlobserver/internal/updater.Version=${{ github.ref_name }}" \
-            -o CrawlObserver ./cmd/crawlobserver
+          LDFLAGS="-X github.com/SEObserver/crawlobserver/internal/updater.Version=${{ github.ref_name }}"
+          GOARCH=arm64 CGO_ENABLED=1 go build -tags desktop -ldflags "$LDFLAGS" -o CrawlObserver-arm64 ./cmd/crawlobserver
+          GOARCH=amd64 CGO_ENABLED=1 CGO_CFLAGS="-arch x86_64" CGO_LDFLAGS="-arch x86_64" \
+            go build -tags desktop -ldflags "$LDFLAGS" -o CrawlObserver-amd64 ./cmd/crawlobserver
+          lipo -create -output CrawlObserver CrawlObserver-arm64 CrawlObserver-amd64
+          rm CrawlObserver-arm64 CrawlObserver-amd64
 
       - name: Create .app bundle
         run: |
@@ -160,7 +163,7 @@ jobs:
 
       - name: Create update archive
         run: |
-          tar -czf "CrawlObserver-darwin-arm64.app.tar.gz" CrawlObserver.app
+          tar -czf "CrawlObserver-macOS.app.tar.gz" CrawlObserver.app
 
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
@@ -168,7 +171,7 @@ jobs:
           name: CrawlObserver-desktop
           path: |
             CrawlObserver-macOS.dmg
-            CrawlObserver-darwin-arm64.app.tar.gz
+            CrawlObserver-macOS.app.tar.gz
 
   release:
     needs: [build, desktop]

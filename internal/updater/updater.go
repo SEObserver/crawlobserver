@@ -208,7 +208,7 @@ func expectedAssetName() string {
 
 // ExpectedDesktopAssetName returns the expected .app.tar.gz asset name for desktop updates.
 func ExpectedDesktopAssetName() string {
-	return fmt.Sprintf("CrawlObserver-%s-%s.app.tar.gz", runtime.GOOS, runtime.GOARCH)
+	return "CrawlObserver-macOS.app.tar.gz"
 }
 
 // DownloadDesktopUpdate downloads and extracts the .app.tar.gz for desktop mode.
