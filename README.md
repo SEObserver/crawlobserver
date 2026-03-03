@@ -194,7 +194,7 @@ Parser  (goquery: 45+ SEO signals extracted)
 Storage Buffer  (batch insert, configurable flush)
     |
     v
-Columnar DB  (partitioned by month, managed automatically)
+Columnar DB  (partitioned by crawl session, managed automatically)
     |
     |---> Web UI  (Svelte 5, embedded in binary)
     |---> REST API  (40+ endpoints)
