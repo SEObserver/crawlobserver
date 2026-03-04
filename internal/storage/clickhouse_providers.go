@@ -171,7 +171,9 @@ func (s *Store) ProviderBacklinks(ctx context.Context, projectID, provider strin
 		WHERE %s
 		%s
 		LIMIT ? OFFSET ?`, baseWhere, orderClause)
-	queryArgs := append(args[:len(args):len(args)], limit, offset)
+	queryArgs := make([]interface{}, len(args), len(args)+2)
+	copy(queryArgs, args)
+	queryArgs = append(queryArgs, limit, offset)
 
 	rows, err := s.conn.Query(ctx, query, queryArgs...)
 	if err != nil {
