@@ -61,6 +61,11 @@
     onpushurl?.(qs ? `${path}?${qs}` : path);
   }
 
+  function effectiveFilters() {
+    if (filters.content_type) return filters;
+    return { content_type: 'text/html', ...filters };
+  }
+
   async function loadData() {
     try {
       if (subView === 'redirects') {
@@ -79,7 +84,7 @@
           sessionId,
           PAGE_SIZE,
           pagesOffset,
-          filters,
+          effectiveFilters(),
           sortColumn,
           sortOrder,
         );
@@ -245,7 +250,7 @@
     const fetcher =
       subView === 'redirects'
         ? (limit, offset) => getRedirectPages(sessionId, limit, offset, filters)
-        : (limit, offset) => getPages(sessionId, limit, offset, filters);
+        : (limit, offset) => getPages(sessionId, limit, offset, effectiveFilters());
     const allData = await fetchAll(fetcher);
     const keys = cfg.customKeys || cfg.keys;
     let rows = allData;
