@@ -13,6 +13,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/extraction"
 	"github.com/SEObserver/crawlobserver/internal/frontier"
+	"github.com/SEObserver/crawlobserver/internal/normalizer"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
@@ -668,6 +669,49 @@ func TestE2E_CrawlScope_Host(t *testing.T) {
 		if !crawled[server.URL+p] {
 			t.Errorf("expected %s to be crawled (host scope allows all paths)", p)
 		}
+	}
+}
+
+// TestE2E_SchemelessSeed verifies that seeds without a scheme (e.g. "blog.axe-net.fr")
+// are properly handled when prefixed with http:// via normalizer.EnsureScheme.
+func TestE2E_SchemelessSeed(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		switch r.URL.Path {
+		case "/robots.txt":
+			w.Header().Set("Content-Type", "text/plain")
+			fmt.Fprint(w, "User-agent: *\nAllow: /\n")
+		case "/", "":
+			fmt.Fprint(w, testHTMLPage("/about", "/contact"))
+		case "/about":
+			fmt.Fprint(w, testHTMLPage("/"))
+		case "/contact":
+			fmt.Fprint(w, testHTMLPage("/"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	// Strip the "http://" scheme to simulate a bare domain seed
+	bareSeed := strings.TrimPrefix(server.URL, "http://")
+
+	cfg := e2eCrawlerConfig("host")
+
+	// Apply EnsureScheme like manager.StartCrawl does
+	fixedSeed := normalizer.EnsureScheme(bareSeed)
+
+	seeds := []string{fixedSeed}
+	inserter := runTestCrawl(t, cfg, seeds)
+	crawled := inserter.crawledURLs()
+
+	if len(crawled) == 0 {
+		t.Fatal("expected at least one page crawled from schemeless seed")
+	}
+
+	// The homepage must be crawled
+	if !crawled[server.URL+"/"] && !crawled[server.URL] {
+		t.Errorf("homepage not crawled; crawled URLs: %v", crawled)
 	}
 }
 

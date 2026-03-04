@@ -31,6 +31,19 @@ var trackingParams = map[string]struct{}{
 	"mc_eid":       {},
 }
 
+// EnsureScheme prepends "http://" to a URL if it has no scheme.
+// This is intended for seed URLs entered by users (e.g. "blog.axe-net.fr").
+func EnsureScheme(rawURL string) string {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return rawURL
+	}
+	if !strings.Contains(rawURL, "://") {
+		return "http://" + rawURL
+	}
+	return rawURL
+}
+
 // Normalize normalizes a URL string for deduplication.
 func Normalize(rawURL string) (string, error) {
 	rawURL = strings.TrimSpace(rawURL)

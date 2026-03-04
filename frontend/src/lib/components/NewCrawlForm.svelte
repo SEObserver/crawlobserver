@@ -87,7 +87,8 @@
     const seeds = seedInput
       .split('\n')
       .map((s) => s.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((s) => (/^https?:\/\//i.test(s) ? s : `http://${s}`));
     if (seeds.length === 0) return;
     starting = true;
     const ua = userAgentPreset === 'custom' ? userAgentCustom : userAgentPreset;

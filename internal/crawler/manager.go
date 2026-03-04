@@ -11,6 +11,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/extraction"
+	"github.com/SEObserver/crawlobserver/internal/normalizer"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
@@ -108,6 +109,11 @@ type CrawlRequest struct {
 func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	if len(req.Seeds) == 0 {
 		return "", fmt.Errorf("at least one seed URL is required")
+	}
+
+	// Ensure all seeds have a scheme (e.g. "blog.axe-net.fr" → "http://blog.axe-net.fr")
+	for i, s := range req.Seeds {
+		req.Seeds[i] = normalizer.EnsureScheme(s)
 	}
 
 	// Build config overrides

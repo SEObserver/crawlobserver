@@ -44,6 +44,32 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
+func TestEnsureScheme(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"bare domain", "blog.axe-net.fr", "http://blog.axe-net.fr"},
+		{"domain with www", "www.example.com", "http://www.example.com"},
+		{"domain with path", "example.com/path/to/page", "http://example.com/path/to/page"},
+		{"already http", "http://example.com", "http://example.com"},
+		{"already https", "https://example.com", "https://example.com"},
+		{"with whitespace", "  blog.axe-net.fr  ", "http://blog.axe-net.fr"},
+		{"empty string", "", ""},
+		{"ftp scheme", "ftp://files.example.com", "ftp://files.example.com"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EnsureScheme(tt.input)
+			if got != tt.want {
+				t.Errorf("EnsureScheme(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestResolve(t *testing.T) {
 	tests := []struct {
 		name    string
