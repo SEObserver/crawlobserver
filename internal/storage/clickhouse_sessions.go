@@ -236,7 +236,7 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 	// Depth distribution
 	depthRows, err := s.conn.Query(ctx, `
 		SELECT depth, count() FROM crawlobserver.pages
-		WHERE crawl_session_id = ? GROUP BY depth ORDER BY depth`, sessionID)
+		WHERE crawl_session_id = ? AND content_type LIKE '%html%' GROUP BY depth ORDER BY depth`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("querying depth distribution: %w", err)
 	}
@@ -629,7 +629,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			concat('/', arrayStringConcat(arraySlice(splitByChar('/', pathFull(url)), 2, 1), '/'), '/') AS dir,
 			count() AS cnt
 		FROM crawlobserver.pages
-		WHERE crawl_session_id = ?
+		WHERE crawl_session_id = ? AND content_type LIKE '%html%'
 		GROUP BY dir ORDER BY cnt DESC LIMIT 50`, sessionID)
 	if err == nil {
 		defer dirRows.Close()
@@ -653,7 +653,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			FROM crawlobserver.links
 			WHERE crawl_session_id = ? AND is_internal = true
 		) AS l ON p.url = l.target_url
-		WHERE p.crawl_session_id = ?`, sessionID, sessionID)
+		WHERE p.crawl_session_id = ? AND p.content_type LIKE '%html%'`, sessionID, sessionID)
 	if err := orphanRow.Scan(&structure.OrphanPages); err != nil {
 		applog.Warnf("audit", "scan orphan pages: %v", err)
 	}
