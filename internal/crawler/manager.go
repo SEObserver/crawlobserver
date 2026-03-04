@@ -91,6 +91,7 @@ type CrawlRequest struct {
 	RetryStatusCode     int      `json:"retry_status_code"`
 	UserAgent           string   `json:"user_agent"`
 	CrawlSitemapOnly    bool     `json:"crawl_sitemap_only"`
+	FetchSitemaps       *bool    `json:"fetch_sitemaps"`
 	CheckPageResources  *bool    `json:"check_page_resources"`
 	ResourceWorkers     int      `json:"resource_workers"`
 	TLSProfile          string   `json:"tls_profile"`
@@ -184,6 +185,8 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	sessionID := engine.SessionID(req.Seeds)
 	engine.session.ProjectID = req.ProjectID
 	engine.sitemapOnly = req.CrawlSitemapOnly
+	// Fetch sitemaps: default true; forced true when sitemapOnly
+	engine.fetchSitemaps = req.FetchSitemaps == nil || *req.FetchSitemaps || req.CrawlSitemapOnly
 
 	// External link checking: default true
 	engine.checkExternal = req.CheckExternalLinks == nil || *req.CheckExternalLinks
@@ -273,6 +276,17 @@ func (m *Manager) Progress(sessionID string) (int64, int, bool) {
 		return 0, 0, false
 	}
 	return engine.PagesCrawled(), engine.QueueLen(), true
+}
+
+// Phase returns the current phase of a running session (e.g. "fetching_sitemaps", "crawling").
+func (m *Manager) Phase(sessionID string) string {
+	m.mu.RLock()
+	engine, ok := m.engines[sessionID]
+	m.mu.RUnlock()
+	if !ok {
+		return ""
+	}
+	return engine.Phase()
 }
 
 // BufferState returns the buffer error state for a running session.
@@ -368,6 +382,12 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 	}
 	engine := NewEngine(&cfg, m.store)
 	engine.sitemapOnly = overrides != nil && overrides.CrawlSitemapOnly
+	// On resume, don't re-fetch sitemaps (already in DB) unless explicitly requested
+	if overrides != nil && overrides.FetchSitemaps != nil {
+		engine.fetchSitemaps = *overrides.FetchSitemaps || engine.sitemapOnly
+	} else {
+		engine.fetchSitemaps = false
+	}
 
 	// Restore the original session with its seed URLs, not the uncrawled URLs
 	engine.ResumeSession(sessionID, originalSession.SeedURLs)

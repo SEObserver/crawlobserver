@@ -18,6 +18,7 @@
   let userAgentPreset = $state('');
   let userAgentCustom = $state('');
   let crawlSitemapOnly = $state(false);
+  let fetchSitemaps = $state(true);
   let tlsProfile = $state('');
   let jsRenderMode = $state('off');
   let jsRenderMaxPages = $state(4);
@@ -105,6 +106,7 @@
         external_link_workers: externalLinkWorkers,
         user_agent: ua || undefined,
         crawl_sitemap_only: crawlSitemapOnly,
+        fetch_sitemaps: crawlSitemapOnly ? true : fetchSitemaps,
         tls_profile: tlsProfile || undefined,
         source_ip: sourceIP || undefined,
         force_ipv4: forceIPv4 || undefined,
@@ -244,6 +246,10 @@
     <label class="inline-checkbox">
       <input type="checkbox" bind:checked={crawlSitemapOnly} />
       {t('newCrawl.sitemapOnly')}
+    </label>
+    <label class="inline-checkbox">
+      <input type="checkbox" bind:checked={fetchSitemaps} disabled={crawlSitemapOnly} />
+      {t('newCrawl.fetchSitemaps')}
     </label>
   </div>
 

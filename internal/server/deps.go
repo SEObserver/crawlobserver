@@ -124,6 +124,7 @@ type CrawlService interface {
 	IsRunning(sessionID string) bool
 	IsQueued(sessionID string) bool
 	Progress(sessionID string) (int64, int, bool)
+	Phase(sessionID string) string
 	BufferState(sessionID string) storage.BufferErrorState
 	LastError(sessionID string) string
 	StartCrawl(req crawler.CrawlRequest) (string, error)

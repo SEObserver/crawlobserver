@@ -208,6 +208,7 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	var lastQueue int
 	var lastRunning, lastQueued bool
 	var lastLostPages, lastLostLinks int64
+	var lastPhase string
 	first := true
 
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -222,19 +223,24 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 
 		pages, queue, running := s.manager.Progress(sessionID)
 		queued := s.manager.IsQueued(sessionID)
+		phase := s.manager.Phase(sessionID)
 		bufState := s.manager.BufferState(sessionID)
 
 		// Only send if data changed or first message
 		if !first && pages == lastPages && queue == lastQueue && running == lastRunning &&
-			queued == lastQueued &&
+			queued == lastQueued && phase == lastPhase &&
 			bufState.LostPages == lastLostPages && bufState.LostLinks == lastLostLinks {
 			continue
 		}
 		lastPages, lastQueue, lastRunning, lastQueued = pages, queue, running, queued
+		lastPhase = phase
 		lastLostPages, lastLostLinks = bufState.LostPages, bufState.LostLinks
 		first = false
 
 		data := fmt.Sprintf(`{"pages_crawled":%d,"queue_size":%d,"is_running":%t,"is_queued":%t`, pages, queue, running, queued)
+		if phase != "" {
+			data += fmt.Sprintf(`,"phase":%q`, phase)
+		}
 		if bufState.LostPages > 0 {
 			data += fmt.Sprintf(`,"lost_pages":%d`, bufState.LostPages)
 		}
@@ -273,6 +279,9 @@ func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 		"pages_crawled": pages,
 		"queue_size":    queue,
 		"is_running":    running,
+	}
+	if phase := s.manager.Phase(sessionID); phase != "" {
+		resp["phase"] = phase
 	}
 	bufState := s.manager.BufferState(sessionID)
 	if bufState.LostPages > 0 {

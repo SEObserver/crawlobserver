@@ -472,6 +472,10 @@ func (m *mockManager) Progress(sessionID string) (int64, int, bool) {
 	return 0, 0, m.running[sessionID]
 }
 
+func (m *mockManager) Phase(sessionID string) string {
+	return ""
+}
+
 func (m *mockManager) StartCrawl(req crawler.CrawlRequest) (string, error) {
 	m.startCalls = append(m.startCalls, req)
 	if m.startErr != nil {

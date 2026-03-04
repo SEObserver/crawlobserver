@@ -1,19 +1,38 @@
 <script>
   import { t } from '../i18n/index.svelte.js';
+  import { getSitemaps } from '../api.js';
   import RobotsTab from './RobotsTab.svelte';
   import SitemapsTab from './SitemapsTab.svelte';
   import SitemapCoverageURLs from './SitemapCoverageURLs.svelte';
 
   let { sessionId, initialSubView = 'robots', onpushurl, onerror } = $props();
 
-  const SUB_VIEWS = [
+  const ALL_SUB_VIEWS = [
     { id: 'robots', label: () => t('directives.robots') },
     { id: 'sitemaps', label: () => t('directives.sitemaps') },
     { id: 'sitemap_only', label: () => t('directives.sitemapOnly') },
     { id: 'in_both', label: () => t('directives.inBoth') },
   ];
 
+  let hasSitemaps = $state(true); // optimistic default
   let subView = $state(initialSubView);
+
+  let visibleSubViews = $derived(
+    hasSitemaps ? ALL_SUB_VIEWS : ALL_SUB_VIEWS.filter((sv) => sv.id === 'robots')
+  );
+
+  // Check if sitemaps exist for this session
+  getSitemaps(sessionId)
+    .then((data) => {
+      hasSitemaps = Array.isArray(data) && data.length > 0;
+      if (!hasSitemaps && subView !== 'robots') {
+        subView = 'robots';
+      }
+    })
+    .catch(() => {
+      hasSitemaps = false;
+      if (subView !== 'robots') subView = 'robots';
+    });
 
   function switchSubView(sv) {
     subView = sv;
@@ -23,7 +42,7 @@
 
 <div class="directives-tab">
   <div class="pr-subview-bar">
-    {#each SUB_VIEWS as sv}
+    {#each visibleSubViews as sv}
       <button
         class="pr-subview-btn"
         class:pr-subview-active={subView === sv.id}

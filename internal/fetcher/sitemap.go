@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"context"
 	"encoding/xml"
 	"io"
 	"net/http"
@@ -53,10 +54,10 @@ type xmlURLEntry struct {
 }
 
 // FetchSitemap fetches and parses a single sitemap URL.
-func FetchSitemap(client *http.Client, sitemapURL, userAgent string) SitemapEntry {
+func FetchSitemap(ctx context.Context, client *http.Client, sitemapURL, userAgent string) SitemapEntry {
 	entry := SitemapEntry{URL: sitemapURL}
 
-	req, err := http.NewRequest("GET", sitemapURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", sitemapURL, nil)
 	if err != nil {
 		return entry
 	}
@@ -112,7 +113,7 @@ func FetchSitemap(client *http.Client, sitemapURL, userAgent string) SitemapEntr
 
 // DiscoverSitemaps fetches all given sitemap URLs, recursing into indexes.
 // Returns at most maxTotalSitemaps entries.
-func DiscoverSitemaps(client *http.Client, userAgent string, sitemapURLs []string) []SitemapEntry {
+func DiscoverSitemaps(ctx context.Context, client *http.Client, userAgent string, sitemapURLs []string) []SitemapEntry {
 	var results []SitemapEntry
 	seen := make(map[string]bool)
 
@@ -125,11 +126,16 @@ func DiscoverSitemaps(client *http.Client, userAgent string, sitemapURLs []strin
 	}
 
 	for len(queue) > 0 && len(results) < maxTotalSitemaps {
+		if ctx.Err() != nil {
+			applog.Infof("fetcher", "Sitemap discovery cancelled")
+			break
+		}
+
 		url := queue[0]
 		queue = queue[1:]
 
 		applog.Infof("fetcher", "Fetching sitemap: %s", url)
-		entry := FetchSitemap(client, url, userAgent)
+		entry := FetchSitemap(ctx, client, url, userAgent)
 		results = append(results, entry)
 
 		// If it's an index, enqueue children

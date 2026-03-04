@@ -87,7 +87,9 @@
   {#if session.is_running}
     {@const live = liveProgress[session.ID]}
     <span class="badge badge-info">
-      {#if live && live.queue_size === 0 && live.pages_crawled > 0}
+      {#if live && live.phase === 'fetching_sitemaps'}
+        {t('common.fetchingSitemaps')}
+      {:else if live && live.queue_size === 0 && live.pages_crawled > 0}
         {t('common.finalizing')}
         &middot; {fmtN(live.pages_crawled)}
         {t('common.pages')}

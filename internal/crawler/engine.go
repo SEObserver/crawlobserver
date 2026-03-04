@@ -38,6 +38,7 @@ type Engine struct {
 	pagesCrawled   atomic.Int64
 	lastProgressAt atomic.Int64
 	maxPages       int64
+	phase          atomic.Value // string: current phase ("fetching_sitemaps", "crawling", "")
 
 	allowedHosts    map[string]bool
 	allowedDomains  map[string]bool
@@ -49,6 +50,7 @@ type Engine struct {
 	pendingRetries atomic.Int64
 
 	sitemapOnly      bool
+	fetchSitemaps    bool
 	sitemapURLSet    map[string]bool // URLs found in sitemaps, for priority boost
 	checkExternal    bool
 	externalWorkers  int
@@ -141,6 +143,14 @@ func (e *Engine) ResumeSession(id string, originalSeeds []string) {
 // PagesCrawled returns the current number of pages crawled.
 func (e *Engine) PagesCrawled() int64 {
 	return e.pagesCrawled.Load()
+}
+
+// Phase returns the current engine phase (e.g. "fetching_sitemaps", "crawling").
+func (e *Engine) Phase() string {
+	if v := e.phase.Load(); v != nil {
+		return v.(string)
+	}
+	return ""
 }
 
 // QueueLen returns the current frontier queue length.
@@ -305,7 +315,11 @@ func (e *Engine) prefetchRobots() {
 	for _, seed := range e.session.SeedURLs {
 		e.robots.IsAllowed(seed) // triggers fetch + cache
 	}
-	e.discoverAndPersistSitemaps()
+	if e.fetchSitemaps {
+		e.phase.Store("fetching_sitemaps")
+		e.discoverAndPersistSitemaps()
+	}
+	e.phase.Store("crawling")
 }
 
 // startWorkers launches all worker goroutines and returns the pipeline channels
@@ -1107,7 +1121,7 @@ func (e *Engine) discoverAndPersistSitemaps() {
 	}
 
 	now := time.Now()
-	sitemapEntries := fetcher.DiscoverSitemaps(e.fetch.Client(), e.cfg.Crawler.UserAgent, sitemapURLs)
+	sitemapEntries := fetcher.DiscoverSitemaps(e.ctx, e.fetch.Client(), e.cfg.Crawler.UserAgent, sitemapURLs)
 
 	parentMap := make(map[string]string)
 	for _, entry := range sitemapEntries {
