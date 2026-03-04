@@ -64,3 +64,6 @@ build/*.dmg
 
 # Docker config
 config.yaml.docker
+
+# Claude
+CLAUDE.md
