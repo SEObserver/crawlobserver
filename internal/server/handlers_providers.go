@@ -30,8 +30,12 @@ func (s *Server) handleProviderConnect(w http.ResponseWriter, r *http.Request) {
 	provider := r.PathValue("provider")
 
 	var body struct {
-		APIKey string `json:"api_key"`
-		Domain string `json:"domain"`
+		APIKey          string `json:"api_key"`
+		Domain          string `json:"domain"`
+		LimitBacklinks  int    `json:"limit_backlinks"`
+		LimitRefdomains int    `json:"limit_refdomains"`
+		LimitRankings   int    `json:"limit_rankings"`
+		LimitTopPages   int    `json:"limit_top_pages"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -44,13 +48,33 @@ func (s *Server) handleProviderConnect(w http.ResponseWriter, r *http.Request) {
 
 	// If no API key provided, reuse existing one (update scenario)
 	apiKey := body.APIKey
+	existing, existingErr := s.keyStore.GetProviderConnection(projectID, provider)
 	if apiKey == "" {
-		existing, err := s.keyStore.GetProviderConnection(projectID, provider)
-		if err != nil || existing.APIKey == "" {
+		if existingErr != nil || existing.APIKey == "" {
 			writeError(w, http.StatusBadRequest, "api_key is required for new connections")
 			return
 		}
 		apiKey = existing.APIKey
+	}
+
+	// On update, keep existing limits if not provided (0 = keep existing)
+	limitBacklinks := body.LimitBacklinks
+	limitRefdomains := body.LimitRefdomains
+	limitRankings := body.LimitRankings
+	limitTopPages := body.LimitTopPages
+	if existingErr == nil {
+		if limitBacklinks == 0 {
+			limitBacklinks = existing.LimitBacklinks
+		}
+		if limitRefdomains == 0 {
+			limitRefdomains = existing.LimitRefdomains
+		}
+		if limitRankings == 0 {
+			limitRankings = existing.LimitRankings
+		}
+		if limitTopPages == 0 {
+			limitTopPages = existing.LimitTopPages
+		}
 	}
 
 	// Validate key by calling the provider API
@@ -67,10 +91,14 @@ func (s *Server) handleProviderConnect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	conn := &providers.ProviderConnection{
-		ProjectID: projectID,
-		Provider:  provider,
-		Domain:    body.Domain,
-		APIKey:    apiKey,
+		ProjectID:       projectID,
+		Provider:        provider,
+		Domain:          body.Domain,
+		APIKey:          apiKey,
+		LimitBacklinks:  limitBacklinks,
+		LimitRefdomains: limitRefdomains,
+		LimitRankings:   limitRankings,
+		LimitTopPages:   limitTopPages,
 	}
 	if err := s.keyStore.SaveProviderConnection(conn); err != nil {
 		internalError(w, r, err)
@@ -100,10 +128,14 @@ func (s *Server) handleProviderStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := map[string]interface{}{
-		"connected":  true,
-		"domain":     conn.Domain,
-		"provider":   conn.Provider,
-		"created_at": conn.CreatedAt,
+		"connected":        true,
+		"domain":           conn.Domain,
+		"provider":         conn.Provider,
+		"created_at":       conn.CreatedAt,
+		"limit_backlinks":  providers.EffectiveLimit(conn.LimitBacklinks),
+		"limit_refdomains": providers.EffectiveLimit(conn.LimitRefdomains),
+		"limit_rankings":   providers.EffectiveLimit(conn.LimitRankings),
+		"limit_top_pages":  providers.EffectiveLimit(conn.LimitTopPages),
 	}
 
 	key := projectID + ":" + provider
@@ -276,7 +308,7 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 		if ctx.Err() != nil {
 			return
 		}
-		backlinks, meta, err := client.FetchBacklinks(ctx, domain, 1000)
+		backlinks, meta, err := client.FetchBacklinks(ctx, domain, providers.EffectiveLimit(conn.LimitBacklinks))
 		s.logAPICall(ctx, meta, projectID, provider, len(backlinks), err)
 		if err != nil {
 			applog.Errorf("provider", "backlinks error: %v", err)
@@ -306,7 +338,7 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 		if ctx.Err() != nil {
 			return
 		}
-		refdoms, meta, err := client.FetchRefDomains(ctx, domain, 1000)
+		refdoms, meta, err := client.FetchRefDomains(ctx, domain, providers.EffectiveLimit(conn.LimitRefdomains))
 		s.logAPICall(ctx, meta, projectID, provider, len(refdoms), err)
 		if err != nil {
 			applog.Errorf("provider", "refdomains error: %v", err)
@@ -334,7 +366,7 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 		if ctx.Err() != nil {
 			return
 		}
-		rankings, meta, err := client.FetchRankings(ctx, domain, "fr", 1000, 0)
+		rankings, meta, err := client.FetchRankings(ctx, domain, "fr", providers.EffectiveLimit(conn.LimitRankings), 0)
 		s.logAPICall(ctx, meta, projectID, provider, len(rankings), err)
 		if err != nil {
 			applog.Errorf("provider", "rankings error: %v", err)
@@ -394,7 +426,7 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 			if ctx.Err() != nil {
 				return
 			}
-			pages, meta, err := client.FetchTopPages(ctx, domain, 1000)
+			pages, meta, err := client.FetchTopPages(ctx, domain, providers.EffectiveLimit(conn.LimitTopPages))
 			s.logAPICall(ctx, meta, projectID, provider, len(pages), err)
 			if err != nil {
 				applog.Errorf("provider", "top_pages error: %v", err)

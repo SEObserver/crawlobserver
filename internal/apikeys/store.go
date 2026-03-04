@@ -152,6 +152,16 @@ func NewStore(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("creating provider_connections table: %w", err)
 	}
 
+	// Migrate: add limit columns to provider_connections
+	for _, col := range []string{
+		"ALTER TABLE provider_connections ADD COLUMN limit_backlinks INTEGER NOT NULL DEFAULT 1000",
+		"ALTER TABLE provider_connections ADD COLUMN limit_refdomains INTEGER NOT NULL DEFAULT 1000",
+		"ALTER TABLE provider_connections ADD COLUMN limit_rankings INTEGER NOT NULL DEFAULT 1000",
+		"ALTER TABLE provider_connections ADD COLUMN limit_top_pages INTEGER NOT NULL DEFAULT 1000",
+	} {
+		db.Exec(col) // ignore duplicate column errors
+	}
+
 	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS extractor_sets (
 			id TEXT PRIMARY KEY,
@@ -745,21 +755,28 @@ func (s *Store) SaveProviderConnection(conn *providers.ProviderConnection) error
 		conn.ID = uuid.New().String()
 	}
 	_, err := s.db.Exec(`
-		INSERT INTO provider_connections (id, project_id, provider, domain, api_key, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO provider_connections (id, project_id, provider, domain, api_key, limit_backlinks, limit_refdomains, limit_rankings, limit_top_pages, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(project_id, provider) DO UPDATE SET
 			domain = excluded.domain,
-			api_key = excluded.api_key`,
-		conn.ID, conn.ProjectID, conn.Provider, conn.Domain, conn.APIKey, time.Now().UTC())
+			api_key = excluded.api_key,
+			limit_backlinks = excluded.limit_backlinks,
+			limit_refdomains = excluded.limit_refdomains,
+			limit_rankings = excluded.limit_rankings,
+			limit_top_pages = excluded.limit_top_pages`,
+		conn.ID, conn.ProjectID, conn.Provider, conn.Domain, conn.APIKey,
+		conn.LimitBacklinks, conn.LimitRefdomains, conn.LimitRankings, conn.LimitTopPages,
+		time.Now().UTC())
 	return err
 }
 
 func (s *Store) GetProviderConnection(projectID, provider string) (*providers.ProviderConnection, error) {
 	var c providers.ProviderConnection
 	err := s.db.QueryRow(`
-		SELECT id, project_id, provider, domain, api_key, created_at
+		SELECT id, project_id, provider, domain, api_key, limit_backlinks, limit_refdomains, limit_rankings, limit_top_pages, created_at
 		FROM provider_connections WHERE project_id = ? AND provider = ?`, projectID, provider).
-		Scan(&c.ID, &c.ProjectID, &c.Provider, &c.Domain, &c.APIKey, &c.CreatedAt)
+		Scan(&c.ID, &c.ProjectID, &c.Provider, &c.Domain, &c.APIKey,
+			&c.LimitBacklinks, &c.LimitRefdomains, &c.LimitRankings, &c.LimitTopPages, &c.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -779,7 +796,7 @@ func (s *Store) DeleteProviderConnection(projectID, provider string) error {
 }
 
 func (s *Store) ListProviderConnections(projectID string) ([]providers.ProviderConnection, error) {
-	rows, err := s.db.Query(`SELECT id, project_id, provider, domain, api_key, created_at FROM provider_connections WHERE project_id = ? ORDER BY created_at DESC`, projectID)
+	rows, err := s.db.Query(`SELECT id, project_id, provider, domain, api_key, limit_backlinks, limit_refdomains, limit_rankings, limit_top_pages, created_at FROM provider_connections WHERE project_id = ? ORDER BY created_at DESC`, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -788,7 +805,8 @@ func (s *Store) ListProviderConnections(projectID string) ([]providers.ProviderC
 	var conns []providers.ProviderConnection
 	for rows.Next() {
 		var c providers.ProviderConnection
-		if err := rows.Scan(&c.ID, &c.ProjectID, &c.Provider, &c.Domain, &c.APIKey, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.ProjectID, &c.Provider, &c.Domain, &c.APIKey,
+			&c.LimitBacklinks, &c.LimitRefdomains, &c.LimitRankings, &c.LimitTopPages, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		conns = append(conns, c)

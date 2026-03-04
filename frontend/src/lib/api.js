@@ -1080,11 +1080,18 @@ export async function getProviderConnections(projectId) {
  * @param {string} domain
  * @returns {Promise<Object>}
  */
-export async function connectProvider(projectId, provider, apiKey, domain) {
+export async function connectProvider(projectId, provider, apiKey, domain, limits = {}) {
   return fetchJSON(`/projects/${projectId}/providers/${provider}/connect`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ api_key: apiKey || '', domain }),
+    body: JSON.stringify({
+      api_key: apiKey || '',
+      domain,
+      limit_backlinks: limits.backlinks || 0,
+      limit_refdomains: limits.refdomains || 0,
+      limit_rankings: limits.rankings || 0,
+      limit_top_pages: limits.top_pages || 0,
+    }),
   });
 }
 
@@ -1112,9 +1119,10 @@ export async function getProviderStatus(projectId, provider) {
  * @param {string[]} dataTypes
  * @returns {Promise<Object>}
  */
-export async function fetchProviderData(projectId, provider, dataTypes = []) {
+export async function fetchProviderData(projectId, provider, dataTypes = [], force = false) {
   const body = {};
   if (dataTypes.length > 0) body.data_types = dataTypes;
+  if (force) body.force = true;
   return fetchJSON(`/projects/${projectId}/providers/${provider}/fetch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1285,9 +1293,13 @@ export async function getPageRankWeightedTop(
   limit = PAGERANK_LIMIT,
   offset = 0,
   directory = '',
+  sort = '',
+  order = '',
 ) {
   let url = `/sessions/${sessionId}/pagerank-weighted-top?project_id=${encodeURIComponent(projectId)}&limit=${limit}&offset=${offset}`;
   if (directory) url += `&directory=${encodeURIComponent(directory)}`;
+  if (sort) url += `&sort=${encodeURIComponent(sort)}`;
+  if (order) url += `&order=${encodeURIComponent(order)}`;
   return fetchJSON(url);
 }
 

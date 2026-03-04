@@ -36,6 +36,10 @@
   let connecting = $state(false);
   let settingsDomain = $state('');
   let settingsApiKey = $state('');
+  let settingsLimitBacklinks = $state(1000);
+  let settingsLimitRefdomains = $state(1000);
+  let settingsLimitRankings = $state(1000);
+  let settingsLimitTopPages = $state(1000);
   let updating = $state(false);
 
   // Data
@@ -336,11 +340,14 @@
     }
   }
 
-  async function doFetch(dataTypes = []) {
+  let fetchMenuOpen = $state(false);
+
+  async function doFetch(dataTypes = [], force = false) {
+    fetchMenuOpen = false;
     fetchingData = true;
     fetchStatus = { fetching: true, phase: 'starting', rows_so_far: 0 };
     try {
-      await fetchProviderData(projectId, provider, dataTypes);
+      await fetchProviderData(projectId, provider, dataTypes, force);
       startPolling();
     } catch (e) {
       onerror?.(e.message);
@@ -384,10 +391,19 @@
     if (!settingsDomain) return;
     updating = true;
     try {
-      await connectProvider(projectId, provider, settingsApiKey || undefined, settingsDomain);
+      await connectProvider(projectId, provider, settingsApiKey || undefined, settingsDomain, {
+        backlinks: settingsLimitBacklinks,
+        refdomains: settingsLimitRefdomains,
+        rankings: settingsLimitRankings,
+        top_pages: settingsLimitTopPages,
+      });
       settingsApiKey = '';
       await loadStatus();
       settingsDomain = status.domain || '';
+      settingsLimitBacklinks = status?.limit_backlinks || 1000;
+      settingsLimitRefdomains = status?.limit_refdomains || 1000;
+      settingsLimitRankings = status?.limit_rankings || 1000;
+      settingsLimitTopPages = status?.limit_top_pages || 1000;
     } catch (e) {
       onerror?.(e.message);
     } finally {
@@ -462,6 +478,10 @@
     if (view === 'settings') {
       settingsDomain = status?.domain || '';
       settingsApiKey = '';
+      settingsLimitBacklinks = status?.limit_backlinks || 1000;
+      settingsLimitRefdomains = status?.limit_refdomains || 1000;
+      settingsLimitRankings = status?.limit_rankings || 1000;
+      settingsLimitTopPages = status?.limit_top_pages || 1000;
     }
     onpushurl?.(`/projects/${projectId}/providers/${view}`);
     loadSubView(view);
@@ -472,7 +492,8 @@
   });
 </script>
 
-<div class="pr-container">
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<div class="pr-container" onclick={() => (fetchMenuOpen = false)}>
   {#if !projectId}
     <div class="prov-empty">
       <p>{t('providers.notAssociated')}</p>
@@ -498,7 +519,17 @@
             </span>
             <button class="btn btn-sm text-danger" onclick={doStop}>{t('common.stop')}</button>
           {:else}
-            <button class="btn btn-sm" onclick={doFetch}>{t('providers.fetchData')}</button>
+            <div class="split-btn-wrap">
+              <button class="btn btn-sm" onclick={() => doFetch()}>{t('providers.fetchData')}</button>
+              <button class="btn btn-sm split-btn-arrow" onclick={(e) => { e.stopPropagation(); fetchMenuOpen = !fetchMenuOpen; }} aria-label="More fetch options">
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="currentColor"><path d="M0 0l5 6 5-6z"/></svg>
+              </button>
+              {#if fetchMenuOpen}
+                <div class="split-btn-menu" role="menu">
+                  <button class="split-btn-item" onclick={() => doFetch([], true)}>{t('providers.forceRefresh')}</button>
+                </div>
+              {/if}
+            </div>
           {/if}
         </div>
       </div>
@@ -1226,6 +1257,27 @@
               placeholder={t('providers.keepCurrentKey')}
             />
           </label>
+          <h4 class="prov-settings-subtitle">{t('providers.fetchLimits')}</h4>
+          <p class="text-muted text-sm" style="margin-bottom:8px">{t('providers.fetchLimitsHelp')}</p>
+          <div class="prov-limits-grid">
+            <label class="settings-field-label">
+              {t('providers.limitBacklinks')}
+              <input type="number" class="pr-input" bind:value={settingsLimitBacklinks} min="1" max="10000" />
+            </label>
+            <label class="settings-field-label">
+              {t('providers.limitRefdomains')}
+              <input type="number" class="pr-input" bind:value={settingsLimitRefdomains} min="1" max="10000" />
+            </label>
+            <label class="settings-field-label">
+              {t('providers.limitRankings')}
+              <input type="number" class="pr-input" bind:value={settingsLimitRankings} min="1" max="10000" />
+            </label>
+            <label class="settings-field-label">
+              {t('providers.limitTopPages')}
+              <input type="number" class="pr-input" bind:value={settingsLimitTopPages} min="1" max="10000" />
+            </label>
+          </div>
+
           <button
             class="btn btn-primary prov-settings-submit"
             onclick={doUpdate}
@@ -1284,6 +1336,48 @@
   .badge-warn {
     background: #f59e0b22;
     color: #d97706;
+  }
+  .split-btn-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+  .split-btn-wrap > .btn:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .split-btn-arrow {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-left: 1px solid var(--border) !important;
+    padding-inline: 6px !important;
+    min-width: 0;
+  }
+  .split-btn-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+    z-index: 20;
+    min-width: 160px;
+  }
+  .split-btn-item {
+    display: block;
+    width: 100%;
+    padding: 7px 12px;
+    text-align: left;
+    font-size: 13px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: 6px;
+  }
+  .split-btn-item:hover {
+    background: var(--bg-hover);
   }
   .fetch-indicator {
     display: flex;
@@ -1413,6 +1507,12 @@
   }
   .prov-settings-submit {
     align-self: flex-start;
+  }
+  .prov-limits-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
   }
   .prov-danger-zone {
     margin-top: 32px;
