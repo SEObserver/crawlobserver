@@ -10,7 +10,7 @@ import (
 
 func newTestClient(handler http.HandlerFunc) (*Client, *httptest.Server) {
 	ts := httptest.NewServer(handler)
-	c := NewClient("test-key")
+	c := NewClient("test-key", "1.2.3")
 	c.baseURL = ts.URL
 	return c, ts
 }
@@ -20,6 +20,20 @@ func jsonResp(status string, data interface{}) []byte {
 	resp := apiResponse{Status: status, Data: json.RawMessage(d)}
 	b, _ := json.Marshal(resp)
 	return b
+}
+
+func TestDoRequest_SetsUserAgent(t *testing.T) {
+	var gotUA string
+	c, ts := newTestClient(func(w http.ResponseWriter, r *http.Request) {
+		gotUA = r.Header.Get("User-Agent")
+		w.Write(jsonResp("ok", nil))
+	})
+	defer ts.Close()
+
+	c.get(context.Background(), "test")
+	if gotUA != "CrawlObserver-API/1.2.3" {
+		t.Errorf("got User-Agent %q, want %q", gotUA, "CrawlObserver-API/1.2.3")
+	}
 }
 
 func TestDoRequest_SetsAPIKeyHeader(t *testing.T) {

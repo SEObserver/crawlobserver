@@ -12,17 +12,19 @@ import (
 
 // Client is an HTTP client for the SEObserver API.
 type Client struct {
-	apiKey  string
-	baseURL string
-	http    *http.Client
+	apiKey    string
+	baseURL   string
+	userAgent string
+	http      *http.Client
 }
 
 // NewClient creates a new SEObserver API client.
-func NewClient(apiKey string) *Client {
+func NewClient(apiKey, appVersion string) *Client {
 	return &Client{
-		apiKey:  apiKey,
-		baseURL: "https://api1.seobserver.com",
-		http:    &http.Client{Timeout: 60 * time.Second},
+		apiKey:    apiKey,
+		baseURL:   "https://api1.seobserver.com",
+		userAgent: "CrawlObserver-API/" + appVersion,
+		http:      &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
@@ -53,6 +55,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 	if err != nil {
 		return nil, meta, fmt.Errorf("creating request: %w", err)
 	}
+	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("X-SEObserver-key", c.apiKey)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

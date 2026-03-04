@@ -12,6 +12,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/providers"
 	"github.com/SEObserver/crawlobserver/internal/seobserver"
 	"github.com/SEObserver/crawlobserver/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/updater"
 )
 
 func (s *Server) handleListProviderConnections(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +56,7 @@ func (s *Server) handleProviderConnect(w http.ResponseWriter, r *http.Request) {
 	// Validate key by calling the provider API
 	switch provider {
 	case "seobserver":
-		client := seobserver.NewClient(apiKey)
+		client := seobserver.NewClient(apiKey, updater.Version)
 		if _, _, err := client.GetDomainMetrics(r.Context(), body.Domain); err != nil {
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("SEObserver API validation failed: %v", err))
 			return
@@ -201,7 +202,7 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 	var client *seobserver.Client
 	switch provider {
 	case "seobserver":
-		client = seobserver.NewClient(conn.APIKey)
+		client = seobserver.NewClient(conn.APIKey, updater.Version)
 	default:
 		now := time.Now()
 		s.providerFetchMu.Lock()
