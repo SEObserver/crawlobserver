@@ -439,7 +439,11 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 			e.renderPool.Close()
 		}
 
-		// Shutdown optional workers
+		// Cancel engine context to abort in-flight external/resource check HTTP requests.
+		// Pages and links are already fully processed at this point.
+		e.cancel()
+
+		// Shutdown optional workers (they'll drain quickly now that context is cancelled)
 		if e.checkExternal && e.externalCh != nil {
 			close(e.externalCh)
 			extWg.Wait()
@@ -930,6 +934,9 @@ func computeIndexability(statusCode uint16, metaRobots, xRobotsTag, canonical, f
 func (e *Engine) externalCheckWorker() {
 	client := e.newCheckClient()
 	for rawURL := range e.externalCh {
+		if e.ctx.Err() != nil {
+			continue // Skip remaining items during shutdown
+		}
 		start := time.Now()
 		check := storage.ExternalLinkCheck{
 			CrawlSessionID: e.session.ID,
@@ -981,7 +988,9 @@ func (e *Engine) flushExternalChecks() {
 	e.externalCheckBuf = nil
 	e.externalCheckMu.Unlock()
 	if len(batch) > 0 {
-		if err := e.store.InsertExternalLinkChecks(e.ctx, batch); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := e.store.InsertExternalLinkChecks(ctx, batch); err != nil {
 			applog.Warnf("crawler", "failed to flush external link checks: %v", err)
 		} else {
 			applog.Infof("crawler", "Flushed %d external link checks", len(batch))
@@ -993,6 +1002,9 @@ func (e *Engine) flushExternalChecks() {
 func (e *Engine) resourceCheckWorker() {
 	client := e.newCheckClient()
 	for item := range e.resourceCh {
+		if e.ctx.Err() != nil {
+			continue // Skip remaining items during shutdown
+		}
 		start := time.Now()
 		check := storage.PageResourceCheck{
 			CrawlSessionID: e.session.ID,
@@ -1046,7 +1058,9 @@ func (e *Engine) flushResourceChecks() {
 	e.resourceCheckBuf = nil
 	e.resourceCheckMu.Unlock()
 	if len(batch) > 0 {
-		if err := e.store.InsertPageResourceChecks(e.ctx, batch); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := e.store.InsertPageResourceChecks(ctx, batch); err != nil {
 			applog.Warnf("crawler", "failed to flush page resource checks: %v", err)
 		} else {
 			applog.Infof("crawler", "Flushed %d page resource checks", len(batch))
@@ -1075,7 +1089,9 @@ func (e *Engine) flushResourceRefs() {
 	e.resourceRefBuf = nil
 	e.resourceRefMu.Unlock()
 	if len(batch) > 0 {
-		if err := e.store.InsertPageResourceRefs(e.ctx, batch); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := e.store.InsertPageResourceRefs(ctx, batch); err != nil {
 			applog.Warnf("crawler", "failed to flush page resource refs: %v", err)
 		} else {
 			applog.Infof("crawler", "Flushed %d page resource refs", len(batch))
