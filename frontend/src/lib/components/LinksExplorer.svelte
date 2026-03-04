@@ -408,15 +408,4 @@
   .links-explorer {
     padding: 24px;
   }
-  .premium-star {
-    color: #c9a227;
-    font-size: 12px;
-    margin-right: 2px;
-  }
-  .pr-subview-premium {
-    color: #b8960c;
-  }
-  .pr-subview-premium.pr-subview-active {
-    border-bottom-color: #c9a227;
-  }
 </style>

@@ -922,6 +922,28 @@ tr:hover .url-actions {
   background: var(--accent-hover);
   color: var(--accent-text);
 }
+.pr-subview-premium {
+  color: #b8960c;
+}
+.pr-subview-premium:hover {
+  color: #a68400;
+}
+.pr-subview-premium.pr-subview-active {
+  background: #c9a227;
+  color: #fff;
+}
+.pr-subview-premium.pr-subview-active:hover {
+  background: #b8920f;
+  color: #fff;
+}
+.premium-star {
+  color: #c9a227;
+  font-size: 12px;
+  margin-right: 2px;
+}
+.pr-subview-active .premium-star {
+  color: inherit;
+}
 
 /* ===== Donut Chart ===== */
 .donut-container {

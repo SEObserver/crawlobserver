@@ -753,22 +753,24 @@
     border-bottom-color: var(--accent, #4f8ef7);
   }
   .links-tab-premium {
-    color: #c9a227;
+    color: #b8960c;
   }
   .links-tab-premium:hover {
-    color: #e6b800;
+    color: #a68400;
   }
   .links-tab-premium.links-tab-active {
-    color: #c9a227;
+    background: #c9a227;
+    color: #fff;
     border-bottom-color: #c9a227;
+    border-radius: 6px 6px 0 0;
   }
   .tab-count {
     font-weight: 400;
     opacity: 0.7;
     font-size: 12px;
   }
-  .premium-star {
-    font-size: 12px;
+  .links-tab-active .premium-star {
+    color: inherit;
   }
   .bl-locked {
     text-align: center;
