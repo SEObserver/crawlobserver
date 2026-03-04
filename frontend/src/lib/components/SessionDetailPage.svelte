@@ -190,6 +190,7 @@
     {:else if tab === 'pagerank'}
       <PageRankTab
         sessionId={session.ID}
+        projectId={session.ProjectID}
         initialSubView={subView || 'top'}
         onnavigate={(url) => goToUrlDetail({ preventDefault: () => {} }, url)}
         onpushurl={(u) => pushURL(u)}

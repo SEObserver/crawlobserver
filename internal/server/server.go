@@ -122,6 +122,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/sessions/{id}/pagerank-distribution", s.handlePageRankDistribution)
 	mux.HandleFunc("GET /api/sessions/{id}/pagerank-treemap", s.handlePageRankTreemap)
 	mux.HandleFunc("GET /api/sessions/{id}/pagerank-top", s.handlePageRankTop)
+	mux.HandleFunc("GET /api/sessions/{id}/pagerank-weighted-top", s.handleWeightedPageRankTop)
 	mux.HandleFunc("GET /api/sessions/{id}/robots", s.handleRobotsHosts)
 	mux.HandleFunc("GET /api/sessions/{id}/robots-content", s.handleRobotsContent)
 	mux.HandleFunc("GET /api/sessions/{id}/sitemaps", s.handleSitemaps)

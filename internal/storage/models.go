@@ -427,6 +427,27 @@ type RedirectPageRow struct {
 	InboundInternalLinks uint64 `json:"inbound_internal_links"`
 }
 
+// WeightedPageRankPage represents a page with weighted PageRank combining internal PR and SEObserver data.
+type WeightedPageRankPage struct {
+	URL              string   `json:"url"`
+	PageRank         float64  `json:"pagerank"`
+	WeightedPR       float64  `json:"weighted_pr"`
+	TrustFlow        *uint8   `json:"trust_flow"`
+	CitationFlow     *uint8   `json:"citation_flow"`
+	ExtBackLinks     *int64   `json:"ext_backlinks"`
+	RefDomains       *int64   `json:"ref_domains"`
+	Depth            uint16   `json:"depth"`
+	InternalLinksOut uint32   `json:"internal_links_out"`
+	StatusCode       uint16   `json:"status_code"`
+	Title            string   `json:"title"`
+}
+
+// WeightedPageRankResult wraps paginated weighted PageRank results.
+type WeightedPageRankResult struct {
+	Pages []WeightedPageRankPage `json:"pages"`
+	Total uint64                 `json:"total"`
+}
+
 // ResourceTypeSummary holds aggregated stats for one resource type.
 type ResourceTypeSummary struct {
 	ResourceType string `json:"resource_type"`

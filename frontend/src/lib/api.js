@@ -1271,6 +1271,26 @@ export async function getRedirectPages(
   return fetchJSON(url);
 }
 
+/**
+ * @param {string} sessionId
+ * @param {string} projectId
+ * @param {number} limit
+ * @param {number} offset
+ * @param {string} directory
+ * @returns {Promise<Object>}
+ */
+export async function getPageRankWeightedTop(
+  sessionId,
+  projectId,
+  limit = PAGERANK_LIMIT,
+  offset = 0,
+  directory = '',
+) {
+  let url = `/sessions/${sessionId}/pagerank-weighted-top?project_id=${encodeURIComponent(projectId)}&limit=${limit}&offset=${offset}`;
+  if (directory) url += `&directory=${encodeURIComponent(directory)}`;
+  return fetchJSON(url);
+}
+
 /** @returns {Promise<{rows: Array, total: number}>} */
 export async function getSessionAuthority(sessionId, projectId, limit = 100, offset = 0) {
   return fetchJSON(

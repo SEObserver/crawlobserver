@@ -643,6 +643,26 @@ func (s *Server) handlePageRankTop(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+func (s *Server) handleWeightedPageRankTop(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	projectID := r.URL.Query().Get("project_id")
+	if projectID == "" {
+		writeError(w, http.StatusBadRequest, "project_id is required")
+		return
+	}
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	limit, offset := clampPagination(queryInt(r, "limit", 50), queryInt(r, "offset", 0))
+	directory := r.URL.Query().Get("directory")
+	result, err := s.store.WeightedPageRankTop(r.Context(), sessionID, projectID, limit, offset, directory)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
 func (s *Server) handleRobotsHosts(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
 	if !s.requireSessionAccess(w, r, sessionID) {

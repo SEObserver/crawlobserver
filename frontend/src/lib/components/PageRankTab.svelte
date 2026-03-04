@@ -3,6 +3,7 @@
     getPageRankTop,
     getPageRankTreemap,
     getPageRankDistribution,
+    getPageRankWeightedTop,
     computePageRank,
   } from '../api.js';
   import { fetchAll, downloadCSV } from '../utils.js';
@@ -11,9 +12,10 @@
   import PageRankTreemap from './PageRankTreemap.svelte';
   import PageRankDistribution from './PageRankDistribution.svelte';
   import PageRankTableView from './PageRankTableView.svelte';
+  import PageRankWeightedView from './PageRankWeightedView.svelte';
   import PageRankTooltip from './PageRankTooltip.svelte';
 
-  let { sessionId, initialSubView = 'top', onnavigate, onpushurl, onerror, onrefresh } = $props();
+  let { sessionId, projectId, initialSubView = 'top', onnavigate, onpushurl, onerror, onrefresh } = $props();
 
   let prSubView = $state(initialSubView);
   let prLoading = $state(false);
@@ -27,6 +29,9 @@
   let prTableData = $state(null);
   let prTableOffset = $state(0);
   let prTableDir = $state('');
+  let prWeightedData = $state(null);
+  let prWeightedOffset = $state(0);
+  let prWeightedLimit = $state(50);
   let prTooltip = $state(null);
   let hasData = $state(null); // null = unknown, true/false after first load
   let computingPR = $state(false);
@@ -40,6 +45,8 @@
       } else if (view === 'directory')
         prTreemapData = await getPageRankTreemap(sessionId, prTreemapDepth, prTreemapMinPages);
       else if (view === 'distribution') prDistData = await getPageRankDistribution(sessionId, 20);
+      else if (view === 'weighted' && projectId)
+        prWeightedData = await getPageRankWeightedTop(sessionId, projectId, prWeightedLimit, prWeightedOffset);
       else if (view === 'table')
         prTableData = await getPageRankTop(sessionId, 50, prTableOffset, prTableDir);
     } catch (e) {
@@ -53,6 +60,7 @@
     prSubView = view;
     if (view === 'top') prTopOffset = 0;
     if (view === 'table') prTableOffset = 0;
+    if (view === 'weighted') prWeightedOffset = 0;
     onpushurl?.(`/sessions/${sessionId}/pagerank/${view}`);
     loadPRSubView(view);
   }
@@ -153,6 +161,11 @@
         class="pr-subview-btn"
         class:pr-subview-active={prSubView === 'table'}
         onclick={() => switchPRSubView('table')}>{t('pagerank.fullTable')}</button
+      >
+      <button
+        class="pr-subview-btn pr-subview-premium"
+        class:pr-subview-active={prSubView === 'weighted'}
+        onclick={() => switchPRSubView('weighted')}>&#9733; {t('pagerank.weighted')}</button
       >
     </div>
     {#if canExportCSV}
@@ -318,6 +331,29 @@
       ontooltip={(t) => (prTooltip = t)}
       ondrill={drillHistToTable}
     />
+  {:else if prSubView === 'weighted'}
+    {#if !projectId}
+      <div class="pr-empty-state">
+        <p class="pr-empty-text">{t('pagerank.weightedNeedProject')}</p>
+      </div>
+    {:else}
+      <PageRankWeightedView
+        data={prWeightedData}
+        offset={prWeightedOffset}
+        limit={prWeightedLimit}
+        {onnavigate}
+        ontooltip={(t) => (prTooltip = t)}
+        onlimitchange={(l) => {
+          prWeightedLimit = l;
+          prWeightedOffset = 0;
+          loadPRSubView('weighted');
+        }}
+        onpagechange={(o) => {
+          prWeightedOffset = o;
+          loadPRSubView('weighted');
+        }}
+      />
+    {/if}
   {:else if prSubView === 'table'}
     <PageRankTableView
       data={prTableData}
@@ -370,5 +406,11 @@
   }
   .pr-recalc-btn {
     margin-left: auto;
+  }
+  .pr-subview-premium {
+    color: #b8960c;
+  }
+  .pr-subview-premium.pr-subview-active {
+    border-bottom-color: #c9a227;
   }
 </style>

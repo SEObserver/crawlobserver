@@ -1255,3 +1255,99 @@ func (s *Store) PagesWithAuthority(ctx context.Context, sessionID, projectID str
 	}
 	return result, int(total), nil
 }
+
+// WeightedPageRankTop returns pages ranked by a weighted PageRank that fuses internal PR with SEObserver data.
+func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID string, limit, offset int, directory string) (*WeightedPageRankResult, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	result := &WeightedPageRankResult{}
+
+	// Count pages with PR > 0
+	countQuery := `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ? AND pagerank > 0`
+	countArgs := []interface{}{sessionID}
+	if directory != "" {
+		countQuery += ` AND url LIKE ?`
+		countArgs = append(countArgs, "%"+directory+"%")
+	}
+	if err := s.conn.QueryRow(ctx, countQuery, countArgs...).Scan(&result.Total); err != nil {
+		return nil, fmt.Errorf("counting weighted pagerank pages: %w", err)
+	}
+
+	// Main query with weighted PR calculation
+	// Wrap tables in subqueries to avoid FINAL + CROSS JOIN syntax issues in ClickHouse
+	query := `
+		SELECT
+			p.url,
+			p.pagerank,
+			if(t.trust_flow > 0 OR t.citation_flow > 0,
+				0.40 * p.pagerank
+				+ 0.25 * t.trust_flow
+				+ 0.10 * t.citation_flow
+				+ 0.15 * if(m.max_log_rd > 0, 100.0 * log1p(t.ref_domains) / m.max_log_rd, 0)
+				+ 0.10 * if(m.max_log_bl > 0, 100.0 * log1p(t.ext_backlinks) / m.max_log_bl, 0),
+				p.pagerank
+			) AS weighted_pr,
+			t.trust_flow,
+			t.citation_flow,
+			t.ext_backlinks,
+			t.ref_domains,
+			p.depth,
+			p.internal_links_out,
+			p.status_code,
+			p.title
+		FROM (
+			SELECT url, pagerank, depth, internal_links_out, status_code, title
+			FROM crawlobserver.pages FINAL
+			WHERE crawl_session_id = ? AND pagerank > 0
+		) AS p
+		CROSS JOIN (
+			SELECT
+				max(log1p(ext_backlinks)) AS max_log_bl,
+				max(log1p(ref_domains)) AS max_log_rd
+			FROM crawlobserver.provider_data
+			WHERE project_id = ? AND provider = 'seobserver' AND data_type = 'top_pages'
+		) AS m
+		LEFT JOIN (
+			SELECT trimRight(item_url, '/') AS item_url_norm, trust_flow, citation_flow, ext_backlinks, ref_domains
+			FROM crawlobserver.provider_data FINAL
+			WHERE project_id = ? AND provider = 'seobserver' AND data_type = 'top_pages'
+		) AS t ON trimRight(p.url, '/') = t.item_url_norm
+		WHERE 1=1`
+
+	args := []interface{}{sessionID, projectID, projectID}
+	if directory != "" {
+		query += ` AND p.url LIKE ?`
+		args = append(args, "%"+directory+"%")
+	}
+	query += ` ORDER BY weighted_pr DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := s.conn.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("querying weighted pagerank: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var p WeightedPageRankPage
+		var tf, cf uint8
+		var extBL, rd int64
+		if err := rows.Scan(&p.URL, &p.PageRank, &p.WeightedPR, &tf, &cf, &extBL, &rd,
+			&p.Depth, &p.InternalLinksOut, &p.StatusCode, &p.Title); err != nil {
+			return nil, fmt.Errorf("scanning weighted pagerank row: %w", err)
+		}
+		if tf > 0 || cf > 0 {
+			p.TrustFlow = &tf
+			p.CitationFlow = &cf
+			p.ExtBackLinks = &extBL
+			p.RefDomains = &rd
+		}
+		result.Pages = append(result.Pages, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating weighted pagerank rows: %w", err)
+	}
+	return result, nil
+}

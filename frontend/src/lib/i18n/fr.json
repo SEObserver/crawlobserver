@@ -491,6 +491,10 @@
   "pagerank.median": "Médiane",
   "pagerank.p90": "P90",
   "pagerank.p99": "P99",
+  "pagerank.weighted": "Pondéré",
+  "pagerank.weightedPR": "PR pondéré",
+  "pagerank.internalPR": "PR int.",
+  "pagerank.weightedNeedProject": "Associez cette session à un projet avec données SEObserver pour voir le PageRank pondéré.",
   "pagerank.score": "Score de PageRank interne",
   "pagerank.pagesLog": "Pages (log)",
 

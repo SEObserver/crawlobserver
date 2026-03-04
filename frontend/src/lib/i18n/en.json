@@ -491,6 +491,10 @@
   "pagerank.median": "Median",
   "pagerank.p90": "P90",
   "pagerank.p99": "P99",
+  "pagerank.weighted": "Weighted",
+  "pagerank.weightedPR": "Weighted PR",
+  "pagerank.internalPR": "Int. PR",
+  "pagerank.weightedNeedProject": "Associate this session with a project that has SEObserver data to see Weighted PageRank.",
   "pagerank.score": "Internal PageRank Score",
   "pagerank.pagesLog": "Pages (log)",
 

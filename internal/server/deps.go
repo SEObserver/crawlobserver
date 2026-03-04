@@ -35,6 +35,7 @@ type CrawlStore interface {
 	PageRankDistribution(ctx context.Context, sessionID string, buckets int) (*storage.PageRankDistributionResult, error)
 	PageRankTreemap(ctx context.Context, sessionID string, depth, minPages int) ([]storage.PageRankTreemapEntry, error)
 	PageRankTop(ctx context.Context, sessionID string, limit, offset int, directory string) (*storage.PageRankTopResult, error)
+	WeightedPageRankTop(ctx context.Context, sessionID, projectID string, limit, offset int, directory string) (*storage.WeightedPageRankResult, error)
 	GetRobotsHosts(ctx context.Context, sessionID string) ([]storage.RobotsRow, error)
 	GetRobotsContent(ctx context.Context, sessionID, host string) (*storage.RobotsRow, error)
 	GetURLsByHost(ctx context.Context, sessionID, host string) ([]string, error)
