@@ -213,6 +213,9 @@ func (m *mockStore) PageRankTreemap(_ context.Context, _ string, _, _ int) ([]st
 func (m *mockStore) PageRankTop(_ context.Context, _ string, _, _ int, _ string) (*storage.PageRankTopResult, error) {
 	return m.pagerankTop, m.err
 }
+func (m *mockStore) WeightedPageRankTop(_ context.Context, _, _ string, _, _ int, _, _, _ string) (*storage.WeightedPageRankResult, error) {
+	return nil, m.err
+}
 
 func (m *mockStore) GetRobotsHosts(_ context.Context, _ string) ([]storage.RobotsRow, error) {
 	return m.robotsHosts, m.err
@@ -393,6 +396,15 @@ func (m *mockStore) ProviderTopPages(_ context.Context, _, _ string, _, _ int) (
 }
 func (m *mockStore) InsertProviderAPICalls(_ context.Context, _ []storage.ProviderAPICallRow) error {
 	return m.err
+}
+func (m *mockStore) InsertProviderData(_ context.Context, _ string, _ []storage.ProviderDataRow) error {
+	return m.err
+}
+func (m *mockStore) ProviderData(_ context.Context, _, _, _ string, _, _ int, _ []storage.ParsedFilter, _ *storage.SortParam) ([]storage.ProviderDataRow, int, error) {
+	return nil, 0, m.err
+}
+func (m *mockStore) ProviderDataAge(_ context.Context, _, _, _ string) (time.Time, error) {
+	return time.Time{}, m.err
 }
 func (m *mockStore) ProviderAPICalls(_ context.Context, _, _ string, _, _ int) ([]storage.ProviderAPICallRow, int, error) {
 	return []storage.ProviderAPICallRow{}, 0, m.err

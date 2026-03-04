@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"context"
 	"encoding/xml"
 	"io"
 	"net/http"
@@ -62,7 +63,7 @@ func TestTLSProfileSitemapFetch(t *testing.T) {
 			}
 
 			f := New(ua, 15*time.Second, 10*1024*1024, DialOptions{}, tc.profile)
-			entry := FetchSitemap(f.Client(), sitemapURL, ua)
+			entry := FetchSitemap(context.Background(), f.Client(),sitemapURL, ua)
 
 			if entry.StatusCode == 0 {
 				t.Fatalf("sitemap fetch failed (status 0) with profile %s — likely TLS/network error", tc.name)
@@ -95,7 +96,7 @@ func TestTLSProfileCloudflare(t *testing.T) {
 	for _, tc := range profiles {
 		t.Run(tc.name, func(t *testing.T) {
 			f := New(tc.ua, 15*time.Second, 10*1024*1024, DialOptions{}, tc.profile)
-			entry := FetchSitemap(f.Client(), testURL, tc.ua)
+			entry := FetchSitemap(context.Background(), f.Client(),testURL, tc.ua)
 
 			if entry.StatusCode == 0 {
 				t.Errorf("sitemap fetch failed (status 0) with %s — likely TLS/network error", tc.name)
@@ -167,7 +168,7 @@ func TestTLSProfileDiscoverSitemaps(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f := New(tc.ua, 15*time.Second, 10*1024*1024, DialOptions{}, tc.profile)
 
-			entries := DiscoverSitemaps(f.Client(), tc.ua, []string{
+			entries := DiscoverSitemaps(context.Background(), f.Client(),tc.ua, []string{
 				"https://www.melty.fr/sitemap.xml",
 				"https://www.melty.fr/sitemap_index.xml",
 			})
@@ -235,7 +236,7 @@ func TestTLSProfileParallelFetch(t *testing.T) {
 func TestFetchSitemapReturnsZeroOnError(t *testing.T) {
 	f := New("TestBot", 2*time.Second, 10*1024*1024, DialOptions{}, "")
 
-	entry := FetchSitemap(f.Client(), "https://this-domain-does-not-exist-12345.example.com/sitemap.xml", "TestBot")
+	entry := FetchSitemap(context.Background(), f.Client(),"https://this-domain-does-not-exist-12345.example.com/sitemap.xml", "TestBot")
 
 	if entry.StatusCode != 0 {
 		t.Errorf("expected status 0 for failed request, got %d", entry.StatusCode)
