@@ -655,7 +655,9 @@ func (s *Server) handleWeightedPageRankTop(w http.ResponseWriter, r *http.Reques
 	}
 	limit, offset := clampPagination(queryInt(r, "limit", 50), queryInt(r, "offset", 0))
 	directory := r.URL.Query().Get("directory")
-	result, err := s.store.WeightedPageRankTop(r.Context(), sessionID, projectID, limit, offset, directory)
+	sort := r.URL.Query().Get("sort")
+	order := r.URL.Query().Get("order")
+	result, err := s.store.WeightedPageRankTop(r.Context(), sessionID, projectID, limit, offset, directory, sort, order)
 	if err != nil {
 		internalError(w, r, err)
 		return

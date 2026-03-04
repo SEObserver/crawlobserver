@@ -682,6 +682,7 @@
             session={selectedSession}
             {stats}
             {liveProgress}
+            {projects}
             initialTab={routeTab}
             initialFilters={routeFilters}
             initialOffset={routeOffset}

@@ -1256,8 +1256,19 @@ func (s *Store) PagesWithAuthority(ctx context.Context, sessionID, projectID str
 	return result, int(total), nil
 }
 
+// weightedPRSortColumns is the whitelist of allowed sort columns for weighted PageRank.
+var weightedPRSortColumns = map[string]string{
+	"weighted_pr":   "weighted_pr",
+	"pagerank":      "p.pagerank",
+	"trust_flow":    "t.trust_flow",
+	"citation_flow": "t.citation_flow",
+	"ref_domains":   "t.ref_domains",
+	"ext_backlinks": "t.ext_backlinks",
+	"delta":         "(weighted_pr - p.pagerank)",
+}
+
 // WeightedPageRankTop returns pages ranked by a weighted PageRank that fuses internal PR with SEObserver data.
-func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID string, limit, offset int, directory string) (*WeightedPageRankResult, error) {
+func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID string, limit, offset int, directory, sort, order string) (*WeightedPageRankResult, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -1296,7 +1307,8 @@ func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID st
 			p.depth,
 			p.internal_links_out,
 			p.status_code,
-			p.title
+			p.title,
+			t.ttf_topic
 		FROM (
 			SELECT url, pagerank, depth, internal_links_out, status_code, title
 			FROM crawlobserver.pages FINAL
@@ -1310,7 +1322,8 @@ func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID st
 			WHERE project_id = ? AND provider = 'seobserver' AND data_type = 'top_pages'
 		) AS m
 		LEFT JOIN (
-			SELECT trimRight(item_url, '/') AS item_url_norm, trust_flow, citation_flow, ext_backlinks, ref_domains
+			SELECT trimRight(item_url, '/') AS item_url_norm, trust_flow, citation_flow, ext_backlinks, ref_domains,
+				str_data['ttf_topic_0'] AS ttf_topic
 			FROM crawlobserver.provider_data FINAL
 			WHERE project_id = ? AND provider = 'seobserver' AND data_type = 'top_pages'
 		) AS t ON trimRight(p.url, '/') = t.item_url_norm
@@ -1321,7 +1334,17 @@ func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID st
 		query += ` AND p.url LIKE ?`
 		args = append(args, "%"+directory+"%")
 	}
-	query += ` ORDER BY weighted_pr DESC LIMIT ? OFFSET ?`
+
+	// Dynamic ORDER BY with whitelist
+	orderClause := "weighted_pr DESC"
+	if col, ok := weightedPRSortColumns[sort]; ok {
+		dir := "DESC"
+		if order == "asc" {
+			dir = "ASC"
+		}
+		orderClause = col + " " + dir
+	}
+	query += ` ORDER BY ` + orderClause + ` LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 
 	rows, err := s.conn.Query(ctx, query, args...)
@@ -1334,8 +1357,9 @@ func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID st
 		var p WeightedPageRankPage
 		var tf, cf uint8
 		var extBL, rd int64
+		var ttfTopic string
 		if err := rows.Scan(&p.URL, &p.PageRank, &p.WeightedPR, &tf, &cf, &extBL, &rd,
-			&p.Depth, &p.InternalLinksOut, &p.StatusCode, &p.Title); err != nil {
+			&p.Depth, &p.InternalLinksOut, &p.StatusCode, &p.Title, &ttfTopic); err != nil {
 			return nil, fmt.Errorf("scanning weighted pagerank row: %w", err)
 		}
 		if tf > 0 || cf > 0 {
@@ -1343,6 +1367,9 @@ func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID st
 			p.CitationFlow = &cf
 			p.ExtBackLinks = &extBL
 			p.RefDomains = &rd
+		}
+		if ttfTopic != "" {
+			p.TTFTopic = &ttfTopic
 		}
 		result.Pages = append(result.Pages, p)
 	}

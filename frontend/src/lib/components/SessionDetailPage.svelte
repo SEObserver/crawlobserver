@@ -20,6 +20,7 @@
     session,
     stats,
     liveProgress,
+    projects = [],
     initialTab = 'reports',
     initialFilters = {},
     initialOffset = 0,
@@ -40,6 +41,10 @@
   let subView = $state(initialSubView);
   let showHtmlModal = $state(false);
   let htmlModalUrl = $state('');
+
+  let projectName = $derived(
+    session?.ProjectID ? projects.find((p) => p.id === session.ProjectID)?.name : null,
+  );
 
   function switchTab(newTab) {
     tab = newTab;
@@ -81,6 +86,16 @@
         ongohome?.();
       }}>{t('session.sessions')}</a
     >
+    {#if projectName}
+      <span>/</span>
+      <a
+        href={`/projects/${session.ProjectID}`}
+        onclick={(e) => {
+          e.preventDefault();
+          onnavigate?.(`/projects/${session.ProjectID}`);
+        }}>{projectName}</a
+      >
+    {/if}
     <span>/</span>
     <a
       href={`/sessions/${session.ID}/reports`}
@@ -110,6 +125,16 @@
         ongohome?.();
       }}>{t('session.sessions')}</a
     >
+    {#if projectName}
+      <span>/</span>
+      <a
+        href={`/projects/${session.ProjectID}`}
+        onclick={(e) => {
+          e.preventDefault();
+          onnavigate?.(`/projects/${session.ProjectID}`);
+        }}>{projectName}</a
+      >
+    {/if}
     <span>/</span>
     <span class="breadcrumb-active">{session.SeedURLs?.[0] || session.ID}</span>
   </div>

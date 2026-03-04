@@ -440,6 +440,7 @@ type WeightedPageRankPage struct {
 	InternalLinksOut uint32   `json:"internal_links_out"`
 	StatusCode       uint16   `json:"status_code"`
 	Title            string   `json:"title"`
+	TTFTopic         *string  `json:"ttf_topic"`
 }
 
 // WeightedPageRankResult wraps paginated weighted PageRank results.

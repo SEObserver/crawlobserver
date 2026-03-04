@@ -32,6 +32,9 @@
   let prWeightedData = $state(null);
   let prWeightedOffset = $state(0);
   let prWeightedLimit = $state(50);
+  let prWeightedSort = $state('');
+  let prWeightedOrder = $state('');
+  let prWeightedDir = $state('');
   let prTooltip = $state(null);
   let hasData = $state(null); // null = unknown, true/false after first load
   let computingPR = $state(false);
@@ -46,7 +49,7 @@
         prTreemapData = await getPageRankTreemap(sessionId, prTreemapDepth, prTreemapMinPages);
       else if (view === 'distribution') prDistData = await getPageRankDistribution(sessionId, 20);
       else if (view === 'weighted' && projectId)
-        prWeightedData = await getPageRankWeightedTop(sessionId, projectId, prWeightedLimit, prWeightedOffset);
+        prWeightedData = await getPageRankWeightedTop(sessionId, projectId, prWeightedLimit, prWeightedOffset, prWeightedDir, prWeightedSort, prWeightedOrder);
       else if (view === 'table')
         prTableData = await getPageRankTop(sessionId, 50, prTableOffset, prTableDir);
     } catch (e) {
@@ -60,7 +63,7 @@
     prSubView = view;
     if (view === 'top') prTopOffset = 0;
     if (view === 'table') prTableOffset = 0;
-    if (view === 'weighted') prWeightedOffset = 0;
+    if (view === 'weighted') { prWeightedOffset = 0; prWeightedSort = ''; prWeightedOrder = ''; prWeightedDir = ''; }
     onpushurl?.(`/sessions/${sessionId}/pagerank/${view}`);
     loadPRSubView(view);
   }
@@ -341,8 +344,24 @@
         data={prWeightedData}
         offset={prWeightedOffset}
         limit={prWeightedLimit}
+        sortColumn={prWeightedSort}
+        sortOrder={prWeightedOrder}
+        dirFilter={prWeightedDir}
         {onnavigate}
         ontooltip={(t) => (prTooltip = t)}
+        onsort={(col, ord) => {
+          prWeightedSort = col;
+          prWeightedOrder = ord;
+          prWeightedOffset = 0;
+          loadPRSubView('weighted');
+        }}
+        onfilterchange={(dir, apply) => {
+          prWeightedDir = dir;
+          if (apply) {
+            prWeightedOffset = 0;
+            loadPRSubView('weighted');
+          }
+        }}
         onlimitchange={(l) => {
           prWeightedLimit = l;
           prWeightedOffset = 0;
