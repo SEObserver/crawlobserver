@@ -1303,6 +1303,17 @@ export async function getPageRankWeightedTop(
   return fetchJSON(url);
 }
 
+/** @returns {Promise<{backlinks: Array, total: number}>} */
+export async function getBacklinksTop(projectId, limit = 100, offset = 0, filters = {}, sort = '', order = '') {
+  let url = `/backlinks/top?project_id=${encodeURIComponent(projectId)}&limit=${limit}&offset=${offset}`;
+  if (sort) url += `&sort=${encodeURIComponent(sort)}`;
+  if (order) url += `&order=${encodeURIComponent(order)}`;
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== '' && v != null) url += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`;
+  }
+  return fetchJSON(url);
+}
+
 /** @returns {Promise<{rows: Array, total: number}>} */
 export async function getSessionAuthority(sessionId, projectId, limit = 100, offset = 0) {
   return fetchJSON(

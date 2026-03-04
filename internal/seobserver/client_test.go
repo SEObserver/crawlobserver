@@ -182,10 +182,22 @@ func TestGetDomainMetrics_EmptyResult(t *testing.T) {
 
 func TestFetchBacklinks(t *testing.T) {
 	c, ts := newTestClient(func(w http.ResponseWriter, r *http.Request) {
-		links := []Backlink{
-			{SourceURL: "https://a.com", TargetURL: "https://b.com", DomainRank: 42},
+		// Majestic-style response with PascalCase field names
+		raw := []map[string]interface{}{
+			{
+				"SourceURL":           "https://a.com/page",
+				"TargetURL":           "https://b.com/",
+				"AnchorText":          "click here",
+				"LinkType":            "TextLink",
+				"SourceTrustFlow":     42.0,
+				"SourceCitationFlow":  38.0,
+				"ACRank":              7.0,
+				"FlagNoFollow":        1,
+				"FirstIndexedDate":    "2025-01-15",
+				"LastSeenDate":        "2025-06-01",
+			},
 		}
-		w.Write(jsonResp("ok", links))
+		w.Write(jsonResp("ok", raw))
 	})
 	defer ts.Close()
 
@@ -196,8 +208,24 @@ func TestFetchBacklinks(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("got %d rows, want 1", len(rows))
 	}
-	if rows[0].DomainRank != 42 {
-		t.Errorf("DomainRank = %f, want 42", rows[0].DomainRank)
+	bl := rows[0]
+	if bl.SourceURL != "https://a.com/page" {
+		t.Errorf("SourceURL = %q", bl.SourceURL)
+	}
+	if bl.SourceDomain != "a.com" {
+		t.Errorf("SourceDomain = %q, want a.com", bl.SourceDomain)
+	}
+	if bl.TrustFlow != 42 {
+		t.Errorf("TrustFlow = %f, want 42", bl.TrustFlow)
+	}
+	if bl.CitationFlow != 38 {
+		t.Errorf("CitationFlow = %f, want 38", bl.CitationFlow)
+	}
+	if bl.AnchorText != "click here" {
+		t.Errorf("AnchorText = %q", bl.AnchorText)
+	}
+	if !bl.Nofollow {
+		t.Error("expected Nofollow=true")
 	}
 }
 

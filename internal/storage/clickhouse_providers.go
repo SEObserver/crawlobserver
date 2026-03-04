@@ -37,7 +37,7 @@ func (s *Store) InsertProviderBacklinks(ctx context.Context, projectID string, r
 	batch, err := s.conn.PrepareBatch(ctx, `
 		INSERT INTO crawlobserver.provider_backlinks (
 			project_id, provider, domain, source_url, target_url, anchor_text,
-			source_domain, link_type, domain_rank, page_rank, nofollow,
+			source_domain, link_type, domain_rank, page_rank, source_ttf_topic, nofollow,
 			first_seen, last_seen, fetched_at
 		)`)
 	if err != nil {
@@ -47,7 +47,7 @@ func (s *Store) InsertProviderBacklinks(ctx context.Context, projectID string, r
 	for _, r := range rows {
 		if err := batch.Append(
 			projectID, r.Provider, r.Domain, r.SourceURL, r.TargetURL, r.AnchorText,
-			r.SourceDomain, r.LinkType, r.DomainRank, r.PageRank, r.Nofollow,
+			r.SourceDomain, r.LinkType, r.TrustFlow, r.CitationFlow, r.SourceTTFTopic, r.Nofollow,
 			r.FirstSeen, r.LastSeen, now,
 		); err != nil {
 			return fmt.Errorf("appending provider_backlinks row: %w", err)
@@ -143,21 +143,37 @@ func (s *Store) ProviderDomainMetrics(ctx context.Context, projectID, provider s
 	return &r, nil
 }
 
-func (s *Store) ProviderBacklinks(ctx context.Context, projectID, provider string, limit, offset int) ([]ProviderBacklinkRow, int, error) {
+func (s *Store) ProviderBacklinks(ctx context.Context, projectID, provider string, limit, offset int, filters []ParsedFilter, sort *SortParam) ([]ProviderBacklinkRow, int, error) {
+	baseWhere := `project_id = ? AND provider = ?`
+	args := []interface{}{projectID, provider}
+
+	whereExtra, filterArgs, err := BuildWhereClause(filters)
+	if err != nil {
+		return nil, 0, fmt.Errorf("building backlinks filter clause: %w", err)
+	}
+	if whereExtra != "" {
+		baseWhere += " AND " + whereExtra
+		args = append(args, filterArgs...)
+	}
+
 	var total uint64
-	if err := s.conn.QueryRow(ctx, `
+	if err := s.conn.QueryRow(ctx, fmt.Sprintf(`
 		SELECT count() FROM crawlobserver.provider_backlinks FINAL
-		WHERE project_id = ? AND provider = ?`, projectID, provider).Scan(&total); err != nil {
+		WHERE %s`, baseWhere), args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting provider backlinks: %w", err)
 	}
 
-	rows, err := s.conn.Query(ctx, `
+	orderClause := BuildOrderByClause(sort, "domain_rank DESC")
+	query := fmt.Sprintf(`
 		SELECT provider, domain, source_url, target_url, anchor_text, source_domain, link_type,
-			domain_rank, page_rank, nofollow, first_seen, last_seen, fetched_at
+			domain_rank, page_rank, source_ttf_topic, nofollow, first_seen, last_seen, fetched_at
 		FROM crawlobserver.provider_backlinks FINAL
-		WHERE project_id = ? AND provider = ?
-		ORDER BY domain_rank DESC
-		LIMIT ? OFFSET ?`, projectID, provider, limit, offset)
+		WHERE %s
+		%s
+		LIMIT ? OFFSET ?`, baseWhere, orderClause)
+	queryArgs := append(args, limit, offset)
+
+	rows, err := s.conn.Query(ctx, query, queryArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("querying provider backlinks: %w", err)
 	}
@@ -167,7 +183,7 @@ func (s *Store) ProviderBacklinks(ctx context.Context, projectID, provider strin
 	for rows.Next() {
 		var r ProviderBacklinkRow
 		if err := rows.Scan(&r.Provider, &r.Domain, &r.SourceURL, &r.TargetURL, &r.AnchorText,
-			&r.SourceDomain, &r.LinkType, &r.DomainRank, &r.PageRank, &r.Nofollow,
+			&r.SourceDomain, &r.LinkType, &r.TrustFlow, &r.CitationFlow, &r.SourceTTFTopic, &r.Nofollow,
 			&r.FirstSeen, &r.LastSeen, &r.FetchedAt); err != nil {
 			return nil, 0, fmt.Errorf("scanning provider backlink row: %w", err)
 		}

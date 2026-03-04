@@ -320,7 +320,8 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 					Provider: provider, Domain: domain,
 					SourceURL: b.SourceURL, TargetURL: b.TargetURL, AnchorText: b.AnchorText,
 					SourceDomain: b.SourceDomain, LinkType: b.LinkType,
-					DomainRank: b.DomainRank, PageRank: b.PageRank, Nofollow: b.Nofollow,
+					TrustFlow: b.TrustFlow, CitationFlow: b.CitationFlow,
+					SourceTTFTopic: b.SourceTTFTopic, Nofollow: b.Nofollow,
 					FirstSeen: parseDate(b.FirstSeen), LastSeen: parseDate(b.LastSeen),
 				}
 			}
@@ -544,12 +545,36 @@ func (s *Server) handleProviderBacklinks(w http.ResponseWriter, r *http.Request)
 		limit = 100
 	}
 	limit, offset = clampPagination(limit, offset)
-	rows, total, err := s.store.ProviderBacklinks(r.Context(), projectID, provider, limit, offset)
+	filters := parseFilters(r, storage.BacklinkFilters)
+	sort := storage.ParseSort(r.URL.Query().Get("sort"), r.URL.Query().Get("order"), storage.BacklinkSortColumns)
+	rows, total, err := s.store.ProviderBacklinks(r.Context(), projectID, provider, limit, offset, filters, sort)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, map[string]interface{}{"rows": rows, "total": total})
+}
+
+func (s *Server) handleBacklinksTop(w http.ResponseWriter, r *http.Request) {
+	projectID := r.URL.Query().Get("project_id")
+	if projectID == "" {
+		writeError(w, http.StatusBadRequest, "project_id is required")
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 {
+		limit = 100
+	}
+	limit, offset = clampPagination(limit, offset)
+	filters := parseFilters(r, storage.BacklinkFilters)
+	sort := storage.ParseSort(r.URL.Query().Get("sort"), r.URL.Query().Get("order"), storage.BacklinkSortColumns)
+	rows, total, err := s.store.ProviderBacklinks(r.Context(), projectID, "seobserver", limit, offset, filters, sort)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"backlinks": rows, "total": total})
 }
 
 func (s *Server) handleProviderRefDomains(w http.ResponseWriter, r *http.Request) {

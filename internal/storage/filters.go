@@ -134,6 +134,30 @@ type SortParam struct {
 	Order  string // "ASC" or "DESC"
 }
 
+// BacklinkFilters defines the allowed filter columns for provider_backlinks.
+var BacklinkFilters = map[string]FilterDef{
+	"source_url":  {Column: "source_url", Type: FilterLike},
+	"target_url":  {Column: "target_url", Type: FilterLike},
+	"anchor_text": {Column: "anchor_text", Type: FilterLike},
+	"trust_flow":  {Column: "domain_rank", Type: FilterUint},
+	"citation_flow": {Column: "page_rank", Type: FilterUint},
+	"nofollow":    {Column: "nofollow", Type: FilterBool},
+	"first_seen":  {Column: "first_seen", Type: FilterLike},
+	"last_seen":   {Column: "last_seen", Type: FilterLike},
+}
+
+// BacklinkSortColumns maps query param names to DB column names for provider_backlinks.
+var BacklinkSortColumns = map[string]string{
+	"source_url":    "source_url",
+	"target_url":    "target_url",
+	"anchor_text":   "anchor_text",
+	"trust_flow":    "domain_rank",
+	"citation_flow": "page_rank",
+	"nofollow":      "nofollow",
+	"first_seen":    "first_seen",
+	"last_seen":     "last_seen",
+}
+
 // PageSortColumns maps query param names to DB column names for pages.
 var PageSortColumns = map[string]string{
 	"url":                "url",

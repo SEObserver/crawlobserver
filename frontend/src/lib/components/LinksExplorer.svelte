@@ -1,15 +1,17 @@
 <script>
   import { onMount } from 'svelte';
-  import { getInternalLinks, getExternalLinks } from '../api.js';
+  import { getInternalLinks, getExternalLinks, getBacklinksTop } from '../api.js';
   import { fmtN, trunc, fetchAll, downloadCSV } from '../utils.js';
   import { PAGE_SIZE, TAB_FILTERS } from '../tabColumns.js';
   import { t } from '../i18n/index.svelte.js';
   import DataTable from './DataTable.svelte';
   import ExternalChecksTab from './ExternalChecksTab.svelte';
+  import BacklinksView from './BacklinksView.svelte';
   import UrlActions from './UrlActions.svelte';
 
   let {
     sessionId,
+    projectId = null,
     initialSubView = 'internal',
     initialFilters = {},
     initialOffset = 0,
@@ -22,6 +24,7 @@
     { id: 'internal', label: () => t('links.internal') },
     { id: 'external', label: () => t('links.external') },
     { id: 'checks', label: () => t('links.checks') },
+    { id: 'backlinks', label: () => t('links.backlinks'), premium: true },
   ];
 
   let subView = $state(initialSubView);
@@ -34,6 +37,15 @@
   let filters = $state({ ...initialFilters });
   let sortColumn = $state('');
   let sortOrder = $state('');
+
+  // Backlinks state
+  let blData = $state([]);
+  let blTotal = $state(0);
+  let blOffset = $state(initialSubView === 'backlinks' ? initialOffset : 0);
+  let blLimit = $state(100);
+  let blSort = $state('trust_flow');
+  let blOrder = $state('desc');
+  let blFilters = $state({});
 
   function basePath() {
     return `/sessions/${sessionId}/links`;
@@ -75,6 +87,10 @@
         );
         extLinks = result || [];
         hasMoreExtLinks = extLinks.length === PAGE_SIZE;
+      } else if (subView === 'backlinks' && projectId) {
+        const result = await getBacklinksTop(projectId, blLimit, blOffset, blFilters, blSort, blOrder);
+        blData = result?.backlinks || [];
+        blTotal = result?.total || 0;
       }
     } catch (e) {
       onerror?.(e.message);
@@ -88,7 +104,14 @@
     extLinksOffset = 0;
     sortColumn = '';
     sortOrder = '';
-    if (sv !== 'checks') {
+    if (sv === 'backlinks') {
+      blOffset = 0;
+      blSort = 'trust_flow';
+      blOrder = 'desc';
+      blFilters = {};
+      pushFilters(sv, {}, 0);
+      loadData();
+    } else if (sv !== 'checks') {
       pushFilters(sv, {}, 0);
       loadData();
     } else {
@@ -212,11 +235,12 @@
         <button
           class="pr-subview-btn"
           class:pr-subview-active={subView === sv.id}
-          onclick={() => switchSubView(sv.id)}>{sv.label()}</button
+          class:pr-subview-premium={sv.premium}
+          onclick={() => switchSubView(sv.id)}>{#if sv.premium}<span class="premium-star">&#9733;</span> {/if}{sv.label()}</button
         >
       {/each}
     </div>
-    {#if subView !== 'checks'}
+    {#if subView !== 'checks' && subView !== 'backlinks'}
       <button
         class="btn btn-sm"
         onclick={handleExportCSV}
@@ -355,11 +379,44 @@
       onnavigate={(tab, f) => handleChecksViewSources(f?.target_url || '')}
       onerror={(msg) => onerror?.(msg)}
     />
+  {:else if subView === 'backlinks'}
+    {#if !projectId}
+      <p class="chart-empty">{t('links.backlinksNeedProject')}</p>
+    {:else}
+      <BacklinksView
+        data={blData}
+        total={blTotal}
+        offset={blOffset}
+        limit={blLimit}
+        sortColumn={blSort}
+        sortOrder={blOrder}
+        filters={blFilters}
+        {sessionId}
+        onnavigate={(url) => onnavigate?.(url)}
+        onsort={(col, ord) => { blSort = col; blOrder = ord; blOffset = 0; loadData(); }}
+        onpagechange={(o) => { blOffset = o; pushFilters(null, null, o); loadData(); }}
+        onlimitchange={(l) => { blLimit = l; blOffset = 0; loadData(); }}
+        onsetfilter={(k, v) => { blFilters = { ...blFilters, [k]: v }; }}
+        onapplyfilters={() => { blOffset = 0; loadData(); }}
+        onclearfilters={() => { blFilters = {}; blOffset = 0; loadData(); }}
+      />
+    {/if}
   {/if}
 </div>
 
 <style>
   .links-explorer {
     padding: 24px;
+  }
+  .premium-star {
+    color: #c9a227;
+    font-size: 12px;
+    margin-right: 2px;
+  }
+  .pr-subview-premium {
+    color: #b8960c;
+  }
+  .pr-subview-premium.pr-subview-active {
+    border-bottom-color: #c9a227;
   }
 </style>

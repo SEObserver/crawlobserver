@@ -140,31 +140,80 @@ func (c *Client) GetDomainMetrics(ctx context.Context, domain string) (*DomainMe
 // --- Backlinks ---
 
 type Backlink struct {
-	SourceURL    string  `json:"source_url"`
-	TargetURL    string  `json:"target_url"`
-	AnchorText   string  `json:"anchor"`
-	SourceDomain string  `json:"source_domain"`
-	LinkType     string  `json:"type"`
-	DomainRank   float64 `json:"domain_rank"`
-	PageRank     float64 `json:"page_rank"`
-	Nofollow     bool    `json:"nofollow"`
-	FirstSeen    string  `json:"first_seen"`
-	LastSeen     string  `json:"last_seen"`
+	SourceURL      string  `json:"source_url"`
+	TargetURL      string  `json:"target_url"`
+	AnchorText     string  `json:"anchor"`
+	SourceDomain   string  `json:"source_domain"`
+	LinkType       string  `json:"type"`
+	TrustFlow      float64 `json:"trust_flow"`
+	CitationFlow   float64 `json:"citation_flow"`
+	SourceTTFTopic string  `json:"source_ttf_topic"`
+	Nofollow       bool    `json:"nofollow"`
+	FirstSeen      string  `json:"first_seen"`
+	LastSeen       string  `json:"last_seen"`
+}
+
+// parseRawBacklink parses a single raw backlink from the Majestic-style API response.
+// Field names are PascalCase and types are mixed (FlagNoFollow is int 0/1, etc.).
+func parseRawBacklink(raw map[string]interface{}) Backlink {
+	srcURL := jsonStr(raw, "SourceURL")
+	srcDomain := ""
+	if srcURL != "" {
+		// Extract domain from source URL
+		if idx := strings.Index(srcURL, "://"); idx >= 0 {
+			rest := srcURL[idx+3:]
+			if slash := strings.Index(rest, "/"); slash >= 0 {
+				srcDomain = rest[:slash]
+			} else {
+				srcDomain = rest
+			}
+		}
+	}
+	return Backlink{
+		SourceURL:      srcURL,
+		TargetURL:      jsonStr(raw, "TargetURL"),
+		AnchorText:     jsonStr(raw, "AnchorText"),
+		SourceDomain:   srcDomain,
+		LinkType:       jsonStr(raw, "LinkType"),
+		TrustFlow:      jsonFloat64(raw, "SourceTrustFlow"),
+		CitationFlow:   jsonFloat64(raw, "SourceCitationFlow"),
+		SourceTTFTopic: jsonStr(raw, "SourceTopicalTrustFlow_Topic_0"),
+		Nofollow:       jsonInt64(raw, "FlagNoFollow") != 0,
+		FirstSeen:      jsonStr(raw, "FirstIndexedDate"),
+		LastSeen:       jsonStr(raw, "LastSeenDate"),
+	}
+}
+
+// jsonFloat64 extracts a float64 from a map, handling int and string values.
+func jsonFloat64(m map[string]interface{}, key string) float64 {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return 0
+	}
+	switch val := v.(type) {
+	case float64:
+		return val
+	case string:
+		return 0
+	}
+	return 0
 }
 
 // FetchBacklinks fetches top backlinks via backlinks/top.json.
 func (c *Client) FetchBacklinks(ctx context.Context, domain string, limit int) ([]Backlink, *APICallMeta, error) {
-	payload := map[string]interface{}{
-		"item":  domain,
-		"limit": limit,
-	}
-	resp, meta, err := c.postJSON(ctx, "backlinks/top.json", payload)
+	items := []map[string]string{{"item_type": "domain", "item_value": domain}}
+	path := fmt.Sprintf("backlinks/top.json?limit=%d", limit)
+	resp, meta, err := c.postJSON(ctx, path, items)
 	if err != nil {
 		return nil, meta, err
 	}
-	var rows []Backlink
-	if err := json.Unmarshal(resp.Data, &rows); err != nil {
+	var rawRows []map[string]interface{}
+	if err := json.Unmarshal(resp.Data, &rawRows); err != nil {
 		return nil, meta, fmt.Errorf("parsing backlinks: %w", err)
+	}
+	rows := make([]Backlink, len(rawRows))
+	for i, raw := range rawRows {
+		rows[i] = parseRawBacklink(raw)
 	}
 	return rows, meta, nil
 }
@@ -181,11 +230,9 @@ type RefDomain struct {
 
 // FetchRefDomains fetches referring domains via backlinks/refdomains.json.
 func (c *Client) FetchRefDomains(ctx context.Context, domain string, limit int) ([]RefDomain, *APICallMeta, error) {
-	payload := map[string]interface{}{
-		"item":  domain,
-		"limit": limit,
-	}
-	resp, meta, err := c.postJSON(ctx, "backlinks/refdomains.json", payload)
+	items := []map[string]string{{"item_type": "domain", "item_value": domain}}
+	path := fmt.Sprintf("backlinks/refdomains.json?limit=%d", limit)
+	resp, meta, err := c.postJSON(ctx, path, items)
 	if err != nil {
 		return nil, meta, err
 	}
@@ -206,11 +253,9 @@ type Anchor struct {
 
 // FetchAnchors fetches anchor text distribution via backlinks/anchors.json.
 func (c *Client) FetchAnchors(ctx context.Context, domain string, limit int) ([]Anchor, *APICallMeta, error) {
-	payload := map[string]interface{}{
-		"item":  domain,
-		"limit": limit,
-	}
-	resp, meta, err := c.postJSON(ctx, "backlinks/anchors.json", payload)
+	items := []map[string]string{{"item_type": "domain", "item_value": domain}}
+	path := fmt.Sprintf("backlinks/anchors.json?limit=%d", limit)
+	resp, meta, err := c.postJSON(ctx, path, items)
 	if err != nil {
 		return nil, meta, err
 	}
@@ -258,11 +303,8 @@ type VisibilityPoint struct {
 // FetchVisibilityHistory fetches organic visibility history.
 func (c *Client) FetchVisibilityHistory(ctx context.Context, domain, base string) ([]VisibilityPoint, *APICallMeta, error) {
 	items := []map[string]string{{"item_type": "domain", "item_value": domain}}
-	payload := map[string]interface{}{
-		"items": items,
-		"base":  base,
-	}
-	resp, meta, err := c.postJSON(ctx, "organic_keywords/visibility_history.json", payload)
+	path := fmt.Sprintf("organic_keywords/visibility_history.json?base=%s", base)
+	resp, meta, err := c.postJSON(ctx, path, items)
 	if err != nil {
 		return nil, meta, err
 	}

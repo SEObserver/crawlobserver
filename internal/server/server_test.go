@@ -369,7 +369,7 @@ func (m *mockStore) InsertProviderVisibility(_ context.Context, _ string, _ []st
 func (m *mockStore) ProviderDomainMetrics(_ context.Context, _, _ string) (*storage.ProviderDomainMetricsRow, error) {
 	return &storage.ProviderDomainMetricsRow{}, m.err
 }
-func (m *mockStore) ProviderBacklinks(_ context.Context, _, _ string, _, _ int) ([]storage.ProviderBacklinkRow, int, error) {
+func (m *mockStore) ProviderBacklinks(_ context.Context, _, _ string, _, _ int, _ []storage.ParsedFilter, _ *storage.SortParam) ([]storage.ProviderBacklinkRow, int, error) {
 	return []storage.ProviderBacklinkRow{}, 0, m.err
 }
 func (m *mockStore) ProviderRefDomains(_ context.Context, _, _ string, _, _ int) ([]storage.ProviderRefDomainRow, int, error) {

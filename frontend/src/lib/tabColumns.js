@@ -82,7 +82,7 @@ export function getTabs() {
 export const TAB_SUB_VIEWS = {
   reports: ['overview', 'content', 'technical', 'links', 'structure', 'sitemaps', 'international'],
   pages: ['all', 'titles', 'meta', 'headings', 'images', 'indexability', 'response', 'redirects'],
-  links: ['internal', 'external', 'checks'],
+  links: ['internal', 'external', 'checks', 'backlinks'],
   resources: ['summary', 'urls'],
   pagerank: ['top', 'directory', 'distribution', 'table'],
   directives: ['robots', 'sitemaps', 'sitemap_only', 'in_both'],

@@ -89,7 +89,7 @@ type ProviderStore interface {
 	InsertProviderRankings(ctx context.Context, projectID string, rows []storage.ProviderRankingRow) error
 	InsertProviderVisibility(ctx context.Context, projectID string, rows []storage.ProviderVisibilityRow) error
 	ProviderDomainMetrics(ctx context.Context, projectID, provider string) (*storage.ProviderDomainMetricsRow, error)
-	ProviderBacklinks(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderBacklinkRow, int, error)
+	ProviderBacklinks(ctx context.Context, projectID, provider string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.ProviderBacklinkRow, int, error)
 	ProviderRefDomains(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderRefDomainRow, int, error)
 	ProviderRankings(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderRankingRow, int, error)
 	ProviderVisibilityHistory(ctx context.Context, projectID, provider string) ([]storage.ProviderVisibilityRow, error)

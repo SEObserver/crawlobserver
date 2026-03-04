@@ -110,6 +110,7 @@
   {#key detailUrl}
     <UrlDetailView
       sessionId={session.ID}
+      projectId={session.ProjectID}
       url={detailUrl}
       onerror={(msg) => onerror?.(msg)}
       onnavigate={(url) => onnavigate?.(url)}
@@ -197,6 +198,7 @@
     {:else if tab === 'links'}
       <LinksExplorer
         sessionId={session.ID}
+        projectId={session.ProjectID}
         initialSubView={subView || 'internal'}
         {initialFilters}
         {initialOffset}

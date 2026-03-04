@@ -214,6 +214,9 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/api-calls", s.handleProviderAPICalls)
 	mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/data/{dataType}", s.handleProviderData)
 
+	// Backlinks top (provider backlinks accessed by project_id)
+	mux.HandleFunc("GET /api/backlinks/top", s.handleBacklinksTop)
+
 	// Authority (crawl pages enriched with provider data)
 	mux.HandleFunc("GET /api/sessions/{id}/authority", s.handleSessionAuthority)
 

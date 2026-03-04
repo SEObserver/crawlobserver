@@ -261,19 +261,20 @@ type ProviderDomainMetricsRow struct {
 }
 
 type ProviderBacklinkRow struct {
-	Provider     string    `json:"provider"`
-	Domain       string    `json:"domain"`
-	SourceURL    string    `json:"source_url"`
-	TargetURL    string    `json:"target_url"`
-	AnchorText   string    `json:"anchor_text"`
-	SourceDomain string    `json:"source_domain"`
-	LinkType     string    `json:"link_type"`
-	DomainRank   float64   `json:"domain_rank"`
-	PageRank     float64   `json:"page_rank"`
-	Nofollow     bool      `json:"nofollow"`
-	FirstSeen    time.Time `json:"first_seen"`
-	LastSeen     time.Time `json:"last_seen"`
-	FetchedAt    time.Time `json:"fetched_at"`
+	Provider       string    `json:"provider"`
+	Domain         string    `json:"domain"`
+	SourceURL      string    `json:"source_url"`
+	TargetURL      string    `json:"target_url"`
+	AnchorText     string    `json:"anchor_text"`
+	SourceDomain   string    `json:"source_domain"`
+	LinkType       string    `json:"link_type"`
+	TrustFlow      float64   `json:"trust_flow"`
+	CitationFlow   float64   `json:"citation_flow"`
+	SourceTTFTopic string    `json:"source_ttf_topic"`
+	Nofollow       bool      `json:"nofollow"`
+	FirstSeen      time.Time `json:"first_seen"`
+	LastSeen       time.Time `json:"last_seen"`
+	FetchedAt      time.Time `json:"fetched_at"`
 }
 
 type ProviderRefDomainRow struct {

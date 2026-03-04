@@ -362,6 +362,7 @@ CREATE TABLE IF NOT EXISTS crawlobserver.provider_backlinks (
     link_type String,
     domain_rank Float64,
     page_rank Float64,
+    source_ttf_topic String DEFAULT '',
     nofollow Bool,
     first_seen Date,
     last_seen Date,
@@ -671,4 +672,5 @@ var Migrations = []Migration{
 	{Name: "create provider_api_calls", DDL: CreateProviderAPICalls},
 	{Name: "create extractions", DDL: CreateExtractions},
 	{Name: "create provider_data", DDL: CreateProviderData},
+	{Name: "alter provider_backlinks add ttf_topic", DDL: `ALTER TABLE crawlobserver.provider_backlinks ADD COLUMN IF NOT EXISTS source_ttf_topic String DEFAULT ''`},
 }
