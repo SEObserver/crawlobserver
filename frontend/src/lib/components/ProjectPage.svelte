@@ -231,7 +231,11 @@
       class="tab"
       class:tab-active={projectTab === 'provider:' + conn.provider}
       onclick={() => switchProjectTab('provider:' + conn.provider)}
-      >{#if meta?.icon}<img src={meta.icon} alt="" style="width:16px;height:16px;vertical-align:-3px;margin-right:4px" />{/if}{meta?.label || conn.provider} Data</button
+      >{#if meta?.icon}<img
+          src={meta.icon}
+          alt=""
+          style="width:16px;height:16px;vertical-align:-3px;margin-right:4px"
+        />{/if}{meta?.label || conn.provider} Data</button
     >
   {/each}
   {#if providerConnections.length === 0}

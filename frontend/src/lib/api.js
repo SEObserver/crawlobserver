@@ -1304,7 +1304,14 @@ export async function getPageRankWeightedTop(
 }
 
 /** @returns {Promise<{backlinks: Array, total: number}>} */
-export async function getBacklinksTop(projectId, limit = 100, offset = 0, filters = {}, sort = '', order = '') {
+export async function getBacklinksTop(
+  projectId,
+  limit = 100,
+  offset = 0,
+  filters = {},
+  sort = '',
+  order = '',
+) {
   let url = `/backlinks/top?project_id=${encodeURIComponent(projectId)}&limit=${limit}&offset=${offset}`;
   if (sort) url += `&sort=${encodeURIComponent(sort)}`;
   if (order) url += `&order=${encodeURIComponent(order)}`;

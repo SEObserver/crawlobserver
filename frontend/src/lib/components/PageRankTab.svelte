@@ -15,7 +15,15 @@
   import PageRankWeightedView from './PageRankWeightedView.svelte';
   import PageRankTooltip from './PageRankTooltip.svelte';
 
-  let { sessionId, projectId, initialSubView = 'top', onnavigate, onpushurl, onerror, onrefresh } = $props();
+  let {
+    sessionId,
+    projectId,
+    initialSubView = 'top',
+    onnavigate,
+    onpushurl,
+    onerror,
+    onrefresh,
+  } = $props();
 
   let prSubView = $state(initialSubView);
   let prLoading = $state(false);
@@ -49,7 +57,15 @@
         prTreemapData = await getPageRankTreemap(sessionId, prTreemapDepth, prTreemapMinPages);
       else if (view === 'distribution') prDistData = await getPageRankDistribution(sessionId, 20);
       else if (view === 'weighted' && projectId)
-        prWeightedData = await getPageRankWeightedTop(sessionId, projectId, prWeightedLimit, prWeightedOffset, prWeightedDir, prWeightedSort, prWeightedOrder);
+        prWeightedData = await getPageRankWeightedTop(
+          sessionId,
+          projectId,
+          prWeightedLimit,
+          prWeightedOffset,
+          prWeightedDir,
+          prWeightedSort,
+          prWeightedOrder,
+        );
       else if (view === 'table')
         prTableData = await getPageRankTop(sessionId, 50, prTableOffset, prTableDir);
     } catch (e) {
@@ -63,7 +79,12 @@
     prSubView = view;
     if (view === 'top') prTopOffset = 0;
     if (view === 'table') prTableOffset = 0;
-    if (view === 'weighted') { prWeightedOffset = 0; prWeightedSort = ''; prWeightedOrder = ''; prWeightedDir = ''; }
+    if (view === 'weighted') {
+      prWeightedOffset = 0;
+      prWeightedSort = '';
+      prWeightedOrder = '';
+      prWeightedDir = '';
+    }
     onpushurl?.(`/sessions/${sessionId}/pagerank/${view}`);
     loadPRSubView(view);
   }

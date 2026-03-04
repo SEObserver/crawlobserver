@@ -18,7 +18,7 @@
   let subView = $state(initialSubView);
 
   let visibleSubViews = $derived(
-    hasSitemaps ? ALL_SUB_VIEWS : ALL_SUB_VIEWS.filter((sv) => sv.id === 'robots')
+    hasSitemaps ? ALL_SUB_VIEWS : ALL_SUB_VIEWS.filter((sv) => sv.id === 'robots'),
   );
 
   // Check if sitemaps exist for this session

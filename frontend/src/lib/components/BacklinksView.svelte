@@ -29,7 +29,12 @@
     { label: () => 'TF', sortKey: 'trust_flow', filterKey: 'trust_flow', small: true },
     { label: () => 'CF', sortKey: 'citation_flow', filterKey: 'citation_flow', small: true },
     { label: () => 'NF', sortKey: 'nofollow', filterKey: 'nofollow', small: true },
-    { label: () => t('links.firstSeen'), sortKey: 'first_seen', filterKey: 'first_seen', small: true },
+    {
+      label: () => t('links.firstSeen'),
+      sortKey: 'first_seen',
+      filterKey: 'first_seen',
+      small: true,
+    },
     { label: () => t('links.lastSeen'), sortKey: 'last_seen', filterKey: 'last_seen', small: true },
   ];
 
@@ -101,19 +106,38 @@
       <tr>
         <th class="col-rank">#</th>
         {#each COLUMNS as col}
-          <th
-            class="{col.small ? 'col-sm' : ''} sortable"
-            onclick={() => handleSort(col.sortKey)}
-          >
+          <th class="{col.small ? 'col-sm' : ''} sortable" onclick={() => handleSort(col.sortKey)}>
             <span class="sort-header">
               {col.label()}
               <span class="sort-indicator" class:sort-active={sortColumn === col.sortKey}>
                 {#if sortColumn === col.sortKey && sortOrder === 'asc'}
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5m-7 7l7-7 7 7" /></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"><path d="M12 19V5m-7 7l7-7 7 7" /></svg
+                  >
                 {:else if sortColumn === col.sortKey && sortOrder === 'desc'}
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m7-7l-7 7-7-7" /></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"><path d="M12 5v14m7-7l-7 7-7-7" /></svg
+                  >
                 {:else}
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"><path d="M12 5v14m7-7l-7 7-7-7" /></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    opacity="0.3"><path d="M12 5v14m7-7l-7 7-7-7" /></svg
+                  >
                 {/if}
               </span>
             </span>
@@ -124,13 +148,15 @@
         <td></td>
         {#each COLUMNS as col, idx}
           {#if col.filterKey}
-            <td><input
-              class="filter-input"
-              placeholder={col.filterKey}
-              value={filters[col.filterKey] || ''}
-              oninput={(e) => onsetfilter?.(col.filterKey, e.target.value)}
-              onkeydown={(e) => e.key === 'Enter' && onapplyfilters?.()}
-            /></td>
+            <td
+              ><input
+                class="filter-input"
+                placeholder={col.filterKey}
+                value={filters[col.filterKey] || ''}
+                oninput={(e) => onsetfilter?.(col.filterKey, e.target.value)}
+                onkeydown={(e) => e.key === 'Enter' && onapplyfilters?.()}
+              /></td
+            >
           {:else}
             <td></td>
           {/if}
@@ -141,24 +167,44 @@
       {#each data as bl, i}
         <tr>
           <td class="col-rank">{offset + i + 1}</td>
-          <td class="cell-url"><span class="cell-url-inner">
-            {#if faviconUrl(bl.source_url)}<img class="bl-favicon" src={faviconUrl(bl.source_url)} alt="" width="16" height="16" loading="lazy" />{/if}
-            <a href={bl.source_url} target="_blank" rel="noopener" title={bl.source_url}>{bl.source_url}</a>
-          </span></td>
-          <td class="cell-url"><a href={urlDetailHref(bl.target_url)} onclick={(e) => goToUrlDetail(e, bl.target_url)} title={bl.target_url}>{bl.target_url}</a></td>
+          <td class="cell-url"
+            ><span class="cell-url-inner">
+              {#if faviconUrl(bl.source_url)}<img
+                  class="bl-favicon"
+                  src={faviconUrl(bl.source_url)}
+                  alt=""
+                  width="16"
+                  height="16"
+                  loading="lazy"
+                />{/if}
+              <a href={bl.source_url} target="_blank" rel="noopener" title={bl.source_url}
+                >{bl.source_url}</a
+              >
+            </span></td
+          >
+          <td class="cell-url"
+            ><a
+              href={urlDetailHref(bl.target_url)}
+              onclick={(e) => goToUrlDetail(e, bl.target_url)}
+              title={bl.target_url}>{bl.target_url}</a
+            ></td
+          >
           <td class="cell-title" title={bl.anchor_text}>{bl.anchor_text || '-'}</td>
           <td class="col-sm text-center">
             {#if bl.trust_flow != null}
               {#if bl.source_ttf_topic}
                 <span class="ttf_label {ttfClass(bl.source_ttf_topic)}">{bl.trust_flow}</span>
               {:else}
-                <span class="ttf_label" style={tfFallbackStyle(bl.trust_flow)}>{bl.trust_flow}</span>
+                <span class="ttf_label" style={tfFallbackStyle(bl.trust_flow)}>{bl.trust_flow}</span
+                >
               {/if}
             {:else}
               -
             {/if}
           </td>
-          <td class="col-sm text-center text-muted">{bl.citation_flow != null ? bl.citation_flow : '-'}</td>
+          <td class="col-sm text-center text-muted"
+            >{bl.citation_flow != null ? bl.citation_flow : '-'}</td
+          >
           <td class="col-sm text-center">
             {#if bl.nofollow}
               <span class="badge-nf">{t('links.nofollow')}</span>
@@ -166,8 +212,12 @@
               <span class="badge-df">{t('links.dofollow')}</span>
             {/if}
           </td>
-          <td class="col-sm text-center text-muted text-xs">{bl.first_seen ? bl.first_seen.slice(0, 10) : '-'}</td>
-          <td class="col-sm text-center text-muted text-xs">{bl.last_seen ? bl.last_seen.slice(0, 10) : '-'}</td>
+          <td class="col-sm text-center text-muted text-xs"
+            >{bl.first_seen ? bl.first_seen.slice(0, 10) : '-'}</td
+          >
+          <td class="col-sm text-center text-muted text-xs"
+            >{bl.last_seen ? bl.last_seen.slice(0, 10) : '-'}</td
+          >
         </tr>
       {/each}
     </tbody>
@@ -254,24 +304,82 @@
     background: #2ecc71;
     color: #fff;
   }
-  .ttf_label { font-weight: 700; font-size: 8.5pt; border-radius: 4px; padding: 1px 5px; display: inline-block; white-space: nowrap; }
-  .ttf_label.arts { background: #ff6700; color: #fff; }
-  .ttf_label.news { background: #76D54B; color: #333; }
-  .ttf_label.society { background: #7A69CD; color: #fff; }
-  .ttf_label.computers { background: #f33; color: #fff; }
-  .ttf_label.business { background: #C5C88E; color: #333; }
-  .ttf_label.regional { background: #F582B9; color: #fff; }
-  .ttf_label.recreation { background: #89C7CB; color: #333; }
-  .ttf_label.sports { background: #55355D; color: #fff; }
-  .ttf_label.kids { background: #fc0; color: #333; }
-  .ttf_label.reference { background: #C84770; color: #fff; }
-  .ttf_label.games { background: #557832; color: #fff; }
-  .ttf_label.home { background: #d95; color: #fff; }
-  .ttf_label.shopping { background: #600; color: #fff; }
-  .ttf_label.health { background: #009; color: #fff; }
-  .ttf_label.science { background: #6BD39A; color: #333; }
-  .ttf_label.world { background: #577; color: #fff; }
-  .ttf_label.adult { background: #333; color: #fff; }
+  .ttf_label {
+    font-weight: 700;
+    font-size: 8.5pt;
+    border-radius: 4px;
+    padding: 1px 5px;
+    display: inline-block;
+    white-space: nowrap;
+  }
+  .ttf_label.arts {
+    background: #ff6700;
+    color: #fff;
+  }
+  .ttf_label.news {
+    background: #76d54b;
+    color: #333;
+  }
+  .ttf_label.society {
+    background: #7a69cd;
+    color: #fff;
+  }
+  .ttf_label.computers {
+    background: #f33;
+    color: #fff;
+  }
+  .ttf_label.business {
+    background: #c5c88e;
+    color: #333;
+  }
+  .ttf_label.regional {
+    background: #f582b9;
+    color: #fff;
+  }
+  .ttf_label.recreation {
+    background: #89c7cb;
+    color: #333;
+  }
+  .ttf_label.sports {
+    background: #55355d;
+    color: #fff;
+  }
+  .ttf_label.kids {
+    background: #fc0;
+    color: #333;
+  }
+  .ttf_label.reference {
+    background: #c84770;
+    color: #fff;
+  }
+  .ttf_label.games {
+    background: #557832;
+    color: #fff;
+  }
+  .ttf_label.home {
+    background: #d95;
+    color: #fff;
+  }
+  .ttf_label.shopping {
+    background: #600;
+    color: #fff;
+  }
+  .ttf_label.health {
+    background: #009;
+    color: #fff;
+  }
+  .ttf_label.science {
+    background: #6bd39a;
+    color: #333;
+  }
+  .ttf_label.world {
+    background: #577;
+    color: #fff;
+  }
+  .ttf_label.adult {
+    background: #333;
+    color: #fff;
+  }
   th.sortable {
     cursor: pointer;
     user-select: none;

@@ -43,11 +43,33 @@
 {#snippet sortArrow(key)}
   <span class="sort-indicator" class:sort-active={sortColumn === key}>
     {#if sortColumn === key && sortOrder === 'asc'}
-      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5m-7 7l7-7 7 7" /></svg>
+      <svg
+        viewBox="0 0 24 24"
+        width="12"
+        height="12"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"><path d="M12 19V5m-7 7l7-7 7 7" /></svg
+      >
     {:else if sortColumn === key && sortOrder === 'desc'}
-      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m7-7l-7 7-7-7" /></svg>
+      <svg
+        viewBox="0 0 24 24"
+        width="12"
+        height="12"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"><path d="M12 5v14m7-7l-7 7-7-7" /></svg
+      >
     {:else}
-      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"><path d="M12 5v14m7-7l-7 7-7-7" /></svg>
+      <svg
+        viewBox="0 0 24 24"
+        width="12"
+        height="12"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        opacity="0.3"><path d="M12 5v14m7-7l-7 7-7-7" /></svg
+      >
     {/if}
   </span>
 {/snippet}
@@ -79,22 +101,40 @@
         if (e.key === 'Enter') onfilterchange?.(e.target.value, true);
       }}
     />
-    <button class="btn btn-sm" onclick={() => onfilterchange?.(dirFilter, true)}>{t('common.filter')}</button>
+    <button class="btn btn-sm" onclick={() => onfilterchange?.(dirFilter, true)}
+      >{t('common.filter')}</button
+    >
     {#if dirFilter}
-      <button class="btn btn-sm" onclick={() => onfilterchange?.('', true)}>{t('pagerank.clear')}</button>
+      <button class="btn btn-sm" onclick={() => onfilterchange?.('', true)}
+        >{t('pagerank.clear')}</button
+      >
     {/if}
   </div>
-  {@const maxWPR = Math.max(...data.pages.map(p => p.weighted_pr), 1)}
+  {@const maxWPR = Math.max(...data.pages.map((p) => p.weighted_pr), 1)}
   <div class="wpr-row wpr-header">
     <span class="wpr-rank">#</span>
     <span>URL</span>
     <span></span>
-    <span class="wpr-score sortable" onclick={() => handleSort('weighted_pr')}><span class="sort-header">{t('pagerank.weightedPR')} {@render sortArrow('weighted_pr')}</span></span>
-    <span class="wpr-pr-int sortable" onclick={() => handleSort('pagerank')}><span class="sort-header">{t('pagerank.internalPR')} {@render sortArrow('pagerank')}</span></span>
-    <span class="wpr-delta sortable" onclick={() => handleSort('delta')}><span class="sort-header">Delta {@render sortArrow('delta')}</span></span>
-    <span class="wpr-tf sortable" onclick={() => handleSort('trust_flow')}><span class="sort-header">TF {@render sortArrow('trust_flow')}</span></span>
-    <span class="wpr-cf sortable" onclick={() => handleSort('citation_flow')}><span class="sort-header">CF {@render sortArrow('citation_flow')}</span></span>
-    <span class="wpr-rd sortable" onclick={() => handleSort('ref_domains')}><span class="sort-header">RD {@render sortArrow('ref_domains')}</span></span>
+    <span class="wpr-score sortable" onclick={() => handleSort('weighted_pr')}
+      ><span class="sort-header">{t('pagerank.weightedPR')} {@render sortArrow('weighted_pr')}</span
+      ></span
+    >
+    <span class="wpr-pr-int sortable" onclick={() => handleSort('pagerank')}
+      ><span class="sort-header">{t('pagerank.internalPR')} {@render sortArrow('pagerank')}</span
+      ></span
+    >
+    <span class="wpr-delta sortable" onclick={() => handleSort('delta')}
+      ><span class="sort-header">Delta {@render sortArrow('delta')}</span></span
+    >
+    <span class="wpr-tf sortable" onclick={() => handleSort('trust_flow')}
+      ><span class="sort-header">TF {@render sortArrow('trust_flow')}</span></span
+    >
+    <span class="wpr-cf sortable" onclick={() => handleSort('citation_flow')}
+      ><span class="sort-header">CF {@render sortArrow('citation_flow')}</span></span
+    >
+    <span class="wpr-rd sortable" onclick={() => handleSort('ref_domains')}
+      ><span class="sort-header">RD {@render sortArrow('ref_domains')}</span></span
+    >
   </div>
   {#each data.pages as p, i}
     {@const delta = p.weighted_pr - p.pagerank}
@@ -126,7 +166,8 @@
       <div>
         <div
           class="wpr-bar"
-          style="width: {(p.weighted_pr / maxWPR) * 100}%; opacity: {0.4 + 0.6 * (p.weighted_pr / maxWPR)};"
+          style="width: {(p.weighted_pr / maxWPR) * 100}%; opacity: {0.4 +
+            0.6 * (p.weighted_pr / maxWPR)};"
         ></div>
       </div>
       <span class="wpr-score">{p.weighted_pr.toFixed(1)}</span>
@@ -137,7 +178,16 @@
           {#if p.ttf_topic}
             <span class="ttf_label {ttfClass(p.ttf_topic)}">{p.trust_flow}</span>
           {:else}
-            <span class="wpr-tf-badge" style="background: {p.trust_flow >= 40 ? '#2ecc71' : p.trust_flow >= 20 ? '#f39c12' : p.trust_flow >= 10 ? '#e67e22' : '#e74c3c'};">{p.trust_flow}</span>
+            <span
+              class="wpr-tf-badge"
+              style="background: {p.trust_flow >= 40
+                ? '#2ecc71'
+                : p.trust_flow >= 20
+                  ? '#f39c12'
+                  : p.trust_flow >= 10
+                    ? '#e67e22'
+                    : '#e74c3c'};">{p.trust_flow}</span
+            >
           {/if}
         {:else}
           <span class="wpr-na">-</span>
@@ -301,22 +351,80 @@
     color: var(--accent);
   }
   /* TTF topic label styles */
-  .ttf_label { font-weight: 700; font-size: 8.5pt; border-radius: 4px; padding: 1px 5px; display: inline-block; white-space: nowrap; }
-  .ttf_label.arts { background: #ff6700; color: #fff; }
-  .ttf_label.news { background: #76D54B; color: #333; }
-  .ttf_label.society { background: #7A69CD; color: #fff; }
-  .ttf_label.computers { background: #f33; color: #fff; }
-  .ttf_label.business { background: #C5C88E; color: #333; }
-  .ttf_label.regional { background: #F582B9; color: #fff; }
-  .ttf_label.recreation { background: #89C7CB; color: #333; }
-  .ttf_label.sports { background: #55355D; color: #fff; }
-  .ttf_label.kids { background: #fc0; color: #333; }
-  .ttf_label.reference { background: #C84770; color: #fff; }
-  .ttf_label.games { background: #557832; color: #fff; }
-  .ttf_label.home { background: #d95; color: #fff; }
-  .ttf_label.shopping { background: #600; color: #fff; }
-  .ttf_label.health { background: #009; color: #fff; }
-  .ttf_label.science { background: #6BD39A; color: #333; }
-  .ttf_label.world { background: #577; color: #fff; }
-  .ttf_label.adult { background: #333; color: #fff; }
+  .ttf_label {
+    font-weight: 700;
+    font-size: 8.5pt;
+    border-radius: 4px;
+    padding: 1px 5px;
+    display: inline-block;
+    white-space: nowrap;
+  }
+  .ttf_label.arts {
+    background: #ff6700;
+    color: #fff;
+  }
+  .ttf_label.news {
+    background: #76d54b;
+    color: #333;
+  }
+  .ttf_label.society {
+    background: #7a69cd;
+    color: #fff;
+  }
+  .ttf_label.computers {
+    background: #f33;
+    color: #fff;
+  }
+  .ttf_label.business {
+    background: #c5c88e;
+    color: #333;
+  }
+  .ttf_label.regional {
+    background: #f582b9;
+    color: #fff;
+  }
+  .ttf_label.recreation {
+    background: #89c7cb;
+    color: #333;
+  }
+  .ttf_label.sports {
+    background: #55355d;
+    color: #fff;
+  }
+  .ttf_label.kids {
+    background: #fc0;
+    color: #333;
+  }
+  .ttf_label.reference {
+    background: #c84770;
+    color: #fff;
+  }
+  .ttf_label.games {
+    background: #557832;
+    color: #fff;
+  }
+  .ttf_label.home {
+    background: #d95;
+    color: #fff;
+  }
+  .ttf_label.shopping {
+    background: #600;
+    color: #fff;
+  }
+  .ttf_label.health {
+    background: #009;
+    color: #fff;
+  }
+  .ttf_label.science {
+    background: #6bd39a;
+    color: #333;
+  }
+  .ttf_label.world {
+    background: #577;
+    color: #fff;
+  }
+  .ttf_label.adult {
+    background: #333;
+    color: #fff;
+  }
 </style>

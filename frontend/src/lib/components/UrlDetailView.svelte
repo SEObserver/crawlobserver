@@ -534,7 +534,8 @@
         class:links-tab-active={linksTab === 'backlinks'}
         onclick={() => switchLinksTab('backlinks')}
       >
-        <span class="premium-star">&#9733;</span> {t('urlDetail.backlinks')}
+        <span class="premium-star">&#9733;</span>
+        {t('urlDetail.backlinks')}
         {#if blLoaded}<span class="tab-count">({fmtN(blTotal)})</span>{/if}
       </button>
     </div>
@@ -556,14 +557,21 @@
               <tr>
                 <td class="cell-url">
                   {#if l.IsInternal}
-                    <a href={urlDetailHref(l.TargetURL)} onclick={(e) => goToUrlDetail(e, l.TargetURL)}>{l.TargetURL}</a>
+                    <a
+                      href={urlDetailHref(l.TargetURL)}
+                      onclick={(e) => goToUrlDetail(e, l.TargetURL)}>{l.TargetURL}</a
+                    >
                   {:else}
                     <a href={l.TargetURL} target="_blank" rel="noopener">{l.TargetURL}</a>
                   {/if}
                 </td>
                 <td class="cell-title">{l.AnchorText || '-'}</td>
                 <td>
-                  <span class="badge" class:badge-success={l.IsInternal} class:badge-warning={!l.IsInternal}>
+                  <span
+                    class="badge"
+                    class:badge-success={l.IsInternal}
+                    class:badge-warning={!l.IsInternal}
+                  >
                     {l.IsInternal ? t('common.internal') : t('common.external')}
                   </span>
                 </td>
@@ -575,15 +583,31 @@
         </table>
         {#if outLinksCount > LINKS_PER_PAGE}
           <div class="links-pagination">
-            <button class="btn btn-sm" disabled={outLinksPage === 0} onclick={() => loadOutLinksPage((outLinksPage - 1) * LINKS_PER_PAGE)}>{t('common.prev')}</button>
-            <span class="links-info">{outLinksPage * LINKS_PER_PAGE + 1}–{Math.min((outLinksPage + 1) * LINKS_PER_PAGE, outLinksCount)} {t('common.of')} {fmtN(outLinksCount)}</span>
-            <button class="btn btn-sm" disabled={(outLinksPage + 1) * LINKS_PER_PAGE >= outLinksCount} onclick={() => loadOutLinksPage((outLinksPage + 1) * LINKS_PER_PAGE)}>{t('common.next')}</button>
+            <button
+              class="btn btn-sm"
+              disabled={outLinksPage === 0}
+              onclick={() => loadOutLinksPage((outLinksPage - 1) * LINKS_PER_PAGE)}
+              >{t('common.prev')}</button
+            >
+            <span class="links-info"
+              >{outLinksPage * LINKS_PER_PAGE + 1}–{Math.min(
+                (outLinksPage + 1) * LINKS_PER_PAGE,
+                outLinksCount,
+              )}
+              {t('common.of')}
+              {fmtN(outLinksCount)}</span
+            >
+            <button
+              class="btn btn-sm"
+              disabled={(outLinksPage + 1) * LINKS_PER_PAGE >= outLinksCount}
+              onclick={() => loadOutLinksPage((outLinksPage + 1) * LINKS_PER_PAGE)}
+              >{t('common.next')}</button
+            >
           </div>
         {/if}
       {:else}
         <p class="chart-empty">{t('urlDetail.outboundLinks')} — 0</p>
       {/if}
-
     {:else if linksTab === 'inbound'}
       {#if inLinks.length > 0}
         <table>
@@ -598,7 +622,12 @@
           <tbody>
             {#each inLinks as l}
               <tr>
-                <td class="cell-url"><a href={urlDetailHref(l.SourceURL)} onclick={(e) => goToUrlDetail(e, l.SourceURL)}>{l.SourceURL}</a></td>
+                <td class="cell-url"
+                  ><a
+                    href={urlDetailHref(l.SourceURL)}
+                    onclick={(e) => goToUrlDetail(e, l.SourceURL)}>{l.SourceURL}</a
+                  ></td
+                >
                 <td class="cell-title">{l.AnchorText || '-'}</td>
                 <td>{l.Tag || '-'}</td>
                 <td>{l.Rel || '-'}</td>
@@ -608,15 +637,31 @@
         </table>
         {#if inLinksCount > LINKS_PER_PAGE}
           <div class="links-pagination">
-            <button class="btn btn-sm" disabled={inLinksPage === 0} onclick={() => loadInLinksPage((inLinksPage - 1) * LINKS_PER_PAGE)}>{t('common.prev')}</button>
-            <span class="links-info">{inLinksPage * LINKS_PER_PAGE + 1}–{Math.min((inLinksPage + 1) * LINKS_PER_PAGE, inLinksCount)} {t('common.of')} {fmtN(inLinksCount)}</span>
-            <button class="btn btn-sm" disabled={(inLinksPage + 1) * LINKS_PER_PAGE >= inLinksCount} onclick={() => loadInLinksPage((inLinksPage + 1) * LINKS_PER_PAGE)}>{t('common.next')}</button>
+            <button
+              class="btn btn-sm"
+              disabled={inLinksPage === 0}
+              onclick={() => loadInLinksPage((inLinksPage - 1) * LINKS_PER_PAGE)}
+              >{t('common.prev')}</button
+            >
+            <span class="links-info"
+              >{inLinksPage * LINKS_PER_PAGE + 1}–{Math.min(
+                (inLinksPage + 1) * LINKS_PER_PAGE,
+                inLinksCount,
+              )}
+              {t('common.of')}
+              {fmtN(inLinksCount)}</span
+            >
+            <button
+              class="btn btn-sm"
+              disabled={(inLinksPage + 1) * LINKS_PER_PAGE >= inLinksCount}
+              onclick={() => loadInLinksPage((inLinksPage + 1) * LINKS_PER_PAGE)}
+              >{t('common.next')}</button
+            >
           </div>
         {/if}
       {:else}
         <p class="chart-empty">{t('urlDetail.inboundLinks')} — 0</p>
       {/if}
-
     {:else if linksTab === 'backlinks'}
       {#if !projectId}
         <div class="bl-locked">
@@ -636,12 +681,33 @@
           filters={blFilters}
           {sessionId}
           onnavigate={(u) => onnavigate?.(u)}
-          onsort={(col, ord) => { blSort = col; blOrder = ord; blOffset = 0; loadBacklinks(); }}
-          onpagechange={(o) => { blOffset = o; loadBacklinks(); }}
-          onlimitchange={(l) => { blLimit = l; blOffset = 0; loadBacklinks(); }}
-          onsetfilter={(k, v) => { blFilters = { ...blFilters, [k]: v }; }}
-          onapplyfilters={() => { blOffset = 0; loadBacklinks(); }}
-          onclearfilters={() => { blFilters = {}; blOffset = 0; loadBacklinks(); }}
+          onsort={(col, ord) => {
+            blSort = col;
+            blOrder = ord;
+            blOffset = 0;
+            loadBacklinks();
+          }}
+          onpagechange={(o) => {
+            blOffset = o;
+            loadBacklinks();
+          }}
+          onlimitchange={(l) => {
+            blLimit = l;
+            blOffset = 0;
+            loadBacklinks();
+          }}
+          onsetfilter={(k, v) => {
+            blFilters = { ...blFilters, [k]: v };
+          }}
+          onapplyfilters={() => {
+            blOffset = 0;
+            loadBacklinks();
+          }}
+          onclearfilters={() => {
+            blFilters = {};
+            blOffset = 0;
+            loadBacklinks();
+          }}
         />
       {/if}
     {/if}
@@ -743,7 +809,9 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--text-muted);
-    transition: color 0.15s, border-color 0.15s;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
   }
   .links-tab-btn:hover {
     color: var(--text-primary);

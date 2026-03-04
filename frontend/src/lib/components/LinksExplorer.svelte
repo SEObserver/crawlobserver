@@ -88,7 +88,14 @@
         extLinks = result || [];
         hasMoreExtLinks = extLinks.length === PAGE_SIZE;
       } else if (subView === 'backlinks' && projectId) {
-        const result = await getBacklinksTop(projectId, blLimit, blOffset, blFilters, blSort, blOrder);
+        const result = await getBacklinksTop(
+          projectId,
+          blLimit,
+          blOffset,
+          blFilters,
+          blSort,
+          blOrder,
+        );
         blData = result?.backlinks || [];
         blTotal = result?.total || 0;
       }
@@ -236,7 +243,9 @@
           class="pr-subview-btn"
           class:pr-subview-active={subView === sv.id}
           class:pr-subview-premium={sv.premium}
-          onclick={() => switchSubView(sv.id)}>{#if sv.premium}<span class="premium-star">&#9733;</span> {/if}{sv.label()}</button
+          onclick={() => switchSubView(sv.id)}
+          >{#if sv.premium}<span class="premium-star">&#9733;</span>
+          {/if}{sv.label()}</button
         >
       {/each}
     </div>
@@ -393,12 +402,34 @@
         filters={blFilters}
         {sessionId}
         onnavigate={(url) => onnavigate?.(url)}
-        onsort={(col, ord) => { blSort = col; blOrder = ord; blOffset = 0; loadData(); }}
-        onpagechange={(o) => { blOffset = o; pushFilters(null, null, o); loadData(); }}
-        onlimitchange={(l) => { blLimit = l; blOffset = 0; loadData(); }}
-        onsetfilter={(k, v) => { blFilters = { ...blFilters, [k]: v }; }}
-        onapplyfilters={() => { blOffset = 0; loadData(); }}
-        onclearfilters={() => { blFilters = {}; blOffset = 0; loadData(); }}
+        onsort={(col, ord) => {
+          blSort = col;
+          blOrder = ord;
+          blOffset = 0;
+          loadData();
+        }}
+        onpagechange={(o) => {
+          blOffset = o;
+          pushFilters(null, null, o);
+          loadData();
+        }}
+        onlimitchange={(l) => {
+          blLimit = l;
+          blOffset = 0;
+          loadData();
+        }}
+        onsetfilter={(k, v) => {
+          blFilters = { ...blFilters, [k]: v };
+        }}
+        onapplyfilters={() => {
+          blOffset = 0;
+          loadData();
+        }}
+        onclearfilters={() => {
+          blFilters = {};
+          blOffset = 0;
+          loadData();
+        }}
       />
     {/if}
   {/if}

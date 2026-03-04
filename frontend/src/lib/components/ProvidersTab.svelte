@@ -435,7 +435,16 @@
       } else if (view === 'rankings') {
         rankings = await getProviderRankings(projectId, provider, PAGE_LIMIT, rankingsOffset);
       } else if (view === 'top_pages') {
-        const raw = await getProviderData(projectId, provider, 'top_pages', PAGE_LIMIT, topPagesOffset, topPagesFilters, topPagesSortCol, topPagesSortOrder);
+        const raw = await getProviderData(
+          projectId,
+          provider,
+          'top_pages',
+          PAGE_LIMIT,
+          topPagesOffset,
+          topPagesFilters,
+          topPagesSortCol,
+          topPagesSortOrder,
+        );
         topPages = {
           total: raw.total,
           rows: (raw.rows || []).map((r, idx) => ({
@@ -520,13 +529,26 @@
             <button class="btn btn-sm text-danger" onclick={doStop}>{t('common.stop')}</button>
           {:else}
             <div class="split-btn-wrap">
-              <button class="btn btn-sm" onclick={() => doFetch()}>{t('providers.fetchData')}</button>
-              <button class="btn btn-sm split-btn-arrow" onclick={(e) => { e.stopPropagation(); fetchMenuOpen = !fetchMenuOpen; }} aria-label="More fetch options">
-                <svg width="10" height="6" viewBox="0 0 10 6" fill="currentColor"><path d="M0 0l5 6 5-6z"/></svg>
+              <button class="btn btn-sm" onclick={() => doFetch()}
+                >{t('providers.fetchData')}</button
+              >
+              <button
+                class="btn btn-sm split-btn-arrow"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  fetchMenuOpen = !fetchMenuOpen;
+                }}
+                aria-label="More fetch options"
+              >
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="currentColor"
+                  ><path d="M0 0l5 6 5-6z" /></svg
+                >
               </button>
               {#if fetchMenuOpen}
                 <div class="split-btn-menu" role="menu">
-                  <button class="split-btn-item" onclick={() => doFetch([], true)}>{t('providers.forceRefresh')}</button>
+                  <button class="split-btn-item" onclick={() => doFetch([], true)}
+                    >{t('providers.forceRefresh')}</button
+                  >
                 </div>
               {/if}
             </div>
@@ -771,7 +793,12 @@
                       >
                       <td>{fmtN(r.backlinks)}</td>
                       <td>{fmtN(r.ref_domains)}</td>
-                      <td class="text-xs">{#if r.topical_tf?.[0]?.topic}<span class="ttf_label {r.topical_tf[0].topic.split('/')[0].toLowerCase()}">{r.topical_tf[0].topic}</span>{:else}-{/if}</td>
+                      <td class="text-xs"
+                        >{#if r.topical_tf?.[0]?.topic}<span
+                            class="ttf_label {r.topical_tf[0].topic.split('/')[0].toLowerCase()}"
+                            >{r.topical_tf[0].topic}</span
+                          >{:else}-{/if}</td
+                      >
                       <td class="text-xs">{r.language}</td>
                     </tr>
                   {/each}
@@ -1094,7 +1121,18 @@
             { label: t('providers.lastCrawl') },
             { label: t('providers.lang') },
           ]}
-          filterKeys={['', 'item_url', 'title', 'trust_flow', 'citation_flow', 'ext_backlinks', 'ref_domains', 'topic', '', 'language']}
+          filterKeys={[
+            '',
+            'item_url',
+            'title',
+            'trust_flow',
+            'citation_flow',
+            'ext_backlinks',
+            'ref_domains',
+            'topic',
+            '',
+            'language',
+          ]}
           filters={topPagesFilters}
           data={topPages?.rows || []}
           offset={topPagesOffset}
@@ -1103,34 +1141,122 @@
           hasActiveFilters={Object.values(topPagesFilters).some((v) => v)}
           sortColumn={topPagesSortCol}
           sortOrder={topPagesSortOrder}
-          onsetfilter={(key, val) => { topPagesFilters[key] = val; topPagesFilters = { ...topPagesFilters }; }}
-          onapplyfilters={() => { topPagesOffset = 0; loadSubView('top_pages'); }}
-          onclearfilters={() => { topPagesFilters = {}; topPagesOffset = 0; loadSubView('top_pages'); }}
-          onnextpage={() => { topPagesOffset += PAGE_LIMIT; loadSubView('top_pages'); }}
-          onprevpage={() => { topPagesOffset = Math.max(0, topPagesOffset - PAGE_LIMIT); loadSubView('top_pages'); }}
-          onsort={(col, ord) => { topPagesSortCol = col; topPagesSortOrder = ord; topPagesOffset = 0; loadSubView('top_pages'); }}
+          onsetfilter={(key, val) => {
+            topPagesFilters[key] = val;
+            topPagesFilters = { ...topPagesFilters };
+          }}
+          onapplyfilters={() => {
+            topPagesOffset = 0;
+            loadSubView('top_pages');
+          }}
+          onclearfilters={() => {
+            topPagesFilters = {};
+            topPagesOffset = 0;
+            loadSubView('top_pages');
+          }}
+          onnextpage={() => {
+            topPagesOffset += PAGE_LIMIT;
+            loadSubView('top_pages');
+          }}
+          onprevpage={() => {
+            topPagesOffset = Math.max(0, topPagesOffset - PAGE_LIMIT);
+            loadSubView('top_pages');
+          }}
+          onsort={(col, ord) => {
+            topPagesSortCol = col;
+            topPagesSortOrder = ord;
+            topPagesOffset = 0;
+            loadSubView('top_pages');
+          }}
         >
           {#snippet row(r)}
             <tr>
               <td class="row-num">{topPagesOffset + r._index + 1}</td>
               <td class="cell-url">
-                <span class="cell-url-inner"><a href={r.url} target="_blank" rel="noopener">{r.url}</a><UrlActions url={r.url} /></span>
+                <span class="cell-url-inner"
+                  ><a href={r.url} target="_blank" rel="noopener">{r.url}</a><UrlActions
+                    url={r.url}
+                  /></span
+                >
               </td>
               <td class="cell-title">{r.title || '-'}</td>
-              <td>{#if r.topical_tf?.[0]?.topic}<span class="ttf_label ttf-clickable {r.topical_tf[0].topic.split('/')[0].toLowerCase()}" onclick={() => filterByTopic(r.topical_tf[0].topic)} role="button" tabindex="0">{r.trust_flow}</span>{:else}{r.trust_flow ?? '-'}{/if}</td>
+              <td
+                >{#if r.topical_tf?.[0]?.topic}<span
+                    class="ttf_label ttf-clickable {r.topical_tf[0].topic
+                      .split('/')[0]
+                      .toLowerCase()}"
+                    onclick={() => filterByTopic(r.topical_tf[0].topic)}
+                    role="button"
+                    tabindex="0">{r.trust_flow}</span
+                  >{:else}{r.trust_flow ?? '-'}{/if}</td
+              >
               <td>{r.citation_flow ?? '-'}</td>
               <td>{fmtN(r.backlinks ?? 0)}</td>
               <td>{fmtN(r.ref_domains ?? 0)}</td>
-              <td class="text-xs">{#if r.topical_tf?.[0]?.topic}<span class="ttf_label ttf-clickable {r.topical_tf[0].topic.split('/')[0].toLowerCase()}" onclick={() => filterByTopic(r.topical_tf[0].topic)} role="button" tabindex="0">{r.topical_tf[0].topic}</span>{:else}-{/if}</td>
+              <td class="text-xs"
+                >{#if r.topical_tf?.[0]?.topic}<span
+                    class="ttf_label ttf-clickable {r.topical_tf[0].topic
+                      .split('/')[0]
+                      .toLowerCase()}"
+                    onclick={() => filterByTopic(r.topical_tf[0].topic)}
+                    role="button"
+                    tabindex="0">{r.topical_tf[0].topic}</span
+                  >{:else}-{/if}</td
+              >
               <td class="text-xs nowrap"
                 >{#if r.last_crawl_result}<span
                     class="crawl-status-icon tooltip-wrap"
                     class:crawl-ok={r.last_crawl_result === 'DownloadedSuccessfully'}
                     class:crawl-redirect={r.last_crawl_result.includes('Redirect')}
                     class:crawl-unknown={r.last_crawl_result === 'NotCrawled'}
-                    class:crawl-error={r.last_crawl_result !== 'DownloadedSuccessfully' && !r.last_crawl_result.includes('Redirect') && r.last_crawl_result !== 'NotCrawled'}
-                  ><span class="tooltip-text">{r.last_crawl_result.replace(/_/g, ' ')}{r.last_crawl_date ? ' — ' + r.last_crawl_date : ''}</span
-                  >{#if r.last_crawl_result === 'DownloadedSuccessfully'}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>{:else if r.last_crawl_result.includes('Redirect')}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-4-4l4 4-4 4"/></svg>{:else if r.last_crawl_result === 'NotCrawled'}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg>{:else}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>{/if}</span
+                    class:crawl-error={r.last_crawl_result !== 'DownloadedSuccessfully' &&
+                      !r.last_crawl_result.includes('Redirect') &&
+                      r.last_crawl_result !== 'NotCrawled'}
+                    ><span class="tooltip-text"
+                      >{r.last_crawl_result.replace(/_/g, ' ')}{r.last_crawl_date
+                        ? ' — ' + r.last_crawl_date
+                        : ''}</span
+                    >{#if r.last_crawl_result === 'DownloadedSuccessfully'}<svg
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"><path d="M20 6L9 17l-5-5" /></svg
+                      >{:else if r.last_crawl_result.includes('Redirect')}<svg
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"><path d="M5 12h14m-4-4l4 4-4 4" /></svg
+                      >{:else if r.last_crawl_result === 'NotCrawled'}<svg
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        ><circle cx="12" cy="12" r="10" /><line
+                          x1="12"
+                          y1="8"
+                          x2="12"
+                          y2="12"
+                        /><circle cx="12" cy="16" r="0.5" fill="currentColor" /></svg
+                      >{:else}<svg
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        ><circle cx="12" cy="12" r="10" /><line
+                          x1="15"
+                          y1="9"
+                          x2="9"
+                          y2="15"
+                        /><line x1="9" y1="9" x2="15" y2="15" /></svg
+                      >{/if}</span
                   >{:else}-{/if}</td
               >
               <td class="text-xs">{r.language || '-'}</td>
@@ -1141,7 +1267,11 @@
         <div class="chart-empty">
           <p>{t('providers.noTopPages')}</p>
           {#if !fetchingData}
-            <button class="btn btn-primary" style="margin-top: 0.75rem" onclick={() => doFetch(['top_pages'])}>{t('providers.fetchData')}</button>
+            <button
+              class="btn btn-primary"
+              style="margin-top: 0.75rem"
+              onclick={() => doFetch(['top_pages'])}>{t('providers.fetchData')}</button
+            >
           {/if}
         </div>
       {/if}
@@ -1258,23 +1388,49 @@
             />
           </label>
           <h4 class="prov-settings-subtitle">{t('providers.fetchLimits')}</h4>
-          <p class="text-muted text-sm" style="margin-bottom:8px">{t('providers.fetchLimitsHelp')}</p>
+          <p class="text-muted text-sm" style="margin-bottom:8px">
+            {t('providers.fetchLimitsHelp')}
+          </p>
           <div class="prov-limits-grid">
             <label class="settings-field-label">
               {t('providers.limitBacklinks')}
-              <input type="number" class="pr-input" bind:value={settingsLimitBacklinks} min="1" max="10000" />
+              <input
+                type="number"
+                class="pr-input"
+                bind:value={settingsLimitBacklinks}
+                min="1"
+                max="10000"
+              />
             </label>
             <label class="settings-field-label">
               {t('providers.limitRefdomains')}
-              <input type="number" class="pr-input" bind:value={settingsLimitRefdomains} min="1" max="10000" />
+              <input
+                type="number"
+                class="pr-input"
+                bind:value={settingsLimitRefdomains}
+                min="1"
+                max="10000"
+              />
             </label>
             <label class="settings-field-label">
               {t('providers.limitRankings')}
-              <input type="number" class="pr-input" bind:value={settingsLimitRankings} min="1" max="10000" />
+              <input
+                type="number"
+                class="pr-input"
+                bind:value={settingsLimitRankings}
+                min="1"
+                max="10000"
+              />
             </label>
             <label class="settings-field-label">
               {t('providers.limitTopPages')}
-              <input type="number" class="pr-input" bind:value={settingsLimitTopPages} min="1" max="10000" />
+              <input
+                type="number"
+                class="pr-input"
+                bind:value={settingsLimitTopPages}
+                min="1"
+                max="10000"
+              />
             </label>
           </div>
 
@@ -1360,7 +1516,7 @@
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
     z-index: 20;
     min-width: 160px;
   }
@@ -1564,35 +1720,105 @@
     pointer-events: none;
     user-select: none;
   }
-  .ttf_label { font-weight: 700; font-size: 8.5pt; border-radius: 4px; padding: 1px 5px; display: inline-block; white-space: nowrap; }
-  .ttf_label.arts { background: #ff6700; color: #fff; }
-  .ttf_label.news { background: #76D54B; color: #333; }
-  .ttf_label.society { background: #7A69CD; color: #fff; }
-  .ttf_label.computers { background: #f33; color: #fff; }
-  .ttf_label.business { background: #C5C88E; color: #333; }
-  .ttf_label.regional { background: #F582B9; color: #fff; }
-  .ttf_label.recreation { background: #89C7CB; color: #333; }
-  .ttf_label.sports { background: #55355D; color: #fff; }
-  .ttf_label.kids { background: #fc0; color: #333; }
-  .ttf_label.reference { background: #C84770; color: #fff; }
-  .ttf_label.games { background: #557832; color: #fff; }
-  .ttf_label.home { background: #d95; color: #fff; }
-  .ttf_label.shopping { background: #600; color: #fff; }
-  .ttf_label.health { background: #009; color: #fff; }
-  .ttf_label.science { background: #6BD39A; color: #333; }
-  .ttf_label.world { background: #577; color: #fff; }
-  .ttf_label.adult { background: #333; color: #fff; }
-  .ttf-clickable { cursor: pointer; }
-  .ttf-clickable:hover { opacity: 0.8; }
+  .ttf_label {
+    font-weight: 700;
+    font-size: 8.5pt;
+    border-radius: 4px;
+    padding: 1px 5px;
+    display: inline-block;
+    white-space: nowrap;
+  }
+  .ttf_label.arts {
+    background: #ff6700;
+    color: #fff;
+  }
+  .ttf_label.news {
+    background: #76d54b;
+    color: #333;
+  }
+  .ttf_label.society {
+    background: #7a69cd;
+    color: #fff;
+  }
+  .ttf_label.computers {
+    background: #f33;
+    color: #fff;
+  }
+  .ttf_label.business {
+    background: #c5c88e;
+    color: #333;
+  }
+  .ttf_label.regional {
+    background: #f582b9;
+    color: #fff;
+  }
+  .ttf_label.recreation {
+    background: #89c7cb;
+    color: #333;
+  }
+  .ttf_label.sports {
+    background: #55355d;
+    color: #fff;
+  }
+  .ttf_label.kids {
+    background: #fc0;
+    color: #333;
+  }
+  .ttf_label.reference {
+    background: #c84770;
+    color: #fff;
+  }
+  .ttf_label.games {
+    background: #557832;
+    color: #fff;
+  }
+  .ttf_label.home {
+    background: #d95;
+    color: #fff;
+  }
+  .ttf_label.shopping {
+    background: #600;
+    color: #fff;
+  }
+  .ttf_label.health {
+    background: #009;
+    color: #fff;
+  }
+  .ttf_label.science {
+    background: #6bd39a;
+    color: #333;
+  }
+  .ttf_label.world {
+    background: #577;
+    color: #fff;
+  }
+  .ttf_label.adult {
+    background: #333;
+    color: #fff;
+  }
+  .ttf-clickable {
+    cursor: pointer;
+  }
+  .ttf-clickable:hover {
+    opacity: 0.8;
+  }
   .crawl-status-icon {
     display: inline-flex;
     align-items: center;
     cursor: help;
   }
-  .crawl-ok { color: #16a34a; }
-  .crawl-redirect { color: #d97706; }
-  .crawl-unknown { color: #eab308; }
-  .crawl-error { color: #dc2626; }
+  .crawl-ok {
+    color: #16a34a;
+  }
+  .crawl-redirect {
+    color: #d97706;
+  }
+  .crawl-unknown {
+    color: #eab308;
+  }
+  .crawl-error {
+    color: #dc2626;
+  }
   .tooltip-wrap {
     position: relative;
   }
