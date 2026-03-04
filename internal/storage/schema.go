@@ -617,6 +617,29 @@ PARTITION BY crawl_session_id
 ORDER BY (crawl_session_id, url, extractor_name)
 `
 
+const CreateProviderData = `
+CREATE TABLE IF NOT EXISTS crawlobserver.provider_data (
+    project_id String,
+    provider LowCardinality(String),
+    data_type LowCardinality(String),
+    domain String,
+    item_url String DEFAULT '',
+
+    trust_flow UInt8 DEFAULT 0,
+    citation_flow UInt8 DEFAULT 0,
+    domain_rank Float64 DEFAULT 0,
+    ext_backlinks Int64 DEFAULT 0,
+    ref_domains Int64 DEFAULT 0,
+
+    str_data Map(String, String),
+    num_data Map(String, Float64),
+
+    fetched_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(fetched_at)
+PARTITION BY project_id
+ORDER BY (project_id, provider, data_type, domain, item_url)
+`
+
 // Migrations is the ordered list of migrations.
 var Migrations = []Migration{
 	{Name: "create database", DDL: CreateDatabase},
@@ -647,4 +670,5 @@ var Migrations = []Migration{
 	{Name: "create provider_top_pages", DDL: CreateProviderTopPages},
 	{Name: "create provider_api_calls", DDL: CreateProviderAPICalls},
 	{Name: "create extractions", DDL: CreateExtractions},
+	{Name: "create provider_data", DDL: CreateProviderData},
 }

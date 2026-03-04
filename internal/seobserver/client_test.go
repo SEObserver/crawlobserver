@@ -251,15 +251,38 @@ func TestFetchRankings(t *testing.T) {
 
 func TestFetchTopPages(t *testing.T) {
 	c, ts := newTestClient(func(w http.ResponseWriter, r *http.Request) {
-		raw := []rawTopPage{{
-			URL:       "https://example.com/page",
-			Title:     "Test",
-			TrustFlow: 30,
-			TTFTopic0: "Business",
-			TTFValue0: 25,
-			TTFTopic1: "Tech",
-			TTFValue1: 15,
-		}}
+		// Verify correct endpoint and query param
+		if r.URL.Path != "/backlinks/pages.json" {
+			t.Errorf("path = %q, want /backlinks/pages.json", r.URL.Path)
+		}
+		if r.URL.Query().Get("limit") != "10" {
+			t.Errorf("limit param = %q, want 10", r.URL.Query().Get("limit"))
+		}
+		// Verify body is array of items
+		var items []map[string]string
+		json.NewDecoder(r.Body).Decode(&items)
+		if len(items) != 1 || items[0]["item_type"] != "domain" || items[0]["item_value"] != "example.com" {
+			t.Errorf("unexpected body: %+v", items)
+		}
+
+		// Return response with mixed types (like real API)
+		raw := []map[string]interface{}{
+			{
+				"URL":                          "https://example.com/page",
+				"Title":                        "Test",
+				"TrustFlow":                    float64(30),
+				"CitationFlow":                 float64(20),
+				"ExtBackLinks":                 float64(500),
+				"RefDomains":                   float64(100),
+				"OutLinks":                     "42", // string in API
+				"TopicalTrustFlow_Topic_0":     "Business",
+				"TopicalTrustFlow_Value_0":     float64(25),
+				"TopicalTrustFlow_Topic_1":     "Tech",
+				"TopicalTrustFlow_Value_1":     float64(15),
+				"TopicalTrustFlow_Value_2":     "",  // empty string TTF value
+				"Language":                     "en",
+			},
+		}
 		w.Write(jsonResp("ok", raw))
 	})
 	defer ts.Close()
@@ -274,6 +297,12 @@ func TestFetchTopPages(t *testing.T) {
 	if pages[0].TrustFlow != 30 {
 		t.Errorf("TrustFlow = %d, want 30", pages[0].TrustFlow)
 	}
+	if pages[0].CitationFlow != 20 {
+		t.Errorf("CitationFlow = %d, want 20", pages[0].CitationFlow)
+	}
+	if pages[0].ExtBackLinks != 500 {
+		t.Errorf("ExtBackLinks = %d, want 500", pages[0].ExtBackLinks)
+	}
 	if len(pages[0].TopicalTrustFlow) != 2 {
 		t.Fatalf("got %d TTF entries, want 2", len(pages[0].TopicalTrustFlow))
 	}
@@ -282,53 +311,50 @@ func TestFetchTopPages(t *testing.T) {
 	}
 }
 
-func TestRawTopPage_ToTopPage(t *testing.T) {
+func TestParseRawTopPage(t *testing.T) {
 	tests := []struct {
 		name     string
-		raw      rawTopPage
+		raw      map[string]interface{}
 		wantTTFs int
+		wantURL  string
 	}{
 		{
 			name:     "no TTF",
-			raw:      rawTopPage{URL: "https://a.com"},
+			raw:      map[string]interface{}{"URL": "https://a.com"},
 			wantTTFs: 0,
+			wantURL:  "https://a.com",
 		},
 		{
-			name: "some TTF",
-			raw: rawTopPage{
-				URL:       "https://a.com",
-				TTFTopic0: "Arts",
-				TTFValue0: 10,
-				TTFTopic3: "Science",
-				TTFValue3: 5,
+			name: "some TTF with mixed types",
+			raw: map[string]interface{}{
+				"URL":                      "https://a.com",
+				"TopicalTrustFlow_Topic_0": "Arts",
+				"TopicalTrustFlow_Value_0": float64(10),
+				"TopicalTrustFlow_Topic_3": "Science",
+				"TopicalTrustFlow_Value_3": float64(5),
+				"TopicalTrustFlow_Value_5": "", // empty string = skip
 			},
 			wantTTFs: 2,
+			wantURL:  "https://a.com",
 		},
 		{
-			name: "all TTF",
-			raw: rawTopPage{
-				TTFTopic0: "A", TTFValue0: 1,
-				TTFTopic1: "B", TTFValue1: 2,
-				TTFTopic2: "C", TTFValue2: 3,
-				TTFTopic3: "D", TTFValue3: 4,
-				TTFTopic4: "E", TTFValue4: 5,
-				TTFTopic5: "F", TTFValue5: 6,
-				TTFTopic6: "G", TTFValue6: 7,
-				TTFTopic7: "H", TTFValue7: 8,
-				TTFTopic8: "I", TTFValue8: 9,
-				TTFTopic9: "J", TTFValue9: 10,
+			name: "OutLinks as string",
+			raw: map[string]interface{}{
+				"URL":      "https://b.com",
+				"OutLinks": "123",
 			},
-			wantTTFs: 10,
+			wantTTFs: 0,
+			wantURL:  "https://b.com",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.raw.toTopPage()
+			got := ParseRawTopPage(tt.raw)
 			if len(got.TopicalTrustFlow) != tt.wantTTFs {
 				t.Errorf("got %d TTFs, want %d", len(got.TopicalTrustFlow), tt.wantTTFs)
 			}
-			if got.URL != tt.raw.URL {
-				t.Errorf("URL = %q, want %q", got.URL, tt.raw.URL)
+			if got.URL != tt.wantURL {
+				t.Errorf("URL = %q, want %q", got.URL, tt.wantURL)
 			}
 		})
 	}

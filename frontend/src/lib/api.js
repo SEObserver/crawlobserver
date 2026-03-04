@@ -1201,6 +1201,26 @@ export async function getProviderTopPages(projectId, provider, limit = 100, offs
 }
 
 /** @returns {Promise<{rows: Array, total: number}>} */
+export async function getProviderData(
+  projectId,
+  provider,
+  dataType,
+  limit = 100,
+  offset = 0,
+  filters = {},
+  sort = '',
+  order = '',
+) {
+  let url = `/projects/${projectId}/providers/${provider}/data/${dataType}?limit=${limit}&offset=${offset}`;
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
+  }
+  if (sort) url += `&sort=${encodeURIComponent(sort)}`;
+  if (order) url += `&order=${encodeURIComponent(order)}`;
+  return fetchJSON(url);
+}
+
+/** @returns {Promise<{rows: Array, total: number}>} */
 export async function getProviderAPICalls(projectId, provider, limit = 50, offset = 0) {
   return fetchJSON(
     `/projects/${projectId}/providers/${provider}/api-calls?limit=${limit}&offset=${offset}`,

@@ -237,7 +237,9 @@
         routeGscSubView =
           route.projectTab === 'gsc' ? route.projectSubView || 'overview' : 'overview';
         routeProviderSubView =
-          route.projectTab === 'providers' ? route.projectSubView || 'overview' : 'overview';
+          route.projectTab === 'providers' || route.projectTab?.startsWith('provider:')
+            ? route.projectSubView || 'overview'
+            : 'overview';
         if (!selectedProject && projects.length === 0) {
           getProjects()
             .then((p) => {

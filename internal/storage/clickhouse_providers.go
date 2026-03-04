@@ -406,6 +406,106 @@ func (s *Store) ProviderAPICalls(ctx context.Context, projectID, provider string
 	return result, int(total), nil
 }
 
+// --- Unified provider_data methods ---
+
+func (s *Store) InsertProviderData(ctx context.Context, projectID string, rows []ProviderDataRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	batch, err := s.conn.PrepareBatch(ctx, `
+		INSERT INTO crawlobserver.provider_data (
+			project_id, provider, data_type, domain, item_url,
+			trust_flow, citation_flow, domain_rank, ext_backlinks, ref_domains,
+			str_data, num_data, fetched_at
+		)`)
+	if err != nil {
+		return fmt.Errorf("preparing provider_data batch: %w", err)
+	}
+	now := time.Now()
+	for _, r := range rows {
+		strData := r.StrData
+		if strData == nil {
+			strData = map[string]string{}
+		}
+		numData := r.NumData
+		if numData == nil {
+			numData = map[string]float64{}
+		}
+		if err := batch.Append(
+			projectID, r.Provider, r.DataType, r.Domain, r.ItemURL,
+			r.TrustFlow, r.CitationFlow, r.DomainRank, r.ExtBacklinks, r.RefDomains,
+			strData, numData, now,
+		); err != nil {
+			return fmt.Errorf("appending provider_data row: %w", err)
+		}
+	}
+	return batch.Send()
+}
+
+func (s *Store) ProviderData(ctx context.Context, projectID, provider, dataType string, limit, offset int, filters []ParsedFilter, sort *SortParam) ([]ProviderDataRow, int, error) {
+	baseWhere := `project_id = ? AND provider = ? AND data_type = ?`
+	baseArgs := []interface{}{projectID, provider, dataType}
+
+	whereExtra, filterArgs, err := BuildWhereClause(filters)
+	if err != nil {
+		return nil, 0, fmt.Errorf("building filter clause: %w", err)
+	}
+	fullWhere := baseWhere
+	allArgs := append([]interface{}{}, baseArgs...)
+	if whereExtra != "" {
+		fullWhere += " AND " + whereExtra
+		allArgs = append(allArgs, filterArgs...)
+	}
+
+	var total uint64
+	countQ := `SELECT count() FROM crawlobserver.provider_data FINAL WHERE ` + fullWhere
+	if err := s.conn.QueryRow(ctx, countQ, allArgs...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("counting provider_data: %w", err)
+	}
+
+	query := `
+		SELECT provider, data_type, domain, item_url,
+			trust_flow, citation_flow, domain_rank, ext_backlinks, ref_domains,
+			str_data, num_data, fetched_at
+		FROM crawlobserver.provider_data FINAL
+		WHERE ` + fullWhere + BuildOrderByClause(sort, "trust_flow DESC") + ` LIMIT ? OFFSET ?`
+	queryArgs := append(append([]interface{}{}, allArgs...), limit, offset)
+
+	rows, err := s.conn.Query(ctx, query, queryArgs...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("querying provider_data: %w", err)
+	}
+	defer rows.Close()
+
+	var result []ProviderDataRow
+	for rows.Next() {
+		var r ProviderDataRow
+		if err := rows.Scan(&r.Provider, &r.DataType, &r.Domain, &r.ItemURL,
+			&r.TrustFlow, &r.CitationFlow, &r.DomainRank, &r.ExtBacklinks, &r.RefDomains,
+			&r.StrData, &r.NumData, &r.FetchedAt); err != nil {
+			return nil, 0, fmt.Errorf("scanning provider_data row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if result == nil {
+		result = []ProviderDataRow{}
+	}
+	return result, int(total), nil
+}
+
+func (s *Store) ProviderDataAge(ctx context.Context, projectID, provider, dataType string) (time.Time, error) {
+	var fetchedAt time.Time
+	err := s.conn.QueryRow(ctx, `
+		SELECT max(fetched_at)
+		FROM crawlobserver.provider_data
+		WHERE project_id = ? AND provider = ? AND data_type = ?`,
+		projectID, provider, dataType).Scan(&fetchedAt)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return fetchedAt, nil
+}
+
 func (s *Store) DeleteProviderData(ctx context.Context, projectID, provider string) error {
 	tables := []string{
 		"provider_domain_metrics",
@@ -414,6 +514,7 @@ func (s *Store) DeleteProviderData(ctx context.Context, projectID, provider stri
 		"provider_rankings",
 		"provider_visibility",
 		"provider_top_pages",
+		"provider_data",
 	}
 	for _, table := range tables {
 		q := fmt.Sprintf("ALTER TABLE crawlobserver.%s DELETE WHERE project_id = ? AND provider = ?", table)

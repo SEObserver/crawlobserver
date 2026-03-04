@@ -123,7 +123,7 @@ type DomainMetrics struct {
 // GetDomainMetrics fetches domain-level metrics via backlinks/metrics.json.
 func (c *Client) GetDomainMetrics(ctx context.Context, domain string) (*DomainMetrics, *APICallMeta, error) {
 	items := []map[string]string{{"item_type": "domain", "item_value": domain}}
-	resp, meta, err := c.postJSON(ctx, "backlinks/metrics.json", map[string]interface{}{"items": items})
+	resp, meta, err := c.postJSON(ctx, "backlinks/metrics.json", items)
 	if err != nil {
 		return nil, meta, err
 	}
@@ -283,8 +283,11 @@ type TopPage struct {
 	CitationFlow     uint8       `json:"citation_flow"`
 	ExtBackLinks     int64       `json:"ext_backlinks"`
 	RefDomains       int64       `json:"ref_domains"`
+	OutLinks         int64       `json:"out_links"`
 	TopicalTrustFlow []TopicalTF `json:"topical_trust_flow"`
 	Language         string      `json:"language"`
+	LastCrawlResult  string      `json:"last_crawl_result"`
+	LastCrawlDate    string      `json:"last_crawl_date"`
 }
 
 // TopicalTF represents a topical trust flow entry.
@@ -293,83 +296,92 @@ type TopicalTF struct {
 	Value uint8  `json:"value"`
 }
 
-// rawTopPage is the flat JSON structure from the Majestic/SEObserver API.
-type rawTopPage struct {
-	URL          string `json:"url"`
-	Title        string `json:"title"`
-	TrustFlow    uint8  `json:"trust_flow"`
-	CitationFlow uint8  `json:"citation_flow"`
-	ExtBackLinks int64  `json:"ext_backlinks"`
-	RefDomains   int64  `json:"ref_domains"`
-	Language     string `json:"language"`
-	// Flat topical TF fields (Topic_0..Topic_9, Value_0..Value_9)
-	TTFTopic0 string `json:"TopicalTrustFlow_Topic_0"`
-	TTFValue0 uint8  `json:"TopicalTrustFlow_Value_0"`
-	TTFTopic1 string `json:"TopicalTrustFlow_Topic_1"`
-	TTFValue1 uint8  `json:"TopicalTrustFlow_Value_1"`
-	TTFTopic2 string `json:"TopicalTrustFlow_Topic_2"`
-	TTFValue2 uint8  `json:"TopicalTrustFlow_Value_2"`
-	TTFTopic3 string `json:"TopicalTrustFlow_Topic_3"`
-	TTFValue3 uint8  `json:"TopicalTrustFlow_Value_3"`
-	TTFTopic4 string `json:"TopicalTrustFlow_Topic_4"`
-	TTFValue4 uint8  `json:"TopicalTrustFlow_Value_4"`
-	TTFTopic5 string `json:"TopicalTrustFlow_Topic_5"`
-	TTFValue5 uint8  `json:"TopicalTrustFlow_Value_5"`
-	TTFTopic6 string `json:"TopicalTrustFlow_Topic_6"`
-	TTFValue6 uint8  `json:"TopicalTrustFlow_Value_6"`
-	TTFTopic7 string `json:"TopicalTrustFlow_Topic_7"`
-	TTFValue7 uint8  `json:"TopicalTrustFlow_Value_7"`
-	TTFTopic8 string `json:"TopicalTrustFlow_Topic_8"`
-	TTFValue8 uint8  `json:"TopicalTrustFlow_Value_8"`
-	TTFTopic9 string `json:"TopicalTrustFlow_Topic_9"`
-	TTFValue9 uint8  `json:"TopicalTrustFlow_Value_9"`
-}
-
-func (r *rawTopPage) toTopPage() TopPage {
+// ParseRawTopPage parses a single raw top page from the flexible API response.
+// The API returns mixed types: TTF values can be int or empty string, OutLinks is a string.
+func ParseRawTopPage(raw map[string]interface{}) TopPage {
 	tp := TopPage{
-		URL:          r.URL,
-		Title:        r.Title,
-		TrustFlow:    r.TrustFlow,
-		CitationFlow: r.CitationFlow,
-		ExtBackLinks: r.ExtBackLinks,
-		RefDomains:   r.RefDomains,
-		Language:     r.Language,
+		URL:             jsonStr(raw, "URL"),
+		Title:           jsonStr(raw, "Title"),
+		TrustFlow:       jsonUint8(raw, "TrustFlow"),
+		CitationFlow:    jsonUint8(raw, "CitationFlow"),
+		ExtBackLinks:    jsonInt64(raw, "ExtBackLinks"),
+		RefDomains:      jsonInt64(raw, "RefDomains"),
+		Language:        jsonStr(raw, "Language"),
+		OutLinks:        jsonInt64(raw, "OutLinks"),
+		LastCrawlResult: jsonStr(raw, "LastCrawlResult"),
+		LastCrawlDate:   jsonStr(raw, "Date"),
 	}
-	pairs := []struct {
-		t string
-		v uint8
-	}{
-		{r.TTFTopic0, r.TTFValue0}, {r.TTFTopic1, r.TTFValue1},
-		{r.TTFTopic2, r.TTFValue2}, {r.TTFTopic3, r.TTFValue3},
-		{r.TTFTopic4, r.TTFValue4}, {r.TTFTopic5, r.TTFValue5},
-		{r.TTFTopic6, r.TTFValue6}, {r.TTFTopic7, r.TTFValue7},
-		{r.TTFTopic8, r.TTFValue8}, {r.TTFTopic9, r.TTFValue9},
-	}
-	for _, p := range pairs {
-		if p.t != "" {
-			tp.TopicalTrustFlow = append(tp.TopicalTrustFlow, TopicalTF{Topic: p.t, Value: p.v})
+	for i := 0; i < 10; i++ {
+		topicKey := fmt.Sprintf("TopicalTrustFlow_Topic_%d", i)
+		valueKey := fmt.Sprintf("TopicalTrustFlow_Value_%d", i)
+		topic := jsonStr(raw, topicKey)
+		if topic == "" {
+			continue
 		}
+		tp.TopicalTrustFlow = append(tp.TopicalTrustFlow, TopicalTF{
+			Topic: topic,
+			Value: jsonUint8(raw, valueKey),
+		})
 	}
 	return tp
 }
 
-// FetchTopPages fetches top pages with Majestic authority data.
-func (c *Client) FetchTopPages(ctx context.Context, domain string, limit int) ([]TopPage, *APICallMeta, error) {
-	payload := map[string]interface{}{
-		"item":  domain,
-		"limit": limit,
+// jsonStr extracts a string from a map, handling nil.
+func jsonStr(m map[string]interface{}, key string) string {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return ""
 	}
-	resp, meta, err := c.postJSON(ctx, "backlinks/top-pages.json", payload)
+	s, _ := v.(string)
+	return s
+}
+
+// jsonUint8 extracts a uint8 from a map, handling float64 (JSON numbers) and string values.
+func jsonUint8(m map[string]interface{}, key string) uint8 {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return 0
+	}
+	switch val := v.(type) {
+	case float64:
+		return uint8(val)
+	case string:
+		// API sometimes returns "" for empty TTF values
+		return 0
+	}
+	return 0
+}
+
+// jsonInt64 extracts an int64 from a map, handling float64 and string values.
+func jsonInt64(m map[string]interface{}, key string) int64 {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return 0
+	}
+	switch val := v.(type) {
+	case float64:
+		return int64(val)
+	case string:
+		return 0
+	}
+	return 0
+}
+
+// FetchTopPages fetches top pages with Majestic authority data via backlinks/pages.json.
+func (c *Client) FetchTopPages(ctx context.Context, domain string, limit int) ([]TopPage, *APICallMeta, error) {
+	items := []map[string]string{{"item_type": "domain", "item_value": domain}}
+	path := fmt.Sprintf("backlinks/pages.json?limit=%d", limit)
+	resp, meta, err := c.postJSON(ctx, path, items)
 	if err != nil {
 		return nil, meta, err
 	}
-	var raw []rawTopPage
-	if err := json.Unmarshal(resp.Data, &raw); err != nil {
+	var rawRows []map[string]interface{}
+	if err := json.Unmarshal(resp.Data, &rawRows); err != nil {
 		return nil, meta, fmt.Errorf("parsing top pages: %w", err)
 	}
-	pages := make([]TopPage, len(raw))
-	for i, r := range raw {
-		pages[i] = r.toTopPage()
+	pages := make([]TopPage, len(rawRows))
+	for i, raw := range rawRows {
+		pages[i] = ParseRawTopPage(raw)
 	}
 	return pages, meta, nil
 }

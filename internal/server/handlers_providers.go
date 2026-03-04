@@ -126,6 +126,7 @@ func (s *Server) handleProviderFetch(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		DataTypes []string `json:"data_types"`
+		Force     bool     `json:"force"`
 	}
 	json.NewDecoder(r.Body).Decode(&body)
 	if len(body.DataTypes) == 0 {
@@ -151,7 +152,7 @@ func (s *Server) handleProviderFetch(w http.ResponseWriter, r *http.Request) {
 	s.providerFetchStatus[key] = &providerFetchStatus{Fetching: true, Phase: "starting", cancel: cancel}
 	s.providerFetchMu.Unlock()
 
-	go s.runProviderFetch(ctx, cancel, projectID, provider, conn, body.DataTypes, key)
+	go s.runProviderFetch(ctx, cancel, projectID, provider, conn, body.DataTypes, body.Force, key)
 
 	writeJSON(w, map[string]string{"status": "fetching"})
 }
@@ -181,7 +182,9 @@ func (s *Server) logAPICall(ctx context.Context, meta *seobserver.APICallMeta, p
 	}
 }
 
-func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc, projectID, provider string, conn *providers.ProviderConnection, dataTypes []string, key string) {
+const providerCacheDuration = 24 * time.Hour
+
+func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc, projectID, provider string, conn *providers.ProviderConnection, dataTypes []string, force bool, key string) {
 	defer cancel()
 
 	results := make(map[string]phaseResult)
@@ -227,6 +230,18 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 			}
 		}
 		return false
+	}
+
+	// isCached checks if data_type was fetched within the cache duration.
+	isCached := func(dataType string) bool {
+		if force {
+			return false
+		}
+		age, err := s.store.ProviderDataAge(ctx, projectID, provider, dataType)
+		if err != nil || age.IsZero() {
+			return false
+		}
+		return time.Since(age) < providerCacheDuration
 	}
 
 	// Metrics
@@ -371,35 +386,73 @@ func (s *Server) runProviderFetch(ctx context.Context, cancel context.CancelFunc
 
 	// Top Pages
 	if wantType("top_pages") {
-		setPhase("top_pages")
-		if ctx.Err() != nil {
-			return
-		}
-		pages, meta, err := client.FetchTopPages(ctx, domain, 1000)
-		s.logAPICall(ctx, meta, projectID, provider, len(pages), err)
-		if err != nil {
-			applog.Errorf("provider", "top_pages error: %v", err)
-			results["top_pages"] = phaseResult{Error: err.Error()}
+		if isCached("top_pages") {
+			applog.Infof("provider", "top_pages cached, skipping fetch")
+			results["top_pages"] = phaseResult{Cached: true}
 		} else {
-			insertRows := make([]storage.ProviderTopPageRow, len(pages))
-			for i, p := range pages {
-				ttf := make([]storage.TopicalTF, len(p.TopicalTrustFlow))
-				for j, t := range p.TopicalTrustFlow {
-					ttf[j] = storage.TopicalTF{Topic: t.Topic, Value: t.Value}
-				}
-				insertRows[i] = storage.ProviderTopPageRow{
-					Provider: provider, Domain: domain,
-					URL: p.URL, Title: p.Title,
-					TrustFlow: p.TrustFlow, CitationFlow: p.CitationFlow,
-					ExtBackLinks: p.ExtBackLinks, RefDomains: p.RefDomains,
-					TopicalTrustFlow: ttf, Language: p.Language,
-				}
+			setPhase("top_pages")
+			if ctx.Err() != nil {
+				return
 			}
-			if err := s.store.InsertProviderTopPages(ctx, projectID, insertRows); err != nil {
-				applog.Errorf("provider", "insert top_pages error: %v", err)
+			pages, meta, err := client.FetchTopPages(ctx, domain, 1000)
+			s.logAPICall(ctx, meta, projectID, provider, len(pages), err)
+			if err != nil {
+				applog.Errorf("provider", "top_pages error: %v", err)
+				results["top_pages"] = phaseResult{Error: err.Error()}
+			} else {
+				// Write to unified provider_data table
+				dataRows := make([]storage.ProviderDataRow, len(pages))
+				for i, p := range pages {
+					strData := map[string]string{
+						"title":              p.Title,
+						"language":           p.Language,
+						"last_crawl_result":  p.LastCrawlResult,
+						"last_crawl_date":    p.LastCrawlDate,
+					}
+					numData := map[string]float64{
+						"out_links": float64(p.OutLinks),
+					}
+					for j, ttf := range p.TopicalTrustFlow {
+						strData[fmt.Sprintf("ttf_topic_%d", j)] = ttf.Topic
+						numData[fmt.Sprintf("ttf_value_%d", j)] = float64(ttf.Value)
+					}
+					dataRows[i] = storage.ProviderDataRow{
+						Provider:     provider,
+						DataType:     "top_pages",
+						Domain:       domain,
+						ItemURL:      p.URL,
+						TrustFlow:    p.TrustFlow,
+						CitationFlow: p.CitationFlow,
+						ExtBacklinks: p.ExtBackLinks,
+						RefDomains:   p.RefDomains,
+						StrData:      strData,
+						NumData:      numData,
+					}
+				}
+				if err := s.store.InsertProviderData(ctx, projectID, dataRows); err != nil {
+					applog.Errorf("provider", "insert provider_data top_pages error: %v", err)
+				}
+				// Also write to legacy table for backward compat
+				insertRows := make([]storage.ProviderTopPageRow, len(pages))
+				for i, p := range pages {
+					ttf := make([]storage.TopicalTF, len(p.TopicalTrustFlow))
+					for j, t := range p.TopicalTrustFlow {
+						ttf[j] = storage.TopicalTF{Topic: t.Topic, Value: t.Value}
+					}
+					insertRows[i] = storage.ProviderTopPageRow{
+						Provider: provider, Domain: domain,
+						URL: p.URL, Title: p.Title,
+						TrustFlow: p.TrustFlow, CitationFlow: p.CitationFlow,
+						ExtBackLinks: p.ExtBackLinks, RefDomains: p.RefDomains,
+						TopicalTrustFlow: ttf, Language: p.Language,
+					}
+				}
+				if err := s.store.InsertProviderTopPages(ctx, projectID, insertRows); err != nil {
+					applog.Errorf("provider", "insert top_pages error: %v", err)
+				}
+				totalRows += len(dataRows)
+				results["top_pages"] = phaseResult{Rows: len(dataRows)}
 			}
-			totalRows += len(insertRows)
-			results["top_pages"] = phaseResult{Rows: len(insertRows)}
 		}
 	}
 
@@ -539,6 +592,26 @@ func (s *Server) handleProviderAPICalls(w http.ResponseWriter, r *http.Request) 
 	}
 	limit, offset = clampPagination(limit, offset)
 	rows, total, err := s.store.ProviderAPICalls(r.Context(), projectID, provider, limit, offset)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"rows": rows, "total": total})
+}
+
+func (s *Server) handleProviderData(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("id")
+	provider := r.PathValue("provider")
+	dataType := r.PathValue("dataType")
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 {
+		limit = 100
+	}
+	limit, offset = clampPagination(limit, offset)
+	filters := parseFilters(r, storage.ProviderDataFilters)
+	sort := parseSort(r, storage.ProviderDataSortColumns)
+	rows, total, err := s.store.ProviderData(r.Context(), projectID, provider, dataType, limit, offset, filters, sort)
 	if err != nil {
 		internalError(w, r, err)
 		return

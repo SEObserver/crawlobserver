@@ -5,6 +5,7 @@
     renameProject,
     deleteProject,
     deleteProjectWithSessions,
+    getProviderConnections,
   } from '../api.js';
   import { fmtN, timeAgo } from '../utils.js';
   import { pushURL } from '../router.js';
@@ -44,6 +45,7 @@
   let gscSubView = $state(initialGscSubView);
   let providerSubView = $state(initialProviderSubView);
   let confirmState = $state(null);
+  let providerConnections = $state([]);
 
   function showConfirm(message, onConfirm, opts = {}) {
     confirmState = { message, onConfirm, ...opts };
@@ -66,7 +68,9 @@
 
   function switchProjectTab(tab) {
     projectTab = tab;
-    if (project) pushURL(`/projects/${project.id}/${tab}`);
+    // Use "providers" in URL for any provider tab
+    const urlTab = tab.startsWith('provider:') ? 'providers' : tab;
+    if (project) pushURL(`/projects/${project.id}/${urlTab}`);
   }
 
   // --- Rename ---
@@ -141,8 +145,28 @@
     }
   }
 
+  const providerMeta = {
+    seobserver: {
+      label: 'SEObserver',
+      icon: '/seobserver.png',
+    },
+  };
+
+  async function loadProviderConnections() {
+    try {
+      providerConnections = await getProviderConnections(project.id);
+    } catch {
+      providerConnections = [];
+    }
+    // Resolve legacy "providers" tab to first connected provider
+    if (projectTab === 'providers' && providerConnections.length > 0) {
+      projectTab = 'provider:' + providerConnections[0].provider;
+    }
+  }
+
   onMount(() => {
     loadProjectSessions();
+    loadProviderConnections();
   });
 
   onDestroy(stopPolling);
@@ -201,11 +225,22 @@
     class:tab-active={projectTab === 'gsc'}
     onclick={() => switchProjectTab('gsc')}>{t('project.searchConsole')}</button
   >
-  <button
-    class="tab"
-    class:tab-active={projectTab === 'providers'}
-    onclick={() => switchProjectTab('providers')}>{t('project.seoData')}</button
-  >
+  {#each providerConnections as conn}
+    {@const meta = providerMeta[conn.provider]}
+    <button
+      class="tab"
+      class:tab-active={projectTab === 'provider:' + conn.provider}
+      onclick={() => switchProjectTab('provider:' + conn.provider)}
+      >{#if meta?.icon}<img src={meta.icon} alt="" style="width:16px;height:16px;vertical-align:-3px;margin-right:4px" />{/if}{meta?.label || conn.provider} Data</button
+    >
+  {/each}
+  {#if providerConnections.length === 0}
+    <button
+      class="tab"
+      class:tab-active={projectTab === 'providers'}
+      onclick={() => switchProjectTab('providers')}>{t('project.seoData')}</button
+    >
+  {/if}
 </div>
 
 <div class="card card-flush card-tab-body">
@@ -291,6 +326,14 @@
     <GSCTab
       projectId={project.id}
       initialSubView={gscSubView}
+      onerror={(msg) => onerror?.(msg)}
+      onpushurl={(u) => onpushurl?.(u)}
+    />
+  {:else if projectTab.startsWith('provider:')}
+    <ProvidersTab
+      projectId={project.id}
+      provider={projectTab.replace('provider:', '')}
+      initialSubView={providerSubView}
       onerror={(msg) => onerror?.(msg)}
       onpushurl={(u) => onpushurl?.(u)}
     />

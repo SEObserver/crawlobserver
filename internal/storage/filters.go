@@ -58,6 +58,28 @@ var PageFilters = map[string]FilterDef{
 	"pagerank":           {Column: "pagerank", Type: FilterUint},
 }
 
+// ProviderDataFilters defines the allowed filter columns for the provider_data table.
+var ProviderDataFilters = map[string]FilterDef{
+	"item_url":      {Column: "item_url", Type: FilterLike},
+	"title":         {Column: "str_data['title']", Type: FilterLike},
+	"language":      {Column: "str_data['language']", Type: FilterLike},
+	"trust_flow":    {Column: "trust_flow", Type: FilterUint},
+	"citation_flow": {Column: "citation_flow", Type: FilterUint},
+	"ext_backlinks": {Column: "ext_backlinks", Type: FilterUint},
+	"ref_domains":   {Column: "ref_domains", Type: FilterUint},
+	"topic":         {Column: "str_data['ttf_topic_0']", Type: FilterLike},
+}
+
+// ProviderDataSortColumns maps query param names to DB column names for provider_data.
+var ProviderDataSortColumns = map[string]string{
+	"item_url":      "item_url",
+	"trust_flow":    "trust_flow",
+	"citation_flow": "citation_flow",
+	"ext_backlinks": "ext_backlinks",
+	"ref_domains":   "ref_domains",
+	"domain_rank":   "domain_rank",
+}
+
 // LinkFilters defines the allowed filter columns for the links table.
 var LinkFilters = map[string]FilterDef{
 	"source_url":  {Column: "source_url", Type: FilterLike},

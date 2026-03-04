@@ -85,21 +85,25 @@
       {/each}
     </tr>
     <tr class="filter-row">
-      {#each filterKeys as key}
-        <td
-          ><input
-            class="filter-input"
-            placeholder={key}
-            value={filters[key] || ''}
-            oninput={(e) => onsetfilter?.(key, e.target.value)}
-            onkeydown={(e) => e.key === 'Enter' && onapplyfilters?.()}
-          /></td
-        >
+      {#each filterKeys as key, idx}
+        {#if key}
+          <td
+            ><input
+              class="filter-input"
+              placeholder={key}
+              value={filters[key] || ''}
+              oninput={(e) => onsetfilter?.(key, e.target.value)}
+              onkeydown={(e) => e.key === 'Enter' && onapplyfilters?.()}
+            /></td
+          >
+        {:else}
+          <td></td>
+        {/if}
       {/each}
       {#if columns.length > filterKeys.length}
-        {#each Array(columns.length - filterKeys.length) as _}
+        {#each Array(columns.length - filterKeys.length) as _, idx}
           <td
-            >{#if hasActiveFilters && _ === undefined}<button
+            >{#if hasActiveFilters && idx === 0}<button
                 class="btn-filter-clear"
                 title={t('dataTable.clearFilters')}
                 onclick={() => onclearfilters?.()}

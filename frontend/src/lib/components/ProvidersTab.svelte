@@ -13,9 +13,12 @@
     getProviderVisibility,
     getProviderTopPages,
     getProviderAPICalls,
+    getProviderData,
   } from '../api.js';
   import { fmtN } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
+  import UrlActions from './UrlActions.svelte';
+  import DataTable from './DataTable.svelte';
 
   let {
     projectId,
@@ -45,6 +48,9 @@
   let rankingsOffset = $state(0);
   let topPages = $state(null);
   let topPagesOffset = $state(0);
+  let topPagesFilters = $state({});
+  let topPagesSortCol = $state('');
+  let topPagesSortOrder = $state('');
   let apiCalls = $state(null);
   let apiCallsOffset = $state(0);
   let visibility = $state(null);
@@ -330,11 +336,11 @@
     }
   }
 
-  async function doFetch() {
+  async function doFetch(dataTypes = []) {
     fetchingData = true;
     fetchStatus = { fetching: true, phase: 'starting', rows_so_far: 0 };
     try {
-      await fetchProviderData(projectId, provider);
+      await fetchProviderData(projectId, provider, dataTypes);
       startPolling();
     } catch (e) {
       onerror?.(e.message);
@@ -389,6 +395,12 @@
     }
   }
 
+  function filterByTopic(topic) {
+    topPagesFilters = { ...topPagesFilters, topic };
+    topPagesOffset = 0;
+    loadSubView('top_pages');
+  }
+
   async function loadSubView(view) {
     if (!status?.connected) return;
     if (!fetchingData) loading = true;
@@ -407,7 +419,29 @@
       } else if (view === 'rankings') {
         rankings = await getProviderRankings(projectId, provider, PAGE_LIMIT, rankingsOffset);
       } else if (view === 'top_pages') {
-        topPages = await getProviderTopPages(projectId, provider, PAGE_LIMIT, topPagesOffset);
+        const raw = await getProviderData(projectId, provider, 'top_pages', PAGE_LIMIT, topPagesOffset, topPagesFilters, topPagesSortCol, topPagesSortOrder);
+        topPages = {
+          total: raw.total,
+          rows: (raw.rows || []).map((r, idx) => ({
+            _index: idx,
+            url: r.item_url,
+            title: r.str_data?.title || '',
+            trust_flow: r.trust_flow,
+            citation_flow: r.citation_flow,
+            backlinks: r.ext_backlinks,
+            ref_domains: r.ref_domains,
+            language: r.str_data?.language || '',
+            last_crawl_result: r.str_data?.last_crawl_result || '',
+            last_crawl_date: r.str_data?.last_crawl_date || '',
+            topical_tf: Object.keys(r.str_data || {})
+              .filter((k) => k.startsWith('ttf_topic_'))
+              .sort()
+              .map((k) => {
+                const idx = k.replace('ttf_topic_', '');
+                return { topic: r.str_data[k], value: r.num_data?.[`ttf_value_${idx}`] || 0 };
+              }),
+          })),
+        };
       } else if (view === 'api_calls') {
         apiCalls = await getProviderAPICalls(projectId, provider, 50, apiCallsOffset);
       }
@@ -433,8 +467,9 @@
     loadSubView(view);
   }
 
-  loadStatus();
-  if (projectId) loadSubView(subView);
+  loadStatus().then(() => {
+    if (projectId) loadSubView(subView);
+  });
 </script>
 
 <div class="pr-container">
@@ -705,7 +740,7 @@
                       >
                       <td>{fmtN(r.backlinks)}</td>
                       <td>{fmtN(r.ref_domains)}</td>
-                      <td class="text-xs">{r.topical_tf?.[0]?.topic || '-'}</td>
+                      <td class="text-xs">{#if r.topical_tf?.[0]?.topic}<span class="ttf_label {r.topical_tf[0].topic.split('/')[0].toLowerCase()}">{r.topical_tf[0].topic}</span>{:else}-{/if}</td>
                       <td class="text-xs">{r.language}</td>
                     </tr>
                   {/each}
@@ -1011,91 +1046,73 @@
         <p class="chart-empty">{t('providers.noRankings')}</p>
       {/if}
     {:else if subView === 'top_pages'}
-      {#if topPages?.rows?.length > 0}
+      {#if topPages?.rows?.length > 0 || Object.values(topPagesFilters).some((v) => v)}
         <div class="table-meta">
-          {t('providers.topPagesCount', { count: fmtN(topPages.total) })}
+          {t('providers.topPagesCount', { count: fmtN(topPages?.total ?? 0) })}
         </div>
-        <table>
-          <thead
-            ><tr
-              ><th>#</th><th>{t('common.url')}</th><th>{t('providers.title')}</th><th
-                >{t('providers.tf')}</th
-              ><th>{t('providers.cf')}</th><th>{t('providers.backlinks')}</th><th
-                >{t('providers.refDomains')}</th
-              ><th>{t('providers.topic')}</th><th>{t('providers.lang')}</th></tr
-            ></thead
-          >
-          <tbody>
-            {#each topPages.rows as r, i}
-              <tr>
-                <td class="row-num">{topPagesOffset + i + 1}</td>
-                <td class="cell-url prov-cell-url">
-                  <a href={r.url} target="_blank" rel="noopener">{r.url}</a>
-                </td>
-                <td class="prov-cell-anchor">{r.title || '-'}</td>
-                <td
-                  ><span
-                    class="badge prov-metric-badge"
-                    style="background-color: {r.trust_flow > 40
-                      ? '#22c55e22'
-                      : r.trust_flow >= 20
-                        ? '#f59e0b22'
-                        : '#ef444422'}; color: {r.trust_flow > 40
-                      ? '#16a34a'
-                      : r.trust_flow >= 20
-                        ? '#d97706'
-                        : '#dc2626'}">{r.trust_flow ?? '-'}</span
-                  ></td
-                >
-                <td
-                  ><span
-                    class="badge prov-metric-badge"
-                    style="background-color: {r.citation_flow > 40
-                      ? '#22c55e22'
-                      : r.citation_flow >= 20
-                        ? '#f59e0b22'
-                        : '#ef444422'}; color: {r.citation_flow > 40
-                      ? '#16a34a'
-                      : r.citation_flow >= 20
-                        ? '#d97706'
-                        : '#dc2626'}">{r.citation_flow ?? '-'}</span
-                  ></td
-                >
-                <td>{fmtN(r.backlinks ?? 0)}</td>
-                <td>{fmtN(r.ref_domains ?? 0)}</td>
-                <td class="text-xs">{r.topical_tf?.[0]?.topic || '-'}</td>
-                <td class="text-xs">{r.language || '-'}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-        {#if topPages.total > PAGE_LIMIT}
-          <div class="pagination">
-            <button
-              class="btn btn-sm"
-              disabled={topPagesOffset === 0}
-              onclick={() => {
-                topPagesOffset = Math.max(0, topPagesOffset - PAGE_LIMIT);
-                loadSubView('top_pages');
-              }}>{t('common.previous')}</button
-            >
-            <span class="pagination-info"
-              >{topPagesOffset + 1} - {Math.min(topPagesOffset + PAGE_LIMIT, topPages.total)} of {fmtN(
-                topPages.total,
-              )}</span
-            >
-            <button
-              class="btn btn-sm"
-              disabled={topPagesOffset + PAGE_LIMIT >= topPages.total}
-              onclick={() => {
-                topPagesOffset += PAGE_LIMIT;
-                loadSubView('top_pages');
-              }}>{t('common.next')}</button
-            >
-          </div>
-        {/if}
+        <DataTable
+          columns={[
+            { label: '#' },
+            { label: t('common.url'), sortKey: 'item_url' },
+            { label: t('providers.title') },
+            { label: t('providers.tf'), sortKey: 'trust_flow' },
+            { label: t('providers.cf'), sortKey: 'citation_flow' },
+            { label: t('providers.backlinks'), sortKey: 'ext_backlinks' },
+            { label: t('providers.refDomains'), sortKey: 'ref_domains' },
+            { label: t('providers.topic') },
+            { label: t('providers.lastCrawl') },
+            { label: t('providers.lang') },
+          ]}
+          filterKeys={['', 'item_url', 'title', 'trust_flow', 'citation_flow', 'ext_backlinks', 'ref_domains', 'topic', '', 'language']}
+          filters={topPagesFilters}
+          data={topPages?.rows || []}
+          offset={topPagesOffset}
+          pageSize={PAGE_LIMIT}
+          hasMore={topPages ? topPagesOffset + PAGE_LIMIT < topPages.total : false}
+          hasActiveFilters={Object.values(topPagesFilters).some((v) => v)}
+          sortColumn={topPagesSortCol}
+          sortOrder={topPagesSortOrder}
+          onsetfilter={(key, val) => { topPagesFilters[key] = val; topPagesFilters = { ...topPagesFilters }; }}
+          onapplyfilters={() => { topPagesOffset = 0; loadSubView('top_pages'); }}
+          onclearfilters={() => { topPagesFilters = {}; topPagesOffset = 0; loadSubView('top_pages'); }}
+          onnextpage={() => { topPagesOffset += PAGE_LIMIT; loadSubView('top_pages'); }}
+          onprevpage={() => { topPagesOffset = Math.max(0, topPagesOffset - PAGE_LIMIT); loadSubView('top_pages'); }}
+          onsort={(col, ord) => { topPagesSortCol = col; topPagesSortOrder = ord; topPagesOffset = 0; loadSubView('top_pages'); }}
+        >
+          {#snippet row(r)}
+            <tr>
+              <td class="row-num">{topPagesOffset + r._index + 1}</td>
+              <td class="cell-url">
+                <span class="cell-url-inner"><a href={r.url} target="_blank" rel="noopener">{r.url}</a><UrlActions url={r.url} /></span>
+              </td>
+              <td class="cell-title">{r.title || '-'}</td>
+              <td>{#if r.topical_tf?.[0]?.topic}<span class="ttf_label ttf-clickable {r.topical_tf[0].topic.split('/')[0].toLowerCase()}" onclick={() => filterByTopic(r.topical_tf[0].topic)} role="button" tabindex="0">{r.trust_flow}</span>{:else}{r.trust_flow ?? '-'}{/if}</td>
+              <td>{r.citation_flow ?? '-'}</td>
+              <td>{fmtN(r.backlinks ?? 0)}</td>
+              <td>{fmtN(r.ref_domains ?? 0)}</td>
+              <td class="text-xs">{#if r.topical_tf?.[0]?.topic}<span class="ttf_label ttf-clickable {r.topical_tf[0].topic.split('/')[0].toLowerCase()}" onclick={() => filterByTopic(r.topical_tf[0].topic)} role="button" tabindex="0">{r.topical_tf[0].topic}</span>{:else}-{/if}</td>
+              <td class="text-xs nowrap"
+                >{#if r.last_crawl_result}<span
+                    class="crawl-status-icon tooltip-wrap"
+                    class:crawl-ok={r.last_crawl_result === 'DownloadedSuccessfully'}
+                    class:crawl-redirect={r.last_crawl_result.includes('Redirect')}
+                    class:crawl-unknown={r.last_crawl_result === 'NotCrawled'}
+                    class:crawl-error={r.last_crawl_result !== 'DownloadedSuccessfully' && !r.last_crawl_result.includes('Redirect') && r.last_crawl_result !== 'NotCrawled'}
+                  ><span class="tooltip-text">{r.last_crawl_result.replace(/_/g, ' ')}{r.last_crawl_date ? ' — ' + r.last_crawl_date : ''}</span
+                  >{#if r.last_crawl_result === 'DownloadedSuccessfully'}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>{:else if r.last_crawl_result.includes('Redirect')}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-4-4l4 4-4 4"/></svg>{:else if r.last_crawl_result === 'NotCrawled'}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg>{:else}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>{/if}</span
+                  >{:else}-{/if}</td
+              >
+              <td class="text-xs">{r.language || '-'}</td>
+            </tr>
+          {/snippet}
+        </DataTable>
       {:else}
-        <p class="chart-empty">{t('providers.noTopPages')}</p>
+        <div class="chart-empty">
+          <p>{t('providers.noTopPages')}</p>
+          {#if !fetchingData}
+            <button class="btn btn-primary" style="margin-top: 0.75rem" onclick={() => doFetch(['top_pages'])}>{t('providers.fetchData')}</button>
+          {/if}
+        </div>
       {/if}
     {:else if subView === 'api_calls'}
       {#if apiCalls?.rows?.length > 0}
@@ -1364,8 +1381,6 @@
   }
   .prov-cell-url {
     max-width: 250px;
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
   .prov-cell-target {
@@ -1448,5 +1463,56 @@
     opacity: 0.45;
     pointer-events: none;
     user-select: none;
+  }
+  .ttf_label { font-weight: 700; font-size: 8.5pt; border-radius: 4px; padding: 1px 5px; display: inline-block; white-space: nowrap; }
+  .ttf_label.arts { background: #ff6700; color: #fff; }
+  .ttf_label.news { background: #76D54B; color: #333; }
+  .ttf_label.society { background: #7A69CD; color: #fff; }
+  .ttf_label.computers { background: #f33; color: #fff; }
+  .ttf_label.business { background: #C5C88E; color: #333; }
+  .ttf_label.regional { background: #F582B9; color: #fff; }
+  .ttf_label.recreation { background: #89C7CB; color: #333; }
+  .ttf_label.sports { background: #55355D; color: #fff; }
+  .ttf_label.kids { background: #fc0; color: #333; }
+  .ttf_label.reference { background: #C84770; color: #fff; }
+  .ttf_label.games { background: #557832; color: #fff; }
+  .ttf_label.home { background: #d95; color: #fff; }
+  .ttf_label.shopping { background: #600; color: #fff; }
+  .ttf_label.health { background: #009; color: #fff; }
+  .ttf_label.science { background: #6BD39A; color: #333; }
+  .ttf_label.world { background: #577; color: #fff; }
+  .ttf_label.adult { background: #333; color: #fff; }
+  .ttf-clickable { cursor: pointer; }
+  .ttf-clickable:hover { opacity: 0.8; }
+  .crawl-status-icon {
+    display: inline-flex;
+    align-items: center;
+    cursor: help;
+  }
+  .crawl-ok { color: #16a34a; }
+  .crawl-redirect { color: #d97706; }
+  .crawl-unknown { color: #eab308; }
+  .crawl-error { color: #dc2626; }
+  .tooltip-wrap {
+    position: relative;
+  }
+  .tooltip-text {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-secondary, #1e1e2e);
+    color: var(--text-primary, #cdd6f4);
+    border: 1px solid var(--border-color, #45475a);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .tooltip-wrap:hover .tooltip-text {
+    display: block;
   }
 </style>

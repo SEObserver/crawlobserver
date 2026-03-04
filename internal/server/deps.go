@@ -97,6 +97,9 @@ type ProviderStore interface {
 	InsertProviderAPICalls(ctx context.Context, rows []storage.ProviderAPICallRow) error
 	ProviderAPICalls(ctx context.Context, projectID, provider string, limit, offset int) ([]storage.ProviderAPICallRow, int, error)
 	DeleteProviderData(ctx context.Context, projectID, provider string) error
+	InsertProviderData(ctx context.Context, projectID string, rows []storage.ProviderDataRow) error
+	ProviderData(ctx context.Context, projectID, provider, dataType string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.ProviderDataRow, int, error)
+	ProviderDataAge(ctx context.Context, projectID, provider, dataType string) (time.Time, error)
 }
 
 // LogStore handles application logs.

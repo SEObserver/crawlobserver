@@ -311,6 +311,23 @@ type ProviderVisibilityRow struct {
 	FetchedAt     time.Time `json:"fetched_at"`
 }
 
+// --- Unified Provider Data ---
+
+type ProviderDataRow struct {
+	Provider     string             `json:"provider"`
+	DataType     string             `json:"data_type"`
+	Domain       string             `json:"domain"`
+	ItemURL      string             `json:"item_url"`
+	TrustFlow    uint8              `json:"trust_flow"`
+	CitationFlow uint8              `json:"citation_flow"`
+	DomainRank   float64            `json:"domain_rank"`
+	ExtBacklinks int64              `json:"ext_backlinks"`
+	RefDomains   int64              `json:"ref_domains"`
+	StrData      map[string]string  `json:"str_data"`
+	NumData      map[string]float64 `json:"num_data"`
+	FetchedAt    time.Time          `json:"fetched_at"`
+}
+
 // --- Provider Top Pages & API Calls ---
 
 type TopicalTF struct {

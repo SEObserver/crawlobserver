@@ -40,8 +40,9 @@ type gscFetchStatus struct {
 
 // phaseResult tracks the outcome of a single fetch phase.
 type phaseResult struct {
-	Rows  int    `json:"rows"`
-	Error string `json:"error,omitempty"`
+	Rows   int    `json:"rows"`
+	Error  string `json:"error,omitempty"`
+	Cached bool   `json:"cached,omitempty"`
 }
 
 // providerFetchStatus tracks the progress of a background provider data fetch.
@@ -210,6 +211,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/visibility", s.handleProviderVisibility)
 	mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/top-pages", s.handleProviderTopPages)
 	mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/api-calls", s.handleProviderAPICalls)
+	mux.HandleFunc("GET /api/projects/{id}/providers/{provider}/data/{dataType}", s.handleProviderData)
 
 	// Authority (crawl pages enriched with provider data)
 	mux.HandleFunc("GET /api/sessions/{id}/authority", s.handleSessionAuthority)
