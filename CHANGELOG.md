@@ -38,8 +38,7 @@ This is the initial open-source release of CrawlObserver by [SEObserver](https:/
 
 ### CLI
 - `crawl` — start a crawl with seed URLs or seeds file
-- `serve` — start the web UI and REST API
-- `gui` — native macOS desktop app (Wails)
+- `serve` — start the web server and REST API
 - `migrate` — create or update ClickHouse tables
 - `sessions` — list crawl sessions
 - `report external-links` — export external links (table or CSV)

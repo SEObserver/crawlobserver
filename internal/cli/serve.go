@@ -17,8 +17,8 @@ import (
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Start the web GUI",
-	Long:  `Start the web interface for browsing crawl results.`,
+	Short: "Start the web server",
+	Long:  `Start the web server and open the browser UI for browsing crawl results.`,
 	RunE:  runServe,
 }
 

@@ -100,8 +100,7 @@ crawlobserver [command]
 | Command | Description |
 |---------|-------------|
 | `crawl` | Start a crawl session |
-| `serve` | Start the web UI |
-| `gui` | Start the native desktop app (macOS) |
+| `serve` | Start the web server and browser UI |
 | `migrate` | Create or update database tables |
 | `sessions` | List all crawl sessions |
 | `report external-links` | Export external links (table or CSV) |
