@@ -465,7 +465,7 @@
   "tabs.links": "Liens",
   "tabs.directives": "Directives",
   "tabs.nearDuplicates": "Doublons",
-  "tabs.authority": "Off-site",
+  "tabs.authority": "Hors-site",
 
   "pages.all": "Toutes",
   "pages.titles": "Titres",
@@ -929,7 +929,7 @@
   "providers.apiCalls.rows": "Lignes",
   "providers.apiCalls.error": "Erreur",
 
-  "authority.title": "Authority",
+  "authority.title": "Autorité",
   "authority.connectCta": "Connectez votre compte SEObserver pour débloquer les données Authority (TrustFlow, CitationFlow, métriques backlinks par page).",
   "authority.connectBtn": "Connecter SEObserver",
   "authority.fetchCta": "Récupérez les données Authority pour voir le TrustFlow et CitationFlow de vos pages crawlées.",
@@ -955,7 +955,7 @@
   "tests.regexExtractAll": "Regex capturer TOUT",
   "tests.xpathExpression": "Expression XPath",
 
-  "tabs.extract": "Extract",
+  "tabs.extract": "Extraction",
 
   "extract.sets": "Ensembles d'extracteurs",
   "extract.newSet": "+ Nouvel ensemble",
@@ -1047,7 +1047,7 @@
   "onboarding.downloadComplete": "Moteur de base de données prêt",
   "onboarding.waitingForEngine": "En attente du moteur de base de données...",
 
-  "settings.telemetryTitle": "Analytics",
+  "settings.telemetryTitle": "Analytiques",
   "settings.telemetryDesc": "Envoyez des données d'utilisation anonymes pour nous aider à améliorer CrawlObserver. Aucune donnée personnelle, URL ou contenu de crawl n'est collecté.",
   "settings.telemetryEnabled": "Analytics anonymes activées"
 }
