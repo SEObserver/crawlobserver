@@ -1,5 +1,14 @@
 <script>
-  import { updateTheme, getBackups, createBackup, restoreBackup, deleteBackup } from '../api.js';
+  import {
+    updateTheme,
+    getBackups,
+    createBackup,
+    restoreBackup,
+    deleteBackup,
+    getTelemetry,
+    updateTelemetry,
+  } from '../api.js';
+  import { enableTelemetry, disableTelemetry } from '../telemetry.js';
   import { fmtSize } from '../utils.js';
   import { t, setLocale, getLocale } from '../i18n/index.svelte.js';
   import ConfirmModal from './ConfirmModal.svelte';
@@ -97,7 +106,38 @@
     );
   }
 
+  // Telemetry
+  let telemetryEnabled = $state(false);
+  let telemetryLoading = $state(true);
+
+  async function loadTelemetry() {
+    try {
+      const tel = await getTelemetry();
+      telemetryEnabled = tel.enabled;
+    } catch {
+      // Telemetry endpoint may not exist in CLI mode
+    } finally {
+      telemetryLoading = false;
+    }
+  }
+
+  async function toggleTelemetry() {
+    telemetryEnabled = !telemetryEnabled;
+    try {
+      await updateTelemetry(telemetryEnabled);
+      if (telemetryEnabled) {
+        enableTelemetry();
+      } else {
+        disableTelemetry();
+      }
+    } catch (e) {
+      telemetryEnabled = !telemetryEnabled; // revert
+      onerror?.(e.message);
+    }
+  }
+
   loadBackups();
+  loadTelemetry();
 </script>
 
 <!-- Settings -->
@@ -165,17 +205,14 @@
     </div>
     <div class="form-group">
       <label>{t('settings.language')}</label>
-      <div class="flex-center-gap">
-        <button
-          class="btn btn-sm"
-          class:btn-primary={getLocale() === 'en'}
-          onclick={() => setLocale('en')}>{t('settings.langEn')}</button
-        >
-        <button
-          class="btn btn-sm"
-          class:btn-primary={getLocale() === 'fr'}
-          onclick={() => setLocale('fr')}>{t('settings.langFr')}</button
-        >
+      <div class="flex-center-gap" style="flex-wrap: wrap;">
+        {#each ['en','fr','es','pt','nl','it','de','ru','zh','ja','he','ar'] as lang}
+          <button
+            class="btn btn-sm"
+            class:btn-primary={getLocale() === lang}
+            onclick={() => setLocale(lang)}>{t('settings.lang' + lang.charAt(0).toUpperCase() + lang.slice(1))}</button
+          >
+        {/each}
       </div>
     </div>
   </div>
@@ -185,6 +222,22 @@
     </button>
     <button class="btn" onclick={() => oncancel?.()}>{t('common.cancel')}</button>
   </div>
+</div>
+
+<!-- Analytics -->
+<div class="page-header section-gap">
+  <h1>{t('settings.telemetryTitle')}</h1>
+</div>
+<div class="card">
+  {#if !telemetryLoading}
+    <div class="telemetry-section">
+      <label class="telemetry-toggle">
+        <input type="checkbox" checked={telemetryEnabled} onchange={toggleTelemetry} />
+        <span>{t('settings.telemetryEnabled')}</span>
+      </label>
+      <p class="telemetry-desc">{t('settings.telemetryDesc')}</p>
+    </div>
+  {/if}
 </div>
 
 <!-- Backups -->
@@ -306,5 +359,30 @@
   .card-empty-msg {
     padding: 20px;
     color: var(--text-muted);
+  }
+
+  .telemetry-section {
+    padding: 20px;
+  }
+
+  .telemetry-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+  }
+
+  .telemetry-toggle input[type='checkbox'] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+  }
+
+  .telemetry-desc {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.5;
   }
 </style>

@@ -1214,3 +1214,23 @@ tr:hover .url-actions {
   background: var(--accent-light);
   color: var(--accent);
 }
+
+/* ===== RTL support ===== */
+html[dir='rtl'] .main {
+  margin-left: 0;
+  margin-right: var(--sidebar-width);
+}
+
+html[dir='rtl'] .sidebar {
+  left: auto;
+  right: 0;
+}
+
+html[dir='rtl'] .text-right {
+  text-align: left;
+}
+
+html[dir='rtl'] td.num,
+html[dir='rtl'] th.num {
+  text-align: left;
+}
