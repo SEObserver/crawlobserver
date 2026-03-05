@@ -437,10 +437,11 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auto-backup SQLite before applying update
+	// Auto-backup SQLite + config before applying update
 	if s.BackupOpts != nil && s.BackupOpts.SQLitePath != "" {
 		preUpdateOpts := backup.BackupOptions{
 			SQLitePath: s.BackupOpts.SQLitePath,
+			ConfigPath: s.BackupOpts.ConfigPath,
 			BackupDir:  s.BackupOpts.BackupDir,
 		}
 		if info, err := backup.Create(preUpdateOpts, updater.Version); err != nil {
