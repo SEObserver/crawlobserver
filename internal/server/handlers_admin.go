@@ -437,6 +437,19 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Auto-backup SQLite before applying update
+	if s.BackupOpts != nil && s.BackupOpts.SQLitePath != "" {
+		preUpdateOpts := backup.BackupOptions{
+			SQLitePath: s.BackupOpts.SQLitePath,
+			BackupDir:  s.BackupOpts.BackupDir,
+		}
+		if info, err := backup.Create(preUpdateOpts, updater.Version); err != nil {
+			applog.Warnf("server", "pre-update backup failed: %v", err)
+		} else {
+			applog.Infof("server", "Pre-update backup created: %s", info.Filename)
+		}
+	}
+
 	if s.IsDesktop {
 		newAppPath, err := updater.DownloadDesktopUpdate(release)
 		if err != nil {
