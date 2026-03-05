@@ -65,6 +65,14 @@ jobs:
     runs-on: macos-latest
 
     steps:
+      - name: Free disk space
+        run: |
+          df -h /
+          # Remove unnecessary pre-installed tools
+          rm -rf /usr/local/share/powershell /usr/local/.ghcup || true
+          brew cleanup --prune=all 2>/dev/null || true
+          df -h /
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
@@ -89,6 +97,12 @@ jobs:
             go build -tags desktop -ldflags "$LDFLAGS" -o CrawlObserver-amd64 ./cmd/crawlobserver
           lipo -create -output CrawlObserver CrawlObserver-arm64 CrawlObserver-amd64
           rm CrawlObserver-arm64 CrawlObserver-amd64
+
+      - name: Free disk space before DMG
+        run: |
+          rm -rf frontend/node_modules ~/go/pkg/mod/cache || true
+          go clean -cache || true
+          df -h /
 
       - name: Create .app bundle
         run: |
