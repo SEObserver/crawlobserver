@@ -522,7 +522,14 @@ func (s *Server) serverInfoPayload() map[string]interface{} {
 }
 
 func (s *Server) handleTheme(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, s.cfg.Theme)
+	resp := struct {
+		config.ThemeConfig
+		Language string `json:"language"`
+	}{
+		ThemeConfig: s.cfg.Theme,
+		Language:    viper.GetString("language"),
+	}
+	writeJSON(w, resp)
 }
 
 func (s *Server) handleUpdateTheme(w http.ResponseWriter, r *http.Request) {

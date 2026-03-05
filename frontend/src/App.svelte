@@ -10,7 +10,7 @@
   //   - Backend: add tests for engine shutdown/cancellation, buffer overflow, rate limiting
   //   - Backend: add tests for SSRF protection edge cases, auth middleware
 
-  import { t } from './lib/i18n/index.svelte.js';
+  import { t, setLocale } from './lib/i18n/index.svelte.js';
   import { onDestroy } from 'svelte';
   import {
     getSessions,
@@ -179,6 +179,10 @@
       theme = result.theme;
       darkMode = result.darkMode;
       applyTheme(theme, darkMode);
+      // Use server language as fallback when no localStorage preference exists
+      if (!localStorage.getItem('locale') && result.theme.language) {
+        setLocale(result.theme.language);
+      }
     } catch (e) {
       console.warn('Failed to load theme:', e);
     }
