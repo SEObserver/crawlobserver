@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/apikeys"
@@ -56,6 +57,13 @@ type providerFetchStatus struct {
 	cancel       context.CancelFunc
 }
 
+// SetupProgress tracks the download/startup progress exposed to the frontend.
+type SetupProgress struct {
+	Percent         int   `json:"percent"`
+	BytesDownloaded int64 `json:"bytes_downloaded"`
+	TotalBytes      int64 `json:"total_bytes"`
+}
+
 // Server serves the web GUI and REST API.
 type Server struct {
 	cfg             *config.Config
@@ -77,6 +85,11 @@ type Server struct {
 
 	providerFetchMu     sync.Mutex
 	providerFetchStatus map[string]*providerFetchStatus // "projectID:provider" -> status
+
+	// Setup mode fields (desktop onboarding)
+	SetupMode        bool
+	downloadProgress atomic.Value // *SetupProgress
+	readyCh          chan struct{}
 }
 
 // New creates a new Server.
@@ -87,6 +100,33 @@ func New(cfg *config.Config, store *storage.Store, keyStore *apikeys.Store) *Ser
 		keyStore: keyStore,
 		manager:  crawler.NewManager(cfg, store, keyStore),
 	}
+}
+
+// NewSetupServer creates a Server in setup mode (no store/keyStore yet).
+// The server can serve the frontend and setup endpoints while ClickHouse downloads.
+func NewSetupServer(cfg *config.Config) *Server {
+	s := &Server{
+		cfg:       cfg,
+		SetupMode: true,
+		readyCh:   make(chan struct{}),
+	}
+	s.downloadProgress.Store(&SetupProgress{})
+	return s
+}
+
+// TransitionToReady wires the store and keyStore, creates the crawl manager,
+// and marks the server as fully operational.
+func (s *Server) TransitionToReady(store *storage.Store, keyStore *apikeys.Store) {
+	s.store = store
+	s.keyStore = keyStore
+	s.manager = crawler.NewManager(s.cfg, store, keyStore)
+	s.SetupMode = false
+	close(s.readyCh)
+}
+
+// SetDownloadProgress updates the download progress visible to the frontend.
+func (s *Server) SetDownloadProgress(p SetupProgress) {
+	s.downloadProgress.Store(&p)
 }
 
 // NewWithDeps creates a new Server with explicit dependencies (for testing).
@@ -220,6 +260,12 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	// Authority (crawl pages enriched with provider data)
 	mux.HandleFunc("GET /api/sessions/{id}/authority", s.handleSessionAuthority)
 
+	// Setup & Telemetry routes (accessible in setup mode)
+	mux.HandleFunc("GET /api/setup/status", s.handleSetupStatus)
+	mux.HandleFunc("POST /api/setup/complete", s.handleSetupComplete)
+	mux.HandleFunc("GET /api/telemetry", s.handleGetTelemetry)
+	mux.HandleFunc("PUT /api/telemetry", s.handleUpdateTelemetry)
+
 	// Application Logs routes
 	mux.HandleFunc("GET /api/logs", s.handleListLogs)
 	mux.HandleFunc("GET /api/logs/export", s.handleExportLogs)
@@ -297,36 +343,56 @@ func (s *Server) buildHandler() (http.Handler, error) {
 		handler = s.rateLimiter.Handler(handler)
 	}
 
-	handler = securityHeaders(handler)
+	handler = s.requireReady(handler)
+	handler = s.securityHeaders(handler)
 	return handler, nil
 }
 
 const banner = `
-    ..      .+######+.
-    ..   +####+-..-+####+
-   .-.      .......... ###+
-   ..  ---. .....   .... ###
-     - ---. ..............-##
-    +#+  ..............  ..##+                 +###.                            -#    -###-    #+
-    ## .......    ...     . ##               ###  -##                           +#  -##. .##-  ##
-    ## .......    ......... ##              -##        ####++#####- ##  ###  ## +#  ##     ##  ######- .#####- .#####- -#### ##   ##  ###### .####
-    ##....... ..............##              -#+        ##     ..+## .#- #-# -#- +# .##     ##. ##   ## -##-.   ##...## -#+    ## .#+ ##-..## .##
-    -##..   ........  .....##-               ##    ##- ##   ##.  ##  ##-# #+##  +#  ##.   .##  ##   ##    .+## ##      -#+    +#.##  ##      .##
-     ###.. .........  ... ###                 ######.  ##   #######  .##- .##.  +#   +######   ######. .#####-  #####+ -#+     ###    ###### .##
-      ###............... ##+
-       .###- ........ -#####
-          +############+-#####
-              .--+-.      -#####
-                            ####
+                       +############-
+  :====.        .:######################*-..
+  .-==:      .=*############+==#############+=
+           .*#######*:.. .--------  ..*########+
+ .:==-           +...------------------..-*######=.
+ .====.  .-===-.  :----------:    .:------:.=######=
+ ..--:  :=======-. ---------:      :--------- -#####+
+     .  :========: .---------:.   .:----------.:#####*.
+    :#- .-=====-.  ----------:.:-:-:..:---------.+####+
+    +##=  .:::.  :...--------:.:-------:..------:.*####=
+   =####+ .. .-------..:----:.:----------:    ..-:.#####-
+  .=####=:-------------:.       ---------:      :-.#####-
+  -####* :---------:----.       :::. .::::.   .:--..####-.
+  -####* :--------------.       -----:::---:.-----. ####*.
+  -####* :--------------.       ------::--:.------. ####=.
+  :*###*.:--:::-------. :-:-:::. :-------:.-------.+####-
+   =####+.---:-::--. .---::------:.:-----.:------:.#####-
+   =####*-:--.     .----:::--------     ..-------.*####=
+    +####+::-       ---------------      :------.+####*:
+     *####*:.:    :----------------.    .------.=####*:
+      %#####..------:-------:----------------.:######
+       :######:.---:-----------------------..-#####+
+        .+#####*=..---------------------:.-+#######+
+          .*########...:------------:...#############+
+             *##########-::::::::::=###################=.
+               :=*########################+=.=###########+
+                   ::#################-:.     .-###########+
+ ▞▀▖          ▜ ▞▀▖▌                             =###########+.
+ ▌  ▙▀▖▝▀▖▌  ▌▐ ▌ ▌▛▀▖▞▀▘▞▀▖▙▀▖▌ ▌▞▀▖▙▀▖           =###########:
+ ▌ ▖▌  ▞▀▌▐▐▐ ▐ ▌ ▌▌ ▌▝▀▖▛▀ ▌  ▐▐ ▛▀ ▌              .-########%:
+ ▝▀ ▘  ▝▀▘ ▘▘  ▘▝▀ ▀▀ ▀▀ ▝▀▘▘   ▘ ▝▀▘▘                 =#####=
 `
 
 // Start starts the HTTP server.
 func (s *Server) Start() error {
-	applog.Init(s.store)
+	if s.store != nil {
+		applog.Init(s.store)
+	}
 
 	fmt.Print(banner)
 
-	s.manager.RecoverOrphanedSessions(context.Background())
+	if s.manager != nil {
+		s.manager.RecoverOrphanedSessions(context.Background())
+	}
 
 	handler, err := s.buildHandler()
 	if err != nil {
@@ -375,7 +441,9 @@ func openBrowser(url string) {
 
 // Stop gracefully shuts down the server.
 func (s *Server) Stop(ctx context.Context) error {
-	s.manager.Shutdown(30 * time.Second)
+	if s.manager != nil {
+		s.manager.Shutdown(30 * time.Second)
+	}
 	if s.rateLimiter != nil {
 		s.rateLimiter.Stop()
 	}
@@ -484,6 +552,98 @@ func (s *Server) handleUpdateTheme(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, s.cfg.Theme)
 }
 
+// --- Setup & Telemetry endpoints ---
+
+func (s *Server) handleSetupStatus(w http.ResponseWriter, r *http.Request) {
+	progress := s.downloadProgress.Load()
+	var dp *SetupProgress
+	if progress != nil {
+		dp = progress.(*SetupProgress)
+	} else {
+		dp = &SetupProgress{}
+	}
+
+	chReady := true // default true for non-setup servers (CLI mode)
+	if s.readyCh != nil {
+		chReady = false
+		select {
+		case <-s.readyCh:
+			chReady = true
+		default:
+		}
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"setup_complete":    s.cfg.SetupComplete,
+		"download_progress": dp,
+		"clickhouse_ready":  chReady,
+		"telemetry_asked":   s.cfg.Telemetry.AskedAt != "",
+	})
+}
+
+func (s *Server) handleSetupComplete(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Language         string `json:"language"`
+		CrawlerDelay     string `json:"crawler_delay"`
+		CrawlerWorkers   int    `json:"crawler_workers"`
+		TelemetryEnabled bool   `json:"telemetry_enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Language != "" {
+		viper.Set("language", req.Language)
+	}
+	if req.CrawlerDelay != "" {
+		viper.Set("crawler.delay", req.CrawlerDelay)
+	}
+	if req.CrawlerWorkers > 0 {
+		viper.Set("crawler.workers", req.CrawlerWorkers)
+	}
+	viper.Set("telemetry.enabled", req.TelemetryEnabled)
+	viper.Set("telemetry.asked_at", time.Now().UTC().Format(time.RFC3339))
+	viper.Set("setup_complete", true)
+
+	if err := viperWriteConfig(); err != nil {
+		internalError(w, r, err)
+		return
+	}
+
+	s.cfg.SetupComplete = true
+	s.cfg.Telemetry.Enabled = req.TelemetryEnabled
+	s.cfg.Telemetry.AskedAt = viper.GetString("telemetry.asked_at")
+	writeJSON(w, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleGetTelemetry(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]interface{}{
+		"enabled":     s.cfg.Telemetry.Enabled,
+		"instance_id": s.cfg.Telemetry.InstanceID,
+	})
+}
+
+func (s *Server) handleUpdateTelemetry(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	s.cfg.Telemetry.Enabled = req.Enabled
+	viper.Set("telemetry.enabled", req.Enabled)
+	if err := viperWriteConfig(); err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]interface{}{
+		"enabled":     s.cfg.Telemetry.Enabled,
+		"instance_id": s.cfg.Telemetry.InstanceID,
+	})
+}
+
 // --- Auth helpers ---
 
 // requireFullAccess returns 403 if the caller is a project-scoped key.
@@ -530,16 +690,51 @@ func basicAuth(next http.Handler, username, password string) http.Handler {
 
 // --- Middleware ---
 
-func securityHeaders(next http.Handler) http.Handler {
+func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-src 'self' blob:; base-uri 'self'; form-action 'self'; object-src 'none'")
+
+		connectSrc := "'self'"
+		if s.cfg.Telemetry.Enabled {
+			connectSrc = "'self' https://us.i.posthog.com"
+		}
+		csp := fmt.Sprintf("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-src 'self' blob:; connect-src %s; base-uri 'self'; form-action 'self'; object-src 'none'", connectSrc)
+		w.Header().Set("Content-Security-Policy", csp)
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		next.ServeHTTP(w, r)
 	})
+}
+
+// requireReady returns 503 for endpoints that need ClickHouse to be ready.
+func (s *Server) requireReady(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.SetupMode {
+			path := r.URL.Path
+			// Allow setup, telemetry, health, theme, and static frontend routes
+			if strings.HasPrefix(path, "/api/setup/") ||
+				strings.HasPrefix(path, "/api/telemetry") ||
+				path == "/api/health" ||
+				path == "/api/theme" ||
+				!strings.HasPrefix(path, "/api/") {
+				next.ServeHTTP(w, r)
+				return
+			}
+			writeError(w, http.StatusServiceUnavailable, "server is starting up")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// viperWriteConfig writes the current viper config to disk, creating it if needed.
+func viperWriteConfig() error {
+	if err := viper.WriteConfig(); err != nil {
+		return viper.SafeWriteConfig()
+	}
+	return nil
 }
 
 // --- Utilities ---
