@@ -6159,6 +6159,20 @@ func TestParseFilters_EmptyValue(t *testing.T) {
 	}
 }
 
+func TestParseFilters_TooLong(t *testing.T) {
+	whitelist := map[string]storage.FilterDef{
+		"url": {Column: "url", Type: storage.FilterLike},
+	}
+
+	longValue := strings.Repeat("a", 501)
+	req := httptest.NewRequest("GET", "/?url="+longValue, nil)
+	filters := parseFilters(req, whitelist)
+
+	if len(filters) != 0 {
+		t.Errorf("expected 0 filters for oversized value, got %d", len(filters))
+	}
+}
+
 // =========================================================================
 // Coverage push tests — handleGlobalStats
 // =========================================================================

@@ -1,6 +1,9 @@
 package apikeys
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -791,5 +794,61 @@ func TestDeleteExtractorSetNotFound(t *testing.T) {
 	err := s.DeleteExtractorSet("ghost")
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+// --- Database file permissions ---
+
+func TestNewStoreFilePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permissions not enforced on Windows")
+	}
+
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	s, err := NewStore(dbPath)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	defer s.Close()
+
+	info, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+
+	perm := info.Mode().Perm()
+	if perm != 0600 {
+		t.Errorf("expected permissions 0600, got %04o", perm)
+	}
+}
+
+func TestNewStoreFixesLoosePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permissions not enforced on Windows")
+	}
+
+	dbPath := filepath.Join(t.TempDir(), "loose.db")
+
+	// Create a file with overly permissive mode
+	f, err := os.OpenFile(dbPath, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	f.Close()
+
+	s, err := NewStore(dbPath)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	defer s.Close()
+
+	info, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+
+	perm := info.Mode().Perm()
+	if perm != 0600 {
+		t.Errorf("expected permissions tightened to 0600, got %04o", perm)
 	}
 }

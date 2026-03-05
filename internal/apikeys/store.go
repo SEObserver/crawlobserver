@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"runtime"
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/applog"
@@ -188,6 +190,14 @@ func NewStore(dbPath string) (*Store, error) {
 	`); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("creating extractors table: %w", err)
+	}
+
+	// Restrict file permissions to owner-only (skip for in-memory DBs and Windows)
+	if dbPath != ":memory:" && runtime.GOOS != "windows" {
+		if err := os.Chmod(dbPath, 0600); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("setting database permissions: %w", err)
+		}
 	}
 
 	return &Store{db: db}, nil

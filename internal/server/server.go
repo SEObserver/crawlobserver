@@ -583,7 +583,7 @@ func parseFilters(r *http.Request, whitelist map[string]storage.FilterDef) []sto
 			continue
 		}
 		def, ok := whitelist[key]
-		if !ok || len(values) == 0 || values[0] == "" {
+		if !ok || len(values) == 0 || values[0] == "" || len(values[0]) > 500 {
 			continue
 		}
 		filters = append(filters, storage.ParsedFilter{
