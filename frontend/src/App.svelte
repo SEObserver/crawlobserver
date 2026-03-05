@@ -595,193 +595,193 @@
 {#if showOnboarding}
   <OnboardingWizard startStep={onboardingStartStep} oncomplete={onOnboardingComplete} />
 {:else if setupChecked}
-<a class="skip-link" href="#main-content">{t('app.skipToContent')}</a>
-<div class="layout">
-  <div class="drag-bar"><span class="drag-bar-title">{theme.app_name}</span></div>
-  <Sidebar
-    {theme}
-    {darkMode}
-    {sessions}
-    {projects}
-    {globalStats}
-    {systemStats}
-    {selectedSession}
-    {selectedProject}
-    {currentView}
-    {liveProgress}
-    ontoggledarkmode={toggleDarkMode}
-    onselectsession={selectSession}
-    onselectproject={selectProject}
-    onnavigate={navigateTo}
-    onopensettings={openSettings}
-    onopenstats={openGlobalStats}
-    onopenapi={openAPI}
-    onopenlogs={openLogs}
-    ongohome={goHome}
-    oncreateproject={handleCreateProject}
-    onviewallprojects={openAllProjects}
-    {appVersion}
-  />
+  <a class="skip-link" href="#main-content">{t('app.skipToContent')}</a>
+  <div class="layout">
+    <div class="drag-bar"><span class="drag-bar-title">{theme.app_name}</span></div>
+    <Sidebar
+      {theme}
+      {darkMode}
+      {sessions}
+      {projects}
+      {globalStats}
+      {systemStats}
+      {selectedSession}
+      {selectedProject}
+      {currentView}
+      {liveProgress}
+      ontoggledarkmode={toggleDarkMode}
+      onselectsession={selectSession}
+      onselectproject={selectProject}
+      onnavigate={navigateTo}
+      onopensettings={openSettings}
+      onopenstats={openGlobalStats}
+      onopenapi={openAPI}
+      onopenlogs={openLogs}
+      ongohome={goHome}
+      oncreateproject={handleCreateProject}
+      onviewallprojects={openAllProjects}
+      {appVersion}
+    />
 
-  <!-- Main Content -->
-  <main class="main" id="main-content">
-    <div class="main-content">
-      {#if error}
-        <div class="alert alert-error">
-          <span>{error}</span>
-          <button class="btn btn-sm btn-ghost" onclick={() => (error = null)}
-            >{t('common.dismiss')}</button
-          >
-        </div>
-      {/if}
-
-      {#if updateInfo && !updateDismissed}
-        <div class="alert alert-info">
-          <span>{t('app.updateAvailable', { version: updateInfo.latest_version })}</span>
-          <div class="flex-center-gap">
-            {#if updatingApp}
-              <span class="text-sm">{updateMessage}</span>
-            {:else}
-              {#if updateMessage}
-                <span class="text-sm">{updateMessage}</span>
-              {/if}
-              <button
-                class="btn btn-sm btn-primary"
-                onclick={doBackupAndUpdate}
-                disabled={updatingApp}>{t('app.backupAndUpdate')}</button
-              >
-              <button class="btn btn-sm btn-ghost" onclick={() => (updateDismissed = true)}
-                >{t('common.dismiss')}</button
-              >
-            {/if}
+    <!-- Main Content -->
+    <main class="main" id="main-content">
+      <div class="main-content">
+        {#if error}
+          <div class="alert alert-error">
+            <span>{error}</span>
+            <button class="btn btn-sm btn-ghost" onclick={() => (error = null)}
+              >{t('common.dismiss')}</button
+            >
           </div>
-        </div>
-      {/if}
+        {/if}
 
-      {#if currentView === 'settings'}
-        <SettingsPage
-          initialTheme={theme}
-          onerror={(msg) => (error = msg)}
-          onsave={handleSettingsSave}
-          oncancel={handleSettingsCancel}
-        />
-      {:else if currentView === 'stats'}
-        <GlobalStatsPage onerror={(msg) => (error = msg)} />
-      {:else if currentView === 'compare'}
-        <ComparePage
-          {sessions}
-          initialA={compareSessionA}
-          initialB={compareSessionB}
-          onerror={(msg) => (error = msg)}
-          onnavigate={navigateTo}
-        />
-      {:else if currentView === 'logs'}
-        <LogsPage onerror={(msg) => (error = msg)} />
-      {:else if currentView === 'all-projects'}
-        <AllProjectsPage
-          onerror={(msg) => (error = msg)}
-          onselectproject={selectProject}
-          oncreateproject={() => navigateTo('/new-crawl')}
-        />
-      {:else if currentView === 'api'}
-        <APIManagementPage
-          onerror={(msg) => (error = msg)}
-          onprojectschanged={(p) => (projects = p)}
-        />
-      {:else if currentView === 'new-crawl'}
-        <NewCrawlForm
-          {projects}
-          initialProjectId={new URLSearchParams(window.location.search).get('project') || ''}
-          onstart={onCrawlStarted}
-          oncancel={() => {
-            const proj = new URLSearchParams(window.location.search).get('project');
-            proj ? navigateTo(`/projects/${proj}`) : navigateTo('/');
-          }}
-          onerror={(msg) => (error = msg)}
-        />
-      {:else if currentView === 'project' && selectedProject}
-        {#key selectedProject.id}
-          <ProjectPage
-            project={selectedProject}
-            initialProjectTab={routeProjectTab}
-            initialGscSubView={routeGscSubView}
-            initialProviderSubView={routeProviderSubView}
+        {#if updateInfo && !updateDismissed}
+          <div class="alert alert-info">
+            <span>{t('app.updateAvailable', { version: updateInfo.latest_version })}</span>
+            <div class="flex-center-gap">
+              {#if updatingApp}
+                <span class="text-sm">{updateMessage}</span>
+              {:else}
+                {#if updateMessage}
+                  <span class="text-sm">{updateMessage}</span>
+                {/if}
+                <button
+                  class="btn btn-sm btn-primary"
+                  onclick={doBackupAndUpdate}
+                  disabled={updatingApp}>{t('app.backupAndUpdate')}</button
+                >
+                <button class="btn btn-sm btn-ghost" onclick={() => (updateDismissed = true)}
+                  >{t('common.dismiss')}</button
+                >
+              {/if}
+            </div>
+          </div>
+        {/if}
+
+        {#if currentView === 'settings'}
+          <SettingsPage
+            initialTheme={theme}
             onerror={(msg) => (error = msg)}
-            onselectsession={selectSession}
-            ongohome={goHome}
-            onnewcrawl={() => navigateTo('/new-crawl', { project: selectedProject?.id })}
-            onprojectrenamed={async (id) => {
-              projects = await getProjects();
-              selectedProject = projects.find((p) => p.id === id) || selectedProject;
-            }}
-            onprojectdeleted={async () => {
-              projects = await getProjects();
-              goHome();
-            }}
-            onpushurl={(u) => pushURL(u)}
+            onsave={handleSettingsSave}
+            oncancel={handleSettingsCancel}
           />
-        {/key}
-      {:else if currentView === 'home'}
-        <SessionsList
-          {sessions}
-          {projects}
-          {liveProgress}
-          {sessionStorageMap}
-          {loading}
-          onselectsession={selectSession}
-          onstop={handleStop}
-          onresume={openResumeModal}
-          ondelete={handleDelete}
-          onnewcrawl={() => navigateTo('/new-crawl')}
-          onrefresh={loadSessions}
-        />
-      {:else if currentView === 'session' && selectedSession}
-        {#key selectedSession.ID + '-' + routeVersion}
-          <SessionDetailPage
-            session={selectedSession}
-            {stats}
-            {liveProgress}
-            {projects}
-            initialTab={routeTab}
-            initialFilters={routeFilters}
-            initialOffset={routeOffset}
-            initialDetailUrl={routeDetailUrl}
-            initialSubView={routeSubView}
+        {:else if currentView === 'stats'}
+          <GlobalStatsPage onerror={(msg) => (error = msg)} />
+        {:else if currentView === 'compare'}
+          <ComparePage
+            {sessions}
+            initialA={compareSessionA}
+            initialB={compareSessionB}
             onerror={(msg) => (error = msg)}
+            onnavigate={navigateTo}
+          />
+        {:else if currentView === 'logs'}
+          <LogsPage onerror={(msg) => (error = msg)} />
+        {:else if currentView === 'all-projects'}
+          <AllProjectsPage
+            onerror={(msg) => (error = msg)}
+            onselectproject={selectProject}
+            oncreateproject={() => navigateTo('/new-crawl')}
+          />
+        {:else if currentView === 'api'}
+          <APIManagementPage
+            onerror={(msg) => (error = msg)}
+            onprojectschanged={(p) => (projects = p)}
+          />
+        {:else if currentView === 'new-crawl'}
+          <NewCrawlForm
+            {projects}
+            initialProjectId={new URLSearchParams(window.location.search).get('project') || ''}
+            onstart={onCrawlStarted}
+            oncancel={() => {
+              const proj = new URLSearchParams(window.location.search).get('project');
+              proj ? navigateTo(`/projects/${proj}`) : navigateTo('/');
+            }}
+            onerror={(msg) => (error = msg)}
+          />
+        {:else if currentView === 'project' && selectedProject}
+          {#key selectedProject.id}
+            <ProjectPage
+              project={selectedProject}
+              initialProjectTab={routeProjectTab}
+              initialGscSubView={routeGscSubView}
+              initialProviderSubView={routeProviderSubView}
+              onerror={(msg) => (error = msg)}
+              onselectsession={selectSession}
+              ongohome={goHome}
+              onnewcrawl={() => navigateTo('/new-crawl', { project: selectedProject?.id })}
+              onprojectrenamed={async (id) => {
+                projects = await getProjects();
+                selectedProject = projects.find((p) => p.id === id) || selectedProject;
+              }}
+              onprojectdeleted={async () => {
+                projects = await getProjects();
+                goHome();
+              }}
+              onpushurl={(u) => pushURL(u)}
+            />
+          {/key}
+        {:else if currentView === 'home'}
+          <SessionsList
+            {sessions}
+            {projects}
+            {liveProgress}
+            {sessionStorageMap}
+            {loading}
+            onselectsession={selectSession}
             onstop={handleStop}
             onresume={openResumeModal}
             ondelete={handleDelete}
-            onrefresh={() => selectSession(selectedSession)}
-            oncompare={(id) => navigateTo(`/compare?a=${id}`)}
-            onnavigate={navigateTo}
-            ongohome={goHome}
+            onnewcrawl={() => navigateTo('/new-crawl')}
+            onrefresh={loadSessions}
           />
-        {/key}
-      {/if}
-    </div>
-  </main>
-</div>
+        {:else if currentView === 'session' && selectedSession}
+          {#key selectedSession.ID + '-' + routeVersion}
+            <SessionDetailPage
+              session={selectedSession}
+              {stats}
+              {liveProgress}
+              {projects}
+              initialTab={routeTab}
+              initialFilters={routeFilters}
+              initialOffset={routeOffset}
+              initialDetailUrl={routeDetailUrl}
+              initialSubView={routeSubView}
+              onerror={(msg) => (error = msg)}
+              onstop={handleStop}
+              onresume={openResumeModal}
+              ondelete={handleDelete}
+              onrefresh={() => selectSession(selectedSession)}
+              oncompare={(id) => navigateTo(`/compare?a=${id}`)}
+              onnavigate={navigateTo}
+              ongohome={goHome}
+            />
+          {/key}
+        {/if}
+      </div>
+    </main>
+  </div>
 
-{#if showResumeModal}
-  <ResumeModal
-    sessionId={resumeSessionId}
-    {sessions}
-    onresume={onResumeComplete}
-    onclose={closeResumeModal}
-    onerror={(msg) => (error = msg)}
-  />
-{/if}
+  {#if showResumeModal}
+    <ResumeModal
+      sessionId={resumeSessionId}
+      {sessions}
+      onresume={onResumeComplete}
+      onclose={closeResumeModal}
+      onerror={(msg) => (error = msg)}
+    />
+  {/if}
 
-{#if confirmState}
-  <ConfirmModal
-    message={confirmState.message}
-    danger={confirmState.danger}
-    confirmLabel={confirmState.confirmLabel}
-    onconfirm={() => {
-      confirmState.onConfirm();
-      confirmState = null;
-    }}
-    oncancel={() => (confirmState = null)}
-  />
-{/if}
+  {#if confirmState}
+    <ConfirmModal
+      message={confirmState.message}
+      danger={confirmState.danger}
+      confirmLabel={confirmState.confirmLabel}
+      onconfirm={() => {
+        confirmState.onConfirm();
+        confirmState = null;
+      }}
+      oncancel={() => (confirmState = null)}
+    />
+  {/if}
 {/if}

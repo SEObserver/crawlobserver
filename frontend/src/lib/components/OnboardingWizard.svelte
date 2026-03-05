@@ -136,7 +136,6 @@
       <div class="actions">
         <button class="btn btn-primary btn-lg" onclick={nextStep}>{t('onboarding.next')}</button>
       </div>
-
     {:else if step === 2}
       <h1>{t('onboarding.step2Title')}</h1>
       <p class="subtitle">{t('onboarding.step2Subtitle')}</p>
@@ -173,7 +172,6 @@
       <div class="actions">
         <button class="btn btn-primary btn-lg" onclick={nextStep}>{t('onboarding.next')}</button>
       </div>
-
     {:else if step === 3}
       <h1>{t('onboarding.step3Title')}</h1>
       <p class="subtitle">{t('onboarding.step3Subtitle')}</p>
@@ -207,7 +205,9 @@
       {#if clickhouseReady}
         <span class="progress-label progress-done">{t('onboarding.downloadComplete')}</span>
       {:else if downloadPercent > 0}
-        <span class="progress-label">{t('onboarding.downloadProgress', { percent: downloadPercent })}</span>
+        <span class="progress-label"
+          >{t('onboarding.downloadProgress', { percent: downloadPercent })}</span
+        >
       {/if}
       <div class="progress-bar">
         <div class="progress-fill" style="width: {clickhouseReady ? 100 : downloadPercent}%"></div>
@@ -256,9 +256,15 @@
   }
 
   @keyframes selectPop {
-    0% { transform: scale(1); }
-    40% { transform: scale(1.03); }
-    100% { transform: scale(1); }
+    0% {
+      transform: scale(1);
+    }
+    40% {
+      transform: scale(1.03);
+    }
+    100% {
+      transform: scale(1);
+    }
   }
 
   .lang-select-wrapper {
@@ -277,7 +283,9 @@
     color: var(--text-primary, #1a1a2e);
     appearance: none;
     cursor: pointer;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .lang-select:focus {
@@ -315,7 +323,10 @@
     background: var(--bg-card, #fff);
     cursor: pointer;
     text-align: center;
-    transition: all 0.2s ease, transform 0.25s ease, box-shadow 0.2s ease;
+    transition:
+      all 0.2s ease,
+      transform 0.25s ease,
+      box-shadow 0.2s ease;
     color: var(--text-primary, #1a1a2e);
   }
   .preset:hover {
@@ -423,7 +434,9 @@
     padding: 12px 48px;
     font-size: 1rem;
     border-radius: 10px;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
   }
   .btn-lg:hover:not(:disabled) {
     transform: translateY(-1px);
@@ -474,7 +487,9 @@
     height: 8px;
     border-radius: 50%;
     background: var(--border, #e0e0e0);
-    transition: background 0.3s ease, transform 0.3s ease;
+    transition:
+      background 0.3s ease,
+      transform 0.3s ease;
   }
   .step-dot.active {
     background: var(--accent, #7c3aed);

@@ -206,11 +206,12 @@
     <div class="form-group">
       <label>{t('settings.language')}</label>
       <div class="flex-center-gap" style="flex-wrap: wrap;">
-        {#each ['en','fr','es','pt','nl','it','de','ru','zh','ja','tr','id','ko','pl','he','ar'] as lang}
+        {#each ['en', 'fr', 'es', 'pt', 'nl', 'it', 'de', 'ru', 'zh', 'ja', 'tr', 'id', 'ko', 'pl', 'he', 'ar'] as lang}
           <button
             class="btn btn-sm"
             class:btn-primary={getLocale() === lang}
-            onclick={() => setLocale(lang)}>{t('settings.lang' + lang.charAt(0).toUpperCase() + lang.slice(1))}</button
+            onclick={() => setLocale(lang)}
+            >{t('settings.lang' + lang.charAt(0).toUpperCase() + lang.slice(1))}</button
           >
         {/each}
       </div>
