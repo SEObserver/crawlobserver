@@ -449,6 +449,10 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 		} else {
 			applog.Infof("server", "Pre-update backup created: %s", info.Filename)
 		}
+		// Keep only the 5 most recent backups
+		if pruned, _ := backup.PruneBackups(s.BackupOpts.BackupDir, 5); pruned > 0 {
+			applog.Infof("server", "Pruned %d old backup(s)", pruned)
+		}
 	}
 
 	if s.IsDesktop {
@@ -520,6 +524,11 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, r, err)
 		return
+	}
+
+	// Keep only the 5 most recent backups
+	if pruned, _ := backup.PruneBackups(s.BackupOpts.BackupDir, 5); pruned > 0 {
+		applog.Infof("server", "Pruned %d old backup(s)", pruned)
 	}
 
 	w.WriteHeader(http.StatusCreated)

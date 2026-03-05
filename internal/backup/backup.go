@@ -225,6 +225,21 @@ func DeleteBackup(archivePath string) error {
 	return os.Remove(archivePath)
 }
 
+// PruneBackups keeps only the most recent maxKeep backups, deleting older ones.
+func PruneBackups(backupDir string, maxKeep int) (deleted int, err error) {
+	backups, err := ListBackups(backupDir)
+	if err != nil || len(backups) <= maxKeep {
+		return 0, err
+	}
+	// ListBackups returns newest first — delete everything after maxKeep
+	for _, b := range backups[maxKeep:] {
+		if removeErr := os.Remove(b.Path); removeErr == nil {
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
 func writeToTar(tw *tar.Writer, name string, data []byte) error {
 	hdr := &tar.Header{
 		Name:    name,
