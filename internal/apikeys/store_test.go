@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/customtests"
+	"github.com/SEObserver/crawlobserver/internal/extraction"
 	"github.com/SEObserver/crawlobserver/internal/providers"
 )
 
@@ -638,5 +639,157 @@ func TestListProviderConnectionsFiltered(t *testing.T) {
 	}
 	if list[0].ProjectID != p1.ID {
 		t.Fatal("wrong project in results")
+	}
+}
+
+// --- Extractor Sets ---
+
+func TestCreateExtractorSetWithExtractors(t *testing.T) {
+	s := newTestStore(t)
+	extractors := []extraction.Extractor{
+		{Type: extraction.CSSExtractText, Name: "title", Selector: "h1"},
+		{Type: extraction.CSSExtractAttr, Name: "canonical", Selector: "link[rel=canonical]", Attribute: "href"},
+	}
+	es, err := s.CreateExtractorSet("my-set", extractors)
+	if err != nil {
+		t.Fatalf("CreateExtractorSet: %v", err)
+	}
+	if es.ID == "" || es.Name != "my-set" {
+		t.Fatalf("unexpected set: %+v", es)
+	}
+	if len(es.Extractors) != 2 {
+		t.Fatalf("expected 2 extractors, got %d", len(es.Extractors))
+	}
+	for i, e := range es.Extractors {
+		if e.ID == "" {
+			t.Fatalf("extractor %d missing ID", i)
+		}
+		if e.SetID != es.ID {
+			t.Fatalf("extractor %d wrong SetID: got %q, want %q", i, e.SetID, es.ID)
+		}
+		if e.SortOrder != i {
+			t.Fatalf("extractor %d wrong SortOrder: got %d, want %d", i, e.SortOrder, i)
+		}
+	}
+}
+
+func TestCreateExtractorSetNoExtractors(t *testing.T) {
+	s := newTestStore(t)
+	es, err := s.CreateExtractorSet("empty-set", nil)
+	if err != nil {
+		t.Fatalf("CreateExtractorSet: %v", err)
+	}
+	if len(es.Extractors) != 0 {
+		t.Fatalf("expected 0 extractors, got %d", len(es.Extractors))
+	}
+}
+
+func TestListExtractorSetsEmpty(t *testing.T) {
+	s := newTestStore(t)
+	list, err := s.ListExtractorSets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("expected 0, got %d", len(list))
+	}
+}
+
+func TestListExtractorSetsAfterCreate(t *testing.T) {
+	s := newTestStore(t)
+	s.CreateExtractorSet("set-a", nil)
+	s.CreateExtractorSet("set-b", []extraction.Extractor{
+		{Type: extraction.CSSExtractText, Name: "x", Selector: "p"},
+	})
+	list, err := s.ListExtractorSets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("expected 2, got %d", len(list))
+	}
+}
+
+func TestGetExtractorSetExisting(t *testing.T) {
+	s := newTestStore(t)
+	extractors := []extraction.Extractor{
+		{Type: extraction.RegexExtract, Name: "price", Selector: `\$[\d.]+`},
+	}
+	created, _ := s.CreateExtractorSet("get-test", extractors)
+	got, err := s.GetExtractorSet(created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Name != "get-test" {
+		t.Fatalf("expected 'get-test', got %q", got.Name)
+	}
+	if len(got.Extractors) != 1 {
+		t.Fatalf("expected 1 extractor, got %d", len(got.Extractors))
+	}
+	if got.Extractors[0].Name != "price" {
+		t.Fatalf("expected extractor name 'price', got %q", got.Extractors[0].Name)
+	}
+}
+
+func TestGetExtractorSetNotFound(t *testing.T) {
+	s := newTestStore(t)
+	_, err := s.GetExtractorSet("nonexistent")
+	if err == nil {
+		t.Fatal("expected error for missing extractor set")
+	}
+}
+
+func TestUpdateExtractorSet(t *testing.T) {
+	s := newTestStore(t)
+	es, _ := s.CreateExtractorSet("orig", []extraction.Extractor{
+		{Type: extraction.CSSExtractText, Name: "old", Selector: "h1"},
+	})
+	newExtractors := []extraction.Extractor{
+		{Type: extraction.CSSExtractAttr, Name: "new1", Selector: "a", Attribute: "href"},
+		{Type: extraction.RegexExtract, Name: "new2", Selector: `\d+`},
+	}
+	if err := s.UpdateExtractorSet(es.ID, "renamed", newExtractors); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetExtractorSet(es.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Name != "renamed" {
+		t.Fatalf("expected 'renamed', got %q", got.Name)
+	}
+	if len(got.Extractors) != 2 {
+		t.Fatalf("expected 2 extractors, got %d", len(got.Extractors))
+	}
+	if got.Extractors[0].Name != "new1" || got.Extractors[1].Name != "new2" {
+		t.Fatalf("unexpected extractor names: %q, %q", got.Extractors[0].Name, got.Extractors[1].Name)
+	}
+}
+
+func TestUpdateExtractorSetNotFound(t *testing.T) {
+	s := newTestStore(t)
+	err := s.UpdateExtractorSet("ghost", "x", nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestDeleteExtractorSet(t *testing.T) {
+	s := newTestStore(t)
+	es, _ := s.CreateExtractorSet("doomed", nil)
+	if err := s.DeleteExtractorSet(es.ID); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.GetExtractorSet(es.ID)
+	if err == nil {
+		t.Fatal("expected not found after delete")
+	}
+}
+
+func TestDeleteExtractorSetNotFound(t *testing.T) {
+	s := newTestStore(t)
+	err := s.DeleteExtractorSet("ghost")
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }

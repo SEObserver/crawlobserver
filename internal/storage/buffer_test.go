@@ -308,6 +308,80 @@ func TestOnDataLostNotCalledWithoutCallback(t *testing.T) {
 	}
 }
 
+func TestNewBufferAndClose(t *testing.T) {
+	m := &mockInserter{}
+	b := NewBuffer(m, 100, 50*time.Millisecond, "test-session")
+
+	b.AddPage(PageRow{URL: "a"})
+	b.AddPage(PageRow{URL: "b"})
+
+	// Close should flush pending data and stop the goroutine
+	b.Close()
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.pageInserts != 1 {
+		t.Errorf("pageInserts = %d, want 1", m.pageInserts)
+	}
+	if len(m.pagesInserted) != 2 {
+		t.Errorf("pagesInserted = %d, want 2", len(m.pagesInserted))
+	}
+}
+
+func TestNewBufferFlushLoop(t *testing.T) {
+	m := &mockInserter{}
+	b := NewBuffer(m, 1000, 50*time.Millisecond, "test-session")
+
+	b.AddPage(PageRow{URL: "a"})
+
+	// Wait for the flush loop to trigger
+	time.Sleep(150 * time.Millisecond)
+
+	m.mu.Lock()
+	inserts := m.pageInserts
+	m.mu.Unlock()
+
+	b.Close()
+
+	if inserts < 1 {
+		t.Errorf("flush loop should have triggered at least once, pageInserts = %d", inserts)
+	}
+}
+
+func TestAddExtractions(t *testing.T) {
+	m := &mockInserter{}
+	b := newTestBuffer(m)
+
+	rows := []extraction.ExtractionRow{
+		{CrawlSessionID: "s1", URL: "https://example.com/", ExtractorName: "test"},
+	}
+	b.AddExtractions(rows)
+	b.Flush()
+
+	// Extractions are flushed (mockInserter.InsertExtractions returns nil)
+	// Just verify no panic and buffer empties
+	b.AddExtractions(nil) // empty should be no-op
+	b.AddExtractions([]extraction.ExtractionRow{}) // empty should be no-op
+}
+
+func TestAddExtractionsBatchFlush(t *testing.T) {
+	m := &mockInserter{}
+	b := newTestBuffer(m)
+	b.batchSize = 2
+
+	rows := []extraction.ExtractionRow{
+		{CrawlSessionID: "s1", URL: "https://example.com/1"},
+		{CrawlSessionID: "s1", URL: "https://example.com/2"},
+	}
+	// This should trigger auto-flush since len >= batchSize
+	b.AddExtractions(rows)
+
+	// Verify pages were not affected
+	if b.PageCount() != 0 {
+		t.Errorf("PageCount = %d, want 0", b.PageCount())
+	}
+}
+
 func TestCloseRetriesFailedBatches(t *testing.T) {
 	m := &mockInserter{
 		pageErr:   fmt.Errorf("temporary failure"),

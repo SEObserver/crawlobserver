@@ -227,6 +227,47 @@ func TestFrontierMaxSizeDrainAndRefill(t *testing.T) {
 	}
 }
 
+func TestFrontierMarkSeen(t *testing.T) {
+	f := New(0, 0)
+
+	f.MarkSeen("https://example.com/page")
+	if f.SeenCount() != 1 {
+		t.Errorf("SeenCount after MarkSeen = %d, want 1", f.SeenCount())
+	}
+
+	// Adding the same URL should be rejected (already seen)
+	if f.Add(CrawlURL{URL: "https://example.com/page"}) {
+		t.Error("Add should fail for URL already marked as seen")
+	}
+	if f.Len() != 0 {
+		t.Errorf("Len should be 0 (URL was only marked seen, not queued), got %d", f.Len())
+	}
+
+	// A different URL should work fine
+	if !f.Add(CrawlURL{URL: "https://example.com/other"}) {
+		t.Error("Add should succeed for unseen URL")
+	}
+}
+
+func TestExtractHost(t *testing.T) {
+	tests := []struct {
+		url  string
+		want string
+	}{
+		{"https://example.com/path", "example.com"},
+		{"https://example.com:8080/path", "example.com:8080"},
+		{"http://sub.example.com/", "sub.example.com"},
+		{"not-a-url", ""},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		got := extractHost(tt.url)
+		if got != tt.want {
+			t.Errorf("extractHost(%q) = %q, want %q", tt.url, got, tt.want)
+		}
+	}
+}
+
 func TestFrontierConcurrentAccess(t *testing.T) {
 	f := New(0, 0)
 	var wg sync.WaitGroup

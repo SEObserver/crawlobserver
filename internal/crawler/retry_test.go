@@ -263,6 +263,77 @@ func TestRetryQueue_Concurrent(t *testing.T) {
 	}
 }
 
+// --- parseRetryAfter edge case tests ---
+
+func TestParseRetryAfter_ValidSeconds(t *testing.T) {
+	d := parseRetryAfter("5")
+	if d != 5*time.Second {
+		t.Errorf("parseRetryAfter(\"5\") = %v, want 5s", d)
+	}
+}
+
+func TestParseRetryAfter_ZeroSeconds(t *testing.T) {
+	d := parseRetryAfter("0")
+	// strconv.Atoi("0") succeeds but secs=0, condition is secs > 0, so falls through
+	if d != 0 {
+		t.Errorf("parseRetryAfter(\"0\") = %v, want 0 (zero seconds should not be valid)", d)
+	}
+}
+
+func TestParseRetryAfter_NegativeSeconds(t *testing.T) {
+	d := parseRetryAfter("-10")
+	// Atoi succeeds but secs < 0, condition is secs > 0, so falls through
+	if d != 0 {
+		t.Errorf("parseRetryAfter(\"-10\") = %v, want 0 (negative seconds should not be valid)", d)
+	}
+}
+
+func TestParseRetryAfter_EmptyString(t *testing.T) {
+	d := parseRetryAfter("")
+	if d != 0 {
+		t.Errorf("parseRetryAfter(\"\") = %v, want 0", d)
+	}
+}
+
+func TestParseRetryAfter_WhitespaceOnly(t *testing.T) {
+	d := parseRetryAfter("   ")
+	if d != 0 {
+		t.Errorf("parseRetryAfter(\"   \") = %v, want 0", d)
+	}
+}
+
+func TestParseRetryAfter_Garbage(t *testing.T) {
+	d := parseRetryAfter("not-a-number-or-date")
+	if d != 0 {
+		t.Errorf("parseRetryAfter(\"not-a-number-or-date\") = %v, want 0", d)
+	}
+}
+
+func TestParseRetryAfter_PastDate(t *testing.T) {
+	// A date in the past should return 0 (time.Until returns negative)
+	past := time.Now().Add(-1 * time.Hour).UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")
+	d := parseRetryAfter(past)
+	if d != 0 {
+		t.Errorf("parseRetryAfter(past date) = %v, want 0", d)
+	}
+}
+
+func TestParseRetryAfter_FutureDate(t *testing.T) {
+	future := time.Now().Add(30 * time.Second).UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")
+	d := parseRetryAfter(future)
+	// Should be approximately 30s (allow tolerance)
+	if d < 25*time.Second || d > 35*time.Second {
+		t.Errorf("parseRetryAfter(future date) = %v, want ~30s", d)
+	}
+}
+
+func TestParseRetryAfter_WithLeadingTrailingSpaces(t *testing.T) {
+	d := parseRetryAfter("  10  ")
+	if d != 10*time.Second {
+		t.Errorf("parseRetryAfter(\"  10  \") = %v, want 10s", d)
+	}
+}
+
 func TestHostHealth_ConsecutiveTracking(t *testing.T) {
 	hh := NewHostHealth()
 
