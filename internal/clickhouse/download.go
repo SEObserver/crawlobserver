@@ -38,9 +38,17 @@ func downloadURL() (string, error) {
 	return "", fmt.Errorf("unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH)
 }
 
+// DownloadProgress reports the state of the binary download.
+type DownloadProgress struct {
+	BytesDownloaded int64
+	TotalBytes      int64
+	Percent         int
+}
+
 // DownloadBinary downloads the ClickHouse binary to {dataDir}/bin/clickhouse.
 // Returns the path to the downloaded binary.
-func DownloadBinary(dataDir string) (string, error) {
+// An optional onProgress callback is called at each percent change.
+func DownloadBinary(dataDir string, onProgress ...func(DownloadProgress)) (string, error) {
 	dlURL, err := downloadURL()
 	if err != nil {
 		return "", err
@@ -73,7 +81,11 @@ func DownloadBinary(dataDir string) (string, error) {
 
 	// Progress logging
 	size := resp.ContentLength
-	reader := &progressReader{r: resp.Body, total: size}
+	var progressCb func(DownloadProgress)
+	if len(onProgress) > 0 {
+		progressCb = onProgress[0]
+	}
+	reader := &progressReader{r: resp.Body, total: size, onProgress: progressCb}
 	if _, err := io.Copy(f, reader); err != nil {
 		f.Close()
 		os.Remove(tmpPath)
@@ -108,10 +120,12 @@ func DownloadBinary(dataDir string) (string, error) {
 }
 
 type progressReader struct {
-	r       io.Reader
-	total   int64
-	written int64
-	lastPct int
+	r          io.Reader
+	total      int64
+	written    int64
+	lastLogPct int
+	lastCbPct  int
+	onProgress func(DownloadProgress)
 }
 
 func (pr *progressReader) Read(p []byte) (int, error) {
@@ -119,9 +133,17 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 	pr.written += int64(n)
 	if pr.total > 0 {
 		pct := int(pr.written * 100 / pr.total)
-		if pct/10 > pr.lastPct/10 {
+		if pct/10 > pr.lastLogPct/10 {
 			applog.Infof("clickhouse", "downloading... %d%%", pct)
-			pr.lastPct = pct
+			pr.lastLogPct = pct
+		}
+		if pr.onProgress != nil && pct > pr.lastCbPct {
+			pr.lastCbPct = pct
+			pr.onProgress(DownloadProgress{
+				BytesDownloaded: pr.written,
+				TotalBytes:      pr.total,
+				Percent:         pct,
+			})
 		}
 	}
 	return n, err

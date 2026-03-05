@@ -796,6 +796,42 @@ export async function getGSCInspection(projectId, limit = DEFAULT_LIMIT, offset 
   return fetchJSON(`/projects/${projectId}/gsc/inspection?limit=${limit}&offset=${offset}`);
 }
 
+// --- Setup & Telemetry ---
+
+/** @returns {Promise<{setup_complete: boolean, download_progress: Object, clickhouse_ready: boolean}>} */
+export async function getSetupStatus() {
+  return fetchJSON('/setup/status');
+}
+
+/**
+ * @param {Object} params
+ * @returns {Promise<Object>}
+ */
+export async function completeSetup(params) {
+  return fetchJSON('/setup/complete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+}
+
+/** @returns {Promise<{enabled: boolean, instance_id: string}>} */
+export async function getTelemetry() {
+  return fetchJSON('/telemetry');
+}
+
+/**
+ * @param {boolean} enabled
+ * @returns {Promise<Object>}
+ */
+export async function updateTelemetry(enabled) {
+  return fetchJSON('/telemetry', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+}
+
 // --- External Link Checks ---
 
 /**

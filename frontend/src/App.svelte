@@ -27,11 +27,15 @@
     getUpdateStatus,
     applyUpdate,
     createBackup,
+    getSetupStatus,
+    getTelemetry,
   } from './lib/api.js';
+  import { initTelemetry, trackPageView, disableTelemetry } from './lib/telemetry.js';
   import { fmtSize } from './lib/utils.js';
   import { pushURL, parseRoute } from './lib/router.js';
   import { createSSEManager } from './lib/sse.js';
   import { applyTheme, loadThemeFromServer, saveDarkMode } from './lib/theme.js';
+  import OnboardingWizard from './lib/components/OnboardingWizard.svelte';
   import ResumeModal from './lib/components/ResumeModal.svelte';
   import NewCrawlForm from './lib/components/NewCrawlForm.svelte';
   import GlobalStatsPage from './lib/components/GlobalStatsPage.svelte';
@@ -56,6 +60,11 @@
   function showConfirm(message, onConfirm, opts = {}) {
     confirmState = { message, onConfirm, ...opts };
   }
+
+  // --- Setup state ---
+  let showOnboarding = $state(false);
+  let onboardingStartStep = $state(1); // 1 = full wizard, 3 = telemetry only (existing users)
+  let setupChecked = $state(false);
 
   // --- Crawl state ---
   let sessions = $state([]);
@@ -516,17 +525,60 @@
     systemStatsInterval = setInterval(loadSystemStats, 3000);
   }
 
-  // Boot
-  loadTheme();
-  applyRoute();
-  startSystemStatsPolling();
-  getProjects()
-    .then((p) => (projects = p))
-    .catch(() => {});
-  if (!globalStats)
-    getGlobalStats()
-      .then((gs) => (globalStats = gs))
+  // Boot: check setup status first, then load app
+  async function boot() {
+    await loadTheme();
+    try {
+      const setupStatus = await getSetupStatus();
+      if (!setupStatus.setup_complete) {
+        // Fresh install: full onboarding
+        showOnboarding = true;
+        onboardingStartStep = 1;
+        setupChecked = true;
+        return;
+      }
+      if (!setupStatus.telemetry_asked) {
+        // Existing user upgrading: show only telemetry step
+        showOnboarding = true;
+        onboardingStartStep = 3;
+        setupChecked = true;
+        return;
+      }
+    } catch {
+      // If setup endpoint fails (e.g. CLI mode), proceed normally
+    }
+    setupChecked = true;
+    await bootApp();
+  }
+
+  async function bootApp() {
+    applyRoute();
+    startSystemStatsPolling();
+    getProjects()
+      .then((p) => (projects = p))
       .catch(() => {});
+    if (!globalStats)
+      getGlobalStats()
+        .then((gs) => (globalStats = gs))
+        .catch(() => {});
+
+    // Init telemetry if enabled
+    try {
+      const tel = await getTelemetry();
+      if (tel.enabled) {
+        await initTelemetry(tel.instance_id);
+      }
+    } catch {
+      // Telemetry init failure is non-fatal
+    }
+  }
+
+  function onOnboardingComplete() {
+    showOnboarding = false;
+    bootApp();
+  }
+
+  boot();
 
   // Cleanup on destroy
   onDestroy(() => {
@@ -536,6 +588,9 @@
   });
 </script>
 
+{#if showOnboarding}
+  <OnboardingWizard startStep={onboardingStartStep} oncomplete={onOnboardingComplete} />
+{:else if setupChecked}
 <a class="skip-link" href="#main-content">{t('app.skipToContent')}</a>
 <div class="layout">
   <div class="drag-bar"><span class="drag-bar-title">{theme.app_name}</span></div>
@@ -724,4 +779,5 @@
     }}
     oncancel={() => (confirmState = null)}
   />
+{/if}
 {/if}

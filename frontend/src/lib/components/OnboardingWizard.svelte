@@ -15,6 +15,10 @@
     { code: 'ru', name: 'Русский' },
     { code: 'zh', name: '中文' },
     { code: 'ja', name: '日本語' },
+    { code: 'tr', name: 'Türkçe' },
+    { code: 'id', name: 'Bahasa Indonesia' },
+    { code: 'ko', name: '한국어' },
+    { code: 'pl', name: 'Polski' },
     { code: 'he', name: 'עברית' },
     { code: 'ar', name: 'العربية' },
   ];

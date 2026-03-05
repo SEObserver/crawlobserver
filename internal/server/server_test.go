@@ -5774,7 +5774,8 @@ func TestSecurityHeaders(t *testing.T) {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	handler := securityHeaders(inner)
+	srv := &Server{cfg: &config.Config{}}
+	handler := srv.securityHeaders(inner)
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rec := httptest.NewRecorder()

@@ -10,8 +10,12 @@ import zh from './zh.json';
 import he from './he.json';
 import ar from './ar.json';
 import ja from './ja.json';
+import tr from './tr.json';
+import id from './id.json';
+import ko from './ko.json';
+import pl from './pl.json';
 
-const translations = { en, fr, es, pt, nl, it, de, ru, zh, he, ar, ja };
+const translations = { en, fr, es, pt, nl, it, de, ru, zh, ja, tr, id, ko, pl, he, ar };
 
 const rtlLocales = new Set(['he', 'ar']);
 

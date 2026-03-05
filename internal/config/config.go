@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,13 +15,21 @@ import (
 )
 
 type Config struct {
-	Crawler    CrawlerConfig    `mapstructure:"crawler"`
-	ClickHouse ClickHouseConfig `mapstructure:"clickhouse"`
-	Storage    StorageConfig    `mapstructure:"storage"`
-	Resources  ResourcesConfig  `mapstructure:"resources"`
-	Server     ServerConfig     `mapstructure:"server"`
-	Theme      ThemeConfig      `mapstructure:"theme"`
-	GSC        GSCConfig        `mapstructure:"gsc"`
+	Crawler       CrawlerConfig    `mapstructure:"crawler"`
+	ClickHouse    ClickHouseConfig `mapstructure:"clickhouse"`
+	Storage       StorageConfig    `mapstructure:"storage"`
+	Resources     ResourcesConfig  `mapstructure:"resources"`
+	Server        ServerConfig     `mapstructure:"server"`
+	Theme         ThemeConfig      `mapstructure:"theme"`
+	GSC           GSCConfig        `mapstructure:"gsc"`
+	Telemetry     TelemetryConfig  `mapstructure:"telemetry"`
+	SetupComplete bool             `mapstructure:"setup_complete"`
+}
+
+type TelemetryConfig struct {
+	Enabled    bool   `mapstructure:"enabled"`
+	InstanceID string `mapstructure:"instance_id"`
+	AskedAt    string `mapstructure:"asked_at"` // ISO timestamp when user was asked about telemetry
 }
 
 type CrawlerConfig struct {
@@ -178,6 +187,11 @@ func SetDefaults() {
 	viper.SetDefault("gsc.client_id", "")
 	viper.SetDefault("gsc.client_secret", "")
 	viper.SetDefault("gsc.redirect_uri", "http://127.0.0.1:8899/api/gsc/callback")
+
+	viper.SetDefault("telemetry.enabled", false)
+	viper.SetDefault("telemetry.instance_id", "")
+	viper.SetDefault("telemetry.asked_at", "")
+	viper.SetDefault("setup_complete", false)
 }
 
 func Load() (*Config, error) {
@@ -205,10 +219,14 @@ func Load() (*Config, error) {
 	// Resolve relative SQLite path to a stable location so that all modes
 	// (serve, crawl, gui) use the same database regardless of the working directory.
 	if !filepath.IsAbs(cfg.Server.SQLitePath) {
+		origName := cfg.Server.SQLitePath
 		dataDir, err := DefaultDataDir()
 		if err == nil {
 			_ = os.MkdirAll(dataDir, 0755)
-			cfg.Server.SQLitePath = filepath.Join(dataDir, cfg.Server.SQLitePath)
+			cfg.Server.SQLitePath = filepath.Join(dataDir, origName)
+
+			// Migrate legacy SQLite from old locations (pre-v1.1 stored it in cwd or next to config).
+			migrateLegacySQLite(cfg.Server.SQLitePath, origName)
 		}
 	}
 
@@ -217,7 +235,43 @@ func Load() (*Config, error) {
 		fmt.Fprintf(os.Stderr, "\n  *** WARNING: server is listening on 0.0.0.0 with a weak password! ***\n  *** Set a strong password (>= 8 chars) in server.password before exposing to the internet. ***\n\n")
 	}
 
+	// Existing user upgrade: if config file existed BEFORE this Load() call
+	// with real content but no setup_complete key, auto-set setup_complete to true
+	// so they skip the full onboarding (they'll still get the telemetry opt-in).
+	// This check must run BEFORE instance_id generation, which creates the file on fresh installs.
+	if !cfg.SetupComplete && viper.ConfigFileUsed() != "" {
+		if info, err := os.Stat(viper.ConfigFileUsed()); err == nil && info.Size() > 0 {
+			if !viper.IsSet("setup_complete") {
+				cfg.SetupComplete = true
+				viper.Set("setup_complete", true)
+				_ = writeConfig()
+			}
+		}
+	}
+
+	// Generate instance_id if not set
+	if cfg.Telemetry.InstanceID == "" {
+		b := make([]byte, 16)
+		if _, err := rand.Read(b); err != nil {
+			return nil, fmt.Errorf("generating instance_id: %w", err)
+		}
+		// Format as UUID v4
+		b[6] = (b[6] & 0x0f) | 0x40
+		b[8] = (b[8] & 0x3f) | 0x80
+		cfg.Telemetry.InstanceID = fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+		viper.Set("telemetry.instance_id", cfg.Telemetry.InstanceID)
+		_ = writeConfig()
+	}
+
 	return &cfg, nil
+}
+
+// writeConfig writes the current viper config to disk, creating it if needed.
+func writeConfig() error {
+	if err := viper.WriteConfig(); err != nil {
+		return viper.SafeWriteConfig()
+	}
+	return nil
 }
 
 // isWeakPassword checks if a password is too simple for internet-exposed deployments.
@@ -313,4 +367,68 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("storage.flush_interval must be > 0")
 	}
 	return nil
+}
+
+// migrateLegacySQLite copies a legacy SQLite database to the new location if needed.
+// It checks the working directory and the directory containing the config file.
+// The copy only happens when the destination doesn't exist or is empty (0 bytes).
+func migrateLegacySQLite(destPath, baseName string) {
+	// Skip if destination already has data
+	if info, err := os.Stat(destPath); err == nil && info.Size() > 0 {
+		return
+	}
+
+	// Candidate locations where the old database might live
+	var candidates []string
+
+	// 1. Current working directory
+	if cwd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(cwd, baseName))
+	}
+
+	// 2. Next to the config file
+	if cfgFile := viper.ConfigFileUsed(); cfgFile != "" {
+		candidates = append(candidates, filepath.Join(filepath.Dir(cfgFile), baseName))
+	}
+
+	for _, src := range candidates {
+		// Don't copy onto itself
+		if src == destPath {
+			continue
+		}
+		info, err := os.Stat(src)
+		if err != nil || info.Size() == 0 {
+			continue
+		}
+		// Found a legacy database — copy it
+		if err := copyFile(src, destPath); err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: failed to migrate database from %s: %v\n", src, err)
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "  Migrated database from %s to %s\n", src, destPath)
+		return
+	}
+}
+
+// copyFile copies src to dst, preserving permissions.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	info, err := in.Stat()
+	if err != nil {
+		return err
+	}
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
 }

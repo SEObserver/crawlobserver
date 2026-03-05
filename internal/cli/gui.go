@@ -19,6 +19,7 @@ import (
 	chmanaged "github.com/SEObserver/crawlobserver/internal/clickhouse"
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/server"
+	"github.com/SEObserver/crawlobserver/internal/storage"
 	"github.com/SEObserver/crawlobserver/internal/updater"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -69,7 +70,7 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	cfg.Server.Username = ""
 	cfg.Server.Password = ""
 
-	// Find port BEFORE creating the webview (needed for the loading page's health poll)
+	// Find port BEFORE creating the webview
 	guiPort, err := findFreePort()
 	if err != nil {
 		return fmt.Errorf("finding free port: %w", err)
@@ -84,13 +85,26 @@ func runGUI(cmd *cobra.Command, args []string) error {
 		appName = cfg.Theme.AppName
 	}
 
-	// Create native webview window IMMEDIATELY with a loading splash screen
+	// 1. Create the HTTP server in setup mode IMMEDIATELY (serves frontend + setup endpoints)
+	httpSrv := server.NewSetupServer(cfg)
+	httpSrv.NoBrowserOpen = true
+	httpSrv.IsDesktop = true
+	httpSrv.UpdateStatus = updater.NewUpdateStatus()
+
+	// Start HTTP server so the frontend is available right away
+	go func() {
+		if err := httpSrv.Start(); err != nil && err != http.ErrServerClosed {
+			applog.Errorf("cli", "HTTP server error: %v", err)
+		}
+	}()
+	waitForServer(serverURL, 10*time.Second)
+
+	// 2. Create native webview window and navigate to Svelte app (not splash)
 	w := webview.New(false)
 	defer w.Destroy()
 	setupNativeMenu()
 	installClipboardMonitor(w.Window())
 
-	// File save binding for CSV export (WKWebView doesn't support blob downloads)
 	w.Bind("__saveFile", func(filename, content string) error {
 		return nativeSaveFile(filename, content)
 	})
@@ -99,19 +113,18 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	w.SetTitle(appName)
 	w.SetSize(1440, 900, webview.HintNone)
 	w.SetSize(800, 600, webview.HintMin)
-	w.Navigate("data:text/html," + splashHTML(guiPort))
+	w.Navigate(serverURL) // Svelte app loads immediately (shows onboarding or waiting screen)
 
 	// Resources created by the background goroutine, protected by mutex
 	var mu sync.Mutex
-	var srv *server.Server
 	var store interface{ Close() error }
 	var keyStore *apikeys.Store
 	var chCleanup func()
 
-	// Launch setup in background goroutine
+	// 3. Background goroutine: download ClickHouse, start it, transition server to ready
 	go func() {
 		setupErr := func() error {
-			s, cleanup, managedCH, err := setupClickHouse(cfg, cfg.ClickHouse.Database)
+			s, cleanup, managedCH, err := setupClickHouseWithProgress(cfg, cfg.ClickHouse.Database, httpSrv)
 			if err != nil {
 				return fmt.Errorf("ClickHouse setup: %w", err)
 			}
@@ -123,12 +136,10 @@ func runGUI(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("opening SQLite store: %w", err)
 			}
 
-			httpSrv := server.New(cfg, s, ks)
-			httpSrv.NoBrowserOpen = true
-			httpSrv.IsDesktop = true
-
-			// Wire update status
-			httpSrv.UpdateStatus = updater.NewUpdateStatus()
+			// Transition: wire store, keyStore, manager — server leaves setup mode
+			httpSrv.TransitionToReady(s, ks)
+			applog.Init(s)
+			httpSrv.SetDownloadProgress(server.SetupProgress{Percent: 100})
 
 			// Wire backup options
 			chDataDir := cfg.ClickHouse.DataDir
@@ -172,19 +183,8 @@ func runGUI(cmd *cobra.Command, args []string) error {
 				}
 			}()
 
-			// Start the HTTP server
-			go func() {
-				if err := httpSrv.Start(); err != nil && err != http.ErrServerClosed {
-					applog.Errorf("cli", "HTTP server error: %v", err)
-				}
-			}()
-
-			// Wait for server to be ready
-			waitForServer(serverURL, 10*time.Second)
-
 			// Store references for shutdown
 			mu.Lock()
-			srv = httpSrv
 			store = s
 			keyStore = ks
 			chCleanup = cleanup
@@ -198,13 +198,7 @@ func runGUI(cmd *cobra.Command, args []string) error {
 			w.Dispatch(func() {
 				w.Navigate("data:text/html," + errorHTML(setupErr.Error()))
 			})
-			return
 		}
-
-		// Setup succeeded — navigate to the real app
-		w.Dispatch(func() {
-			w.Navigate(serverURL)
-		})
 	}()
 
 	// Run the webview event loop (blocks until window is closed)
@@ -212,17 +206,15 @@ func runGUI(cmd *cobra.Command, args []string) error {
 
 	// Clean shutdown after window is closed
 	mu.Lock()
-	localSrv := srv
 	localStore := store
 	localKeyStore := keyStore
 	localCleanup := chCleanup
 	mu.Unlock()
 
-	if localSrv != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		localSrv.Stop(shutdownCtx)
-	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	httpSrv.Stop(shutdownCtx)
+
 	if localKeyStore != nil {
 		localKeyStore.Close()
 	}
@@ -236,43 +228,111 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// splashHTML returns an HTML loading page that polls /api/health.
-func splashHTML(port int) string {
-	return fmt.Sprintf(`<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0a0a;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;overflow:hidden}
-.spinner{width:48px;height:48px;border:3px solid #333;border-top-color:#f97316;border-radius:50%%;
-animation:spin 0.8s linear infinite;margin-bottom:24px}
-@keyframes spin{to{transform:rotate(360deg)}}
-h1{font-size:18px;font-weight:500;color:#ccc;margin-bottom:8px}
-p{font-size:13px;color:#888}
-</style>
-</head>
-<body>
-<div class="spinner"></div>
-<h1>Starting CrawlObserver</h1>
-<p>Downloading assets...</p>
-<script>
-(function(){
-var url="http://127.0.0.1:%d";
-var t=setInterval(function(){
-fetch(url+"/api/health").then(function(r){
-if(r.ok){clearInterval(t);window.location=url}
-}).catch(function(){})
-},500);
-setTimeout(function(){
-clearInterval(t);
-document.querySelector("p").textContent="Setup is taking longer than expected. Please wait...";
-},300000);
-})();
-</script>
-</body>
-</html>`, port)
+// setupClickHouseWithProgress wraps setupClickHouse and reports download progress to the server.
+func setupClickHouseWithProgress(cfg *config.Config, connectDB string, srv *server.Server) (*storage.Store, func(), *chmanaged.ManagedServer, error) {
+	// Override DownloadBinary to report progress
+	origDownload := chmanaged.DownloadBinary
+	_ = origDownload // reference to show the pattern
+
+	return setupClickHouseWithCb(cfg, connectDB, func(p chmanaged.DownloadProgress) {
+		srv.SetDownloadProgress(server.SetupProgress{
+			Percent:         p.Percent,
+			BytesDownloaded: p.BytesDownloaded,
+			TotalBytes:      p.TotalBytes,
+		})
+	})
+}
+
+// setupClickHouseWithCb is like setupClickHouse but passes a download progress callback.
+func setupClickHouseWithCb(cfg *config.Config, connectDB string, onProgress func(chmanaged.DownloadProgress)) (*storage.Store, func(), *chmanaged.ManagedServer, error) {
+	noop := func() {}
+
+	mode := cfg.ClickHouse.Mode
+	if mode == "" {
+		mode = detectMode(cfg)
+	}
+
+	var host, username, password string
+	var port int
+	cleanup := noop
+	var managed *chmanaged.ManagedServer
+
+	switch mode {
+	case "external":
+		applog.Infof("cli", "Using external ClickHouse at %s:%d", cfg.ClickHouse.Host, cfg.ClickHouse.Port)
+		host = cfg.ClickHouse.Host
+		port = cfg.ClickHouse.Port
+		username = cfg.ClickHouse.Username
+		password = cfg.ClickHouse.Password
+
+	case "managed":
+		dataDir := cfg.ClickHouse.DataDir
+		if dataDir == "" {
+			dataDir = chmanaged.DefaultDataDir()
+		}
+
+		binaryPath := chmanaged.FindBinary(cfg.ClickHouse.BinaryPath, dataDir)
+		if binaryPath == "" {
+			applog.Info("cli", "No ClickHouse binary found, downloading...")
+			var err error
+			binaryPath, err = chmanaged.DownloadBinary(dataDir, onProgress)
+			if err != nil {
+				return nil, noop, nil, fmt.Errorf("downloading ClickHouse: %w", err)
+			}
+		}
+
+		srv := chmanaged.NewManagedServer(dataDir)
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		if err := srv.Start(ctx, binaryPath); err != nil {
+			return nil, noop, nil, fmt.Errorf("starting managed ClickHouse: %w", err)
+		}
+
+		host = "127.0.0.1"
+		port = srv.TCPPort()
+		username = "default"
+		password = ""
+		cleanup = func() { srv.Stop() }
+		managed = srv
+
+	default:
+		return nil, noop, nil, fmt.Errorf("unknown clickhouse.mode: %q", mode)
+	}
+
+	// Auto-migrate
+	if connectDB != "default" {
+		initStore, err := storage.NewStore(host, port, "default", username, password)
+		if err != nil {
+			cleanup()
+			return nil, noop, nil, fmt.Errorf("connecting for migrations: %w", err)
+		}
+		applog.Info("cli", "Running auto-migrations...")
+		if err := initStore.Migrate(context.Background()); err != nil {
+			initStore.Close()
+			cleanup()
+			return nil, noop, nil, fmt.Errorf("auto-migration: %w", err)
+		}
+		initStore.Close()
+	}
+
+	store, err := storage.NewStore(host, port, connectDB, username, password)
+	if err != nil {
+		cleanup()
+		return nil, noop, nil, fmt.Errorf("connecting to ClickHouse: %w", err)
+	}
+
+	if connectDB == "default" {
+		applog.Info("cli", "Running migrations...")
+		if err := store.Migrate(context.Background()); err != nil {
+			store.Close()
+			cleanup()
+			return nil, noop, nil, fmt.Errorf("migration: %w", err)
+		}
+		applog.Info("cli", "Migrations complete.")
+	}
+
+	return store, cleanup, managed, nil
 }
 
 // errorHTML returns an HTML error page for setup failures.
