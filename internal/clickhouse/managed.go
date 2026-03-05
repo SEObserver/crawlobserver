@@ -45,7 +45,11 @@ func (m *ManagedServer) Start(ctx context.Context, binaryPath string) error {
 
 	applog.Infof("clickhouse", "Starting managed ClickHouse (tcp=%d, http=%d, data=%s)", tcpPort, httpPort, m.dataDir)
 
-	m.cmd = exec.CommandContext(ctx, binaryPath, "server", "--config-file="+configPath)
+	// Do NOT use exec.CommandContext: the ctx is only for the startup timeout,
+	// not for the lifetime of the ClickHouse process. CommandContext kills the
+	// process when the context is cancelled, which would stop ClickHouse as soon
+	// as setupClickHouse returns and its deferred cancel() fires.
+	m.cmd = exec.Command(binaryPath, "server", "--config-file="+configPath)
 	m.cmd.Stdout = os.Stdout
 	m.cmd.Stderr = os.Stderr
 
