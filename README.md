@@ -297,6 +297,7 @@ We welcome contributions. Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** bef
 Thanks to the people who helped shape CrawlObserver with their feedback, testing, and ideas:
 
 - **Fabien Raquidel** &mdash; [referenceur-web.pro](https://www.referenceur-web.pro/) · [@fabienr34](https://x.com/fabienr34)
+- **Jean-Benoît Moingt** &mdash; [watussi.fr](https://www.watussi.fr/) · [@jeanbenoit](https://x.com/jeanbenoit)
 
 ---
 
