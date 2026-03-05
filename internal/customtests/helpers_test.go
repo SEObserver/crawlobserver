@@ -1,6 +1,7 @@
 package customtests
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -145,7 +146,7 @@ func TestEvalGoRule_CSSNotExists_Match(t *testing.T) {
 		},
 	}
 
-	result, err := RunTests(nil, store, "s1", ruleset)
+	result, err := RunTests(context.TODO(), store, "s1", ruleset)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -168,7 +169,7 @@ func TestEvalGoRule_CSSNotExists_Fail(t *testing.T) {
 		},
 	}
 
-	result, err := RunTests(nil, store, "s1", ruleset)
+	result, err := RunTests(context.TODO(), store, "s1", ruleset)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -191,7 +192,7 @@ func TestEvalGoRule_RegexExtract_NoMatch(t *testing.T) {
 		},
 	}
 
-	result, err := RunTests(nil, store, "s1", ruleset)
+	result, err := RunTests(context.TODO(), store, "s1", ruleset)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -215,7 +216,7 @@ func TestEvalGoRule_RegexExtract_InvalidRegex(t *testing.T) {
 		},
 	}
 
-	result, err := RunTests(nil, store, "s1", ruleset)
+	result, err := RunTests(context.TODO(), store, "s1", ruleset)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -243,7 +244,7 @@ func TestEvalGoRule_RegexExtract_NoCapture(t *testing.T) {
 		},
 	}
 
-	result, err := RunTests(nil, store, "s1", ruleset)
+	result, err := RunTests(context.TODO(), store, "s1", ruleset)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -271,7 +272,7 @@ func TestEvalGoRule_XPathExtract_NilHTMLNode(t *testing.T) {
 		},
 	}
 
-	result, err := RunTests(nil, store, "s1", ruleset)
+	result, err := RunTests(context.TODO(), store, "s1", ruleset)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -296,7 +297,7 @@ func TestEvalGoRule_CSSExtractAttr_MissingAttr(t *testing.T) {
 		},
 	}
 
-	result, err := RunTests(nil, store, "s1", ruleset)
+	result, err := RunTests(context.TODO(), store, "s1", ruleset)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -326,7 +327,7 @@ func TestRunTests_SummaryComputation(t *testing.T) {
 		},
 	}
 
-	result, err := RunTests(nil, store, "s1", ruleset)
+	result, err := RunTests(context.TODO(), store, "s1", ruleset)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -366,7 +367,7 @@ func TestRunTests_EmptyRuleset(t *testing.T) {
 		Rules: []TestRule{},
 	}
 
-	result, err := RunTests(nil, store, "s1", ruleset)
+	result, err := RunTests(context.TODO(), store, "s1", ruleset)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

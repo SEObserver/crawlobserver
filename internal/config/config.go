@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -200,6 +202,16 @@ func Load() (*Config, error) {
 		fmt.Fprintf(os.Stderr, "\n  *** No password configured. Generated random password: %s ***\n  *** Set server.password in config.yaml to silence this message. ***\n\n", cfg.Server.Password)
 	}
 
+	// Resolve relative SQLite path to a stable location so that all modes
+	// (serve, crawl, gui) use the same database regardless of the working directory.
+	if !filepath.IsAbs(cfg.Server.SQLitePath) {
+		dataDir, err := DefaultDataDir()
+		if err == nil {
+			_ = os.MkdirAll(dataDir, 0755)
+			cfg.Server.SQLitePath = filepath.Join(dataDir, cfg.Server.SQLitePath)
+		}
+	}
+
 	// Warn about weak password when exposed on all interfaces
 	if cfg.Server.Host == "0.0.0.0" && isWeakPassword(cfg.Server.Password) {
 		fmt.Fprintf(os.Stderr, "\n  *** WARNING: server is listening on 0.0.0.0 with a weak password! ***\n  *** Set a strong password (>= 8 chars) in server.password before exposing to the internet. ***\n\n")
@@ -225,6 +237,28 @@ func isWeakPassword(password string) bool {
 		}
 	}
 	return false
+}
+
+// DefaultDataDir returns the platform-specific application data directory.
+// macOS: ~/Library/Application Support/CrawlObserver
+// Linux: ~/.local/share/crawlobserver
+// Windows: %APPDATA%/CrawlObserver
+func DefaultDataDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	switch runtime.GOOS {
+	case "darwin":
+		return filepath.Join(home, "Library", "Application Support", "CrawlObserver"), nil
+	case "windows":
+		if appData := os.Getenv("APPDATA"); appData != "" {
+			return filepath.Join(appData, "CrawlObserver"), nil
+		}
+		return filepath.Join(home, "AppData", "Roaming", "CrawlObserver"), nil
+	default:
+		return filepath.Join(home, ".local", "share", "crawlobserver"), nil
+	}
 }
 
 func validate(cfg *Config) error {

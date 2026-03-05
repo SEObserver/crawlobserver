@@ -600,7 +600,7 @@ func TestRunExtractors_CSSExtractAllText_Overflow(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("<ul>")
 	for i := 0; i < 25; i++ {
-		sb.WriteString(fmt.Sprintf("<li>item%d</li>", i))
+		fmt.Fprintf(&sb, "<li>item%d</li>", i)
 	}
 	sb.WriteString("</ul>")
 	body := []byte(sb.String())

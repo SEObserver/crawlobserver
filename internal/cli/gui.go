@@ -65,11 +65,6 @@ func runGUI(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	// Resolve relative paths to the app data directory
-	if !filepath.IsAbs(cfg.Server.SQLitePath) {
-		cfg.Server.SQLitePath = filepath.Join(dataDir, cfg.Server.SQLitePath)
-	}
-
 	// In desktop mode, auth is unnecessary — server listens on 127.0.0.1 only
 	cfg.Server.Username = ""
 	cfg.Server.Password = ""

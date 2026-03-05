@@ -103,10 +103,8 @@ func TestValidateRegex(t *testing.T) {
 				if tc.errMsg != "" && !strings.Contains(err.Error(), tc.errMsg) {
 					t.Errorf("error = %q, want substring %q", err.Error(), tc.errMsg)
 				}
-			} else {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
 			}
 		})
 	}
