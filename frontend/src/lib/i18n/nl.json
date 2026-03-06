@@ -1001,5 +1001,6 @@
   "settings.telemetryEnabled": "Anonieme analyse ingeschakeld",
   "settings.sessionRecording": "Sessieopname",
   "settings.sessionRecordingDesc": "Neem volledige browsersessies op en verstuur ze naar PostHog. Dit omvat alle URL's, pagina-inhoud en klikken die zichtbaar zijn in uw CrawlObserver-interface.",
-  "settings.sessionRecordingWarning": "WAARSCHUWING: Wanneer ingeschakeld, kan het CrawlObserver-team alles zien wat in uw browsersessie wordt weergegeven. Schakel dit alleen in voor debugdoeleinden."
+  "settings.sessionRecordingWarning": "WAARSCHUWING: Wanneer ingeschakeld, kan het CrawlObserver-team alles zien wat in uw browsersessie wordt weergegeven. Schakel dit alleen in voor debugdoeleinden.",
+  "settings.sessionRecordingBanner": "Sessieopname is actief — het CrawlObserver-team kan uw scherm zien."
 }

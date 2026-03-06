@@ -662,7 +662,7 @@
 
         {#if sessionRecordingActive}
           <div class="alert alert-session-recording">
-            <span>{t('settings.sessionRecordingWarning')}</span>
+            <span>{t('settings.sessionRecordingBanner')}</span>
           </div>
         {/if}
 

@@ -1001,5 +1001,6 @@
   "settings.telemetryEnabled": "Analitik anonim diaktifkan",
   "settings.sessionRecording": "Perekaman sesi",
   "settings.sessionRecordingDesc": "Rekam sesi browser lengkap dan kirim ke PostHog. Ini mencakup semua URL, konten halaman, dan klik yang terlihat di antarmuka CrawlObserver Anda.",
-  "settings.sessionRecordingWarning": "PERINGATAN: Saat diaktifkan, tim CrawlObserver dapat melihat semua yang ditampilkan di sesi browser Anda. Aktifkan ini hanya untuk tujuan debugging."
+  "settings.sessionRecordingWarning": "PERINGATAN: Saat diaktifkan, tim CrawlObserver dapat melihat semua yang ditampilkan di sesi browser Anda. Aktifkan ini hanya untuk tujuan debugging.",
+  "settings.sessionRecordingBanner": "Perekaman sesi aktif — tim CrawlObserver dapat melihat layar Anda."
 }

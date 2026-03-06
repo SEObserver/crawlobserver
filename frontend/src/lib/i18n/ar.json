@@ -1001,5 +1001,6 @@
   "settings.telemetryEnabled": "التحليلات المجهولة مفعّلة",
   "settings.sessionRecording": "تسجيل الجلسة",
   "settings.sessionRecordingDesc": "تسجيل جلسات المتصفح الكاملة وإرسالها إلى PostHog. يشمل ذلك جميع الروابط ومحتوى الصفحات والنقرات المرئية في واجهة CrawlObserver.",
-  "settings.sessionRecordingWarning": "تحذير: عند التفعيل، يمكن لفريق CrawlObserver رؤية كل ما يُعرض في جلسة المتصفح. فعّل هذا الخيار فقط لأغراض التصحيح."
+  "settings.sessionRecordingWarning": "تحذير: عند التفعيل، يمكن لفريق CrawlObserver رؤية كل ما يُعرض في جلسة المتصفح. فعّل هذا الخيار فقط لأغراض التصحيح.",
+  "settings.sessionRecordingBanner": "تسجيل الجلسة نشط — يمكن لفريق CrawlObserver رؤية شاشتك."
 }

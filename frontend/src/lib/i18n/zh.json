@@ -1001,5 +1001,6 @@
   "settings.telemetryEnabled": "匿名分析已启用",
   "settings.sessionRecording": "会话录制",
   "settings.sessionRecordingDesc": "录制完整的浏览器会话并发送到 PostHog。这包括 CrawlObserver 界面中可见的所有 URL、页面内容和点击操作。",
-  "settings.sessionRecordingWarning": "警告：启用后，CrawlObserver 团队可以看到您浏览器会话中显示的所有内容。请仅在调试时启用此功能。"
+  "settings.sessionRecordingWarning": "警告：启用后，CrawlObserver 团队可以看到您浏览器会话中显示的所有内容。请仅在调试时启用此功能。",
+  "settings.sessionRecordingBanner": "会话录制已启用 — CrawlObserver 团队可以看到您的屏幕。"
 }

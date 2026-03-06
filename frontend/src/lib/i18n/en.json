@@ -1052,5 +1052,6 @@
   "settings.telemetryEnabled": "Anonymous analytics enabled",
   "settings.sessionRecording": "Session recording",
   "settings.sessionRecordingDesc": "Record full browser sessions and send them to PostHog. This includes all URLs, page content, and clicks visible in your CrawlObserver UI.",
-  "settings.sessionRecordingWarning": "WARNING: When enabled, the CrawlObserver team can see everything displayed in your browser session. Only enable this for debugging purposes."
+  "settings.sessionRecordingWarning": "WARNING: When enabled, the CrawlObserver team can see everything displayed in your browser session. Only enable this for debugging purposes.",
+  "settings.sessionRecordingBanner": "Session recording is active — the CrawlObserver team can see your screen."
 }
