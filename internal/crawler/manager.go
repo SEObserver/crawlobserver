@@ -467,12 +467,6 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 		}
 	}
 
-	// Get already crawled URLs (minus the deleted ones) for dedup
-	crawled, err := m.store.CrawledURLs(context.Background(), sessionID)
-	if err != nil {
-		return 0, fmt.Errorf("fetching crawled URLs: %w", err)
-	}
-
 	// Get original session
 	originalSession, err := m.store.GetSession(context.Background(), sessionID)
 	if err != nil {
@@ -506,7 +500,8 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 	engine := NewEngine(&cfg, m.store)
 	engine.ResumeSession(sessionID, originalSession.SeedURLs)
 	engine.session.ProjectID = originalSession.ProjectID
-	engine.PreSeedDedup(crawled)
+	// No PreSeedDedup needed: we feed exact URLs with MaxPages = len(failedURLs),
+	// so the engine won't discover new links beyond the retry set.
 
 	// Try to acquire a semaphore slot (non-blocking)
 	select {
