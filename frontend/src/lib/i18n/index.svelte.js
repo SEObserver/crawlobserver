@@ -39,8 +39,13 @@ function applyDir(lang) {
 applyDir(locale);
 
 export function t(key, params) {
-  const val = translations[locale]?.[key] ?? translations.en?.[key] ?? key;
+  let val = translations[locale]?.[key] ?? translations.en?.[key] ?? key;
   if (!params) return val;
+  // Plural support: "singular|plural" picked by params.count
+  if (params.count !== undefined && val.includes('|')) {
+    const forms = val.split('|');
+    val = (params.count === 1 ? forms[0] : forms[1]) ?? forms[0];
+  }
   return val.replace(/\{(\w+)\}/g, (_, k) => params[k] ?? `{${k}}`);
 }
 

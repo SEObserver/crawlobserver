@@ -54,6 +54,7 @@ type Ruleset struct {
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	Rules     []TestRule `json:"rules"`
+	RuleCount int        `json:"rule_count,omitempty"`
 }
 
 // PageTestResult holds the test results for a single page.

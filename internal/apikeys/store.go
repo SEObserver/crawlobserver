@@ -494,7 +494,12 @@ func (s *Store) ValidateKey(rawKey string) *KeyLookupResult {
 // --- Rulesets ---
 
 func (s *Store) ListRulesets() ([]customtests.Ruleset, error) {
-	rows, err := s.db.Query(`SELECT id, name, created_at, updated_at FROM rulesets ORDER BY created_at DESC`)
+	rows, err := s.db.Query(`
+		SELECT rs.id, rs.name, rs.created_at, rs.updated_at, COUNT(r.id) AS rule_count
+		FROM rulesets rs
+		LEFT JOIN rules r ON r.ruleset_id = rs.id
+		GROUP BY rs.id
+		ORDER BY rs.created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -503,7 +508,7 @@ func (s *Store) ListRulesets() ([]customtests.Ruleset, error) {
 	var rulesets []customtests.Ruleset
 	for rows.Next() {
 		var rs customtests.Ruleset
-		if err := rows.Scan(&rs.ID, &rs.Name, &rs.CreatedAt, &rs.UpdatedAt); err != nil {
+		if err := rows.Scan(&rs.ID, &rs.Name, &rs.CreatedAt, &rs.UpdatedAt, &rs.RuleCount); err != nil {
 			return nil, err
 		}
 		rulesets = append(rulesets, rs)
