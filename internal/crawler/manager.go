@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"runtime/debug"
@@ -347,7 +348,14 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 	applog.Infof("crawler", "Resuming session %s with %d uncrawled URLs (%d already crawled)",
 		sessionID, len(uncrawled), len(crawled))
 
+	// Restore config from original session so UA, TLS profile, etc. are preserved
 	cfg := *m.cfg
+	if originalSession.Config != "" {
+		var savedCfg config.Config
+		if err := json.Unmarshal([]byte(originalSession.Config), &savedCfg); err == nil {
+			cfg.Crawler = savedCfg.Crawler
+		}
+	}
 	if overrides != nil {
 		crawlerCfg := cfg.Crawler
 		if overrides.MaxPages > 0 {
@@ -473,7 +481,14 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 
 	applog.Infof("crawler", "Retrying %d failed URLs for session %s", len(failedURLs), sessionID)
 
+	// Restore config from original session so UA, TLS profile, etc. are preserved
 	cfg := *m.cfg
+	if originalSession.Config != "" {
+		var savedCfg config.Config
+		if err := json.Unmarshal([]byte(originalSession.Config), &savedCfg); err == nil {
+			cfg.Crawler = savedCfg.Crawler
+		}
+	}
 	if overrides != nil {
 		crawlerCfg := cfg.Crawler
 		if overrides.Workers > 0 {
