@@ -14,7 +14,7 @@
   import { t, setLocale, getLocale } from '../i18n/index.svelte.js';
   import ConfirmModal from './ConfirmModal.svelte';
 
-  let { initialTheme, onerror, onsave, oncancel } = $props();
+  let { initialTheme, onerror, onsave, oncancel, onsessionrecording } = $props();
 
   let confirmState = $state(null);
 
@@ -143,6 +143,7 @@
     sessionRecordingEnabled = !sessionRecordingEnabled;
     try {
       await updateSessionRecording(sessionRecordingEnabled);
+      onsessionrecording?.(sessionRecordingEnabled);
     } catch (e) {
       sessionRecordingEnabled = !sessionRecordingEnabled; // revert
       onerror?.(e.message);

@@ -697,6 +697,12 @@ tr.clickable-row {
   color: var(--info);
   border: 1px solid var(--info);
 }
+.alert-session-recording {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning);
+  font-weight: 500;
+}
 .alert-info .btn {
   color: var(--info);
   border-color: var(--info);

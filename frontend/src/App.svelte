@@ -96,6 +96,7 @@
   let updatingApp = $state(false);
   let updateMessage = $state('');
   let storageStats = $state(null);
+  let sessionRecordingActive = $state(false);
   let systemStats = $state(null);
 
   // --- Route-derived state (passed as initial props to page components) ---
@@ -572,6 +573,7 @@
       if (tel.enabled) {
         await initTelemetry(tel.instance_id, tel.session_recording);
       }
+      sessionRecordingActive = tel.enabled && tel.session_recording;
     } catch {
       // Telemetry init failure is non-fatal
     }
@@ -658,12 +660,19 @@
           </div>
         {/if}
 
+        {#if sessionRecordingActive}
+          <div class="alert alert-session-recording">
+            <span>{t('settings.sessionRecordingWarning')}</span>
+          </div>
+        {/if}
+
         {#if currentView === 'settings'}
           <SettingsPage
             initialTheme={theme}
             onerror={(msg) => (error = msg)}
             onsave={handleSettingsSave}
             oncancel={handleSettingsCancel}
+            onsessionrecording={(v) => (sessionRecordingActive = v)}
           />
         {:else if currentView === 'stats'}
           <GlobalStatsPage onerror={(msg) => (error = msg)} />
