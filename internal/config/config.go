@@ -210,7 +210,7 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	// Generate random password if username is set but password is empty
+	// Generate random password if username is set but password is empty, persist it
 	if cfg.Server.Username != "" && cfg.Server.Password == "" {
 		b := make([]byte, 16)
 		if _, err := rand.Read(b); err != nil {
@@ -218,6 +218,8 @@ func Load() (*Config, error) {
 		}
 		cfg.Server.Password = hex.EncodeToString(b)
 		cfg.Server.PasswordGenerated = true
+		viper.Set("server.password", cfg.Server.Password)
+		_ = WriteConfig()
 	}
 
 	// Resolve relative SQLite path to a stable location so that all modes
