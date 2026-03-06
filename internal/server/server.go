@@ -395,7 +395,7 @@ func (s *Server) Start() error {
 	fmt.Print(banner)
 
 	if s.cfg.Server.PasswordGenerated {
-		fmt.Fprintf(os.Stderr, "\n  *** No password configured. Generated random password: %s ***\n  *** Set server.password in config.yaml to silence this message. ***\n\n", s.cfg.Server.Password)
+		fmt.Fprintf(os.Stderr, "\n  *** Generated random password: %s ***\n  *** Saved to config.yaml — this message will not appear again. ***\n\n", s.cfg.Server.Password)
 	}
 	if s.cfg.Server.WeakPassword {
 		fmt.Fprintf(os.Stderr, "\n  *** WARNING: server is listening on 0.0.0.0 with a weak password! ***\n  *** Set a strong password (>= 8 chars) in server.password before exposing to the internet. ***\n\n")
