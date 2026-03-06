@@ -49,23 +49,28 @@ At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We buil
 
 ## Quick Start
 
-**Prerequisites:** Go 1.25+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SEObserver/crawlobserver/main/install.sh | sh
+crawlobserver
+```
+
+That's it. Open `http://127.0.0.1:8899` — the setup wizard guides you through the rest. No Docker, no dependencies, no manual setup. CrawlObserver downloads and manages its own database on first run.
+
+> **macOS desktop app:** download the DMG from the [latest release](https://github.com/SEObserver/crawlobserver/releases/latest).
+
+<details>
+<summary><strong>Build from source</strong></summary>
+
+Requires Go 1.25+:
 
 ```bash
-# 1. Clone & build
 git clone https://github.com/SEObserver/crawlobserver.git
 cd crawlobserver
 make build
-
-# 2. Crawl a site
-./crawlobserver crawl --seed https://example.com --max-pages 1000
-
-# 3. Browse results
-./crawlobserver serve
-# Open http://127.0.0.1:8899
+./crawlobserver
 ```
 
-That's it. CrawlObserver automatically downloads and manages its own database on first run (macOS & Linux). No Docker, no manual setup.
+</details>
 
 > **Advanced:** You can also point CrawlObserver at an existing database instance (Docker, remote server...). See the [Configuration](#configuration) section for `clickhouse.*` settings.
 
