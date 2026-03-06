@@ -158,12 +158,9 @@ func (e *Engine) QueueLen() int {
 	return e.front.Len()
 }
 
-// PreSeedDedup adds URLs to the dedup database without adding them to the queue.
-// Used when resuming a session to avoid re-crawling already visited URLs.
-func (e *Engine) PreSeedDedup(urls []string) {
-	for _, u := range urls {
-		e.front.MarkSeen(u)
-	}
+// MarkSeen marks a single URL as seen in the frontier dedup database.
+func (e *Engine) MarkSeen(url string) {
+	e.front.MarkSeen(url)
 }
 
 // buildScope extracts allowed hostnames/domains from the session's original seed URLs.

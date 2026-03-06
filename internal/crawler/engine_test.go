@@ -1371,7 +1371,7 @@ func TestEngineSetSessionID(t *testing.T) {
 	}
 }
 
-func TestEnginePreSeedDedup(t *testing.T) {
+func TestEngineMarkSeen(t *testing.T) {
 	cfg := testManagerConfig()
 	engine := NewEngine(cfg, nil)
 
@@ -1381,11 +1381,13 @@ func TestEnginePreSeedDedup(t *testing.T) {
 		"https://example.com/page3",
 	}
 
-	engine.PreSeedDedup(urls)
+	for _, u := range urls {
+		engine.MarkSeen(u)
+	}
 
 	// Verify URLs are marked as seen by checking SeenCount
 	if got := engine.front.SeenCount(); got != 3 {
-		t.Errorf("SeenCount = %d, want 3 after PreSeedDedup", got)
+		t.Errorf("SeenCount = %d, want 3 after MarkSeen", got)
 	}
 
 	// Adding a pre-seeded URL to the frontier should be rejected (dedup)
@@ -1644,18 +1646,13 @@ func TestDequeue_InSetButNotInSlice(t *testing.T) {
 	}
 }
 
-func TestEnginePreSeedDedup_Empty(t *testing.T) {
+func TestEngineMarkSeen_Empty(t *testing.T) {
 	cfg := testManagerConfig()
 	engine := NewEngine(cfg, nil)
 
-	engine.PreSeedDedup(nil)
+	// MarkSeen with no calls should leave SeenCount at 0
 	if got := engine.front.SeenCount(); got != 0 {
-		t.Errorf("SeenCount = %d, want 0 after empty PreSeedDedup", got)
-	}
-
-	engine.PreSeedDedup([]string{})
-	if got := engine.front.SeenCount(); got != 0 {
-		t.Errorf("SeenCount = %d, want 0 after empty slice PreSeedDedup", got)
+		t.Errorf("SeenCount = %d, want 0 with no MarkSeen calls", got)
 	}
 }
 

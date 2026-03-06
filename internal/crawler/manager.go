@@ -333,20 +333,11 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		return "", fmt.Errorf("no uncrawled URLs found for session %s", sessionID)
 	}
 
-	// Get already crawled URLs to pre-seed dedup
-	crawled, err := m.store.CrawledURLs(context.Background(), sessionID)
-	if err != nil {
-		return "", fmt.Errorf("fetching crawled URLs: %w", err)
-	}
-
 	// Get original session info to preserve seed URLs
 	originalSession, err := m.store.GetSession(context.Background(), sessionID)
 	if err != nil {
 		return "", fmt.Errorf("fetching original session: %w", err)
 	}
-
-	applog.Infof("crawler", "Resuming session %s with %d uncrawled URLs (%d already crawled)",
-		sessionID, len(uncrawled), len(crawled))
 
 	// Restore config from original session so UA, TLS profile, etc. are preserved
 	cfg := *m.cfg
@@ -403,8 +394,14 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 	engine.ResumeSession(sessionID, originalSession.SeedURLs)
 	engine.session.ProjectID = originalSession.ProjectID
 
-	// Pre-seed dedup with already crawled URLs
-	engine.PreSeedDedup(crawled)
+	// Stream crawled URLs from ClickHouse to pre-seed dedup (no []string allocation).
+	// Only the FNV hash map is kept in memory (~8 bytes/URL, scalable to millions).
+	crawledCount, err := m.store.StreamCrawledURLs(context.Background(), sessionID, engine.MarkSeen)
+	if err != nil {
+		return "", fmt.Errorf("streaming crawled URLs for dedup: %w", err)
+	}
+	applog.Infof("crawler", "Resuming session %s with %d uncrawled URLs (%d already crawled)",
+		sessionID, len(uncrawled), crawledCount)
 
 	// Try to acquire a semaphore slot (non-blocking)
 	select {

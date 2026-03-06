@@ -340,28 +340,31 @@ func (s *Store) UncrawledURLs(ctx context.Context, sessionID string) ([]string, 
 	return urls, nil
 }
 
-// CrawledURLs returns all URLs already crawled in a session (for dedup on resume).
-func (s *Store) CrawledURLs(ctx context.Context, sessionID string) ([]string, error) {
+// StreamCrawledURLs streams all URLs already crawled in a session, calling fn
+// for each URL. This avoids loading the entire URL list into memory (which can
+// cause OOM on large sites with 1M+ pages). Returns the number of URLs streamed.
+func (s *Store) StreamCrawledURLs(ctx context.Context, sessionID string, fn func(string)) (int, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?
 	`, sessionID)
 	if err != nil {
-		return nil, fmt.Errorf("querying crawled URLs: %w", err)
+		return 0, fmt.Errorf("querying crawled URLs: %w", err)
 	}
 	defer rows.Close()
 
-	var urls []string
+	count := 0
 	for rows.Next() {
 		var u string
 		if err := rows.Scan(&u); err != nil {
-			return nil, err
+			return count, err
 		}
-		urls = append(urls, u)
+		fn(u)
+		count++
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating crawled URLs: %w", err)
+		return count, fmt.Errorf("iterating crawled URLs: %w", err)
 	}
-	return urls, nil
+	return count, nil
 }
 
 // FailedURLs returns URLs with status_code = 0 (fetch errors) for a session.
