@@ -22,7 +22,7 @@ CrawlObserver is maintained by [SEObserver](https://www.seobserver.com) and open
 
 ## Enforcement
 
-Instances of unacceptable behavior can be reported to **contact@seobserver.com**. Maintainers will review and take appropriate action, which may include warning, temporary ban, or permanent ban from the project.
+Instances of unacceptable behavior can be reported to **contact@crawlobserver.com**. Maintainers will review and take appropriate action, which may include warning, temporary ban, or permanent ban from the project.
 
 ## Scope
 

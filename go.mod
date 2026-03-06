@@ -8,6 +8,7 @@ require (
 	github.com/PuerkitoBio/purell v1.2.1
 	github.com/antchfx/htmlquery v1.3.5
 	github.com/google/uuid v1.6.0
+	github.com/posthog/posthog-go v1.10.0
 	github.com/refraction-networking/utls v1.8.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
@@ -18,6 +19,11 @@ require (
 	golang.org/x/time v0.14.0
 	google.golang.org/api v0.269.0
 	modernc.org/sqlite v1.46.1
+)
+
+require (
+	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 )
 
 require (
@@ -36,7 +42,7 @@ require (
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-rod/rod v0.116.2 // indirect
+	github.com/go-rod/rod v0.116.2
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
@@ -44,7 +50,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/compress v1.18.3 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.20
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/paulmach/orb v0.12.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect

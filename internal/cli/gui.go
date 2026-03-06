@@ -20,7 +20,9 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/server"
 	"github.com/SEObserver/crawlobserver/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/telemetry"
 	"github.com/SEObserver/crawlobserver/internal/updater"
+	"github.com/posthog/posthog-go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	webview "github.com/webview/webview_go"
@@ -65,6 +67,10 @@ func runGUI(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
+
+	telemetry.Init(cfg.Telemetry.Enabled, cfg.Telemetry.InstanceID, updater.Version)
+	defer telemetry.Close()
+	telemetry.Track("app_started", posthog.NewProperties().Set("mode", "desktop"))
 
 	// In desktop mode, auth is unnecessary — server listens on 127.0.0.1 only
 	cfg.Server.Username = ""

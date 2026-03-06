@@ -13,6 +13,8 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/extraction"
 	"github.com/SEObserver/crawlobserver/internal/normalizer"
 	"github.com/SEObserver/crawlobserver/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/telemetry"
+	"github.com/posthog/posthog-go"
 )
 
 const (
@@ -711,7 +713,18 @@ func (m *Manager) runEngine(sessionID string, engine *Engine, seeds []string) {
 			m.mu.Unlock()
 		}
 	}()
+	telemetry.Track("crawl_started", posthog.NewProperties().
+		Set("seed_count", len(seeds)).
+		Set("workers", engine.cfg.Crawler.Workers).
+		Set("source", "ui"))
 	err := engine.Run(seeds)
+	status := "completed"
+	if err != nil {
+		status = "error"
+	}
+	telemetry.Track("crawl_completed", posthog.NewProperties().
+		Set("status", status).
+		Set("source", "ui"))
 	m.mu.Lock()
 	delete(m.engines, sessionID)
 	if err != nil {

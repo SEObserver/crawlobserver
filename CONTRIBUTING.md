@@ -155,7 +155,7 @@ Open an issue with:
 
 ## Security
 
-If you find a security vulnerability, **do not open a public issue**. Email contact@seobserver.com instead.
+If you find a security vulnerability, **do not open a public issue**. Email security@crawlobserver.com instead.
 
 ---
 

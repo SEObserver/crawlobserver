@@ -24,7 +24,9 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/crawler"
 	"github.com/SEObserver/crawlobserver/internal/storage"
+	"github.com/SEObserver/crawlobserver/internal/telemetry"
 	"github.com/SEObserver/crawlobserver/internal/updater"
+	"github.com/posthog/posthog-go"
 	"github.com/spf13/viper"
 )
 
@@ -389,6 +391,10 @@ func (s *Server) Start() error {
 	}
 
 	fmt.Print(banner)
+
+	telemetry.Track("serve_started", posthog.NewProperties().
+		Set("port", s.cfg.Server.Port).
+		Set("source", "ui"))
 
 	if s.manager != nil {
 		s.manager.RecoverOrphanedSessions(context.Background())

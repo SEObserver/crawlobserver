@@ -4,7 +4,7 @@
 
 If you discover a security vulnerability in CrawlObserver, **do not open a public issue**.
 
-Email **contact@seobserver.com** with:
+Email **security@crawlobserver.com** with:
 
 1. Description of the vulnerability
 2. Steps to reproduce

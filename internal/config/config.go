@@ -244,7 +244,7 @@ func Load() (*Config, error) {
 			if !viper.IsSet("setup_complete") {
 				cfg.SetupComplete = true
 				viper.Set("setup_complete", true)
-				_ = writeConfig()
+				_ = WriteConfig()
 			}
 		}
 	}
@@ -260,14 +260,14 @@ func Load() (*Config, error) {
 		b[8] = (b[8] & 0x3f) | 0x80
 		cfg.Telemetry.InstanceID = fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 		viper.Set("telemetry.instance_id", cfg.Telemetry.InstanceID)
-		_ = writeConfig()
+		_ = WriteConfig()
 	}
 
 	return &cfg, nil
 }
 
-// writeConfig writes the current viper config to disk, creating it if needed.
-func writeConfig() error {
+// WriteConfig writes the current viper config to disk, creating it if needed.
+func WriteConfig() error {
 	if err := viper.WriteConfig(); err != nil {
 		return viper.SafeWriteConfig()
 	}

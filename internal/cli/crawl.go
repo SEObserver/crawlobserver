@@ -7,10 +7,13 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/crawler"
+	"github.com/SEObserver/crawlobserver/internal/telemetry"
+	"github.com/posthog/posthog-go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -80,6 +83,17 @@ func runCrawl(cmd *cobra.Command, args []string) error {
 	// Create engine
 	engine := crawler.NewEngine(cfg, store)
 
+	defer telemetry.Close()
+	telemetry.Track("crawl_started", posthog.NewProperties().
+		Set("seed_count", len(seeds)).
+		Set("workers", cfg.Crawler.Workers).
+		Set("delay_ms", cfg.Crawler.Delay.Milliseconds()).
+		Set("max_pages", cfg.Crawler.MaxPages).
+		Set("max_depth", cfg.Crawler.MaxDepth).
+		Set("store_html", cfg.Crawler.StoreHTML).
+		Set("crawl_scope", cfg.Crawler.CrawlScope).
+		Set("source", "cli"))
+
 	// Graceful shutdown
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -89,7 +103,20 @@ func runCrawl(cmd *cobra.Command, args []string) error {
 		engine.Stop()
 	}()
 
-	return engine.Run(seeds)
+	start := time.Now()
+	err = engine.Run(seeds)
+	elapsed := time.Since(start)
+
+	status := "completed"
+	if err != nil {
+		status = "error"
+	}
+	telemetry.Track("crawl_completed", posthog.NewProperties().
+		Set("duration_s", elapsed.Seconds()).
+		Set("status", status).
+		Set("source", "cli"))
+
+	return err
 }
 
 func readSeedsFile(path string) ([]string, error) {
