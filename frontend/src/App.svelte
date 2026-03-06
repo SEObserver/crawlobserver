@@ -30,7 +30,7 @@
     getSetupStatus,
     getTelemetry,
   } from './lib/api.js';
-  import { initTelemetry, trackPageView, disableTelemetry } from './lib/telemetry.js';
+  import { initTelemetry, trackPageView, trackEvent, disableTelemetry } from './lib/telemetry.js';
   import { fmtSize } from './lib/utils.js';
   import { pushURL, parseRoute } from './lib/router.js';
   import { createSSEManager } from './lib/sse.js';

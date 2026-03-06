@@ -50,7 +50,7 @@ At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We buil
 ## Quick Start
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/SEObserver/crawlobserver/main/install.sh | sh
+curl -fsSL crawlobserver.com/install.sh | sh
 crawlobserver
 ```
 

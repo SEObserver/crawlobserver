@@ -1,6 +1,6 @@
 #!/bin/sh
 # CrawlObserver installer — detects OS/arch and downloads the right binary.
-# Usage: curl -fsSL https://raw.githubusercontent.com/SEObserver/crawlobserver/main/install.sh | sh
+# Usage: curl -fsSL crawlobserver.com/install.sh | sh
 
 set -e
 
