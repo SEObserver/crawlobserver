@@ -160,9 +160,15 @@
             <button class="btn btn-sm" onclick={() => onresume?.(s.ID)}
               >{t('sessions.resume')}</button
             >
-            <button class="btn btn-sm btn-danger" onclick={() => ondelete?.(s.ID)}
-              >{t('common.delete')}</button
+            <button
+              class="btn-ghost btn-delete-icon"
+              onclick={() => ondelete?.(s.ID)}
+              title={t('common.delete')}
             >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-trash"
+                ><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg
+              >
+            </button>
           {/if}
         </div>
       </div>
@@ -232,5 +238,16 @@
   .badge-project {
     background: var(--accent-light);
     color: var(--accent);
+  }
+  .btn-delete-icon {
+    padding: 4px;
+    color: var(--text-muted);
+  }
+  .btn-delete-icon:hover {
+    color: var(--error);
+  }
+  .icon-trash {
+    width: 16px;
+    height: 16px;
   }
 </style>

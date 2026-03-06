@@ -314,9 +314,15 @@
               >
                 {restoringBackup === b.filename ? t('settings.restoring') : t('settings.restore')}
               </button>
-              <button class="btn btn-sm btn-danger" onclick={() => doDeleteBackup(b.filename)}
-                >{t('common.delete')}</button
+              <button
+                class="btn-ghost btn-delete-icon"
+                onclick={() => doDeleteBackup(b.filename)}
+                title={t('common.delete')}
               >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-trash"
+                  ><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg
+                >
+              </button>
             </td>
           </tr>
         {/each}
@@ -436,5 +442,16 @@
     background: #332701;
     color: #ffc107;
     border-color: #664d00;
+  }
+  .btn-delete-icon {
+    padding: 4px;
+    color: var(--text-muted);
+  }
+  .btn-delete-icon:hover {
+    color: var(--error);
+  }
+  .icon-trash {
+    width: 16px;
+    height: 16px;
   }
 </style>
