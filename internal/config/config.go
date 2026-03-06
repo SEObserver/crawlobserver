@@ -27,9 +27,10 @@ type Config struct {
 }
 
 type TelemetryConfig struct {
-	Enabled    bool   `mapstructure:"enabled"`
-	InstanceID string `mapstructure:"instance_id"`
-	AskedAt    string `mapstructure:"asked_at"` // ISO timestamp when user was asked about telemetry
+	Enabled          bool   `mapstructure:"enabled"`
+	InstanceID       string `mapstructure:"instance_id"`
+	AskedAt          string `mapstructure:"asked_at"`          // ISO timestamp when user was asked about telemetry
+	SessionRecording bool   `mapstructure:"session_recording"` // WARNING: records full browser sessions — all page content, URLs, and clicks are sent to PostHog
 }
 
 type CrawlerConfig struct {
@@ -193,6 +194,7 @@ func SetDefaults() {
 	viper.SetDefault("telemetry.enabled", false)
 	viper.SetDefault("telemetry.instance_id", "")
 	viper.SetDefault("telemetry.asked_at", "")
+	viper.SetDefault("telemetry.session_recording", false)
 	viper.SetDefault("setup_complete", false)
 }
 

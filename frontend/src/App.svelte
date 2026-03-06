@@ -570,7 +570,7 @@
     try {
       const tel = await getTelemetry();
       if (tel.enabled) {
-        await initTelemetry(tel.instance_id);
+        await initTelemetry(tel.instance_id, tel.session_recording);
       }
     } catch {
       // Telemetry init failure is non-fatal

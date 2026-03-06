@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	posthogKey  = "phc_YOUR_PROJECT_KEY"
-	posthogHost = "https://us.i.posthog.com"
+	posthogKey  = "phc_gbbCqXPOTdBLcN9HDvp7GYUUF7QZ4VDooPCxsJBwYcY"
+	posthogHost = "https://eu.i.posthog.com"
 )
 
 var (

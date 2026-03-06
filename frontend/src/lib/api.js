@@ -649,6 +649,28 @@ export async function importSession(file) {
   return res.json();
 }
 
+/**
+ * @param {File} file
+ * @param {string} [projectId]
+ * @returns {Promise<Object>}
+ */
+export async function importCSVSession(file, projectId = '') {
+  const form = new FormData();
+  form.append('file', file);
+  if (projectId) form.append('project_id', projectId);
+  const res = await fetch(`${BASE}/sessions/import/csv`, { method: 'POST', body: form });
+  if (!res.ok) {
+    let errorMessage;
+    try {
+      errorMessage = (await res.json()).error;
+    } catch {
+      errorMessage = await res.text().catch(() => res.statusText);
+    }
+    throw new Error(errorMessage || `API error: ${res.status}`);
+  }
+  return res.json();
+}
+
 // --- Backups ---
 
 /** @returns {Promise<Object[]>} */
@@ -826,6 +848,18 @@ export async function getTelemetry() {
  */
 export async function updateTelemetry(enabled) {
   return fetchJSON('/telemetry', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+/**
+ * @param {boolean} enabled
+ * @returns {Promise<Object>}
+ */
+export async function updateSessionRecording(enabled) {
+  return fetchJSON('/telemetry/session-recording', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),

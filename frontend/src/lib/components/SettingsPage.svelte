@@ -7,6 +7,7 @@
     deleteBackup,
     getTelemetry,
     updateTelemetry,
+    updateSessionRecording,
   } from '../api.js';
   import { enableTelemetry, disableTelemetry } from '../telemetry.js';
   import { fmtSize } from '../utils.js';
@@ -108,12 +109,14 @@
 
   // Telemetry
   let telemetryEnabled = $state(false);
+  let sessionRecordingEnabled = $state(false);
   let telemetryLoading = $state(true);
 
   async function loadTelemetry() {
     try {
       const tel = await getTelemetry();
       telemetryEnabled = tel.enabled;
+      sessionRecordingEnabled = tel.session_recording;
     } catch {
       // Telemetry endpoint may not exist in CLI mode
     } finally {
@@ -132,6 +135,16 @@
       }
     } catch (e) {
       telemetryEnabled = !telemetryEnabled; // revert
+      onerror?.(e.message);
+    }
+  }
+
+  async function toggleSessionRecording() {
+    sessionRecordingEnabled = !sessionRecordingEnabled;
+    try {
+      await updateSessionRecording(sessionRecordingEnabled);
+    } catch (e) {
+      sessionRecordingEnabled = !sessionRecordingEnabled; // revert
       onerror?.(e.message);
     }
   }
@@ -237,6 +250,19 @@
         <span>{t('settings.telemetryEnabled')}</span>
       </label>
       <p class="telemetry-desc">{t('settings.telemetryDesc')}</p>
+
+      <div class="session-recording-group">
+        <label class="telemetry-toggle">
+          <input type="checkbox" checked={sessionRecordingEnabled} onchange={toggleSessionRecording} disabled={!telemetryEnabled} />
+          <span>{t('settings.sessionRecording')}</span>
+        </label>
+        <p class="telemetry-desc">{t('settings.sessionRecordingDesc')}</p>
+        {#if sessionRecordingEnabled}
+          <div class="session-recording-warning">
+            {t('settings.sessionRecordingWarning')}
+          </div>
+        {/if}
+      </div>
     </div>
   {/if}
 </div>
@@ -385,5 +411,29 @@
     font-size: 0.82rem;
     color: var(--text-muted);
     line-height: 1.5;
+  }
+
+  .session-recording-group {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .session-recording-warning {
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: #fef3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  :global([data-theme='dark']) .session-recording-warning {
+    background: #332701;
+    color: #ffc107;
+    border-color: #664d00;
   }
 </style>

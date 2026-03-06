@@ -202,6 +202,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("POST /api/sessions/{id}/robots-simulate", s.handleRobotsSimulate)
 	mux.HandleFunc("GET /api/sessions/{id}/export", s.handleExportSession)
 	mux.HandleFunc("POST /api/sessions/import", s.handleImportSession)
+	mux.HandleFunc("POST /api/sessions/import/csv", s.handleImportCSVSession)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
 	mux.HandleFunc("DELETE /api/sessions-unassigned", s.handleDeleteUnassignedSessions)
 
@@ -267,6 +268,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("POST /api/setup/complete", s.handleSetupComplete)
 	mux.HandleFunc("GET /api/telemetry", s.handleGetTelemetry)
 	mux.HandleFunc("PUT /api/telemetry", s.handleUpdateTelemetry)
+	mux.HandleFunc("PUT /api/telemetry/session-recording", s.handleUpdateSessionRecording)
 
 	// Application Logs routes
 	mux.HandleFunc("GET /api/logs", s.handleListLogs)
@@ -397,6 +399,9 @@ func (s *Server) Start() error {
 	}
 	if s.cfg.Server.WeakPassword {
 		fmt.Fprintf(os.Stderr, "\n  *** WARNING: server is listening on 0.0.0.0 with a weak password! ***\n  *** Set a strong password (>= 8 chars) in server.password before exposing to the internet. ***\n\n")
+	}
+	if s.cfg.Telemetry.SessionRecording {
+		fmt.Fprintf(os.Stderr, "\n  *** WARNING: Session recording is ENABLED. ***\n  *** Full browser sessions (URLs, page content, clicks) are sent to PostHog. ***\n  *** Disable with: telemetry.session_recording: false in config.yaml ***\n\n")
 	}
 
 	telemetry.Track("serve_started", posthog.NewProperties().
@@ -639,8 +644,9 @@ func (s *Server) handleSetupComplete(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGetTelemetry(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{
-		"enabled":     s.cfg.Telemetry.Enabled,
-		"instance_id": s.cfg.Telemetry.InstanceID,
+		"enabled":           s.cfg.Telemetry.Enabled,
+		"instance_id":       s.cfg.Telemetry.InstanceID,
+		"session_recording": s.cfg.Telemetry.SessionRecording,
 	})
 }
 
@@ -659,8 +665,28 @@ func (s *Server) handleUpdateTelemetry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]interface{}{
-		"enabled":     s.cfg.Telemetry.Enabled,
-		"instance_id": s.cfg.Telemetry.InstanceID,
+		"enabled":           s.cfg.Telemetry.Enabled,
+		"instance_id":       s.cfg.Telemetry.InstanceID,
+		"session_recording": s.cfg.Telemetry.SessionRecording,
+	})
+}
+
+func (s *Server) handleUpdateSessionRecording(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	s.cfg.Telemetry.SessionRecording = req.Enabled
+	viper.Set("telemetry.session_recording", req.Enabled)
+	if err := viperWriteConfig(); err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]interface{}{
+		"session_recording": s.cfg.Telemetry.SessionRecording,
 	})
 }
 
@@ -719,7 +745,7 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 
 		connectSrc := "'self'"
 		if s.cfg.Telemetry.Enabled {
-			connectSrc = "'self' https://us.i.posthog.com"
+			connectSrc = "'self' https://eu.i.posthog.com"
 		}
 		csp := fmt.Sprintf("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-src 'self' blob:; connect-src %s; base-uri 'self'; form-action 'self'; object-src 'none'", connectSrc)
 		w.Header().Set("Content-Security-Policy", csp)

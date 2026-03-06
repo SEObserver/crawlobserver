@@ -1,15 +1,16 @@
 let posthog = null;
 let initialized = false;
 
-const POSTHOG_KEY = 'phc_YOUR_PROJECT_KEY'; // Replace with actual PostHog project key
-const POSTHOG_HOST = 'https://us.i.posthog.com';
+const POSTHOG_KEY = 'phc_gbbCqXPOTdBLcN9HDvp7GYUUF7QZ4VDooPCxsJBwYcY';
+const POSTHOG_HOST = 'https://eu.i.posthog.com';
 
 /**
  * Initialize PostHog telemetry with the given instance ID.
  * Uses dynamic import so posthog-js is only loaded when telemetry is enabled.
  * @param {string} instanceId
+ * @param {boolean} [sessionRecording=false] WARNING: records full browser sessions — all page content, URLs, and clicks are sent to PostHog
  */
-export async function initTelemetry(instanceId) {
+export async function initTelemetry(instanceId, sessionRecording = false) {
   if (initialized) return;
   try {
     const mod = await import('posthog-js');
@@ -20,7 +21,9 @@ export async function initTelemetry(instanceId) {
       autocapture: false,
       capture_pageview: false,
       persistence: 'memory',
-      disable_session_recording: true,
+      // WARNING: when session_recording is true, full browser sessions
+      // (all URLs, page content, and clicks) are recorded and sent to PostHog.
+      disable_session_recording: !sessionRecording,
     });
     posthog.identify(instanceId);
     initialized = true;
