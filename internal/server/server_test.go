@@ -164,6 +164,16 @@ func (m *mockStore) ImportSession(_ context.Context, _ io.Reader) (*storage.Craw
 	return &storage.CrawlSession{}, m.err
 }
 
+func (m *mockStore) ImportCSVSession(_ context.Context, _ io.Reader, _ string) (*storage.CSVImportResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &storage.CSVImportResult{
+		Session:      &storage.CrawlSession{},
+		RowsImported: 1,
+	}, nil
+}
+
 func (m *mockStore) GetPageHTML(_ context.Context, _, _ string) (string, error) {
 	return m.pageHTML, m.err
 }
@@ -3945,6 +3955,81 @@ func TestHandleImportSession_BadContentType(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for invalid content type, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// --- handleImportCSVSession ---
+
+func TestHandleImportCSVSession_NoAuth(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	req := httptest.NewRequest("POST", "/api/sessions/import/csv", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", rec.Code)
+	}
+}
+
+func TestHandleImportCSVSession_BadMultipart(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	req := authRequest(httptest.NewRequest("POST", "/api/sessions/import/csv", strings.NewReader("not multipart")))
+	req.Header.Set("Content-Type", "text/plain")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleImportCSVSession_MissingFile(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	field, _ := writer.CreateFormField("project_id")
+	field.Write([]byte("proj-1"))
+	writer.Close()
+
+	req := authRequest(httptest.NewRequest("POST", "/api/sessions/import/csv", &buf))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleImportCSVSession_Success(t *testing.T) {
+	_, handler, _ := newTestServer(t)
+
+	csvData := "Address,Status Code,Content\nhttps://example.com,200,text/html\n"
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	part, _ := writer.CreateFormFile("file", "export.csv")
+	part.Write([]byte(csvData))
+	writer.Close()
+
+	req := authRequest(httptest.NewRequest("POST", "/api/sessions/import/csv", &buf))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["rows_imported"] == nil {
+		t.Error("expected rows_imported in response")
 	}
 }
 

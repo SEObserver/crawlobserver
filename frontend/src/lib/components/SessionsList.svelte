@@ -1,7 +1,7 @@
 <script>
   import { t } from '../i18n/index.svelte.js';
   import { fmtN, fmtSize, timeAgo } from '../utils.js';
-  import { importSession } from '../api.js';
+  import { importSession, importCSVSession } from '../api.js';
 
   let {
     sessions,
@@ -26,7 +26,11 @@
     importing = true;
     importError = '';
     try {
-      await importSession(file);
+      if (file.name.endsWith('.csv')) {
+        await importCSVSession(file);
+      } else {
+        await importSession(file);
+      }
       onrefresh?.();
     } catch (err) {
       importError = err.message;
@@ -57,7 +61,7 @@
       {importing ? t('common.importing') : t('common.import')}
       <input
         type="file"
-        accept=".gz,.jsonl.gz"
+        accept=".gz,.jsonl.gz,.csv"
         onchange={handleImport}
         disabled={importing}
         class="sr-only-input"

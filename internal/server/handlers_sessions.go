@@ -541,6 +541,59 @@ func (s *Server) handleImportSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, sess)
 }
 
+func (s *Server) handleImportCSVSession(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+
+	// Limit upload to 500 MB.
+	r.Body = http.MaxBytesReader(w, r.Body, 500<<20)
+
+	mr, err := r.MultipartReader()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid multipart request")
+		return
+	}
+
+	var result *storage.CSVImportResult
+	var projectID string
+
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "error reading multipart data")
+			return
+		}
+		switch part.FormName() {
+		case "project_id":
+			buf := make([]byte, 256)
+			n, _ := part.Read(buf)
+			projectID = strings.TrimSpace(string(buf[:n]))
+			part.Close()
+		case "file":
+			result, err = s.store.ImportCSVSession(r.Context(), part, projectID)
+			part.Close()
+			if err != nil {
+				applog.Errorf("server", "import CSV session: %v", err)
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		default:
+			part.Close()
+		}
+	}
+
+	if result == nil {
+		writeError(w, http.StatusBadRequest, "missing file field in upload")
+		return
+	}
+
+	writeJSON(w, result)
+}
+
 func (s *Server) handleRecomputeDepths(w http.ResponseWriter, r *http.Request) {
 	if !requireFullAccess(w, r) {
 		return
