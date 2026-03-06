@@ -13,7 +13,6 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/server"
 	"github.com/SEObserver/crawlobserver/internal/telemetry"
-	"github.com/posthog/posthog-go"
 	"github.com/spf13/cobra"
 )
 
@@ -55,9 +54,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 	srv := server.New(cfg, store, keyStore)
 
 	defer telemetry.Close()
-	telemetry.Track("serve_started", posthog.NewProperties().
-		Set("port", cfg.Server.Port).
-		Set("source", "cli"))
 
 	// Graceful shutdown
 	sigCh := make(chan os.Signal, 1)

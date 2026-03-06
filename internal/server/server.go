@@ -404,9 +404,13 @@ func (s *Server) Start() error {
 		fmt.Fprintf(os.Stderr, "\n  *** WARNING: Session recording is ENABLED. ***\n  *** Full browser sessions (URLs, page content, clicks) are sent to PostHog. ***\n  *** Disable with: telemetry.session_recording: false in config.yaml ***\n\n")
 	}
 
+	source := "cli"
+	if s.IsDesktop {
+		source = "ui"
+	}
 	telemetry.Track("serve_started", posthog.NewProperties().
 		Set("port", s.cfg.Server.Port).
-		Set("source", "ui"))
+		Set("source", source))
 
 	if s.manager != nil {
 		s.manager.RecoverOrphanedSessions(context.Background())
