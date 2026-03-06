@@ -223,18 +223,18 @@
         <thead>
           <tr>
             <th>{t('common.name')}</th>
-            <th>{t('tests.rules')}</th>
-            <th>{t('tests.updated')}</th>
-            <th class="ct-col-actions">{t('common.actions')}</th>
+            <th class="ct-col-shrink">{t('tests.rules')}</th>
+            <th class="ct-col-shrink">{t('tests.updated')}</th>
+            <th class="ct-col-shrink">{t('common.actions')}</th>
           </tr>
         </thead>
         <tbody>
           {#each rulesets as rs}
             <tr>
               <td><strong>{rs.name}</strong></td>
-              <td>{t('tests.rulesCount', { count: rs.rules?.length ?? 0 })}</td>
+              <td class="nowrap">{t('tests.rulesCount', { count: rs.rule_count ?? rs.rules?.length ?? 0 })}</td>
               <td class="text-muted text-sm">{new Date(rs.updated_at).toLocaleDateString()}</td>
-              <td>
+              <td class="ct-td-actions">
                 <button class="btn btn-sm" onclick={() => editRulesetById(rs.id)}
                   >{t('common.edit')}</button
                 >
@@ -245,9 +245,24 @@
                 >
                   {runningRulesetId === rs.id ? t('common.running') + '...' : t('tests.run')}
                 </button>
-                <button class="btn btn-sm btn-danger" onclick={() => removeRuleset(rs.id)}
-                  >{t('common.delete')}</button
+                <button
+                  class="btn-ghost ct-delete-btn"
+                  onclick={() => removeRuleset(rs.id)}
+                  title={t('common.delete')}
                 >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="ct-icon-sm"
+                    ><polyline points="3 6 5 6 21 6" /><path
+                      d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                    /></svg
+                  >
+                </button>
               </td>
             </tr>
           {/each}
@@ -489,8 +504,12 @@
     text-align: center;
     color: var(--text-muted);
   }
-  .ct-col-actions {
-    width: 200px;
+  .ct-col-shrink {
+    width: 1%;
+    white-space: nowrap;
+  }
+  .ct-td-actions {
+    white-space: nowrap;
   }
   .ct-col-type {
     width: 220px;
@@ -543,6 +562,17 @@
     padding: 2px 6px;
     font-size: 16px;
     color: var(--error);
+  }
+  .ct-delete-btn {
+    padding: 4px;
+    color: var(--text-muted);
+  }
+  .ct-delete-btn:hover {
+    color: var(--text);
+  }
+  .ct-icon-sm {
+    width: 16px;
+    height: 16px;
   }
   .ct-spacer {
     flex: 1;

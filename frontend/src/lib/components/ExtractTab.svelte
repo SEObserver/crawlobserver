@@ -323,9 +323,9 @@
         <thead>
           <tr>
             <th>{t('common.name')}</th>
-            <th>{t('extract.extractors')}</th>
-            <th>{t('tests.updated')}</th>
-            <th class="ct-col-actions">{t('common.actions')}</th>
+            <th class="ct-col-shrink">{t('extract.extractors')}</th>
+            <th class="ct-col-shrink">{t('tests.updated')}</th>
+            <th class="ct-col-shrink">{t('common.actions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -640,14 +640,12 @@
     text-align: center;
     color: var(--text-muted);
   }
-  .ct-col-actions {
-    width: 280px;
+  .ct-col-shrink {
+    width: 1%;
+    white-space: nowrap;
   }
   .ct-actions-cell {
     white-space: nowrap;
-    display: flex;
-    align-items: center;
-    gap: 4px;
   }
   .ct-col-type {
     width: 220px;
