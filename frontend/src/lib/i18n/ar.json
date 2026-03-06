@@ -58,11 +58,9 @@
   "common.source": "المصدر",
   "common.target": "الهدف",
   "common.filter": "فلتر",
-
   "timeAgo.justNow": "الآن",
   "timeAgo.minutesAgo": "منذ {count} د",
   "timeAgo.hoursAgo": "منذ {count} س",
-
   "app.skipToContent": "تخطي إلى المحتوى",
   "app.updateAvailable": "تحديث متاح: v{version}",
   "app.backupAndUpdate": "نسخ احتياطي وتحديث",
@@ -70,7 +68,6 @@
   "app.downloadingUpdate": "جارٍ تنزيل التحديث وتثبيته...",
   "app.updateInstalled": "تم تثبيت التحديث. أعد التشغيل للتطبيق.",
   "app.updateFailed": "فشل التحديث: {error}",
-
   "sidebar.mainMenu": "القائمة الرئيسية",
   "sidebar.dashboard": "لوحة التحكم",
   "sidebar.newCrawl": "زحف جديد",
@@ -95,7 +92,6 @@
   "sidebar.darkMode": "الوضع الداكن",
   "sidebar.byBrand": "بواسطة SEObserver",
   "sidebar.viewAllProjects": "عرض جميع المشاريع",
-
   "sessions.title": "جلسات الزحف",
   "sessions.newCrawl": "زحف جديد",
   "sessions.noSessions": "لا توجد جلسات زحف بعد",
@@ -105,7 +101,6 @@
   "sessions.lost": "مفقود",
   "sessions.pagesCount": "{count} صفحة",
   "sessions.resume": "استئناف",
-
   "newCrawl.title": "زحف جديد",
   "newCrawl.seedUrls": "روابط البداية (واحد في كل سطر)",
   "newCrawl.workers": "عمال التنفيذ",
@@ -150,7 +145,6 @@
   "newCrawl.yourIP": "عنوان IP الخاص بك: {ip}",
   "newCrawl.startCrawl": "بدء الزحف",
   "newCrawl.starting": "جارٍ البدء...",
-
   "session.queued": "في الانتظار",
   "session.sessions": "الجلسات",
   "session.urlDetail": "تفاصيل URL",
@@ -192,7 +186,6 @@
   "session.anchorText": "نص الرابط",
   "session.tag": "الوسم",
   "session.rel": "Rel",
-
   "actionBar.inQueue": "في قائمة الانتظار",
   "actionBar.started": "بدأ في",
   "actionBar.recomputeDepths": "إعادة حساب الأعماق",
@@ -207,7 +200,6 @@
   "actionBar.exportSession": "تصدير الجلسة",
   "actionBar.includeHtml": "تضمين محتوى HTML (ملف أكبر)",
   "actionBar.downloadJsonl": "تنزيل .jsonl.gz",
-
   "stats.title": "الإحصائيات العامة",
   "stats.loadingStats": "جارٍ تحميل الإحصائيات العامة...",
   "stats.totalPages": "إجمالي الصفحات",
@@ -229,7 +221,6 @@
   "stats.deleteUnassigned": "حذف جميع الجلسات غير المصنفة",
   "stats.confirmDeleteUnassigned": "حذف جميع الجلسات بدون مشروع؟ لا يمكن التراجع عن هذا الإجراء.",
   "stats.deletedCount": "تم حذف {count} جلسة",
-
   "compare.title": "مقارنة الزحف",
   "compare.sessionA": "الجلسة أ (قبل)",
   "compare.sessionB": "الجلسة ب (بعد)",
@@ -250,7 +241,6 @@
   "compare.removed": "محذوف",
   "compare.noPages": "لم يتم العثور على صفحات {type}.",
   "compare.noLinks": "لم يتم العثور على روابط {type}.",
-
   "logs.title": "سجلات التطبيق",
   "logs.exportJsonl": "تصدير JSONL",
   "logs.allLevels": "جميع المستويات",
@@ -269,7 +259,6 @@
   "logs.component": "المكون",
   "logs.message": "الرسالة",
   "logs.noLogs": "لم يتم العثور على سجلات",
-
   "api.subtitle": "استخدم هذه الـ API لأتمتة الزحف وقراءة النتائج أو ربط أدواتك (LLMs، سكربتات، إلخ)",
   "api.reference": "مرجع API",
   "api.referenceDesc": "جميع نقاط النهاية المتاحة مع روابط مطلقة. انسخها والصقها في LLM أو سكربتك.",
@@ -299,14 +288,12 @@
   "api.revoke": "إلغاء",
   "api.neverUsed": "لم يُستخدم أبداً",
   "api.used": "مُستخدم",
-
   "projects.title": "جميع المشاريع",
   "projects.newProject": "مشروع جديد",
   "projects.searchProjects": "البحث في المشاريع...",
   "projects.projectCount": "مشروع",
   "projects.created": "تاريخ الإنشاء",
   "projects.noProjects": "لم يتم العثور على مشاريع",
-
   "project.dashboard": "لوحة التحكم",
   "project.doubleClickRename": "انقر مرتين لإعادة التسمية",
   "project.deleteProject": "حذف المشروع",
@@ -319,7 +306,6 @@
   "project.seoData": "بيانات SEO",
   "project.seedUrl": "رابط البداية",
   "project.noSessions": "لا توجد جلسات زحف في هذا المشروع بعد.",
-
   "settings.title": "الإعدادات",
   "settings.appName": "اسم التطبيق",
   "settings.logoUrl": "رابط الشعار",
@@ -361,12 +347,9 @@
   "settings.restoreFailed": "فشلت الاستعادة: {error}",
   "settings.deleteBackupConfirm": "حذف النسخة الاحتياطية {name}؟",
   "settings.deleteFailed": "فشل الحذف: {error}",
-
   "dataTable.clearFilters": "مسح الفلاتر",
-
   "confirmModal.cancel": "إلغاء",
   "confirmModal.confirm": "تأكيد",
-
   "resumeModal.title": "استئناف الزحف",
   "resumeModal.maxPages": "الحد الأقصى للصفحات (0 = بلا حدود)",
   "resumeModal.maxDepth": "الحد الأقصى للعمق (0 = بلا حدود)",
@@ -379,12 +362,10 @@
   "resumeModal.storeHtml": "تخزين HTML الخام",
   "resumeModal.resume": "استئناف",
   "resumeModal.resuming": "جارٍ الاستئناف...",
-
   "htmlModal.render": "عرض",
   "htmlModal.source": "المصدر",
   "htmlModal.noHtml": "لا يوجد HTML مخزن لهذه الصفحة.",
   "htmlModal.pageRender": "عرض الصفحة",
-
   "urlDetail.openUrl": "فتح URL",
   "urlDetail.viewHtml": "عرض HTML",
   "urlDetail.statusCode": "كود الحالة",
@@ -444,7 +425,6 @@
   "urlDetail.deltaImages": "فرق الصور",
   "urlDetail.newSchema": "Schema جديد",
   "urlDetail.pageNotFound": "الصفحة غير موجودة.",
-
   "tabs.allPages": "جميع الصفحات",
   "tabs.titles": "العناوين",
   "tabs.meta": "Meta",
@@ -466,7 +446,6 @@
   "tabs.directives": "التوجيهات",
   "tabs.nearDuplicates": "المتشابهات",
   "tabs.authority": "الموثوقية الخارجية",
-
   "pages.all": "الكل",
   "pages.titles": "العناوين",
   "pages.meta": "Meta",
@@ -475,7 +454,6 @@
   "pages.indexability": "قابلية الفهرسة",
   "pages.response": "الاستجابة",
   "pages.redirects": "إعادات التوجيه",
-
   "links.internal": "داخلي",
   "links.external": "خارجي",
   "links.checks": "الفحوصات",
@@ -494,12 +472,10 @@
   "links.lastSeen": "آخر ظهور",
   "links.backlinksCount": "{count} رابط خلفي",
   "links.noBacklinks": "لا تتوفر بيانات روابط خلفية.",
-
   "directives.robots": "Robots.txt",
   "directives.sitemaps": "خرائط الموقع",
   "directives.sitemapOnly": "خريطة الموقع فقط",
   "directives.inBoth": "في كليهما",
-
   "pagerank.topPages": "أعلى الصفحات",
   "pagerank.byDirectory": "حسب المجلد",
   "pagerank.distribution": "التوزيع",
@@ -531,7 +507,6 @@
   "pagerank.weightedNeedProject": "اربط هذه الجلسة بمشروع يحتوي على بيانات SEObserver لعرض PageRank الموزون.",
   "pagerank.score": "درجة PageRank الداخلي",
   "pagerank.pagesLog": "الصفحات (لوغاريتمي)",
-
   "robots.noData": "لا تتوفر بيانات robots.txt. قم بتشغيل عملية زحف أولاً.",
   "robots.host": "المضيف",
   "robots.fetched": "تم الجلب",
@@ -558,7 +533,6 @@
   "robots.urlsNewlyAllowed": "روابط مسموحة حديثاً",
   "robots.noChanges": "لا توجد تغييرات — جميع الروابط تحتفظ بحالتها الحالية.",
   "robots.selectHost": "اختر مضيفاً لعرض ملف robots.txt الخاص به",
-
   "sitemaps.noData": "لم يتم العثور على خرائط موقع. قم بتشغيل عملية زحف أولاً.",
   "sitemaps.urls": "الروابط",
   "sitemaps.noUrls": "لا توجد روابط في خريطة الموقع هذه.",
@@ -566,7 +540,6 @@
   "sitemaps.changeFreq": "تكرار التغيير",
   "sitemaps.priority": "الأولوية",
   "sitemaps.selectSitemap": "اختر خريطة موقع لعرض روابطها",
-
   "extChecks.domains": "النطاقات",
   "extChecks.urls": "الروابط",
   "extChecks.filterDomains": "فلترة النطاقات...",
@@ -589,7 +562,6 @@
   "extChecks.deadLabel": "ميت",
   "extChecks.noChecksFound": "لم يتم العثور على فحوصات",
   "extChecks.viewSources": "عرض الصفحات التي تشير إلى هذا URL",
-
   "resources.summary": "الملخص",
   "resources.urls": "الروابط",
   "resources.filterUrls": "فلترة الروابط...",
@@ -612,7 +584,6 @@
   "resources.pagesCount": "الصفحات",
   "resources.timeMs": "الوقت (مللي ثانية)",
   "resources.noChecksFound": "لم يتم العثور على فحوصات",
-
   "tests.rulesets": "مجموعات القواعد",
   "tests.newRuleset": "+ مجموعة قواعد جديدة",
   "tests.noRulesets": "لا توجد مجموعات قواعد بعد. أنشئ واحدة لبدء اختبار الصفحات.",
@@ -664,7 +635,6 @@
   "tests.nameRequired": "اسم مجموعة القواعد مطلوب",
   "tests.ruleRequired": "مطلوب قاعدة واحدة على الأقل",
   "tests.deleteConfirm": "حذف مجموعة القواعد هذه؟",
-
   "gsc.notAssociated": "هذه الجلسة غير مرتبطة بمشروع.",
   "gsc.associateFirst": "اربطها بمشروع أولاً، ثم قم بتوصيل Google Search Console.",
   "gsc.connectTitle": "توصيل Google Search Console",
@@ -719,7 +689,6 @@
   "gsc.mobile": "الجوال",
   "gsc.rich": "النتائج الغنية",
   "gsc.noInspectionData": "لا تتوفر بيانات فحص.",
-
   "providers.notAssociated": "هذه الجلسة غير مرتبطة بمشروع.",
   "providers.associateFirst": "اربطها بمشروع أولاً، ثم قم بتوصيل مزود بيانات SEO.",
   "providers.connectTitle": "توصيل SEObserver",
@@ -788,7 +757,6 @@
   "providers.limitTopPages": "أعلى الصفحات",
   "providers.dangerZone": "منطقة الخطر",
   "providers.disconnectWarning": "سيؤدي قطع الاتصال إلى حذف مفتاح API وجميع البيانات المجلوبة لهذا المزود.",
-
   "reports.overview": "نظرة عامة",
   "reports.content": "المحتوى",
   "reports.technical": "تقني",
@@ -799,7 +767,6 @@
   "reports.loadingAudit": "جارٍ تحميل بيانات التدقيق...",
   "reports.loadFailed": "فشل تحميل التدقيق: {error}",
   "reports.requiresAudit": "يتطلب حساب التدقيق. انقر على عرض فرعي للتحميل.",
-
   "report.overview.healthScore": "درجة الصحة",
   "report.overview.health": "الصحة",
   "report.overview.totalPages": "إجمالي الصفحات",
@@ -821,7 +788,6 @@
   "report.overview.3xxRedirect": "3xx إعادة توجيه",
   "report.overview.4xxClientError": "4xx خطأ العميل",
   "report.overview.5xxServerError": "5xx خطأ الخادم",
-
   "report.content.titles": "العناوين",
   "report.content.missing": "مفقود",
   "report.content.tooLong": "طويل جداً",
@@ -843,7 +809,6 @@
   "report.content.metaTooShortChart": "قصير جداً (<70)",
   "report.content.okH1": "جيد (H1 واحد)",
   "report.content.multiple": "متعدد",
-
   "report.technical.indexability": "قابلية الفهرسة",
   "report.technical.indexable": "قابل للفهرسة",
   "report.technical.nonIndexable": "غير قابل للفهرسة",
@@ -862,7 +827,6 @@
   "report.technical.missing": "مفقود",
   "report.technical.self": "ذاتي",
   "report.technical.other": "آخر",
-
   "report.links.internalLinks": "الروابط الداخلية",
   "report.links.totalInternal": "إجمالي الداخلية",
   "report.links.noOutlinks": "صفحات بدون روابط صادرة",
@@ -876,12 +840,10 @@
   "report.links.topExternalDomains": "أعلى النطاقات الخارجية",
   "report.links.topAnchors": "أعلى نصوص الروابط الداخلية",
   "report.links.noData": "لا تتوفر بيانات تدقيق الروابط.",
-
   "report.structure.directories": "المجلدات",
   "report.structure.depthDist": "توزيع العمق",
   "report.structure.orphanPages": "صفحات يتيمة",
   "report.structure.noData": "لا تتوفر بيانات تدقيق البنية.",
-
   "report.sitemap.coverage": "تغطية خريطة الموقع",
   "report.sitemap.coverageLabel": "التغطية",
   "report.sitemap.inBoth": "في كليهما",
@@ -889,7 +851,6 @@
   "report.sitemap.sitemapOnly": "خريطة الموقع فقط",
   "report.sitemap.totalUrls": "إجمالي روابط خريطة الموقع",
   "report.sitemap.noData": "لا تتوفر بيانات تدقيق خريطة الموقع.",
-
   "report.international.schemaTypes": "أنواع Schema.org",
   "report.international.noSchema": "لم يتم اكتشاف أنواع Schema.",
   "report.international.pagesWithSchema": "صفحات مع Schema",
@@ -899,12 +860,9 @@
   "report.international.pagesWithHreflang": "صفحات مع Hreflang",
   "report.international.pagesWithLang": "صفحات مع Lang",
   "report.international.noData": "لا تتوفر بيانات تدقيق دولي.",
-
   "api.confirmDeleteProject": "حذف هذا المشروع؟ سيتم حذف مفاتيح API المرتبطة أيضاً.",
   "api.confirmRevokeKey": "إلغاء مفتاح API هذا؟",
-
   "gsc.robots": "Robots",
-
   "providers.apiKeyLabel": "مفتاح API",
   "providers.domainCol": "النطاق",
   "providers.fetchingPhase": "جارٍ الجلب",
@@ -928,7 +886,6 @@
   "providers.apiCalls.duration": "المدة",
   "providers.apiCalls.rows": "الصفوف",
   "providers.apiCalls.error": "خطأ",
-
   "authority.title": "الموثوقية",
   "authority.connectCta": "قم بتوصيل حساب SEObserver لفتح بيانات الموثوقية (TrustFlow وCitationFlow ومقاييس الروابط الخلفية لكل صفحة).",
   "authority.connectBtn": "توصيل SEObserver",
@@ -944,9 +901,7 @@
   "authority.enrichment": "إثراء الموثوقية",
   "authority.enrichmentDisconnected": "قم بتوصيل SEObserver لإثراء {count} صفحة مزحوفة ببيانات TrustFlow وCitationFlow والروابط الخلفية",
   "authority.enrichmentConnected": "{matched} من {total} صفحة تمت مطابقتها مع بيانات الموثوقية — انظر تبويب الموثوقية",
-
   "resources.source": "المصدر",
-
   "tests.attributeName": "اسم السمة",
   "tests.cssExists": "محدد CSS موجود",
   "tests.cssExtractAllAttr": "استخراج جميع سمات CSS",
@@ -954,9 +909,7 @@
   "tests.regexExtract": "مجموعة التقاط Regex",
   "tests.regexExtractAll": "التقاط جميع Regex",
   "tests.xpathExpression": "تعبير XPath",
-
   "tabs.extract": "الاستخراج",
-
   "extract.sets": "مجموعات المستخرج",
   "extract.newSet": "+ مجموعة مستخرج جديدة",
   "extract.noSets": "لا توجد مجموعات مستخرج بعد. أنشئ واحدة لاستخراج البيانات أثناء الزحف.",
@@ -996,10 +949,8 @@
   "extract.xpathExpr": "تعبير XPath",
   "extract.resultsAvailable": "{count} صفحة تحتوي على بيانات استخراج — انقر للعرض",
   "extract.runRequiresHtml": "إعادة التشغيل على HTML المخزن (يتطلب تفعيل store_html)",
-
   "newCrawl.extractorSet": "مجموعة المستخرج (اختياري)",
   "newCrawl.noExtractorSet": "بدون مجموعة مستخرج",
-
   "neardup.urlA": "URL أ",
   "neardup.urlB": "URL ب",
   "neardup.titleA": "العنوان أ",
@@ -1021,7 +972,6 @@
   "neardup.noCanonical": "بدون Canonical",
   "neardup.selfCanonical": "Canonical ذاتي",
   "neardup.crossCanonical": "يشير إلى صفحة أخرى",
-
   "onboarding.step1Title": "اختر لغتك",
   "onboarding.step1Subtitle": "يمكنك تغيير هذا لاحقاً في الإعدادات.",
   "onboarding.step2Title": "إعدادات الزحف الافتراضية",
@@ -1046,8 +996,10 @@
   "onboarding.downloadProgress": "جارٍ تنزيل محرك قاعدة البيانات... {percent}%",
   "onboarding.downloadComplete": "محرك قاعدة البيانات جاهز",
   "onboarding.waitingForEngine": "في انتظار محرك قاعدة البيانات...",
-
   "settings.telemetryTitle": "التحليلات",
   "settings.telemetryDesc": "إرسال بيانات استخدام مجهولة لمساعدتنا في تحسين CrawlObserver. لا يتم جمع أي بيانات شخصية أو روابط أو محتوى زحف.",
-  "settings.telemetryEnabled": "التحليلات المجهولة مفعّلة"
+  "settings.telemetryEnabled": "التحليلات المجهولة مفعّلة",
+  "settings.sessionRecording": "تسجيل الجلسة",
+  "settings.sessionRecordingDesc": "تسجيل جلسات المتصفح الكاملة وإرسالها إلى PostHog. يشمل ذلك جميع الروابط ومحتوى الصفحات والنقرات المرئية في واجهة CrawlObserver.",
+  "settings.sessionRecordingWarning": "تحذير: عند التفعيل، يمكن لفريق CrawlObserver رؤية كل ما يُعرض في جلسة المتصفح. فعّل هذا الخيار فقط لأغراض التصحيح."
 }

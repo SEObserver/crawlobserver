@@ -58,11 +58,9 @@
   "common.source": "Kaynak",
   "common.target": "Hedef",
   "common.filter": "Filtre",
-
   "timeAgo.justNow": "az önce",
   "timeAgo.minutesAgo": "{count}dk önce",
   "timeAgo.hoursAgo": "{count}sa önce",
-
   "app.skipToContent": "İçeriğe geç",
   "app.updateAvailable": "Güncelleme mevcut: v{version}",
   "app.backupAndUpdate": "Yedekle ve Güncelle",
@@ -70,7 +68,6 @@
   "app.downloadingUpdate": "Güncelleme indiriliyor ve kuruluyor...",
   "app.updateInstalled": "Güncelleme kuruldu. Uygulamak için yeniden başlatın.",
   "app.updateFailed": "Güncelleme başarısız: {error}",
-
   "sidebar.mainMenu": "Ana Menü",
   "sidebar.dashboard": "Gösterge Paneli",
   "sidebar.newCrawl": "Yeni Tarama",
@@ -95,7 +92,6 @@
   "sidebar.darkMode": "Koyu mod",
   "sidebar.byBrand": "SEObserver tarafından",
   "sidebar.viewAllProjects": "Tüm projeleri görüntüle",
-
   "sessions.title": "Tarama Oturumları",
   "sessions.newCrawl": "Yeni Tarama",
   "sessions.noSessions": "Henüz tarama oturumu yok",
@@ -105,7 +101,6 @@
   "sessions.lost": "kayıp",
   "sessions.pagesCount": "{count} sayfa",
   "sessions.resume": "Devam Et",
-
   "newCrawl.title": "Yeni Tarama",
   "newCrawl.seedUrls": "Başlangıç URL'leri (her satıra bir tane)",
   "newCrawl.workers": "İşçiler",
@@ -150,7 +145,6 @@
   "newCrawl.yourIP": "IP adresiniz: {ip}",
   "newCrawl.startCrawl": "Taramayı Başlat",
   "newCrawl.starting": "Başlatılıyor...",
-
   "session.queued": "Sırada",
   "session.sessions": "Oturumlar",
   "session.urlDetail": "URL Detayı",
@@ -192,7 +186,6 @@
   "session.anchorText": "Bağlantı Metni",
   "session.tag": "Etiket",
   "session.rel": "Rel",
-
   "actionBar.inQueue": "sırada",
   "actionBar.started": "Başlatıldı",
   "actionBar.recomputeDepths": "Derinlikleri Yeniden Hesapla",
@@ -207,7 +200,6 @@
   "actionBar.exportSession": "Oturumu Dışa Aktar",
   "actionBar.includeHtml": "HTML gövdesini dahil et (daha büyük dosya)",
   "actionBar.downloadJsonl": ".jsonl.gz İndir",
-
   "stats.title": "Genel İstatistikler",
   "stats.loadingStats": "Genel istatistikler yükleniyor...",
   "stats.totalPages": "Toplam Sayfa",
@@ -229,7 +221,6 @@
   "stats.deleteUnassigned": "Atanmamış tüm oturumları sil",
   "stats.confirmDeleteUnassigned": "Projesi olmayan tüm oturumlar silinsin mi? Bu işlem geri alınamaz.",
   "stats.deletedCount": "{count} oturum silindi",
-
   "compare.title": "Taramaları Karşılaştır",
   "compare.sessionA": "Oturum A (önceki)",
   "compare.sessionB": "Oturum B (sonraki)",
@@ -250,7 +241,6 @@
   "compare.removed": "Kaldırılan",
   "compare.noPages": "Hiç {type} sayfa bulunamadı.",
   "compare.noLinks": "Hiç {type} bağlantı bulunamadı.",
-
   "logs.title": "Uygulama Günlükleri",
   "logs.exportJsonl": "JSONL Dışa Aktar",
   "logs.allLevels": "Tüm Seviyeler",
@@ -269,7 +259,6 @@
   "logs.component": "Bileşen",
   "logs.message": "Mesaj",
   "logs.noLogs": "Günlük bulunamadı",
-
   "api.subtitle": "Taramaları otomatikleştirmek, sonuçları okumak veya araçlarınızı bağlamak için bu API'yi kullanın (LLM'ler, betikler, vb.)",
   "api.reference": "API Referansı",
   "api.referenceDesc": "Mutlak URL'lerle tüm mevcut uç noktalar. LLM'nize veya betiğinize kopyalayıp yapıştırın.",
@@ -299,14 +288,12 @@
   "api.revoke": "İptal Et",
   "api.neverUsed": "Hiç kullanılmadı",
   "api.used": "Kullanıldı",
-
   "projects.title": "Tüm Projeler",
   "projects.newProject": "Yeni Proje",
   "projects.searchProjects": "Proje ara...",
   "projects.projectCount": "proje",
   "projects.created": "Oluşturulma",
   "projects.noProjects": "Proje bulunamadı",
-
   "project.dashboard": "Gösterge Paneli",
   "project.doubleClickRename": "Yeniden adlandırmak için çift tıklayın",
   "project.deleteProject": "Projeyi sil",
@@ -319,7 +306,6 @@
   "project.seoData": "SEO Verileri",
   "project.seedUrl": "Başlangıç URL",
   "project.noSessions": "Bu projede henüz tarama oturumu yok.",
-
   "settings.title": "Ayarlar",
   "settings.appName": "Uygulama Adı",
   "settings.logoUrl": "Logo URL",
@@ -361,12 +347,9 @@
   "settings.restoreFailed": "Geri yükleme başarısız: {error}",
   "settings.deleteBackupConfirm": "{name} yedeği silinsin mi?",
   "settings.deleteFailed": "Silme başarısız: {error}",
-
   "dataTable.clearFilters": "Filtreleri temizle",
-
   "confirmModal.cancel": "İptal",
   "confirmModal.confirm": "Onayla",
-
   "resumeModal.title": "Taramayı Devam Ettir",
   "resumeModal.maxPages": "Maks sayfa (0 = sınırsız)",
   "resumeModal.maxDepth": "Maks derinlik (0 = sınırsız)",
@@ -379,12 +362,10 @@
   "resumeModal.storeHtml": "Ham HTML sakla",
   "resumeModal.resume": "Devam Et",
   "resumeModal.resuming": "Devam ettiriliyor...",
-
   "htmlModal.render": "Oluştur",
   "htmlModal.source": "Kaynak",
   "htmlModal.noHtml": "Bu sayfa için HTML saklanmamış.",
   "htmlModal.pageRender": "Sayfa oluşturma",
-
   "urlDetail.openUrl": "URL Aç",
   "urlDetail.viewHtml": "HTML Görüntüle",
   "urlDetail.statusCode": "Durum Kodu",
@@ -444,7 +425,6 @@
   "urlDetail.deltaImages": "Görsel Δ",
   "urlDetail.newSchema": "Yeni Schema",
   "urlDetail.pageNotFound": "Sayfa bulunamadı.",
-
   "tabs.allPages": "Tüm Sayfalar",
   "tabs.titles": "Başlıklar",
   "tabs.meta": "Meta",
@@ -466,7 +446,6 @@
   "tabs.directives": "Yönergeler",
   "tabs.nearDuplicates": "Tekrarlar",
   "tabs.authority": "Dış Site",
-
   "pages.all": "Tümü",
   "pages.titles": "Başlıklar",
   "pages.meta": "Meta",
@@ -475,7 +454,6 @@
   "pages.indexability": "İndekslenebilirlik",
   "pages.response": "Yanıt",
   "pages.redirects": "Yönlendirmeler",
-
   "links.internal": "İç",
   "links.external": "Dış",
   "links.checks": "Kontroller",
@@ -494,12 +472,10 @@
   "links.lastSeen": "Son Görülme",
   "links.backlinksCount": "{count} geri bağlantı",
   "links.noBacklinks": "Geri bağlantı verisi mevcut değil.",
-
   "directives.robots": "Robots.txt",
   "directives.sitemaps": "Site Haritaları",
   "directives.sitemapOnly": "Yalnızca site haritası",
   "directives.inBoth": "Her ikisinde de",
-
   "pagerank.topPages": "En İyi Sayfalar",
   "pagerank.byDirectory": "Dizine Göre",
   "pagerank.distribution": "Dağılım",
@@ -531,7 +507,6 @@
   "pagerank.weightedNeedProject": "Ağırlıklı PageRank görmek için bu oturumu SEObserver verisi olan bir projeye bağlayın.",
   "pagerank.score": "Dahili PageRank Puanı",
   "pagerank.pagesLog": "Sayfalar (log)",
-
   "robots.noData": "Robots.txt verisi yok. Önce bir tarama çalıştırın.",
   "robots.host": "Ana Bilgisayar",
   "robots.fetched": "Alındı",
@@ -558,7 +533,6 @@
   "robots.urlsNewlyAllowed": "Yeni izin verilen URL'ler",
   "robots.noChanges": "Değişiklik yok — tüm URL'ler mevcut durumlarını koruyor.",
   "robots.selectHost": "Robots.txt dosyasını görüntülemek için bir ana bilgisayar seçin",
-
   "sitemaps.noData": "Site haritası bulunamadı. Önce bir tarama çalıştırın.",
   "sitemaps.urls": "URL'ler",
   "sitemaps.noUrls": "Bu site haritasında URL yok.",
@@ -566,7 +540,6 @@
   "sitemaps.changeFreq": "Değişim Sıklığı",
   "sitemaps.priority": "Öncelik",
   "sitemaps.selectSitemap": "URL'lerini görüntülemek için bir site haritası seçin",
-
   "extChecks.domains": "Alan Adları",
   "extChecks.urls": "URL'ler",
   "extChecks.filterDomains": "Alan adlarını filtrele...",
@@ -589,7 +562,6 @@
   "extChecks.deadLabel": "Ölü",
   "extChecks.noChecksFound": "Kontrol bulunamadı",
   "extChecks.viewSources": "Bu URL'ye bağlantı veren sayfaları görüntüle",
-
   "resources.summary": "Özet",
   "resources.urls": "URL'ler",
   "resources.filterUrls": "URL'leri filtrele...",
@@ -612,7 +584,6 @@
   "resources.pagesCount": "Sayfalar",
   "resources.timeMs": "Süre (ms)",
   "resources.noChecksFound": "Kontrol bulunamadı",
-
   "tests.rulesets": "Kural Setleri",
   "tests.newRuleset": "+ Yeni Kural Seti",
   "tests.noRulesets": "Henüz kural seti yok. Sayfaları test etmeye başlamak için bir tane oluşturun.",
@@ -664,7 +635,6 @@
   "tests.nameRequired": "Kural seti adı gereklidir",
   "tests.ruleRequired": "En az bir kural gereklidir",
   "tests.deleteConfirm": "Bu kural seti silinsin mi?",
-
   "gsc.notAssociated": "Bu oturum bir projeyle ilişkilendirilmemiş.",
   "gsc.associateFirst": "Önce bir projeyle ilişkilendirin, ardından Google Search Console bağlayın.",
   "gsc.connectTitle": "Google Search Console Bağla",
@@ -719,7 +689,6 @@
   "gsc.mobile": "Mobil",
   "gsc.rich": "Zengin",
   "gsc.noInspectionData": "İnceleme verisi mevcut değil.",
-
   "providers.notAssociated": "Bu oturum bir projeyle ilişkilendirilmemiş.",
   "providers.associateFirst": "Önce bir projeyle ilişkilendirin, ardından bir SEO veri sağlayıcısı bağlayın.",
   "providers.connectTitle": "SEObserver Bağla",
@@ -788,7 +757,6 @@
   "providers.limitTopPages": "En İyi Sayfalar",
   "providers.dangerZone": "Tehlikeli Bölge",
   "providers.disconnectWarning": "Bağlantıyı kesmek, bu sağlayıcı için API anahtarını ve alınan tüm verileri kaldıracaktır.",
-
   "reports.overview": "Genel Bakış",
   "reports.content": "İçerik",
   "reports.technical": "Teknik",
@@ -799,7 +767,6 @@
   "reports.loadingAudit": "Denetim verileri yükleniyor...",
   "reports.loadFailed": "Denetim yüklenemedi: {error}",
   "reports.requiresAudit": "Denetim hesaplaması gerekiyor. Yüklemek için bir alt görünüme tıklayın.",
-
   "report.overview.healthScore": "Sağlık Puanı",
   "report.overview.health": "Sağlık",
   "report.overview.totalPages": "Toplam Sayfa",
@@ -821,7 +788,6 @@
   "report.overview.3xxRedirect": "3xx Yönlendirme",
   "report.overview.4xxClientError": "4xx İstemci Hatası",
   "report.overview.5xxServerError": "5xx Sunucu Hatası",
-
   "report.content.titles": "Başlıklar",
   "report.content.missing": "Eksik",
   "report.content.tooLong": "Çok Uzun",
@@ -843,7 +809,6 @@
   "report.content.metaTooShortChart": "Çok Kısa (<70)",
   "report.content.okH1": "Tamam (1 H1)",
   "report.content.multiple": "Birden Fazla",
-
   "report.technical.indexability": "İndekslenebilirlik",
   "report.technical.indexable": "İndekslenebilir",
   "report.technical.nonIndexable": "İndekslenemez",
@@ -862,7 +827,6 @@
   "report.technical.missing": "Eksik",
   "report.technical.self": "Kendisi",
   "report.technical.other": "Diğer",
-
   "report.links.internalLinks": "İç Bağlantılar",
   "report.links.totalInternal": "Toplam İç",
   "report.links.noOutlinks": "Giden Bağlantısı Olmayan Sayfalar",
@@ -876,12 +840,10 @@
   "report.links.topExternalDomains": "En Çok Bağlantı Verilen Dış Alan Adları",
   "report.links.topAnchors": "En Çok Kullanılan İç Bağlantı Metinleri",
   "report.links.noData": "Bağlantı denetim verisi mevcut değil.",
-
   "report.structure.directories": "Dizinler",
   "report.structure.depthDist": "Derinlik Dağılımı",
   "report.structure.orphanPages": "Yetim Sayfalar",
   "report.structure.noData": "Yapı denetim verisi mevcut değil.",
-
   "report.sitemap.coverage": "Site Haritası Kapsamı",
   "report.sitemap.coverageLabel": "kapsam",
   "report.sitemap.inBoth": "Her İkisinde",
@@ -889,7 +851,6 @@
   "report.sitemap.sitemapOnly": "Yalnızca Site Haritası",
   "report.sitemap.totalUrls": "Toplam Site Haritası URL'leri",
   "report.sitemap.noData": "Site haritası denetim verisi mevcut değil.",
-
   "report.international.schemaTypes": "Schema.org Türleri",
   "report.international.noSchema": "Schema türü algılanmadı.",
   "report.international.pagesWithSchema": "Schema İçeren Sayfalar",
@@ -899,12 +860,9 @@
   "report.international.pagesWithHreflang": "Hreflang İçeren Sayfalar",
   "report.international.pagesWithLang": "Dil İçeren Sayfalar",
   "report.international.noData": "Uluslararası denetim verisi mevcut değil.",
-
   "api.confirmDeleteProject": "Bu proje silinsin mi? İlişkili API anahtarları da silinecektir.",
   "api.confirmRevokeKey": "Bu API anahtarı iptal edilsin mi?",
-
   "gsc.robots": "Robots",
-
   "providers.apiKeyLabel": "API Anahtarı",
   "providers.domainCol": "Alan Adı",
   "providers.fetchingPhase": "Alınıyor",
@@ -928,7 +886,6 @@
   "providers.apiCalls.duration": "Süre",
   "providers.apiCalls.rows": "Satırlar",
   "providers.apiCalls.error": "Hata",
-
   "authority.title": "Otorite",
   "authority.connectCta": "Otorite verilerinin kilidini açmak için SEObserver hesabınızı bağlayın (sayfa başına TrustFlow, CitationFlow, geri bağlantı metrikleri).",
   "authority.connectBtn": "SEObserver Bağla",
@@ -944,9 +901,7 @@
   "authority.enrichment": "Otorite zenginleştirme",
   "authority.enrichmentDisconnected": "{count} taranan sayfayı TrustFlow, CitationFlow ve geri bağlantı verileriyle zenginleştirmek için SEObserver bağlayın",
   "authority.enrichmentConnected": "{matched} / {total} sayfa otorite verileriyle eşleştirildi — Otorite sekmesine bakın",
-
   "resources.source": "Kaynak",
-
   "tests.attributeName": "Öznitelik adı",
   "tests.cssExists": "CSS seçici mevcut",
   "tests.cssExtractAllAttr": "CSS tüm öznitelikleri çıkart",
@@ -954,9 +909,7 @@
   "tests.regexExtract": "Regex yakalama grubu",
   "tests.regexExtractAll": "Regex tümünü yakala",
   "tests.xpathExpression": "XPath ifadesi",
-
   "tabs.extract": "Çıkart",
-
   "extract.sets": "Çıkartıcı Setleri",
   "extract.newSet": "+ Yeni Çıkartıcı Seti",
   "extract.noSets": "Henüz çıkartıcı seti yok. Tarama sırasında veri çıkartmak için bir tane oluşturun.",
@@ -996,10 +949,8 @@
   "extract.xpathExpr": "XPath ifadesi",
   "extract.resultsAvailable": "{count} sayfa çıkartma verisi mevcut — görüntülemek için tıklayın",
   "extract.runRequiresHtml": "Saklanan HTML üzerinde yeniden çalıştır (store_html etkin olmalı)",
-
   "newCrawl.extractorSet": "Çıkartıcı seti (isteğe bağlı)",
   "newCrawl.noExtractorSet": "Çıkartıcı seti yok",
-
   "neardup.urlA": "URL A",
   "neardup.urlB": "URL B",
   "neardup.titleA": "Başlık A",
@@ -1021,7 +972,6 @@
   "neardup.noCanonical": "Canonical yok",
   "neardup.selfCanonical": "Kendi-canonical",
   "neardup.crossCanonical": "Diğerine yönleniyor",
-
   "onboarding.step1Title": "Dilinizi seçin",
   "onboarding.step1Subtitle": "Bunu daha sonra Ayarlar'dan değiştirebilirsiniz.",
   "onboarding.step2Title": "Tarama varsayılanları",
@@ -1046,8 +996,10 @@
   "onboarding.downloadProgress": "Veritabanı motoru indiriliyor... %{percent}",
   "onboarding.downloadComplete": "Veritabanı motoru hazır",
   "onboarding.waitingForEngine": "Veritabanı motoru bekleniyor...",
-
   "settings.telemetryTitle": "Analitik",
   "settings.telemetryDesc": "CrawlObserver'ı geliştirmemize yardımcı olmak için anonim kullanım verileri gönderin. Kişisel veri, URL veya tarama içeriği asla toplanmaz.",
-  "settings.telemetryEnabled": "Anonim analitik etkin"
+  "settings.telemetryEnabled": "Anonim analitik etkin",
+  "settings.sessionRecording": "Oturum kaydı",
+  "settings.sessionRecordingDesc": "Tam tarayıcı oturumlarını kaydedin ve PostHog'a gönderin. Bu, CrawlObserver arayüzünüzde görünen tüm URL'leri, sayfa içeriklerini ve tıklamaları içerir.",
+  "settings.sessionRecordingWarning": "UYARI: Etkinleştirildiğinde, CrawlObserver ekibi tarayıcı oturumunuzda görüntülenen her şeyi görebilir. Bunu yalnızca hata ayıklama amacıyla etkinleştirin."
 }

@@ -58,11 +58,9 @@
   "common.source": "Источник",
   "common.target": "Цель",
   "common.filter": "Фильтр",
-
   "timeAgo.justNow": "только что",
   "timeAgo.minutesAgo": "{count} мин. назад",
   "timeAgo.hoursAgo": "{count} ч. назад",
-
   "app.skipToContent": "Перейти к содержимому",
   "app.updateAvailable": "Доступно обновление: v{version}",
   "app.backupAndUpdate": "Резервная копия и обновление",
@@ -70,7 +68,6 @@
   "app.downloadingUpdate": "Загрузка и установка обновления...",
   "app.updateInstalled": "Обновление установлено. Перезапустите для применения.",
   "app.updateFailed": "Ошибка обновления: {error}",
-
   "sidebar.mainMenu": "Главное меню",
   "sidebar.dashboard": "Панель управления",
   "sidebar.newCrawl": "Новый обход",
@@ -95,7 +92,6 @@
   "sidebar.darkMode": "Тёмная тема",
   "sidebar.byBrand": "от SEObserver",
   "sidebar.viewAllProjects": "Все проекты",
-
   "sessions.title": "Сессии обхода",
   "sessions.newCrawl": "Новый обход",
   "sessions.noSessions": "Сессий обхода пока нет",
@@ -105,7 +101,6 @@
   "sessions.lost": "потеряно",
   "sessions.pagesCount": "{count} страниц",
   "sessions.resume": "Возобновить",
-
   "newCrawl.title": "Новый обход",
   "newCrawl.seedUrls": "Начальные URL (по одному на строку)",
   "newCrawl.workers": "Воркеры",
@@ -150,7 +145,6 @@
   "newCrawl.yourIP": "Ваш IP: {ip}",
   "newCrawl.startCrawl": "Запустить обход",
   "newCrawl.starting": "Запуск...",
-
   "session.queued": "В очереди",
   "session.sessions": "Сессии",
   "session.urlDetail": "Детали URL",
@@ -192,7 +186,6 @@
   "session.anchorText": "Текст ссылки",
   "session.tag": "Тег",
   "session.rel": "Rel",
-
   "actionBar.inQueue": "в очереди",
   "actionBar.started": "Начат",
   "actionBar.recomputeDepths": "Пересчитать глубины",
@@ -207,7 +200,6 @@
   "actionBar.exportSession": "Экспорт сессии",
   "actionBar.includeHtml": "Включить тело HTML (файл будет больше)",
   "actionBar.downloadJsonl": "Скачать .jsonl.gz",
-
   "stats.title": "Общая статистика",
   "stats.loadingStats": "Загрузка общей статистики...",
   "stats.totalPages": "Всего страниц",
@@ -229,7 +221,6 @@
   "stats.deleteUnassigned": "Удалить все непривязанные сессии",
   "stats.confirmDeleteUnassigned": "Удалить все сессии без проекта? Это действие необратимо.",
   "stats.deletedCount": "Удалено сессий: {count}",
-
   "compare.title": "Сравнение обходов",
   "compare.sessionA": "Сессия A (до)",
   "compare.sessionB": "Сессия B (после)",
@@ -250,7 +241,6 @@
   "compare.removed": "Удалённые",
   "compare.noPages": "Страниц типа «{type}» не найдено.",
   "compare.noLinks": "Ссылок типа «{type}» не найдено.",
-
   "logs.title": "Логи приложения",
   "logs.exportJsonl": "Экспорт JSONL",
   "logs.allLevels": "Все уровни",
@@ -269,7 +259,6 @@
   "logs.component": "Компонент",
   "logs.message": "Сообщение",
   "logs.noLogs": "Логи не найдены",
-
   "api.subtitle": "Используйте этот API для автоматизации обходов, чтения результатов или подключения своих инструментов (LLM, скрипты и т.д.)",
   "api.reference": "Справочник API",
   "api.referenceDesc": "Все доступные эндпоинты с абсолютными URL. Скопируйте и вставьте в ваш LLM или скрипт.",
@@ -299,14 +288,12 @@
   "api.revoke": "Отозвать",
   "api.neverUsed": "Не использовался",
   "api.used": "Использован",
-
   "projects.title": "Все проекты",
   "projects.newProject": "Новый проект",
   "projects.searchProjects": "Поиск проектов...",
   "projects.projectCount": "проект(ов)",
   "projects.created": "Создан",
   "projects.noProjects": "Проекты не найдены",
-
   "project.dashboard": "Панель управления",
   "project.doubleClickRename": "Двойной клик для переименования",
   "project.deleteProject": "Удалить проект",
@@ -319,7 +306,6 @@
   "project.seoData": "SEO-данные",
   "project.seedUrl": "Начальный URL",
   "project.noSessions": "В этом проекте пока нет сессий обхода.",
-
   "settings.title": "Настройки",
   "settings.appName": "Название приложения",
   "settings.logoUrl": "URL логотипа",
@@ -361,12 +347,9 @@
   "settings.restoreFailed": "Ошибка восстановления: {error}",
   "settings.deleteBackupConfirm": "Удалить резервную копию {name}?",
   "settings.deleteFailed": "Ошибка удаления: {error}",
-
   "dataTable.clearFilters": "Сбросить фильтры",
-
   "confirmModal.cancel": "Отмена",
   "confirmModal.confirm": "Подтвердить",
-
   "resumeModal.title": "Возобновить обход",
   "resumeModal.maxPages": "Макс. страниц (0 = без ограничений)",
   "resumeModal.maxDepth": "Макс. глубина (0 = без ограничений)",
@@ -379,12 +362,10 @@
   "resumeModal.storeHtml": "Сохранять исходный HTML",
   "resumeModal.resume": "Возобновить",
   "resumeModal.resuming": "Возобновление...",
-
   "htmlModal.render": "Рендер",
   "htmlModal.source": "Исходный код",
   "htmlModal.noHtml": "HTML для этой страницы не сохранён.",
   "htmlModal.pageRender": "Рендер страницы",
-
   "urlDetail.openUrl": "Открыть URL",
   "urlDetail.viewHtml": "Просмотр HTML",
   "urlDetail.statusCode": "Код статуса",
@@ -444,7 +425,6 @@
   "urlDetail.deltaImages": "Изображения Δ",
   "urlDetail.newSchema": "Новая Schema",
   "urlDetail.pageNotFound": "Страница не найдена.",
-
   "tabs.allPages": "Все страницы",
   "tabs.titles": "Заголовки",
   "tabs.meta": "Meta",
@@ -466,7 +446,6 @@
   "tabs.directives": "Директивы",
   "tabs.nearDuplicates": "Дубликаты",
   "tabs.authority": "Внешние факторы",
-
   "pages.all": "Все",
   "pages.titles": "Заголовки",
   "pages.meta": "Meta",
@@ -475,7 +454,6 @@
   "pages.indexability": "Индексируемость",
   "pages.response": "Ответ",
   "pages.redirects": "Редиректы",
-
   "links.internal": "Внутренние",
   "links.external": "Внешние",
   "links.checks": "Проверки",
@@ -494,12 +472,10 @@
   "links.lastSeen": "Последнее обнаружение",
   "links.backlinksCount": "{count} обратных ссылок",
   "links.noBacklinks": "Данные об обратных ссылках отсутствуют.",
-
   "directives.robots": "Robots.txt",
   "directives.sitemaps": "Карты сайта",
   "directives.sitemapOnly": "Только в карте сайта",
   "directives.inBoth": "В обоих",
-
   "pagerank.topPages": "Топ страниц",
   "pagerank.byDirectory": "По каталогам",
   "pagerank.distribution": "Распределение",
@@ -531,7 +507,6 @@
   "pagerank.weightedNeedProject": "Привяжите эту сессию к проекту с данными SEObserver, чтобы увидеть взвешенный PageRank.",
   "pagerank.score": "Оценка Internal PageRank",
   "pagerank.pagesLog": "Страницы (лог)",
-
   "robots.noData": "Данные robots.txt отсутствуют. Сначала запустите обход.",
   "robots.host": "Хост",
   "robots.fetched": "Получено",
@@ -558,7 +533,6 @@
   "robots.urlsNewlyAllowed": "Вновь разрешённые URL",
   "robots.noChanges": "Изменений нет — все URL сохраняют текущий статус.",
   "robots.selectHost": "Выберите хост для просмотра его robots.txt",
-
   "sitemaps.noData": "Карты сайта не найдены. Сначала запустите обход.",
   "sitemaps.urls": "URL",
   "sitemaps.noUrls": "URL в этой карте сайта нет.",
@@ -566,7 +540,6 @@
   "sitemaps.changeFreq": "Частота изменений",
   "sitemaps.priority": "Приоритет",
   "sitemaps.selectSitemap": "Выберите карту сайта для просмотра URL",
-
   "extChecks.domains": "Домены",
   "extChecks.urls": "URL",
   "extChecks.filterDomains": "Фильтр доменов...",
@@ -589,7 +562,6 @@
   "extChecks.deadLabel": "Мёртвые",
   "extChecks.noChecksFound": "Проверки не найдены",
   "extChecks.viewSources": "Показать страницы, ссылающиеся на этот URL",
-
   "resources.summary": "Сводка",
   "resources.urls": "URL",
   "resources.filterUrls": "Фильтр URL...",
@@ -612,7 +584,6 @@
   "resources.pagesCount": "Страницы",
   "resources.timeMs": "Время (мс)",
   "resources.noChecksFound": "Проверки не найдены",
-
   "tests.rulesets": "Наборы правил",
   "tests.newRuleset": "+ Новый набор правил",
   "tests.noRulesets": "Наборов правил пока нет. Создайте один, чтобы начать тестирование страниц.",
@@ -664,7 +635,6 @@
   "tests.nameRequired": "Название набора правил обязательно",
   "tests.ruleRequired": "Необходимо хотя бы одно правило",
   "tests.deleteConfirm": "Удалить этот набор правил?",
-
   "gsc.notAssociated": "Эта сессия не привязана к проекту.",
   "gsc.associateFirst": "Сначала привяжите её к проекту, затем подключите Google Search Console.",
   "gsc.connectTitle": "Подключить Google Search Console",
@@ -719,7 +689,6 @@
   "gsc.mobile": "Мобильная версия",
   "gsc.rich": "Расширенные результаты",
   "gsc.noInspectionData": "Данные инспекции отсутствуют.",
-
   "providers.notAssociated": "Эта сессия не привязана к проекту.",
   "providers.associateFirst": "Сначала привяжите её к проекту, затем подключите провайдер SEO-данных.",
   "providers.connectTitle": "Подключить SEObserver",
@@ -788,7 +757,6 @@
   "providers.limitTopPages": "Топ страниц",
   "providers.dangerZone": "Опасная зона",
   "providers.disconnectWarning": "Отключение удалит API-ключ и все загруженные данные этого провайдера.",
-
   "reports.overview": "Обзор",
   "reports.content": "Контент",
   "reports.technical": "Технические",
@@ -799,7 +767,6 @@
   "reports.loadingAudit": "Загрузка данных аудита...",
   "reports.loadFailed": "Не удалось загрузить аудит: {error}",
   "reports.requiresAudit": "Требуется вычисление аудита. Нажмите на подраздел для загрузки.",
-
   "report.overview.healthScore": "Оценка состояния",
   "report.overview.health": "Состояние",
   "report.overview.totalPages": "Всего страниц",
@@ -821,7 +788,6 @@
   "report.overview.3xxRedirect": "3xx Редирект",
   "report.overview.4xxClientError": "4xx Ошибка клиента",
   "report.overview.5xxServerError": "5xx Ошибка сервера",
-
   "report.content.titles": "Заголовки",
   "report.content.missing": "Отсутствуют",
   "report.content.tooLong": "Слишком длинные",
@@ -843,7 +809,6 @@
   "report.content.metaTooShortChart": "Слишком короткие (<70)",
   "report.content.okH1": "OK (1 H1)",
   "report.content.multiple": "Множественные",
-
   "report.technical.indexability": "Индексируемость",
   "report.technical.indexable": "Индексируемые",
   "report.technical.nonIndexable": "Неиндексируемые",
@@ -862,7 +827,6 @@
   "report.technical.missing": "Отсутствует",
   "report.technical.self": "Собственный",
   "report.technical.other": "Другой",
-
   "report.links.internalLinks": "Внутренние ссылки",
   "report.links.totalInternal": "Всего внутренних",
   "report.links.noOutlinks": "Страницы без исходящих ссылок",
@@ -876,12 +840,10 @@
   "report.links.topExternalDomains": "Топ внешних доменов",
   "report.links.topAnchors": "Топ внутренних анкорных текстов",
   "report.links.noData": "Данные аудита ссылок отсутствуют.",
-
   "report.structure.directories": "Каталоги",
   "report.structure.depthDist": "Распределение по глубине",
   "report.structure.orphanPages": "Страницы-сироты",
   "report.structure.noData": "Данные аудита структуры отсутствуют.",
-
   "report.sitemap.coverage": "Покрытие карты сайта",
   "report.sitemap.coverageLabel": "покрытие",
   "report.sitemap.inBoth": "В обоих",
@@ -889,7 +851,6 @@
   "report.sitemap.sitemapOnly": "Только карта сайта",
   "report.sitemap.totalUrls": "Всего URL в карте сайта",
   "report.sitemap.noData": "Данные аудита карты сайта отсутствуют.",
-
   "report.international.schemaTypes": "Типы Schema.org",
   "report.international.noSchema": "Типы schema не обнаружены.",
   "report.international.pagesWithSchema": "Страницы со Schema",
@@ -899,12 +860,9 @@
   "report.international.pagesWithHreflang": "Страницы с Hreflang",
   "report.international.pagesWithLang": "Страницы с Lang",
   "report.international.noData": "Данные международного аудита отсутствуют.",
-
   "api.confirmDeleteProject": "Удалить этот проект? Связанные API-ключи также будут удалены.",
   "api.confirmRevokeKey": "Отозвать этот API-ключ?",
-
   "gsc.robots": "Robots",
-
   "providers.apiKeyLabel": "API-ключ",
   "providers.domainCol": "Домен",
   "providers.fetchingPhase": "Загрузка",
@@ -928,7 +886,6 @@
   "providers.apiCalls.duration": "Длительность",
   "providers.apiCalls.rows": "Строки",
   "providers.apiCalls.error": "Ошибка",
-
   "authority.title": "Авторитетность",
   "authority.connectCta": "Подключите ваш аккаунт SEObserver, чтобы разблокировать данные авторитетности (TrustFlow, CitationFlow, метрики обратных ссылок по страницам).",
   "authority.connectBtn": "Подключить SEObserver",
@@ -944,9 +901,7 @@
   "authority.enrichment": "Обогащение авторитетности",
   "authority.enrichmentDisconnected": "Подключите SEObserver для обогащения {count} обойдённых страниц данными TrustFlow, CitationFlow и обратных ссылок",
   "authority.enrichmentConnected": "{matched} из {total} страниц сопоставлено с данными авторитетности — см. вкладку «Авторитетность»",
-
   "resources.source": "Источник",
-
   "tests.attributeName": "Имя атрибута",
   "tests.cssExists": "CSS-селектор существует",
   "tests.cssExtractAllAttr": "CSS извлечь ВСЕ атрибуты",
@@ -954,9 +909,7 @@
   "tests.regexExtract": "Группа захвата Regex",
   "tests.regexExtractAll": "Захватить ВСЕ Regex",
   "tests.xpathExpression": "Выражение XPath",
-
   "tabs.extract": "Извлечение",
-
   "extract.sets": "Наборы экстракторов",
   "extract.newSet": "+ Новый набор экстракторов",
   "extract.noSets": "Наборов экстракторов пока нет. Создайте один для извлечения данных при обходе.",
@@ -996,10 +949,8 @@
   "extract.xpathExpr": "Выражение XPath",
   "extract.resultsAvailable": "{count} страниц с данными извлечения — нажмите для просмотра",
   "extract.runRequiresHtml": "Повторный запуск на сохранённом HTML (требуется включённый store_html)",
-
   "newCrawl.extractorSet": "Набор экстракторов (необязательно)",
   "newCrawl.noExtractorSet": "Без набора экстракторов",
-
   "neardup.urlA": "URL A",
   "neardup.urlB": "URL B",
   "neardup.titleA": "Заголовок A",
@@ -1021,7 +972,6 @@
   "neardup.noCanonical": "Нет canonical",
   "neardup.selfCanonical": "Собственный canonical",
   "neardup.crossCanonical": "Указывает на другую",
-
   "onboarding.step1Title": "Выберите язык",
   "onboarding.step1Subtitle": "Вы можете изменить это позже в настройках.",
   "onboarding.step2Title": "Настройки обхода по умолчанию",
@@ -1046,8 +996,10 @@
   "onboarding.downloadProgress": "Загрузка движка базы данных... {percent}%",
   "onboarding.downloadComplete": "Движок базы данных готов",
   "onboarding.waitingForEngine": "Ожидание движка базы данных...",
-
   "settings.telemetryTitle": "Аналитика",
   "settings.telemetryDesc": "Отправлять анонимные данные об использовании для улучшения CrawlObserver. Личные данные, URL или содержимое обходов никогда не собираются.",
-  "settings.telemetryEnabled": "Анонимная аналитика включена"
+  "settings.telemetryEnabled": "Анонимная аналитика включена",
+  "settings.sessionRecording": "Запись сессии",
+  "settings.sessionRecordingDesc": "Записывайте полные сессии браузера и отправляйте их в PostHog. Это включает все URL-адреса, содержимое страниц и клики, видимые в интерфейсе CrawlObserver.",
+  "settings.sessionRecordingWarning": "ВНИМАНИЕ: При включении команда CrawlObserver может видеть всё, что отображается в вашей сессии браузера. Включайте только для целей отладки."
 }

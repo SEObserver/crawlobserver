@@ -58,11 +58,9 @@
   "common.source": "מקור",
   "common.target": "יעד",
   "common.filter": "מסנן",
-
   "timeAgo.justNow": "הרגע",
   "timeAgo.minutesAgo": "לפני {count} דק׳",
   "timeAgo.hoursAgo": "לפני {count} שע׳",
-
   "app.skipToContent": "דלג לתוכן",
   "app.updateAvailable": "עדכון זמין: v{version}",
   "app.backupAndUpdate": "גיבוי ועדכון",
@@ -70,7 +68,6 @@
   "app.downloadingUpdate": "מוריד ומתקין עדכון...",
   "app.updateInstalled": "העדכון הותקן. הפעל מחדש להחלה.",
   "app.updateFailed": "העדכון נכשל: {error}",
-
   "sidebar.mainMenu": "תפריט ראשי",
   "sidebar.dashboard": "לוח בקרה",
   "sidebar.newCrawl": "סריקה חדשה",
@@ -95,7 +92,6 @@
   "sidebar.darkMode": "מצב כהה",
   "sidebar.byBrand": "מאת SEObserver",
   "sidebar.viewAllProjects": "הצג את כל הפרויקטים",
-
   "sessions.title": "סשני סריקה",
   "sessions.newCrawl": "סריקה חדשה",
   "sessions.noSessions": "אין עדיין סשני סריקה",
@@ -105,7 +101,6 @@
   "sessions.lost": "אבד",
   "sessions.pagesCount": "{count} עמודים",
   "sessions.resume": "המשך",
-
   "newCrawl.title": "סריקה חדשה",
   "newCrawl.seedUrls": "כתובות URL התחלתיות (אחת בכל שורה)",
   "newCrawl.workers": "עובדים",
@@ -150,7 +145,6 @@
   "newCrawl.yourIP": "ה-IP שלך: {ip}",
   "newCrawl.startCrawl": "התחל סריקה",
   "newCrawl.starting": "מתחיל...",
-
   "session.queued": "בתור",
   "session.sessions": "סשנים",
   "session.urlDetail": "פרטי URL",
@@ -192,7 +186,6 @@
   "session.anchorText": "טקסט עוגן",
   "session.tag": "תגית",
   "session.rel": "Rel",
-
   "actionBar.inQueue": "בתור",
   "actionBar.started": "התחיל",
   "actionBar.recomputeDepths": "חשב עומקים מחדש",
@@ -207,7 +200,6 @@
   "actionBar.exportSession": "ייצא סשן",
   "actionBar.includeHtml": "כלול גוף HTML (קובץ גדול יותר)",
   "actionBar.downloadJsonl": "הורד .jsonl.gz",
-
   "stats.title": "סטטיסטיקות כלליות",
   "stats.loadingStats": "טוען סטטיסטיקות כלליות...",
   "stats.totalPages": "סה״כ עמודים",
@@ -229,7 +221,6 @@
   "stats.deleteUnassigned": "מחק את כל הסשנים הלא משויכים",
   "stats.confirmDeleteUnassigned": "למחוק את כל הסשנים ללא פרויקט? לא ניתן לבטל פעולה זו.",
   "stats.deletedCount": "{count} סשנים נמחקו",
-
   "compare.title": "השוואת סריקות",
   "compare.sessionA": "סשן A (לפני)",
   "compare.sessionB": "סשן B (אחרי)",
@@ -250,7 +241,6 @@
   "compare.removed": "הוסר",
   "compare.noPages": "לא נמצאו עמודים מסוג {type}.",
   "compare.noLinks": "לא נמצאו קישורים מסוג {type}.",
-
   "logs.title": "יומני אפליקציה",
   "logs.exportJsonl": "ייצוא JSONL",
   "logs.allLevels": "כל הרמות",
@@ -269,7 +259,6 @@
   "logs.component": "רכיב",
   "logs.message": "הודעה",
   "logs.noLogs": "לא נמצאו יומנים",
-
   "api.subtitle": "השתמש ב-API זה כדי לבצע סריקות אוטומטיות, לקרוא תוצאות, או לחבר את הכלים שלך (LLMs, סקריפטים וכו׳)",
   "api.reference": "עיון ב-API",
   "api.referenceDesc": "כל נקודות הקצה הזמינות עם כתובות URL מוחלטות. העתק והדבק ל-LLM או לסקריפט שלך.",
@@ -299,14 +288,12 @@
   "api.revoke": "בטל",
   "api.neverUsed": "מעולם לא נעשה שימוש",
   "api.used": "נעשה שימוש",
-
   "projects.title": "כל הפרויקטים",
   "projects.newProject": "פרויקט חדש",
   "projects.searchProjects": "חפש פרויקטים...",
   "projects.projectCount": "פרויקטים",
   "projects.created": "נוצר",
   "projects.noProjects": "לא נמצאו פרויקטים",
-
   "project.dashboard": "לוח בקרה",
   "project.doubleClickRename": "לחץ לחיצה כפולה לשינוי שם",
   "project.deleteProject": "מחק פרויקט",
@@ -319,7 +306,6 @@
   "project.seoData": "נתוני SEO",
   "project.seedUrl": "URL התחלתי",
   "project.noSessions": "אין עדיין סשני סריקה בפרויקט זה.",
-
   "settings.title": "הגדרות",
   "settings.appName": "שם האפליקציה",
   "settings.logoUrl": "URL של הלוגו",
@@ -361,12 +347,9 @@
   "settings.restoreFailed": "השחזור נכשל: {error}",
   "settings.deleteBackupConfirm": "למחוק את הגיבוי {name}?",
   "settings.deleteFailed": "המחיקה נכשלה: {error}",
-
   "dataTable.clearFilters": "נקה מסננים",
-
   "confirmModal.cancel": "ביטול",
   "confirmModal.confirm": "אישור",
-
   "resumeModal.title": "המשך סריקה",
   "resumeModal.maxPages": "מקסימום עמודים (0 = ללא הגבלה)",
   "resumeModal.maxDepth": "עומק מקסימלי (0 = ללא הגבלה)",
@@ -379,12 +362,10 @@
   "resumeModal.storeHtml": "שמור HTML גולמי",
   "resumeModal.resume": "המשך",
   "resumeModal.resuming": "ממשיך...",
-
   "htmlModal.render": "רינדור",
   "htmlModal.source": "מקור",
   "htmlModal.noHtml": "לא נשמר HTML עבור עמוד זה.",
   "htmlModal.pageRender": "רינדור עמוד",
-
   "urlDetail.openUrl": "פתח URL",
   "urlDetail.viewHtml": "הצג HTML",
   "urlDetail.statusCode": "קוד סטטוס",
@@ -444,7 +425,6 @@
   "urlDetail.deltaImages": "הפרש תמונות",
   "urlDetail.newSchema": "Schema חדש",
   "urlDetail.pageNotFound": "העמוד לא נמצא.",
-
   "tabs.allPages": "כל העמודים",
   "tabs.titles": "כותרות",
   "tabs.meta": "Meta",
@@ -466,7 +446,6 @@
   "tabs.directives": "הנחיות",
   "tabs.nearDuplicates": "כפילויות",
   "tabs.authority": "חיצוני",
-
   "pages.all": "הכל",
   "pages.titles": "כותרות",
   "pages.meta": "Meta",
@@ -475,7 +454,6 @@
   "pages.indexability": "יכולת אינדוקס",
   "pages.response": "תגובה",
   "pages.redirects": "הפניות",
-
   "links.internal": "פנימי",
   "links.external": "חיצוני",
   "links.checks": "בדיקות",
@@ -494,12 +472,10 @@
   "links.lastSeen": "נצפה לאחרונה",
   "links.backlinksCount": "{count} קישורים חוזרים",
   "links.noBacklinks": "אין נתוני קישורים חוזרים זמינים.",
-
   "directives.robots": "Robots.txt",
   "directives.sitemaps": "מפות אתר",
   "directives.sitemapOnly": "במפת אתר בלבד",
   "directives.inBoth": "בשניהם",
-
   "pagerank.topPages": "עמודים מובילים",
   "pagerank.byDirectory": "לפי תיקייה",
   "pagerank.distribution": "התפלגות",
@@ -531,7 +507,6 @@
   "pagerank.weightedNeedProject": "שייך סשן זה לפרויקט עם נתוני SEObserver כדי לראות PageRank משוקלל.",
   "pagerank.score": "ציון PageRank פנימי",
   "pagerank.pagesLog": "עמודים (לוג)",
-
   "robots.noData": "אין נתוני robots.txt. הפעל סריקה תחילה.",
   "robots.host": "מארח",
   "robots.fetched": "נשלף",
@@ -558,7 +533,6 @@
   "robots.urlsNewlyAllowed": "כתובות URL שהותרו לאחרונה",
   "robots.noChanges": "אין שינויים — כל כתובות ה-URL שומרות על הסטטוס הנוכחי.",
   "robots.selectHost": "בחר מארח כדי לצפות ב-robots.txt שלו",
-
   "sitemaps.noData": "לא נמצאו מפות אתר. הפעל סריקה תחילה.",
   "sitemaps.urls": "כתובות URL",
   "sitemaps.noUrls": "אין כתובות URL במפת אתר זו.",
@@ -566,7 +540,6 @@
   "sitemaps.changeFreq": "תדירות שינוי",
   "sitemaps.priority": "עדיפות",
   "sitemaps.selectSitemap": "בחר מפת אתר כדי לצפות בכתובות ה-URL שלה",
-
   "extChecks.domains": "דומיינים",
   "extChecks.urls": "כתובות URL",
   "extChecks.filterDomains": "סנן דומיינים...",
@@ -589,7 +562,6 @@
   "extChecks.deadLabel": "מת",
   "extChecks.noChecksFound": "לא נמצאו בדיקות",
   "extChecks.viewSources": "הצג עמודים המקשרים ל-URL זה",
-
   "resources.summary": "סיכום",
   "resources.urls": "כתובות URL",
   "resources.filterUrls": "סנן כתובות URL...",
@@ -612,7 +584,6 @@
   "resources.pagesCount": "עמודים",
   "resources.timeMs": "זמן (מ״ש)",
   "resources.noChecksFound": "לא נמצאו בדיקות",
-
   "tests.rulesets": "ערכות כללים",
   "tests.newRuleset": "+ ערכת כללים חדשה",
   "tests.noRulesets": "אין עדיין ערכות כללים. צור אחת כדי להתחיל לבדוק עמודים.",
@@ -664,7 +635,6 @@
   "tests.nameRequired": "שם ערכת כללים הוא שדה חובה",
   "tests.ruleRequired": "נדרש לפחות כלל אחד",
   "tests.deleteConfirm": "למחוק ערכת כללים זו?",
-
   "gsc.notAssociated": "סשן זה אינו משויך לפרויקט.",
   "gsc.associateFirst": "שייך אותו לפרויקט תחילה, ואז חבר את Google Search Console.",
   "gsc.connectTitle": "חבר את Google Search Console",
@@ -719,7 +689,6 @@
   "gsc.mobile": "נייד",
   "gsc.rich": "מועשר",
   "gsc.noInspectionData": "אין נתוני בדיקה זמינים.",
-
   "providers.notAssociated": "סשן זה אינו משויך לפרויקט.",
   "providers.associateFirst": "שייך אותו לפרויקט תחילה, ואז חבר ספק נתוני SEO.",
   "providers.connectTitle": "חבר את SEObserver",
@@ -788,7 +757,6 @@
   "providers.limitTopPages": "עמודים מובילים",
   "providers.dangerZone": "אזור מסוכן",
   "providers.disconnectWarning": "ניתוק יסיר את מפתח ה-API ואת כל הנתונים שנשלפו עבור ספק זה.",
-
   "reports.overview": "סקירה",
   "reports.content": "תוכן",
   "reports.technical": "טכני",
@@ -799,7 +767,6 @@
   "reports.loadingAudit": "טוען נתוני ביקורת...",
   "reports.loadFailed": "טעינת הביקורת נכשלה: {error}",
   "reports.requiresAudit": "נדרש חישוב ביקורת. לחץ על תת-תצוגה לטעינה.",
-
   "report.overview.healthScore": "ציון בריאות",
   "report.overview.health": "בריאות",
   "report.overview.totalPages": "סה״כ עמודים",
@@ -821,7 +788,6 @@
   "report.overview.3xxRedirect": "3xx הפניה",
   "report.overview.4xxClientError": "4xx שגיאת לקוח",
   "report.overview.5xxServerError": "5xx שגיאת שרת",
-
   "report.content.titles": "כותרות",
   "report.content.missing": "חסר",
   "report.content.tooLong": "ארוך מדי",
@@ -843,7 +809,6 @@
   "report.content.metaTooShortChart": "קצר מדי (<70)",
   "report.content.okH1": "תקין (1 H1)",
   "report.content.multiple": "מרובה",
-
   "report.technical.indexability": "יכולת אינדוקס",
   "report.technical.indexable": "ניתן לאינדוקס",
   "report.technical.nonIndexable": "לא ניתן לאינדוקס",
@@ -862,7 +827,6 @@
   "report.technical.missing": "חסר",
   "report.technical.self": "עצמי",
   "report.technical.other": "אחר",
-
   "report.links.internalLinks": "קישורים פנימיים",
   "report.links.totalInternal": "סה״כ פנימיים",
   "report.links.noOutlinks": "עמודים ללא קישורים יוצאים",
@@ -876,12 +840,10 @@
   "report.links.topExternalDomains": "דומיינים חיצוניים מובילים",
   "report.links.topAnchors": "טקסטי עוגן פנימיים מובילים",
   "report.links.noData": "אין נתוני ביקורת קישורים זמינים.",
-
   "report.structure.directories": "תיקיות",
   "report.structure.depthDist": "התפלגות עומק",
   "report.structure.orphanPages": "עמודים יתומים",
   "report.structure.noData": "אין נתוני ביקורת מבנה זמינים.",
-
   "report.sitemap.coverage": "כיסוי מפת אתר",
   "report.sitemap.coverageLabel": "כיסוי",
   "report.sitemap.inBoth": "בשניהם",
@@ -889,7 +851,6 @@
   "report.sitemap.sitemapOnly": "מפת אתר בלבד",
   "report.sitemap.totalUrls": "סה״כ כתובות URL במפת אתר",
   "report.sitemap.noData": "אין נתוני ביקורת מפת אתר זמינים.",
-
   "report.international.schemaTypes": "סוגי Schema.org",
   "report.international.noSchema": "לא זוהו סוגי Schema.",
   "report.international.pagesWithSchema": "עמודים עם Schema",
@@ -899,12 +860,9 @@
   "report.international.pagesWithHreflang": "עמודים עם Hreflang",
   "report.international.pagesWithLang": "עמודים עם שפה",
   "report.international.noData": "אין נתוני ביקורת בינלאומית זמינים.",
-
   "api.confirmDeleteProject": "למחוק פרויקט זה? מפתחות API משויכים יימחקו גם הם.",
   "api.confirmRevokeKey": "לבטל מפתח API זה?",
-
   "gsc.robots": "Robots",
-
   "providers.apiKeyLabel": "מפתח API",
   "providers.domainCol": "דומיין",
   "providers.fetchingPhase": "שולף",
@@ -928,7 +886,6 @@
   "providers.apiCalls.duration": "משך",
   "providers.apiCalls.rows": "שורות",
   "providers.apiCalls.error": "שגיאה",
-
   "authority.title": "סמכות",
   "authority.connectCta": "חבר את חשבון ה-SEObserver שלך כדי לפתוח נתוני סמכות (TrustFlow, CitationFlow, מדדי קישורים חוזרים לכל עמוד).",
   "authority.connectBtn": "חבר את SEObserver",
@@ -944,9 +901,7 @@
   "authority.enrichment": "העשרת סמכות",
   "authority.enrichmentDisconnected": "חבר את SEObserver כדי להעשיר {count} עמודים שנסרקו בנתוני TrustFlow, CitationFlow וקישורים חוזרים",
   "authority.enrichmentConnected": "{matched} מתוך {total} עמודים הותאמו עם נתוני סמכות — ראה לשונית סמכות",
-
   "resources.source": "מקור",
-
   "tests.attributeName": "שם תכונה",
   "tests.cssExists": "בורר CSS קיים",
   "tests.cssExtractAllAttr": "חלץ כל התכונות CSS",
@@ -954,9 +909,7 @@
   "tests.regexExtract": "קבוצת לכידה Regex",
   "tests.regexExtractAll": "לכוד הכל Regex",
   "tests.xpathExpression": "ביטוי XPath",
-
   "tabs.extract": "חילוץ",
-
   "extract.sets": "ערכות חילוץ",
   "extract.newSet": "+ ערכת חילוץ חדשה",
   "extract.noSets": "אין עדיין ערכות חילוץ. צור אחת כדי לחלץ נתונים במהלך סריקה.",
@@ -996,10 +949,8 @@
   "extract.xpathExpr": "ביטוי XPath",
   "extract.resultsAvailable": "{count} עמודים עם נתוני חילוץ — לחץ לצפייה",
   "extract.runRequiresHtml": "הפעל מחדש על HTML שמור (דורש הפעלת store_html)",
-
   "newCrawl.extractorSet": "ערכת חילוץ (אופציונלי)",
   "newCrawl.noExtractorSet": "ללא ערכת חילוץ",
-
   "neardup.urlA": "URL A",
   "neardup.urlB": "URL B",
   "neardup.titleA": "כותרת A",
@@ -1021,7 +972,6 @@
   "neardup.noCanonical": "ללא Canonical",
   "neardup.selfCanonical": "Canonical עצמי",
   "neardup.crossCanonical": "מצביע לאחר",
-
   "onboarding.step1Title": "בחר את השפה שלך",
   "onboarding.step1Subtitle": "ניתן לשנות זאת מאוחר יותר בהגדרות.",
   "onboarding.step2Title": "ברירות מחדל לסריקה",
@@ -1046,8 +996,10 @@
   "onboarding.downloadProgress": "מוריד מנוע מסד נתונים... {percent}%",
   "onboarding.downloadComplete": "מנוע מסד הנתונים מוכן",
   "onboarding.waitingForEngine": "ממתין למנוע מסד הנתונים...",
-
   "settings.telemetryTitle": "ניתוח",
   "settings.telemetryDesc": "שלח נתוני שימוש אנונימיים כדי לעזור לנו לשפר את CrawlObserver. לעולם לא נאסף מידע אישי, כתובות URL או תוכן סריקה.",
-  "settings.telemetryEnabled": "ניתוח אנונימי מופעל"
+  "settings.telemetryEnabled": "ניתוח אנונימי מופעל",
+  "settings.sessionRecording": "הקלטת מושב",
+  "settings.sessionRecordingDesc": "הקלט מושבי דפדפן מלאים ושלח אותם ל-PostHog. זה כולל את כל הכתובות, תוכן העמודים והלחיצות הנראים בממשק CrawlObserver שלך.",
+  "settings.sessionRecordingWarning": "אזהרה: כשמופעל, צוות CrawlObserver יכול לראות את כל מה שמוצג במושב הדפדפן שלך. הפעל זאת רק למטרות איתור באגים."
 }

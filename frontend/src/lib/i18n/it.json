@@ -58,11 +58,9 @@
   "common.source": "Sorgente",
   "common.target": "Destinazione",
   "common.filter": "Filtra",
-
   "timeAgo.justNow": "adesso",
   "timeAgo.minutesAgo": "{count}m fa",
   "timeAgo.hoursAgo": "{count}h fa",
-
   "app.skipToContent": "Vai al contenuto",
   "app.updateAvailable": "Aggiornamento disponibile: v{version}",
   "app.backupAndUpdate": "Backup e Aggiornamento",
@@ -70,7 +68,6 @@
   "app.downloadingUpdate": "Download e installazione aggiornamento...",
   "app.updateInstalled": "Aggiornamento installato. Riavviare per applicare.",
   "app.updateFailed": "Aggiornamento fallito: {error}",
-
   "sidebar.mainMenu": "Menu Principale",
   "sidebar.dashboard": "Dashboard",
   "sidebar.newCrawl": "Nuova Scansione",
@@ -95,7 +92,6 @@
   "sidebar.darkMode": "Modalità scura",
   "sidebar.byBrand": "di SEObserver",
   "sidebar.viewAllProjects": "Visualizza tutti i progetti",
-
   "sessions.title": "Sessioni di Scansione",
   "sessions.newCrawl": "Nuova Scansione",
   "sessions.noSessions": "Nessuna sessione di scansione",
@@ -105,7 +101,6 @@
   "sessions.lost": "perso",
   "sessions.pagesCount": "{count} pagine",
   "sessions.resume": "Riprendi",
-
   "newCrawl.title": "Nuova Scansione",
   "newCrawl.seedUrls": "URL di partenza (uno per riga)",
   "newCrawl.workers": "Worker",
@@ -150,7 +145,6 @@
   "newCrawl.yourIP": "Il tuo IP: {ip}",
   "newCrawl.startCrawl": "Avvia Scansione",
   "newCrawl.starting": "Avvio...",
-
   "session.queued": "In coda",
   "session.sessions": "Sessioni",
   "session.urlDetail": "Dettaglio URL",
@@ -192,7 +186,6 @@
   "session.anchorText": "Testo ancora",
   "session.tag": "Tag",
   "session.rel": "Rel",
-
   "actionBar.inQueue": "in coda",
   "actionBar.started": "Iniziato",
   "actionBar.recomputeDepths": "Ricalcola Profondità",
@@ -207,7 +200,6 @@
   "actionBar.exportSession": "Esporta Sessione",
   "actionBar.includeHtml": "Includi corpo HTML (file più grande)",
   "actionBar.downloadJsonl": "Scarica .jsonl.gz",
-
   "stats.title": "Statistiche Globali",
   "stats.loadingStats": "Caricamento statistiche globali...",
   "stats.totalPages": "Pagine Totali",
@@ -229,7 +221,6 @@
   "stats.deleteUnassigned": "Elimina tutte le sessioni non assegnate",
   "stats.confirmDeleteUnassigned": "Eliminare tutte le sessioni senza progetto? Questa azione non può essere annullata.",
   "stats.deletedCount": "{count} sessione/i eliminata/e",
-
   "compare.title": "Confronta Scansioni",
   "compare.sessionA": "Sessione A (prima)",
   "compare.sessionB": "Sessione B (dopo)",
@@ -250,7 +241,6 @@
   "compare.removed": "Rimosse",
   "compare.noPages": "Nessuna pagina {type} trovata.",
   "compare.noLinks": "Nessun link {type} trovato.",
-
   "logs.title": "Log Applicazione",
   "logs.exportJsonl": "Esporta JSONL",
   "logs.allLevels": "Tutti i Livelli",
@@ -269,7 +259,6 @@
   "logs.component": "Componente",
   "logs.message": "Messaggio",
   "logs.noLogs": "Nessun log trovato",
-
   "api.subtitle": "Usa questa API per automatizzare le scansioni, leggere i risultati o collegare i tuoi strumenti (LLM, script, ecc.)",
   "api.reference": "Riferimento API",
   "api.referenceDesc": "Tutti gli endpoint disponibili con URL assoluti. Copia e incolla nel tuo LLM o script.",
@@ -299,14 +288,12 @@
   "api.revoke": "Revoca",
   "api.neverUsed": "Mai usata",
   "api.used": "Usata",
-
   "projects.title": "Tutti i Progetti",
   "projects.newProject": "Nuovo Progetto",
   "projects.searchProjects": "Cerca progetti...",
   "projects.projectCount": "progetto/i",
   "projects.created": "Creato",
   "projects.noProjects": "Nessun progetto trovato",
-
   "project.dashboard": "Dashboard",
   "project.doubleClickRename": "Doppio clic per rinominare",
   "project.deleteProject": "Elimina progetto",
@@ -319,7 +306,6 @@
   "project.seoData": "Dati SEO",
   "project.seedUrl": "URL di partenza",
   "project.noSessions": "Nessuna sessione di scansione in questo progetto.",
-
   "settings.title": "Impostazioni",
   "settings.appName": "Nome App",
   "settings.logoUrl": "URL Logo",
@@ -361,12 +347,9 @@
   "settings.restoreFailed": "Ripristino fallito: {error}",
   "settings.deleteBackupConfirm": "Eliminare il backup {name}?",
   "settings.deleteFailed": "Eliminazione fallita: {error}",
-
   "dataTable.clearFilters": "Cancella filtri",
-
   "confirmModal.cancel": "Annulla",
   "confirmModal.confirm": "Conferma",
-
   "resumeModal.title": "Riprendi Scansione",
   "resumeModal.maxPages": "Pagine max (0 = illimitato)",
   "resumeModal.maxDepth": "Profondità max (0 = illimitato)",
@@ -379,12 +362,10 @@
   "resumeModal.storeHtml": "Salva HTML grezzo",
   "resumeModal.resume": "Riprendi",
   "resumeModal.resuming": "Ripresa...",
-
   "htmlModal.render": "Rendering",
   "htmlModal.source": "Sorgente",
   "htmlModal.noHtml": "Nessun HTML salvato per questa pagina.",
   "htmlModal.pageRender": "Rendering pagina",
-
   "urlDetail.openUrl": "Apri URL",
   "urlDetail.viewHtml": "Visualizza HTML",
   "urlDetail.statusCode": "Codice di Stato",
@@ -444,7 +425,6 @@
   "urlDetail.deltaImages": "Immagini Δ",
   "urlDetail.newSchema": "Nuovo Schema",
   "urlDetail.pageNotFound": "Pagina non trovata.",
-
   "tabs.allPages": "Tutte le Pagine",
   "tabs.titles": "Titoli",
   "tabs.meta": "Meta",
@@ -466,7 +446,6 @@
   "tabs.directives": "Direttive",
   "tabs.nearDuplicates": "Duplicati",
   "tabs.authority": "Esterno",
-
   "pages.all": "Tutte",
   "pages.titles": "Titoli",
   "pages.meta": "Meta",
@@ -475,7 +454,6 @@
   "pages.indexability": "Indicizzabilità",
   "pages.response": "Risposta",
   "pages.redirects": "Redirect",
-
   "links.internal": "Interni",
   "links.external": "Esterni",
   "links.checks": "Controlli",
@@ -494,12 +472,10 @@
   "links.lastSeen": "Ultima apparizione",
   "links.backlinksCount": "{count} backlink",
   "links.noBacklinks": "Nessun dato sui backlink disponibile.",
-
   "directives.robots": "Robots.txt",
   "directives.sitemaps": "Sitemap",
   "directives.sitemapOnly": "Solo sitemap",
   "directives.inBoth": "In entrambi",
-
   "pagerank.topPages": "Pagine Principali",
   "pagerank.byDirectory": "Per Directory",
   "pagerank.distribution": "Distribuzione",
@@ -531,7 +507,6 @@
   "pagerank.weightedNeedProject": "Associa questa sessione a un progetto con dati SEObserver per vedere il PageRank Ponderato.",
   "pagerank.score": "Punteggio PageRank Interno",
   "pagerank.pagesLog": "Pagine (log)",
-
   "robots.noData": "Nessun dato robots.txt. Esegui prima una scansione.",
   "robots.host": "Host",
   "robots.fetched": "Recuperato",
@@ -558,7 +533,6 @@
   "robots.urlsNewlyAllowed": "URL appena consentiti",
   "robots.noChanges": "Nessuna modifica — tutti gli URL mantengono lo stato attuale.",
   "robots.selectHost": "Seleziona un host per visualizzare il suo robots.txt",
-
   "sitemaps.noData": "Nessuna sitemap trovata. Esegui prima una scansione.",
   "sitemaps.urls": "URL",
   "sitemaps.noUrls": "Nessun URL in questa sitemap.",
@@ -566,7 +540,6 @@
   "sitemaps.changeFreq": "Frequenza di Modifica",
   "sitemaps.priority": "Priorità",
   "sitemaps.selectSitemap": "Seleziona una sitemap per visualizzare i suoi URL",
-
   "extChecks.domains": "Domini",
   "extChecks.urls": "URL",
   "extChecks.filterDomains": "Filtra domini...",
@@ -589,7 +562,6 @@
   "extChecks.deadLabel": "Morto",
   "extChecks.noChecksFound": "Nessun controllo trovato",
   "extChecks.viewSources": "Visualizza pagine che linkano questo URL",
-
   "resources.summary": "Riepilogo",
   "resources.urls": "URL",
   "resources.filterUrls": "Filtra URL...",
@@ -612,7 +584,6 @@
   "resources.pagesCount": "Pagine",
   "resources.timeMs": "Tempo (ms)",
   "resources.noChecksFound": "Nessun controllo trovato",
-
   "tests.rulesets": "Insiemi di Regole",
   "tests.newRuleset": "+ Nuovo Insieme di Regole",
   "tests.noRulesets": "Nessun insieme di regole ancora. Creane uno per iniziare a testare le pagine.",
@@ -664,7 +635,6 @@
   "tests.nameRequired": "Il nome dell'insieme di regole è obbligatorio",
   "tests.ruleRequired": "Almeno una regola è obbligatoria",
   "tests.deleteConfirm": "Eliminare questo insieme di regole?",
-
   "gsc.notAssociated": "Questa sessione non è associata a un progetto.",
   "gsc.associateFirst": "Associala prima a un progetto, poi connetti Google Search Console.",
   "gsc.connectTitle": "Connetti Google Search Console",
@@ -719,7 +689,6 @@
   "gsc.mobile": "Mobile",
   "gsc.rich": "Rich",
   "gsc.noInspectionData": "Nessun dato di ispezione disponibile.",
-
   "providers.notAssociated": "Questa sessione non è associata a un progetto.",
   "providers.associateFirst": "Associala prima a un progetto, poi connetti un fornitore di dati SEO.",
   "providers.connectTitle": "Connetti SEObserver",
@@ -788,7 +757,6 @@
   "providers.limitTopPages": "Pagine Principali",
   "providers.dangerZone": "Zona Pericolosa",
   "providers.disconnectWarning": "La disconnessione rimuoverà la chiave API e tutti i dati recuperati per questo fornitore.",
-
   "reports.overview": "Panoramica",
   "reports.content": "Contenuto",
   "reports.technical": "Tecnico",
@@ -799,7 +767,6 @@
   "reports.loadingAudit": "Caricamento dati di audit...",
   "reports.loadFailed": "Caricamento audit fallito: {error}",
   "reports.requiresAudit": "Richiede il calcolo dell'audit. Clicca su una sotto-vista per caricare.",
-
   "report.overview.healthScore": "Punteggio di Salute",
   "report.overview.health": "Salute",
   "report.overview.totalPages": "Pagine Totali",
@@ -821,7 +788,6 @@
   "report.overview.3xxRedirect": "3xx Redirect",
   "report.overview.4xxClientError": "4xx Errore Client",
   "report.overview.5xxServerError": "5xx Errore Server",
-
   "report.content.titles": "Titoli",
   "report.content.missing": "Mancante",
   "report.content.tooLong": "Troppo Lungo",
@@ -843,7 +809,6 @@
   "report.content.metaTooShortChart": "Troppo Corto (<70)",
   "report.content.okH1": "OK (1 H1)",
   "report.content.multiple": "Multipli",
-
   "report.technical.indexability": "Indicizzabilità",
   "report.technical.indexable": "Indicizzabile",
   "report.technical.nonIndexable": "Non Indicizzabile",
@@ -862,7 +827,6 @@
   "report.technical.missing": "Mancante",
   "report.technical.self": "Stesso",
   "report.technical.other": "Altro",
-
   "report.links.internalLinks": "Link Interni",
   "report.links.totalInternal": "Totale Interni",
   "report.links.noOutlinks": "Pagine Senza Link in Uscita",
@@ -876,12 +840,10 @@
   "report.links.topExternalDomains": "Principali Domini Esterni",
   "report.links.topAnchors": "Principali Testi Ancora Interni",
   "report.links.noData": "Nessun dato di audit sui link disponibile.",
-
   "report.structure.directories": "Directory",
   "report.structure.depthDist": "Distribuzione Profondità",
   "report.structure.orphanPages": "Pagine Orfane",
   "report.structure.noData": "Nessun dato di audit sulla struttura disponibile.",
-
   "report.sitemap.coverage": "Copertura Sitemap",
   "report.sitemap.coverageLabel": "copertura",
   "report.sitemap.inBoth": "In Entrambi",
@@ -889,7 +851,6 @@
   "report.sitemap.sitemapOnly": "Solo Sitemap",
   "report.sitemap.totalUrls": "URL Totali Sitemap",
   "report.sitemap.noData": "Nessun dato di audit sulle sitemap disponibile.",
-
   "report.international.schemaTypes": "Tipi Schema.org",
   "report.international.noSchema": "Nessun tipo di schema rilevato.",
   "report.international.pagesWithSchema": "Pagine con Schema",
@@ -899,12 +860,9 @@
   "report.international.pagesWithHreflang": "Pagine con Hreflang",
   "report.international.pagesWithLang": "Pagine con Lingua",
   "report.international.noData": "Nessun dato di audit internazionale disponibile.",
-
   "api.confirmDeleteProject": "Eliminare questo progetto? Verranno eliminate anche le chiavi API associate.",
   "api.confirmRevokeKey": "Revocare questa chiave API?",
-
   "gsc.robots": "Robots",
-
   "providers.apiKeyLabel": "Chiave API",
   "providers.domainCol": "Dominio",
   "providers.fetchingPhase": "Recupero",
@@ -928,7 +886,6 @@
   "providers.apiCalls.duration": "Durata",
   "providers.apiCalls.rows": "Righe",
   "providers.apiCalls.error": "Errore",
-
   "authority.title": "Autorità",
   "authority.connectCta": "Connetti il tuo account SEObserver per sbloccare i dati di Autorità (TrustFlow, CitationFlow, metriche backlink per pagina).",
   "authority.connectBtn": "Connetti SEObserver",
@@ -944,9 +901,7 @@
   "authority.enrichment": "Arricchimento autorità",
   "authority.enrichmentDisconnected": "Connetti SEObserver per arricchire {count} pagine scansionate con TrustFlow, CitationFlow e dati backlink",
   "authority.enrichmentConnected": "{matched} di {total} pagine abbinate con dati di autorità — vedi la scheda Autorità",
-
   "resources.source": "Sorgente",
-
   "tests.attributeName": "Nome attributo",
   "tests.cssExists": "Selettore CSS esistente",
   "tests.cssExtractAllAttr": "CSS estrai TUTTI gli attributi",
@@ -954,9 +909,7 @@
   "tests.regexExtract": "Gruppo di cattura Regex",
   "tests.regexExtractAll": "Cattura TUTTO Regex",
   "tests.xpathExpression": "Espressione XPath",
-
   "tabs.extract": "Estrai",
-
   "extract.sets": "Set di Estrattori",
   "extract.newSet": "+ Nuovo Set di Estrattori",
   "extract.noSets": "Nessun set di estrattori ancora. Creane uno per estrarre dati durante la scansione.",
@@ -996,10 +949,8 @@
   "extract.xpathExpr": "Espressione XPath",
   "extract.resultsAvailable": "{count} pagine con dati di estrazione — clicca per visualizzare",
   "extract.runRequiresHtml": "Riesegui su HTML salvato (richiede store_html abilitato)",
-
   "newCrawl.extractorSet": "Set di estrattori (facoltativo)",
   "newCrawl.noExtractorSet": "Nessun set di estrattori",
-
   "neardup.urlA": "URL A",
   "neardup.urlB": "URL B",
   "neardup.titleA": "Titolo A",
@@ -1021,7 +972,6 @@
   "neardup.noCanonical": "Nessun canonical",
   "neardup.selfCanonical": "Self-canonical",
   "neardup.crossCanonical": "Punta ad altro",
-
   "onboarding.step1Title": "Scegli la tua lingua",
   "onboarding.step1Subtitle": "Puoi cambiarla in seguito nelle Impostazioni.",
   "onboarding.step2Title": "Impostazioni predefinite di scansione",
@@ -1046,8 +996,10 @@
   "onboarding.downloadProgress": "Download motore database... {percent}%",
   "onboarding.downloadComplete": "Motore database pronto",
   "onboarding.waitingForEngine": "In attesa del motore database...",
-
   "settings.telemetryTitle": "Analisi",
   "settings.telemetryDesc": "Invia dati di utilizzo anonimi per aiutarci a migliorare CrawlObserver. Nessun dato personale, URL o contenuto di scansione viene mai raccolto.",
-  "settings.telemetryEnabled": "Analisi anonime abilitate"
+  "settings.telemetryEnabled": "Analisi anonime abilitate",
+  "settings.sessionRecording": "Registrazione sessione",
+  "settings.sessionRecordingDesc": "Registra le sessioni complete del browser e le invia a PostHog. Questo include tutti gli URL, i contenuti delle pagine e i clic visibili nella tua interfaccia CrawlObserver.",
+  "settings.sessionRecordingWarning": "ATTENZIONE: Quando attivato, il team di CrawlObserver può vedere tutto ciò che viene visualizzato nella tua sessione del browser. Attiva questa opzione solo a scopo di debug."
 }

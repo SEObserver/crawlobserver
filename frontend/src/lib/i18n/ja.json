@@ -58,11 +58,9 @@
   "common.source": "ソース",
   "common.target": "ターゲット",
   "common.filter": "フィルター",
-
   "timeAgo.justNow": "たった今",
   "timeAgo.minutesAgo": "{count}分前",
   "timeAgo.hoursAgo": "{count}時間前",
-
   "app.skipToContent": "コンテンツへスキップ",
   "app.updateAvailable": "アップデートあり: v{version}",
   "app.backupAndUpdate": "バックアップしてアップデート",
@@ -70,7 +68,6 @@
   "app.downloadingUpdate": "アップデートをダウンロードしてインストール中...",
   "app.updateInstalled": "アップデートがインストールされました。再起動して適用してください。",
   "app.updateFailed": "アップデートに失敗しました: {error}",
-
   "sidebar.mainMenu": "メインメニュー",
   "sidebar.dashboard": "ダッシュボード",
   "sidebar.newCrawl": "新規クロール",
@@ -95,7 +92,6 @@
   "sidebar.darkMode": "ダークモード",
   "sidebar.byBrand": "by SEObserver",
   "sidebar.viewAllProjects": "全プロジェクトを表示",
-
   "sessions.title": "クロールセッション",
   "sessions.newCrawl": "新規クロール",
   "sessions.noSessions": "クロールセッションがありません",
@@ -105,7 +101,6 @@
   "sessions.lost": "消失",
   "sessions.pagesCount": "{count} ページ",
   "sessions.resume": "再開",
-
   "newCrawl.title": "新規クロール",
   "newCrawl.seedUrls": "シード URL（1行に1つ）",
   "newCrawl.workers": "ワーカー数",
@@ -150,7 +145,6 @@
   "newCrawl.yourIP": "あなたの IP: {ip}",
   "newCrawl.startCrawl": "クロール開始",
   "newCrawl.starting": "開始中...",
-
   "session.queued": "キュー待ち",
   "session.sessions": "セッション",
   "session.urlDetail": "URL 詳細",
@@ -192,7 +186,6 @@
   "session.anchorText": "アンカーテキスト",
   "session.tag": "タグ",
   "session.rel": "Rel",
-
   "actionBar.inQueue": "キュー内",
   "actionBar.started": "開始日時",
   "actionBar.recomputeDepths": "深度を再計算",
@@ -207,7 +200,6 @@
   "actionBar.exportSession": "セッションをエクスポート",
   "actionBar.includeHtml": "HTML 本文を含める（ファイルサイズ増大）",
   "actionBar.downloadJsonl": ".jsonl.gz をダウンロード",
-
   "stats.title": "全体統計",
   "stats.loadingStats": "全体統計を読み込み中...",
   "stats.totalPages": "総ページ数",
@@ -229,7 +221,6 @@
   "stats.deleteUnassigned": "未割り当てセッションをすべて削除",
   "stats.confirmDeleteUnassigned": "プロジェクトのないすべてのセッションを削除しますか？この操作は元に戻せません。",
   "stats.deletedCount": "{count} 件のセッションを削除しました",
-
   "compare.title": "クロールを比較",
   "compare.sessionA": "セッション A（変更前）",
   "compare.sessionB": "セッション B（変更後）",
@@ -250,7 +241,6 @@
   "compare.removed": "削除",
   "compare.noPages": "{type} ページが見つかりません。",
   "compare.noLinks": "{type} リンクが見つかりません。",
-
   "logs.title": "アプリケーションログ",
   "logs.exportJsonl": "JSONL エクスポート",
   "logs.allLevels": "全レベル",
@@ -269,7 +259,6 @@
   "logs.component": "コンポーネント",
   "logs.message": "メッセージ",
   "logs.noLogs": "ログが見つかりません",
-
   "api.subtitle": "この API を使用してクロールの自動化、結果の読み取り、ツール（LLM、スクリプトなど）との連携が可能です",
   "api.reference": "API リファレンス",
   "api.referenceDesc": "絶対 URL 付きの全エンドポイント一覧。LLM やスクリプトにコピー＆ペーストできます。",
@@ -299,14 +288,12 @@
   "api.revoke": "取り消し",
   "api.neverUsed": "未使用",
   "api.used": "使用済み",
-
   "projects.title": "全プロジェクト",
   "projects.newProject": "新規プロジェクト",
   "projects.searchProjects": "プロジェクトを検索...",
   "projects.projectCount": "件のプロジェクト",
   "projects.created": "作成日",
   "projects.noProjects": "プロジェクトが見つかりません",
-
   "project.dashboard": "ダッシュボード",
   "project.doubleClickRename": "ダブルクリックで名前変更",
   "project.deleteProject": "プロジェクトを削除",
@@ -319,7 +306,6 @@
   "project.seoData": "SEO データ",
   "project.seedUrl": "シード URL",
   "project.noSessions": "このプロジェクトにはまだクロールセッションがありません。",
-
   "settings.title": "設定",
   "settings.appName": "アプリ名",
   "settings.logoUrl": "ロゴ URL",
@@ -361,12 +347,9 @@
   "settings.restoreFailed": "復元に失敗しました: {error}",
   "settings.deleteBackupConfirm": "バックアップ {name} を削除しますか？",
   "settings.deleteFailed": "削除に失敗しました: {error}",
-
   "dataTable.clearFilters": "フィルターをクリア",
-
   "confirmModal.cancel": "キャンセル",
   "confirmModal.confirm": "確認",
-
   "resumeModal.title": "クロールを再開",
   "resumeModal.maxPages": "最大ページ数（0 = 無制限）",
   "resumeModal.maxDepth": "最大深度（0 = 無制限）",
@@ -379,12 +362,10 @@
   "resumeModal.storeHtml": "生の HTML を保存",
   "resumeModal.resume": "再開",
   "resumeModal.resuming": "再開中...",
-
   "htmlModal.render": "レンダリング",
   "htmlModal.source": "ソース",
   "htmlModal.noHtml": "このページには HTML が保存されていません。",
   "htmlModal.pageRender": "ページレンダリング",
-
   "urlDetail.openUrl": "URL を開く",
   "urlDetail.viewHtml": "HTML を表示",
   "urlDetail.statusCode": "ステータスコード",
@@ -444,7 +425,6 @@
   "urlDetail.deltaImages": "画像差分",
   "urlDetail.newSchema": "新規 Schema",
   "urlDetail.pageNotFound": "ページが見つかりません。",
-
   "tabs.allPages": "全ページ",
   "tabs.titles": "タイトル",
   "tabs.meta": "Meta",
@@ -466,7 +446,6 @@
   "tabs.directives": "ディレクティブ",
   "tabs.nearDuplicates": "重複",
   "tabs.authority": "オフサイト",
-
   "pages.all": "すべて",
   "pages.titles": "タイトル",
   "pages.meta": "Meta",
@@ -475,7 +454,6 @@
   "pages.indexability": "インデックス可能性",
   "pages.response": "レスポンス",
   "pages.redirects": "リダイレクト",
-
   "links.internal": "内部",
   "links.external": "外部",
   "links.checks": "チェック",
@@ -494,12 +472,10 @@
   "links.lastSeen": "最終検出",
   "links.backlinksCount": "{count} バックリンク",
   "links.noBacklinks": "バックリンクデータがありません。",
-
   "directives.robots": "Robots.txt",
   "directives.sitemaps": "サイトマップ",
   "directives.sitemapOnly": "サイトマップのみ",
   "directives.inBoth": "両方に存在",
-
   "pagerank.topPages": "上位ページ",
   "pagerank.byDirectory": "ディレクトリ別",
   "pagerank.distribution": "分布",
@@ -531,7 +507,6 @@
   "pagerank.weightedNeedProject": "加重 PageRank を表示するには、このセッションを SEObserver データがあるプロジェクトに関連付けてください。",
   "pagerank.score": "内部 PageRank スコア",
   "pagerank.pagesLog": "ページ数（対数）",
-
   "robots.noData": "Robots.txt データがありません。まずクロールを実行してください。",
   "robots.host": "ホスト",
   "robots.fetched": "取得日時",
@@ -558,7 +533,6 @@
   "robots.urlsNewlyAllowed": "新たに許可された URL",
   "robots.noChanges": "変更なし — すべての URL が現在のステータスを維持します。",
   "robots.selectHost": "ホストを選択して robots.txt を表示",
-
   "sitemaps.noData": "サイトマップが見つかりません。まずクロールを実行してください。",
   "sitemaps.urls": "URL",
   "sitemaps.noUrls": "このサイトマップに URL はありません。",
@@ -566,7 +540,6 @@
   "sitemaps.changeFreq": "更新頻度",
   "sitemaps.priority": "優先度",
   "sitemaps.selectSitemap": "サイトマップを選択して URL を表示",
-
   "extChecks.domains": "ドメイン",
   "extChecks.urls": "URL",
   "extChecks.filterDomains": "ドメインをフィルター...",
@@ -589,7 +562,6 @@
   "extChecks.deadLabel": "デッド",
   "extChecks.noChecksFound": "チェックが見つかりません",
   "extChecks.viewSources": "この URL にリンクしているページを表示",
-
   "resources.summary": "サマリー",
   "resources.urls": "URL",
   "resources.filterUrls": "URL をフィルター...",
@@ -612,7 +584,6 @@
   "resources.pagesCount": "ページ数",
   "resources.timeMs": "時間 (ms)",
   "resources.noChecksFound": "チェックが見つかりません",
-
   "tests.rulesets": "ルールセット",
   "tests.newRuleset": "+ 新規ルールセット",
   "tests.noRulesets": "ルールセットがまだありません。作成してページのテストを開始しましょう。",
@@ -664,7 +635,6 @@
   "tests.nameRequired": "ルールセット名は必須です",
   "tests.ruleRequired": "少なくとも1つのルールが必要です",
   "tests.deleteConfirm": "このルールセットを削除しますか？",
-
   "gsc.notAssociated": "このセッションはプロジェクトに関連付けられていません。",
   "gsc.associateFirst": "まずプロジェクトに関連付けてから、Google Search Console を接続してください。",
   "gsc.connectTitle": "Google Search Console を接続",
@@ -719,7 +689,6 @@
   "gsc.mobile": "モバイル",
   "gsc.rich": "リッチ",
   "gsc.noInspectionData": "検査データがありません。",
-
   "providers.notAssociated": "このセッションはプロジェクトに関連付けられていません。",
   "providers.associateFirst": "まずプロジェクトに関連付けてから、SEO データプロバイダーを接続してください。",
   "providers.connectTitle": "SEObserver を接続",
@@ -788,7 +757,6 @@
   "providers.limitTopPages": "上位ページ",
   "providers.dangerZone": "危険な操作",
   "providers.disconnectWarning": "切断すると、このプロバイダーの API キーと取得済みデータがすべて削除されます。",
-
   "reports.overview": "概要",
   "reports.content": "コンテンツ",
   "reports.technical": "テクニカル",
@@ -799,7 +767,6 @@
   "reports.loadingAudit": "監査データを読み込み中...",
   "reports.loadFailed": "監査の読み込みに失敗しました: {error}",
   "reports.requiresAudit": "監査の計算が必要です。サブビューをクリックして読み込んでください。",
-
   "report.overview.healthScore": "健全性スコア",
   "report.overview.health": "健全性",
   "report.overview.totalPages": "総ページ数",
@@ -821,7 +788,6 @@
   "report.overview.3xxRedirect": "3xx リダイレクト",
   "report.overview.4xxClientError": "4xx クライアントエラー",
   "report.overview.5xxServerError": "5xx サーバーエラー",
-
   "report.content.titles": "タイトル",
   "report.content.missing": "欠落",
   "report.content.tooLong": "長すぎる",
@@ -843,7 +809,6 @@
   "report.content.metaTooShortChart": "短すぎる (<70)",
   "report.content.okH1": "OK (H1 が1つ)",
   "report.content.multiple": "複数",
-
   "report.technical.indexability": "インデックス可能性",
   "report.technical.indexable": "インデックス可能",
   "report.technical.nonIndexable": "インデックス不可",
@@ -862,7 +827,6 @@
   "report.technical.missing": "欠落",
   "report.technical.self": "自己参照",
   "report.technical.other": "その他",
-
   "report.links.internalLinks": "内部リンク",
   "report.links.totalInternal": "内部リンク合計",
   "report.links.noOutlinks": "発信リンクなしのページ",
@@ -876,12 +840,10 @@
   "report.links.topExternalDomains": "外部ドメイン上位",
   "report.links.topAnchors": "内部アンカーテキスト上位",
   "report.links.noData": "リンク監査データがありません。",
-
   "report.structure.directories": "ディレクトリ",
   "report.structure.depthDist": "深度分布",
   "report.structure.orphanPages": "孤立ページ",
   "report.structure.noData": "構造監査データがありません。",
-
   "report.sitemap.coverage": "サイトマップカバレッジ",
   "report.sitemap.coverageLabel": "カバレッジ",
   "report.sitemap.inBoth": "両方に存在",
@@ -889,7 +851,6 @@
   "report.sitemap.sitemapOnly": "サイトマップのみ",
   "report.sitemap.totalUrls": "サイトマップ URL 合計",
   "report.sitemap.noData": "サイトマップ監査データがありません。",
-
   "report.international.schemaTypes": "Schema.org タイプ",
   "report.international.noSchema": "Schema タイプは検出されませんでした。",
   "report.international.pagesWithSchema": "Schema ありのページ",
@@ -899,12 +860,9 @@
   "report.international.pagesWithHreflang": "Hreflang ありのページ",
   "report.international.pagesWithLang": "Lang ありのページ",
   "report.international.noData": "国際化監査データがありません。",
-
   "api.confirmDeleteProject": "このプロジェクトを削除しますか？関連する API キーも削除されます。",
   "api.confirmRevokeKey": "この API キーを取り消しますか？",
-
   "gsc.robots": "Robots",
-
   "providers.apiKeyLabel": "API キー",
   "providers.domainCol": "ドメイン",
   "providers.fetchingPhase": "取得中",
@@ -928,7 +886,6 @@
   "providers.apiCalls.duration": "所要時間",
   "providers.apiCalls.rows": "行数",
   "providers.apiCalls.error": "エラー",
-
   "authority.title": "オーソリティ",
   "authority.connectCta": "SEObserver アカウントを接続して、オーソリティデータ（TrustFlow、CitationFlow、ページごとのバックリンク指標）を解放しましょう。",
   "authority.connectBtn": "SEObserver を接続",
@@ -944,9 +901,7 @@
   "authority.enrichment": "オーソリティ補強",
   "authority.enrichmentDisconnected": "SEObserver を接続して、{count} 件のクロール済みページに TrustFlow、CitationFlow、バックリンクデータを追加",
   "authority.enrichmentConnected": "{total} ページ中 {matched} ページがオーソリティデータとマッチ — オーソリティタブを参照",
-
   "resources.source": "ソース",
-
   "tests.attributeName": "属性名",
   "tests.cssExists": "CSS セレクターが存在する",
   "tests.cssExtractAllAttr": "CSS 全属性抽出",
@@ -954,9 +909,7 @@
   "tests.regexExtract": "Regex キャプチャグループ",
   "tests.regexExtractAll": "Regex 全キャプチャ",
   "tests.xpathExpression": "XPath 式",
-
   "tabs.extract": "抽出",
-
   "extract.sets": "抽出セット",
   "extract.newSet": "+ 新規抽出セット",
   "extract.noSets": "抽出セットがまだありません。作成してクロール中にデータを抽出しましょう。",
@@ -996,10 +949,8 @@
   "extract.xpathExpr": "XPath 式",
   "extract.resultsAvailable": "{count} ページに抽出データあり — クリックして表示",
   "extract.runRequiresHtml": "保存済み HTML で再実行（store_html の有効化が必要）",
-
   "newCrawl.extractorSet": "抽出セット（任意）",
   "newCrawl.noExtractorSet": "抽出セットなし",
-
   "neardup.urlA": "URL A",
   "neardup.urlB": "URL B",
   "neardup.titleA": "タイトル A",
@@ -1021,7 +972,6 @@
   "neardup.noCanonical": "Canonical なし",
   "neardup.selfCanonical": "自己参照 Canonical",
   "neardup.crossCanonical": "他を参照",
-
   "onboarding.step1Title": "言語を選択",
   "onboarding.step1Subtitle": "設定で後から変更できます。",
   "onboarding.step2Title": "クロールのデフォルト設定",
@@ -1046,8 +996,10 @@
   "onboarding.downloadProgress": "データベースエンジンをダウンロード中... {percent}%",
   "onboarding.downloadComplete": "データベースエンジンの準備完了",
   "onboarding.waitingForEngine": "データベースエンジンを待機中...",
-
   "settings.telemetryTitle": "アナリティクス",
   "settings.telemetryDesc": "CrawlObserver の改善のため、匿名の使用データを送信します。個人データ、URL、クロール内容は一切収集されません。",
-  "settings.telemetryEnabled": "匿名アナリティクスが有効です"
+  "settings.telemetryEnabled": "匿名アナリティクスが有効です",
+  "settings.sessionRecording": "セッション録画",
+  "settings.sessionRecordingDesc": "ブラウザセッション全体を録画してPostHogに送信します。CrawlObserverインターフェースに表示されるすべてのURL、ページコンテンツ、クリックが含まれます。",
+  "settings.sessionRecordingWarning": "警告：有効にすると、CrawlObserverチームがブラウザセッションに表示されるすべての内容を確認できます。デバッグ目的でのみ有効にしてください。"
 }

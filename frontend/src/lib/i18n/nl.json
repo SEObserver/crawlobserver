@@ -58,11 +58,9 @@
   "common.source": "Bron",
   "common.target": "Doel",
   "common.filter": "Filter",
-
   "timeAgo.justNow": "zojuist",
   "timeAgo.minutesAgo": "{count}m geleden",
   "timeAgo.hoursAgo": "{count}u geleden",
-
   "app.skipToContent": "Ga naar inhoud",
   "app.updateAvailable": "Update beschikbaar: v{version}",
   "app.backupAndUpdate": "Back-up & bijwerken",
@@ -70,7 +68,6 @@
   "app.downloadingUpdate": "Update downloaden en installeren...",
   "app.updateInstalled": "Update geïnstalleerd. Herstart om toe te passen.",
   "app.updateFailed": "Update mislukt: {error}",
-
   "sidebar.mainMenu": "Hoofdmenu",
   "sidebar.dashboard": "Dashboard",
   "sidebar.newCrawl": "Nieuwe crawl",
@@ -95,7 +92,6 @@
   "sidebar.darkMode": "Donkere modus",
   "sidebar.byBrand": "door SEObserver",
   "sidebar.viewAllProjects": "Alle projecten bekijken",
-
   "sessions.title": "Crawlsessies",
   "sessions.newCrawl": "Nieuwe crawl",
   "sessions.noSessions": "Nog geen crawlsessies",
@@ -105,7 +101,6 @@
   "sessions.lost": "verloren",
   "sessions.pagesCount": "{count} pagina's",
   "sessions.resume": "Hervatten",
-
   "newCrawl.title": "Nieuwe crawl",
   "newCrawl.seedUrls": "Start-URL's (één per regel)",
   "newCrawl.workers": "Workers",
@@ -150,7 +145,6 @@
   "newCrawl.yourIP": "Uw IP: {ip}",
   "newCrawl.startCrawl": "Crawl starten",
   "newCrawl.starting": "Starten...",
-
   "session.queued": "In wachtrij",
   "session.sessions": "Sessies",
   "session.urlDetail": "URL-details",
@@ -192,7 +186,6 @@
   "session.anchorText": "Ankertekst",
   "session.tag": "Tag",
   "session.rel": "Rel",
-
   "actionBar.inQueue": "in wachtrij",
   "actionBar.started": "Gestart",
   "actionBar.recomputeDepths": "Dieptes herberekenen",
@@ -207,7 +200,6 @@
   "actionBar.exportSession": "Sessie exporteren",
   "actionBar.includeHtml": "HTML-body toevoegen (groter bestand)",
   "actionBar.downloadJsonl": ".jsonl.gz downloaden",
-
   "stats.title": "Algemene statistieken",
   "stats.loadingStats": "Algemene statistieken laden...",
   "stats.totalPages": "Totaal pagina's",
@@ -229,7 +221,6 @@
   "stats.deleteUnassigned": "Alle niet-toegewezen sessies verwijderen",
   "stats.confirmDeleteUnassigned": "Alle sessies zonder project verwijderen? Dit kan niet ongedaan worden gemaakt.",
   "stats.deletedCount": "{count} sessie(s) verwijderd",
-
   "compare.title": "Crawls vergelijken",
   "compare.sessionA": "Sessie A (voor)",
   "compare.sessionB": "Sessie B (na)",
@@ -250,7 +241,6 @@
   "compare.removed": "Verwijderd",
   "compare.noPages": "Geen {type} pagina's gevonden.",
   "compare.noLinks": "Geen {type} links gevonden.",
-
   "logs.title": "Applicatielogboeken",
   "logs.exportJsonl": "JSONL exporteren",
   "logs.allLevels": "Alle niveaus",
@@ -269,7 +259,6 @@
   "logs.component": "Component",
   "logs.message": "Bericht",
   "logs.noLogs": "Geen logboeken gevonden",
-
   "api.subtitle": "Gebruik deze API om crawls te automatiseren, resultaten te lezen of uw tools te koppelen (LLM's, scripts, enz.)",
   "api.reference": "API-referentie",
   "api.referenceDesc": "Alle beschikbare endpoints met absolute URL's. Kopieer en plak naar uw LLM of script.",
@@ -299,14 +288,12 @@
   "api.revoke": "Intrekken",
   "api.neverUsed": "Nooit gebruikt",
   "api.used": "Gebruikt",
-
   "projects.title": "Alle projecten",
   "projects.newProject": "Nieuw project",
   "projects.searchProjects": "Projecten zoeken...",
   "projects.projectCount": "project(en)",
   "projects.created": "Aangemaakt",
   "projects.noProjects": "Geen projecten gevonden",
-
   "project.dashboard": "Dashboard",
   "project.doubleClickRename": "Dubbelklik om te hernoemen",
   "project.deleteProject": "Project verwijderen",
@@ -319,7 +306,6 @@
   "project.seoData": "SEO-gegevens",
   "project.seedUrl": "Start-URL",
   "project.noSessions": "Nog geen crawlsessies in dit project.",
-
   "settings.title": "Instellingen",
   "settings.appName": "Applicatienaam",
   "settings.logoUrl": "Logo-URL",
@@ -361,12 +347,9 @@
   "settings.restoreFailed": "Herstel mislukt: {error}",
   "settings.deleteBackupConfirm": "Back-up {name} verwijderen?",
   "settings.deleteFailed": "Verwijdering mislukt: {error}",
-
   "dataTable.clearFilters": "Filters wissen",
-
   "confirmModal.cancel": "Annuleren",
   "confirmModal.confirm": "Bevestigen",
-
   "resumeModal.title": "Crawl hervatten",
   "resumeModal.maxPages": "Max pagina's (0 = onbeperkt)",
   "resumeModal.maxDepth": "Max diepte (0 = onbeperkt)",
@@ -379,12 +362,10 @@
   "resumeModal.storeHtml": "Ruwe HTML opslaan",
   "resumeModal.resume": "Hervatten",
   "resumeModal.resuming": "Hervatten...",
-
   "htmlModal.render": "Renderen",
   "htmlModal.source": "Bron",
   "htmlModal.noHtml": "Geen HTML opgeslagen voor deze pagina.",
   "htmlModal.pageRender": "Paginaweergave",
-
   "urlDetail.openUrl": "URL openen",
   "urlDetail.viewHtml": "HTML bekijken",
   "urlDetail.statusCode": "Statuscode",
@@ -444,7 +425,6 @@
   "urlDetail.deltaImages": "Afbeeldingen Δ",
   "urlDetail.newSchema": "Nieuw schema",
   "urlDetail.pageNotFound": "Pagina niet gevonden.",
-
   "tabs.allPages": "Alle pagina's",
   "tabs.titles": "Titels",
   "tabs.meta": "Meta",
@@ -466,7 +446,6 @@
   "tabs.directives": "Richtlijnen",
   "tabs.nearDuplicates": "Duplicaten",
   "tabs.authority": "Extern",
-
   "pages.all": "Alles",
   "pages.titles": "Titels",
   "pages.meta": "Meta",
@@ -475,7 +454,6 @@
   "pages.indexability": "Indexeerbaarheid",
   "pages.response": "Respons",
   "pages.redirects": "Doorverwijzingen",
-
   "links.internal": "Intern",
   "links.external": "Extern",
   "links.checks": "Controles",
@@ -494,12 +472,10 @@
   "links.lastSeen": "Laatst gezien",
   "links.backlinksCount": "{count} backlinks",
   "links.noBacklinks": "Geen backlinkgegevens beschikbaar.",
-
   "directives.robots": "Robots.txt",
   "directives.sitemaps": "Sitemaps",
   "directives.sitemapOnly": "Alleen sitemap",
   "directives.inBoth": "In beide",
-
   "pagerank.topPages": "Toppagina's",
   "pagerank.byDirectory": "Per map",
   "pagerank.distribution": "Verdeling",
@@ -531,7 +507,6 @@
   "pagerank.weightedNeedProject": "Koppel deze sessie aan een project met SEObserver-gegevens om gewogen PageRank te zien.",
   "pagerank.score": "Interne PageRank-score",
   "pagerank.pagesLog": "Pagina's (log)",
-
   "robots.noData": "Geen robots.txt-gegevens. Voer eerst een crawl uit.",
   "robots.host": "Host",
   "robots.fetched": "Opgehaald",
@@ -558,7 +533,6 @@
   "robots.urlsNewlyAllowed": "Nieuw toegestane URL's",
   "robots.noChanges": "Geen wijzigingen — alle URL's behouden hun huidige status.",
   "robots.selectHost": "Selecteer een host om de robots.txt te bekijken",
-
   "sitemaps.noData": "Geen sitemaps gevonden. Voer eerst een crawl uit.",
   "sitemaps.urls": "URL's",
   "sitemaps.noUrls": "Geen URL's in deze sitemap.",
@@ -566,7 +540,6 @@
   "sitemaps.changeFreq": "Wijzigingsfrequentie",
   "sitemaps.priority": "Prioriteit",
   "sitemaps.selectSitemap": "Selecteer een sitemap om de URL's te bekijken",
-
   "extChecks.domains": "Domeinen",
   "extChecks.urls": "URL's",
   "extChecks.filterDomains": "Domeinen filteren...",
@@ -589,7 +562,6 @@
   "extChecks.deadLabel": "Dood",
   "extChecks.noChecksFound": "Geen controles gevonden",
   "extChecks.viewSources": "Pagina's bekijken die naar deze URL linken",
-
   "resources.summary": "Samenvatting",
   "resources.urls": "URL's",
   "resources.filterUrls": "URL's filteren...",
@@ -612,7 +584,6 @@
   "resources.pagesCount": "Pagina's",
   "resources.timeMs": "Tijd (ms)",
   "resources.noChecksFound": "Geen controles gevonden",
-
   "tests.rulesets": "Regelsets",
   "tests.newRuleset": "+ Nieuwe regelset",
   "tests.noRulesets": "Nog geen regelsets. Maak er een aan om pagina's te testen.",
@@ -664,7 +635,6 @@
   "tests.nameRequired": "Regelsetnaam is verplicht",
   "tests.ruleRequired": "Minstens één regel is verplicht",
   "tests.deleteConfirm": "Deze regelset verwijderen?",
-
   "gsc.notAssociated": "Deze sessie is niet gekoppeld aan een project.",
   "gsc.associateFirst": "Koppel deze eerst aan een project en verbind vervolgens Google Search Console.",
   "gsc.connectTitle": "Google Search Console verbinden",
@@ -719,7 +689,6 @@
   "gsc.mobile": "Mobiel",
   "gsc.rich": "Rich",
   "gsc.noInspectionData": "Geen inspectiegegevens beschikbaar.",
-
   "providers.notAssociated": "Deze sessie is niet gekoppeld aan een project.",
   "providers.associateFirst": "Koppel deze eerst aan een project en verbind vervolgens een SEO-dataprovider.",
   "providers.connectTitle": "SEObserver verbinden",
@@ -788,7 +757,6 @@
   "providers.limitTopPages": "Toppagina's",
   "providers.dangerZone": "Gevarenzone",
   "providers.disconnectWarning": "Ontkoppelen verwijdert de API-sleutel en alle opgehaalde gegevens voor deze provider.",
-
   "reports.overview": "Overzicht",
   "reports.content": "Inhoud",
   "reports.technical": "Technisch",
@@ -799,7 +767,6 @@
   "reports.loadingAudit": "Auditgegevens laden...",
   "reports.loadFailed": "Audit laden mislukt: {error}",
   "reports.requiresAudit": "Vereist auditberekening. Klik op een subweergave om te laden.",
-
   "report.overview.healthScore": "Gezondheidsscore",
   "report.overview.health": "Gezondheid",
   "report.overview.totalPages": "Totaal pagina's",
@@ -821,7 +788,6 @@
   "report.overview.3xxRedirect": "3xx Doorverwijzing",
   "report.overview.4xxClientError": "4xx Clientfout",
   "report.overview.5xxServerError": "5xx Serverfout",
-
   "report.content.titles": "Titels",
   "report.content.missing": "Ontbrekend",
   "report.content.tooLong": "Te lang",
@@ -843,7 +809,6 @@
   "report.content.metaTooShortChart": "Te kort (<70)",
   "report.content.okH1": "OK (1 H1)",
   "report.content.multiple": "Meerdere",
-
   "report.technical.indexability": "Indexeerbaarheid",
   "report.technical.indexable": "Indexeerbaar",
   "report.technical.nonIndexable": "Niet-indexeerbaar",
@@ -862,7 +827,6 @@
   "report.technical.missing": "Ontbrekend",
   "report.technical.self": "Zelf",
   "report.technical.other": "Andere",
-
   "report.links.internalLinks": "Interne links",
   "report.links.totalInternal": "Totaal intern",
   "report.links.noOutlinks": "Pagina's zonder uitgaande links",
@@ -876,12 +840,10 @@
   "report.links.topExternalDomains": "Top externe domeinen",
   "report.links.topAnchors": "Top interne ankerteksten",
   "report.links.noData": "Geen linkauditgegevens beschikbaar.",
-
   "report.structure.directories": "Mappen",
   "report.structure.depthDist": "Diepteverdeling",
   "report.structure.orphanPages": "Weespagina's",
   "report.structure.noData": "Geen structuurauditgegevens beschikbaar.",
-
   "report.sitemap.coverage": "Sitemapdekking",
   "report.sitemap.coverageLabel": "dekking",
   "report.sitemap.inBoth": "In beide",
@@ -889,7 +851,6 @@
   "report.sitemap.sitemapOnly": "Alleen sitemap",
   "report.sitemap.totalUrls": "Totaal sitemap-URL's",
   "report.sitemap.noData": "Geen sitemapauditgegevens beschikbaar.",
-
   "report.international.schemaTypes": "Schema.org-typen",
   "report.international.noSchema": "Geen schematypen gedetecteerd.",
   "report.international.pagesWithSchema": "Pagina's met schema",
@@ -899,12 +860,9 @@
   "report.international.pagesWithHreflang": "Pagina's met hreflang",
   "report.international.pagesWithLang": "Pagina's met taal",
   "report.international.noData": "Geen internationale auditgegevens beschikbaar.",
-
   "api.confirmDeleteProject": "Dit project verwijderen? Gekoppelde API-sleutels worden ook verwijderd.",
   "api.confirmRevokeKey": "Deze API-sleutel intrekken?",
-
   "gsc.robots": "Robots",
-
   "providers.apiKeyLabel": "API-sleutel",
   "providers.domainCol": "Domein",
   "providers.fetchingPhase": "Ophalen",
@@ -928,7 +886,6 @@
   "providers.apiCalls.duration": "Duur",
   "providers.apiCalls.rows": "Rijen",
   "providers.apiCalls.error": "Fout",
-
   "authority.title": "Autoriteit",
   "authority.connectCta": "Verbind uw SEObserver-account om autoriteitsgegevens te ontgrendelen (TrustFlow, CitationFlow, backlinkstatistieken per pagina).",
   "authority.connectBtn": "SEObserver verbinden",
@@ -944,9 +901,7 @@
   "authority.enrichment": "Autoriteitsverrijking",
   "authority.enrichmentDisconnected": "Verbind SEObserver om {count} gecrawlde pagina's te verrijken met TrustFlow, CitationFlow en backlinkgegevens",
   "authority.enrichmentConnected": "{matched} van {total} pagina's gekoppeld met autoriteitsgegevens — zie tabblad Autoriteit",
-
   "resources.source": "Bron",
-
   "tests.attributeName": "Attribuutnaam",
   "tests.cssExists": "CSS-selector bestaat",
   "tests.cssExtractAllAttr": "CSS ALLE attributen extraheren",
@@ -954,9 +909,7 @@
   "tests.regexExtract": "Regex capture-groep",
   "tests.regexExtractAll": "Regex ALLES capturen",
   "tests.xpathExpression": "XPath-expressie",
-
   "tabs.extract": "Extraheren",
-
   "extract.sets": "Extractorsets",
   "extract.newSet": "+ Nieuwe extractorset",
   "extract.noSets": "Nog geen extractorsets. Maak er een aan om gegevens te extraheren tijdens het crawlen.",
@@ -996,10 +949,8 @@
   "extract.xpathExpr": "XPath-expressie",
   "extract.resultsAvailable": "{count} pagina's met extractiegegevens — klik om te bekijken",
   "extract.runRequiresHtml": "Opnieuw uitvoeren op opgeslagen HTML (vereist store_html ingeschakeld)",
-
   "newCrawl.extractorSet": "Extractorset (optioneel)",
   "newCrawl.noExtractorSet": "Geen extractorset",
-
   "neardup.urlA": "URL A",
   "neardup.urlB": "URL B",
   "neardup.titleA": "Titel A",
@@ -1021,7 +972,6 @@
   "neardup.noCanonical": "Geen canonical",
   "neardup.selfCanonical": "Zelf-canonical",
   "neardup.crossCanonical": "Verwijst naar andere",
-
   "onboarding.step1Title": "Kies uw taal",
   "onboarding.step1Subtitle": "U kunt dit later wijzigen in Instellingen.",
   "onboarding.step2Title": "Crawlstandaarden",
@@ -1046,8 +996,10 @@
   "onboarding.downloadProgress": "Database-engine downloaden... {percent}%",
   "onboarding.downloadComplete": "Database-engine gereed",
   "onboarding.waitingForEngine": "Wachten op database-engine...",
-
   "settings.telemetryTitle": "Analyse",
   "settings.telemetryDesc": "Stuur anonieme gebruiksgegevens om ons te helpen CrawlObserver te verbeteren. Er worden nooit persoonlijke gegevens, URL's of crawlinhoud verzameld.",
-  "settings.telemetryEnabled": "Anonieme analyse ingeschakeld"
+  "settings.telemetryEnabled": "Anonieme analyse ingeschakeld",
+  "settings.sessionRecording": "Sessieopname",
+  "settings.sessionRecordingDesc": "Neem volledige browsersessies op en verstuur ze naar PostHog. Dit omvat alle URL's, pagina-inhoud en klikken die zichtbaar zijn in uw CrawlObserver-interface.",
+  "settings.sessionRecordingWarning": "WAARSCHUWING: Wanneer ingeschakeld, kan het CrawlObserver-team alles zien wat in uw browsersessie wordt weergegeven. Schakel dit alleen in voor debugdoeleinden."
 }

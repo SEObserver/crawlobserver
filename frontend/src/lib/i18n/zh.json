@@ -58,11 +58,9 @@
   "common.source": "来源",
   "common.target": "目标",
   "common.filter": "筛选",
-
   "timeAgo.justNow": "刚刚",
   "timeAgo.minutesAgo": "{count}分钟前",
   "timeAgo.hoursAgo": "{count}小时前",
-
   "app.skipToContent": "跳至内容",
   "app.updateAvailable": "有可用更新：v{version}",
   "app.backupAndUpdate": "备份并更新",
@@ -70,7 +68,6 @@
   "app.downloadingUpdate": "正在下载并安装更新...",
   "app.updateInstalled": "更新已安装，重启后生效。",
   "app.updateFailed": "更新失败：{error}",
-
   "sidebar.mainMenu": "主菜单",
   "sidebar.dashboard": "仪表盘",
   "sidebar.newCrawl": "新建抓取",
@@ -95,7 +92,6 @@
   "sidebar.darkMode": "深色模式",
   "sidebar.byBrand": "由 SEObserver 提供",
   "sidebar.viewAllProjects": "查看所有项目",
-
   "sessions.title": "抓取会话",
   "sessions.newCrawl": "新建抓取",
   "sessions.noSessions": "暂无抓取会话",
@@ -105,7 +101,6 @@
   "sessions.lost": "已丢失",
   "sessions.pagesCount": "{count} 个页面",
   "sessions.resume": "恢复",
-
   "newCrawl.title": "新建抓取",
   "newCrawl.seedUrls": "种子 URL（每行一个）",
   "newCrawl.workers": "并发数",
@@ -150,7 +145,6 @@
   "newCrawl.yourIP": "您的 IP：{ip}",
   "newCrawl.startCrawl": "开始抓取",
   "newCrawl.starting": "启动中...",
-
   "session.queued": "排队中",
   "session.sessions": "会话",
   "session.urlDetail": "URL 详情",
@@ -192,7 +186,6 @@
   "session.anchorText": "锚文本",
   "session.tag": "标签",
   "session.rel": "Rel",
-
   "actionBar.inQueue": "队列中",
   "actionBar.started": "已开始",
   "actionBar.recomputeDepths": "重新计算深度",
@@ -207,7 +200,6 @@
   "actionBar.exportSession": "导出会话",
   "actionBar.includeHtml": "包含 HTML 正文（文件更大）",
   "actionBar.downloadJsonl": "下载 .jsonl.gz",
-
   "stats.title": "全局统计",
   "stats.loadingStats": "加载全局统计中...",
   "stats.totalPages": "总页面数",
@@ -229,7 +221,6 @@
   "stats.deleteUnassigned": "删除所有未分配的会话",
   "stats.confirmDeleteUnassigned": "删除所有未关联项目的会话？此操作不可撤销。",
   "stats.deletedCount": "已删除 {count} 个会话",
-
   "compare.title": "对比抓取",
   "compare.sessionA": "会话 A（之前）",
   "compare.sessionB": "会话 B（之后）",
@@ -250,7 +241,6 @@
   "compare.removed": "已移除",
   "compare.noPages": "未找到{type}页面。",
   "compare.noLinks": "未找到{type}链接。",
-
   "logs.title": "应用日志",
   "logs.exportJsonl": "导出 JSONL",
   "logs.allLevels": "所有级别",
@@ -269,7 +259,6 @@
   "logs.component": "组件",
   "logs.message": "消息",
   "logs.noLogs": "未找到日志",
-
   "api.subtitle": "使用此 API 自动化抓取、读取结果或连接您的工具（LLM、脚本等）",
   "api.reference": "API 参考",
   "api.referenceDesc": "所有可用端点及绝对 URL。复制并粘贴到您的 LLM 或脚本中。",
@@ -299,14 +288,12 @@
   "api.revoke": "撤销",
   "api.neverUsed": "从未使用",
   "api.used": "已使用",
-
   "projects.title": "所有项目",
   "projects.newProject": "新建项目",
   "projects.searchProjects": "搜索项目...",
   "projects.projectCount": "个项目",
   "projects.created": "创建时间",
   "projects.noProjects": "未找到项目",
-
   "project.dashboard": "仪表盘",
   "project.doubleClickRename": "双击重命名",
   "project.deleteProject": "删除项目",
@@ -319,7 +306,6 @@
   "project.seoData": "SEO 数据",
   "project.seedUrl": "种子 URL",
   "project.noSessions": "此项目中暂无抓取会话。",
-
   "settings.title": "设置",
   "settings.appName": "应用名称",
   "settings.logoUrl": "Logo URL",
@@ -361,12 +347,9 @@
   "settings.restoreFailed": "恢复失败：{error}",
   "settings.deleteBackupConfirm": "删除备份 {name}？",
   "settings.deleteFailed": "删除失败：{error}",
-
   "dataTable.clearFilters": "清除筛选",
-
   "confirmModal.cancel": "取消",
   "confirmModal.confirm": "确认",
-
   "resumeModal.title": "恢复抓取",
   "resumeModal.maxPages": "最大页面数（0 = 不限）",
   "resumeModal.maxDepth": "最大深度（0 = 不限）",
@@ -379,12 +362,10 @@
   "resumeModal.storeHtml": "存储原始 HTML",
   "resumeModal.resume": "恢复",
   "resumeModal.resuming": "恢复中...",
-
   "htmlModal.render": "渲染",
   "htmlModal.source": "源代码",
   "htmlModal.noHtml": "此页面没有存储 HTML。",
   "htmlModal.pageRender": "页面渲染",
-
   "urlDetail.openUrl": "打开 URL",
   "urlDetail.viewHtml": "查看 HTML",
   "urlDetail.statusCode": "状态码",
@@ -444,7 +425,6 @@
   "urlDetail.deltaImages": "图片变化",
   "urlDetail.newSchema": "新 Schema",
   "urlDetail.pageNotFound": "页面未找到。",
-
   "tabs.allPages": "所有页面",
   "tabs.titles": "标题",
   "tabs.meta": "Meta",
@@ -466,7 +446,6 @@
   "tabs.directives": "指令",
   "tabs.nearDuplicates": "近似重复",
   "tabs.authority": "站外",
-
   "pages.all": "全部",
   "pages.titles": "标题",
   "pages.meta": "Meta",
@@ -475,7 +454,6 @@
   "pages.indexability": "可索引性",
   "pages.response": "响应",
   "pages.redirects": "重定向",
-
   "links.internal": "内部",
   "links.external": "外部",
   "links.checks": "检查",
@@ -494,12 +472,10 @@
   "links.lastSeen": "最后发现",
   "links.backlinksCount": "{count} 条反向链接",
   "links.noBacklinks": "暂无反向链接数据。",
-
   "directives.robots": "Robots.txt",
   "directives.sitemaps": "站点地图",
   "directives.sitemapOnly": "仅站点地图",
   "directives.inBoth": "同时存在",
-
   "pagerank.topPages": "热门页面",
   "pagerank.byDirectory": "按目录",
   "pagerank.distribution": "分布",
@@ -531,7 +507,6 @@
   "pagerank.weightedNeedProject": "将此会话关联到已有 SEObserver 数据的项目以查看加权 PageRank。",
   "pagerank.score": "内部 PageRank 得分",
   "pagerank.pagesLog": "页面数（对数）",
-
   "robots.noData": "暂无 robots.txt 数据。请先运行抓取。",
   "robots.host": "主机",
   "robots.fetched": "获取时间",
@@ -558,7 +533,6 @@
   "robots.urlsNewlyAllowed": "新增被允许的 URL",
   "robots.noChanges": "无变化——所有 URL 保持当前状态。",
   "robots.selectHost": "选择一个主机以查看其 robots.txt",
-
   "sitemaps.noData": "未找到站点地图。请先运行抓取。",
   "sitemaps.urls": "URL",
   "sitemaps.noUrls": "此站点地图中没有 URL。",
@@ -566,7 +540,6 @@
   "sitemaps.changeFreq": "更新频率",
   "sitemaps.priority": "优先级",
   "sitemaps.selectSitemap": "选择一个站点地图以查看其 URL",
-
   "extChecks.domains": "域名",
   "extChecks.urls": "URL",
   "extChecks.filterDomains": "筛选域名...",
@@ -589,7 +562,6 @@
   "extChecks.deadLabel": "死链",
   "extChecks.noChecksFound": "未找到检查结果",
   "extChecks.viewSources": "查看链接到此 URL 的页面",
-
   "resources.summary": "概要",
   "resources.urls": "URL",
   "resources.filterUrls": "筛选 URL...",
@@ -612,7 +584,6 @@
   "resources.pagesCount": "页面数",
   "resources.timeMs": "耗时 (ms)",
   "resources.noChecksFound": "未找到检查结果",
-
   "tests.rulesets": "规则集",
   "tests.newRuleset": "+ 新建规则集",
   "tests.noRulesets": "暂无规则集。创建一个以开始测试页面。",
@@ -664,7 +635,6 @@
   "tests.nameRequired": "规则集名称为必填",
   "tests.ruleRequired": "至少需要一条规则",
   "tests.deleteConfirm": "删除此规则集？",
-
   "gsc.notAssociated": "此会话未关联到项目。",
   "gsc.associateFirst": "请先将其关联到一个项目，然后连接 Google Search Console。",
   "gsc.connectTitle": "连接 Google Search Console",
@@ -719,7 +689,6 @@
   "gsc.mobile": "移动端",
   "gsc.rich": "富媒体",
   "gsc.noInspectionData": "暂无检查数据。",
-
   "providers.notAssociated": "此会话未关联到项目。",
   "providers.associateFirst": "请先将其关联到一个项目，然后连接 SEO 数据提供商。",
   "providers.connectTitle": "连接 SEObserver",
@@ -788,7 +757,6 @@
   "providers.limitTopPages": "热门页面",
   "providers.dangerZone": "危险区域",
   "providers.disconnectWarning": "断开连接将删除此提供商的 API 密钥和所有已获取的数据。",
-
   "reports.overview": "概览",
   "reports.content": "内容",
   "reports.technical": "技术",
@@ -799,7 +767,6 @@
   "reports.loadingAudit": "加载审计数据中...",
   "reports.loadFailed": "审计加载失败：{error}",
   "reports.requiresAudit": "需要计算审计数据。点击子视图加载。",
-
   "report.overview.healthScore": "健康评分",
   "report.overview.health": "健康度",
   "report.overview.totalPages": "总页面数",
@@ -821,7 +788,6 @@
   "report.overview.3xxRedirect": "3xx 重定向",
   "report.overview.4xxClientError": "4xx 客户端错误",
   "report.overview.5xxServerError": "5xx 服务器错误",
-
   "report.content.titles": "标题",
   "report.content.missing": "缺失",
   "report.content.tooLong": "过长",
@@ -843,7 +809,6 @@
   "report.content.metaTooShortChart": "过短 (<70)",
   "report.content.okH1": "正常 (1 个 H1)",
   "report.content.multiple": "多个",
-
   "report.technical.indexability": "可索引性",
   "report.technical.indexable": "可索引",
   "report.technical.nonIndexable": "不可索引",
@@ -862,7 +827,6 @@
   "report.technical.missing": "缺失",
   "report.technical.self": "自身",
   "report.technical.other": "其他",
-
   "report.links.internalLinks": "内部链接",
   "report.links.totalInternal": "内部链接总数",
   "report.links.noOutlinks": "无出链页面",
@@ -876,12 +840,10 @@
   "report.links.topExternalDomains": "热门外部域名",
   "report.links.topAnchors": "热门内部锚文本",
   "report.links.noData": "暂无链接审计数据。",
-
   "report.structure.directories": "目录",
   "report.structure.depthDist": "深度分布",
   "report.structure.orphanPages": "孤立页面",
   "report.structure.noData": "暂无结构审计数据。",
-
   "report.sitemap.coverage": "站点地图覆盖率",
   "report.sitemap.coverageLabel": "覆盖率",
   "report.sitemap.inBoth": "同时存在",
@@ -889,7 +851,6 @@
   "report.sitemap.sitemapOnly": "仅站点地图",
   "report.sitemap.totalUrls": "站点地图 URL 总数",
   "report.sitemap.noData": "暂无站点地图审计数据。",
-
   "report.international.schemaTypes": "Schema.org 类型",
   "report.international.noSchema": "未检测到 Schema 类型。",
   "report.international.pagesWithSchema": "含 Schema 的页面",
@@ -899,12 +860,9 @@
   "report.international.pagesWithHreflang": "含 Hreflang 的页面",
   "report.international.pagesWithLang": "含 Lang 的页面",
   "report.international.noData": "暂无国际化审计数据。",
-
   "api.confirmDeleteProject": "删除此项目？关联的 API 密钥也将被删除。",
   "api.confirmRevokeKey": "撤销此 API 密钥？",
-
   "gsc.robots": "Robots",
-
   "providers.apiKeyLabel": "API 密钥",
   "providers.domainCol": "域名",
   "providers.fetchingPhase": "获取中",
@@ -928,7 +886,6 @@
   "providers.apiCalls.duration": "耗时",
   "providers.apiCalls.rows": "行数",
   "providers.apiCalls.error": "错误",
-
   "authority.title": "权威度",
   "authority.connectCta": "连接您的 SEObserver 帐户以解锁权威度数据（TrustFlow、CitationFlow、每页反向链接指标）。",
   "authority.connectBtn": "连接 SEObserver",
@@ -944,9 +901,7 @@
   "authority.enrichment": "权威度增强",
   "authority.enrichmentDisconnected": "连接 SEObserver 为 {count} 个已抓取页面补充 TrustFlow、CitationFlow 和反向链接数据",
   "authority.enrichmentConnected": "{matched} / {total} 个页面已匹配权威度数据——查看权威度标签",
-
   "resources.source": "来源",
-
   "tests.attributeName": "属性名称",
   "tests.cssExists": "CSS 选择器存在",
   "tests.cssExtractAllAttr": "CSS 提取所有属性",
@@ -954,9 +909,7 @@
   "tests.regexExtract": "Regex 捕获组",
   "tests.regexExtractAll": "Regex 捕获全部",
   "tests.xpathExpression": "XPath 表达式",
-
   "tabs.extract": "提取",
-
   "extract.sets": "提取器集合",
   "extract.newSet": "+ 新建提取器集合",
   "extract.noSets": "暂无提取器集合。创建一个以在抓取时提取数据。",
@@ -996,10 +949,8 @@
   "extract.xpathExpr": "XPath 表达式",
   "extract.resultsAvailable": "{count} 个页面有提取数据——点击查看",
   "extract.runRequiresHtml": "在存储的 HTML 上重新运行（需启用 store_html）",
-
   "newCrawl.extractorSet": "提取器集合（可选）",
   "newCrawl.noExtractorSet": "无提取器集合",
-
   "neardup.urlA": "URL A",
   "neardup.urlB": "URL B",
   "neardup.titleA": "标题 A",
@@ -1021,7 +972,6 @@
   "neardup.noCanonical": "无 Canonical",
   "neardup.selfCanonical": "自指 Canonical",
   "neardup.crossCanonical": "指向其他",
-
   "onboarding.step1Title": "选择您的语言",
   "onboarding.step1Subtitle": "您可以稍后在设置中更改。",
   "onboarding.step2Title": "抓取默认设置",
@@ -1046,8 +996,10 @@
   "onboarding.downloadProgress": "正在下载数据库引擎... {percent}%",
   "onboarding.downloadComplete": "数据库引擎就绪",
   "onboarding.waitingForEngine": "等待数据库引擎...",
-
   "settings.telemetryTitle": "分析",
   "settings.telemetryDesc": "发送匿名使用数据以帮助我们改进 CrawlObserver。绝不收集个人数据、URL 或抓取内容。",
-  "settings.telemetryEnabled": "匿名分析已启用"
+  "settings.telemetryEnabled": "匿名分析已启用",
+  "settings.sessionRecording": "会话录制",
+  "settings.sessionRecordingDesc": "录制完整的浏览器会话并发送到 PostHog。这包括 CrawlObserver 界面中可见的所有 URL、页面内容和点击操作。",
+  "settings.sessionRecordingWarning": "警告：启用后，CrawlObserver 团队可以看到您浏览器会话中显示的所有内容。请仅在调试时启用此功能。"
 }

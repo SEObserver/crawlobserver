@@ -58,11 +58,9 @@
   "common.source": "Sumber",
   "common.target": "Target",
   "common.filter": "Filter",
-
   "timeAgo.justNow": "baru saja",
   "timeAgo.minutesAgo": "{count}m lalu",
   "timeAgo.hoursAgo": "{count}j lalu",
-
   "app.skipToContent": "Langsung ke konten",
   "app.updateAvailable": "Pembaruan tersedia: v{version}",
   "app.backupAndUpdate": "Cadangkan & Perbarui",
@@ -70,7 +68,6 @@
   "app.downloadingUpdate": "Mengunduh dan memasang pembaruan...",
   "app.updateInstalled": "Pembaruan terpasang. Mulai ulang untuk menerapkan.",
   "app.updateFailed": "Pembaruan gagal: {error}",
-
   "sidebar.mainMenu": "Menu Utama",
   "sidebar.dashboard": "Dasbor",
   "sidebar.newCrawl": "Crawl Baru",
@@ -95,7 +92,6 @@
   "sidebar.darkMode": "Mode gelap",
   "sidebar.byBrand": "oleh SEObserver",
   "sidebar.viewAllProjects": "Lihat semua proyek",
-
   "sessions.title": "Sesi Crawl",
   "sessions.newCrawl": "Crawl Baru",
   "sessions.noSessions": "Belum ada sesi crawl",
@@ -105,7 +101,6 @@
   "sessions.lost": "hilang",
   "sessions.pagesCount": "{count} halaman",
   "sessions.resume": "Lanjutkan",
-
   "newCrawl.title": "Crawl Baru",
   "newCrawl.seedUrls": "URL Awal (satu per baris)",
   "newCrawl.workers": "Worker",
@@ -150,7 +145,6 @@
   "newCrawl.yourIP": "IP Anda: {ip}",
   "newCrawl.startCrawl": "Mulai Crawl",
   "newCrawl.starting": "Memulai...",
-
   "session.queued": "Dalam Antrian",
   "session.sessions": "Sesi",
   "session.urlDetail": "Detail URL",
@@ -192,7 +186,6 @@
   "session.anchorText": "Teks Anchor",
   "session.tag": "Tag",
   "session.rel": "Rel",
-
   "actionBar.inQueue": "dalam antrian",
   "actionBar.started": "Dimulai",
   "actionBar.recomputeDepths": "Hitung Ulang Kedalaman",
@@ -207,7 +200,6 @@
   "actionBar.exportSession": "Ekspor Sesi",
   "actionBar.includeHtml": "Sertakan body HTML (file lebih besar)",
   "actionBar.downloadJsonl": "Unduh .jsonl.gz",
-
   "stats.title": "Statistik Global",
   "stats.loadingStats": "Memuat statistik global...",
   "stats.totalPages": "Total Halaman",
@@ -229,7 +221,6 @@
   "stats.deleteUnassigned": "Hapus semua sesi tanpa proyek",
   "stats.confirmDeleteUnassigned": "Hapus semua sesi tanpa proyek? Tindakan ini tidak dapat dibatalkan.",
   "stats.deletedCount": "{count} sesi dihapus",
-
   "compare.title": "Bandingkan Crawl",
   "compare.sessionA": "Sesi A (sebelum)",
   "compare.sessionB": "Sesi B (sesudah)",
@@ -250,7 +241,6 @@
   "compare.removed": "Dihapus",
   "compare.noPages": "Tidak ada halaman {type} ditemukan.",
   "compare.noLinks": "Tidak ada tautan {type} ditemukan.",
-
   "logs.title": "Log Aplikasi",
   "logs.exportJsonl": "Ekspor JSONL",
   "logs.allLevels": "Semua Level",
@@ -269,7 +259,6 @@
   "logs.component": "Komponen",
   "logs.message": "Pesan",
   "logs.noLogs": "Tidak ada log ditemukan",
-
   "api.subtitle": "Gunakan API ini untuk mengotomatisasi crawl, membaca hasil, atau menghubungkan alat Anda (LLM, skrip, dll.)",
   "api.reference": "Referensi API",
   "api.referenceDesc": "Semua endpoint yang tersedia dengan URL absolut. Salin dan tempel ke LLM atau skrip Anda.",
@@ -299,14 +288,12 @@
   "api.revoke": "Cabut",
   "api.neverUsed": "Belum pernah digunakan",
   "api.used": "Digunakan",
-
   "projects.title": "Semua Proyek",
   "projects.newProject": "Proyek Baru",
   "projects.searchProjects": "Cari proyek...",
   "projects.projectCount": "proyek",
   "projects.created": "Dibuat",
   "projects.noProjects": "Tidak ada proyek ditemukan",
-
   "project.dashboard": "Dasbor",
   "project.doubleClickRename": "Klik dua kali untuk mengganti nama",
   "project.deleteProject": "Hapus proyek",
@@ -319,7 +306,6 @@
   "project.seoData": "Data SEO",
   "project.seedUrl": "URL Awal",
   "project.noSessions": "Belum ada sesi crawl dalam proyek ini.",
-
   "settings.title": "Pengaturan",
   "settings.appName": "Nama Aplikasi",
   "settings.logoUrl": "URL Logo",
@@ -361,12 +347,9 @@
   "settings.restoreFailed": "Pemulihan gagal: {error}",
   "settings.deleteBackupConfirm": "Hapus cadangan {name}?",
   "settings.deleteFailed": "Penghapusan gagal: {error}",
-
   "dataTable.clearFilters": "Hapus filter",
-
   "confirmModal.cancel": "Batal",
   "confirmModal.confirm": "Konfirmasi",
-
   "resumeModal.title": "Lanjutkan Crawl",
   "resumeModal.maxPages": "Maks halaman (0 = tak terbatas)",
   "resumeModal.maxDepth": "Maks kedalaman (0 = tak terbatas)",
@@ -379,12 +362,10 @@
   "resumeModal.storeHtml": "Simpan HTML mentah",
   "resumeModal.resume": "Lanjutkan",
   "resumeModal.resuming": "Melanjutkan...",
-
   "htmlModal.render": "Render",
   "htmlModal.source": "Sumber",
   "htmlModal.noHtml": "Tidak ada HTML tersimpan untuk halaman ini.",
   "htmlModal.pageRender": "Render halaman",
-
   "urlDetail.openUrl": "Buka URL",
   "urlDetail.viewHtml": "Lihat HTML",
   "urlDetail.statusCode": "Kode Status",
@@ -444,7 +425,6 @@
   "urlDetail.deltaImages": "Gambar Δ",
   "urlDetail.newSchema": "Schema Baru",
   "urlDetail.pageNotFound": "Halaman tidak ditemukan.",
-
   "tabs.allPages": "Semua Halaman",
   "tabs.titles": "Judul",
   "tabs.meta": "Meta",
@@ -466,7 +446,6 @@
   "tabs.directives": "Direktif",
   "tabs.nearDuplicates": "Duplikat",
   "tabs.authority": "Eksternal",
-
   "pages.all": "Semua",
   "pages.titles": "Judul",
   "pages.meta": "Meta",
@@ -475,7 +454,6 @@
   "pages.indexability": "Indeksabilitas",
   "pages.response": "Respons",
   "pages.redirects": "Redirect",
-
   "links.internal": "Internal",
   "links.external": "Eksternal",
   "links.checks": "Pemeriksaan",
@@ -494,12 +472,10 @@
   "links.lastSeen": "Terakhir Dilihat",
   "links.backlinksCount": "{count} backlink",
   "links.noBacklinks": "Tidak ada data backlink tersedia.",
-
   "directives.robots": "Robots.txt",
   "directives.sitemaps": "Sitemap",
   "directives.sitemapOnly": "Hanya sitemap",
   "directives.inBoth": "Di keduanya",
-
   "pagerank.topPages": "Halaman Teratas",
   "pagerank.byDirectory": "Per Direktori",
   "pagerank.distribution": "Distribusi",
@@ -531,7 +507,6 @@
   "pagerank.weightedNeedProject": "Kaitkan sesi ini dengan proyek yang memiliki data SEObserver untuk melihat PageRank Berbobot.",
   "pagerank.score": "Skor PageRank Internal",
   "pagerank.pagesLog": "Halaman (log)",
-
   "robots.noData": "Tidak ada data robots.txt. Jalankan crawl terlebih dahulu.",
   "robots.host": "Host",
   "robots.fetched": "Diambil",
@@ -558,7 +533,6 @@
   "robots.urlsNewlyAllowed": "URL yang baru diizinkan",
   "robots.noChanges": "Tidak ada perubahan — semua URL mempertahankan status saat ini.",
   "robots.selectHost": "Pilih host untuk melihat robots.txt-nya",
-
   "sitemaps.noData": "Tidak ada sitemap ditemukan. Jalankan crawl terlebih dahulu.",
   "sitemaps.urls": "URL",
   "sitemaps.noUrls": "Tidak ada URL dalam sitemap ini.",
@@ -566,7 +540,6 @@
   "sitemaps.changeFreq": "Frekuensi Perubahan",
   "sitemaps.priority": "Prioritas",
   "sitemaps.selectSitemap": "Pilih sitemap untuk melihat URL-nya",
-
   "extChecks.domains": "Domain",
   "extChecks.urls": "URL",
   "extChecks.filterDomains": "Filter domain...",
@@ -589,7 +562,6 @@
   "extChecks.deadLabel": "Mati",
   "extChecks.noChecksFound": "Tidak ada pemeriksaan ditemukan",
   "extChecks.viewSources": "Lihat halaman yang menautkan ke URL ini",
-
   "resources.summary": "Ringkasan",
   "resources.urls": "URL",
   "resources.filterUrls": "Filter URL...",
@@ -612,7 +584,6 @@
   "resources.pagesCount": "Halaman",
   "resources.timeMs": "Waktu (ms)",
   "resources.noChecksFound": "Tidak ada pemeriksaan ditemukan",
-
   "tests.rulesets": "Set Aturan",
   "tests.newRuleset": "+ Set Aturan Baru",
   "tests.noRulesets": "Belum ada set aturan. Buat satu untuk mulai menguji halaman.",
@@ -664,7 +635,6 @@
   "tests.nameRequired": "Nama set aturan wajib diisi",
   "tests.ruleRequired": "Minimal satu aturan diperlukan",
   "tests.deleteConfirm": "Hapus set aturan ini?",
-
   "gsc.notAssociated": "Sesi ini tidak dikaitkan dengan proyek.",
   "gsc.associateFirst": "Kaitkan dengan proyek terlebih dahulu, lalu hubungkan Google Search Console.",
   "gsc.connectTitle": "Hubungkan Google Search Console",
@@ -719,7 +689,6 @@
   "gsc.mobile": "Seluler",
   "gsc.rich": "Kaya",
   "gsc.noInspectionData": "Tidak ada data inspeksi tersedia.",
-
   "providers.notAssociated": "Sesi ini tidak dikaitkan dengan proyek.",
   "providers.associateFirst": "Kaitkan dengan proyek terlebih dahulu, lalu hubungkan penyedia data SEO.",
   "providers.connectTitle": "Hubungkan SEObserver",
@@ -788,7 +757,6 @@
   "providers.limitTopPages": "Halaman Teratas",
   "providers.dangerZone": "Zona Berbahaya",
   "providers.disconnectWarning": "Memutuskan koneksi akan menghapus kunci API dan semua data yang diambil untuk penyedia ini.",
-
   "reports.overview": "Ikhtisar",
   "reports.content": "Konten",
   "reports.technical": "Teknis",
@@ -799,7 +767,6 @@
   "reports.loadingAudit": "Memuat data audit...",
   "reports.loadFailed": "Gagal memuat audit: {error}",
   "reports.requiresAudit": "Memerlukan komputasi audit. Klik sub-tampilan untuk memuat.",
-
   "report.overview.healthScore": "Skor Kesehatan",
   "report.overview.health": "Kesehatan",
   "report.overview.totalPages": "Total Halaman",
@@ -821,7 +788,6 @@
   "report.overview.3xxRedirect": "3xx Redirect",
   "report.overview.4xxClientError": "4xx Error Klien",
   "report.overview.5xxServerError": "5xx Error Server",
-
   "report.content.titles": "Judul",
   "report.content.missing": "Tidak Ada",
   "report.content.tooLong": "Terlalu Panjang",
@@ -843,7 +809,6 @@
   "report.content.metaTooShortChart": "Terlalu Pendek (<70)",
   "report.content.okH1": "OK (1 H1)",
   "report.content.multiple": "Ganda",
-
   "report.technical.indexability": "Indeksabilitas",
   "report.technical.indexable": "Dapat Diindeks",
   "report.technical.nonIndexable": "Tidak Dapat Diindeks",
@@ -862,7 +827,6 @@
   "report.technical.missing": "Tidak Ada",
   "report.technical.self": "Sendiri",
   "report.technical.other": "Lain",
-
   "report.links.internalLinks": "Tautan Internal",
   "report.links.totalInternal": "Total Internal",
   "report.links.noOutlinks": "Halaman Tanpa Outlink",
@@ -876,12 +840,10 @@
   "report.links.topExternalDomains": "Domain Eksternal Teratas",
   "report.links.topAnchors": "Teks Anchor Internal Teratas",
   "report.links.noData": "Tidak ada data audit tautan tersedia.",
-
   "report.structure.directories": "Direktori",
   "report.structure.depthDist": "Distribusi Kedalaman",
   "report.structure.orphanPages": "Halaman Yatim",
   "report.structure.noData": "Tidak ada data audit struktur tersedia.",
-
   "report.sitemap.coverage": "Cakupan Sitemap",
   "report.sitemap.coverageLabel": "cakupan",
   "report.sitemap.inBoth": "Di Keduanya",
@@ -889,7 +851,6 @@
   "report.sitemap.sitemapOnly": "Hanya Sitemap",
   "report.sitemap.totalUrls": "Total URL Sitemap",
   "report.sitemap.noData": "Tidak ada data audit sitemap tersedia.",
-
   "report.international.schemaTypes": "Tipe Schema.org",
   "report.international.noSchema": "Tidak ada tipe schema terdeteksi.",
   "report.international.pagesWithSchema": "Halaman dengan Schema",
@@ -899,12 +860,9 @@
   "report.international.pagesWithHreflang": "Halaman dengan Hreflang",
   "report.international.pagesWithLang": "Halaman dengan Bahasa",
   "report.international.noData": "Tidak ada data audit internasional tersedia.",
-
   "api.confirmDeleteProject": "Hapus proyek ini? Kunci API terkait juga akan dihapus.",
   "api.confirmRevokeKey": "Cabut kunci API ini?",
-
   "gsc.robots": "Robots",
-
   "providers.apiKeyLabel": "Kunci API",
   "providers.domainCol": "Domain",
   "providers.fetchingPhase": "Mengambil",
@@ -928,7 +886,6 @@
   "providers.apiCalls.duration": "Durasi",
   "providers.apiCalls.rows": "Baris",
   "providers.apiCalls.error": "Error",
-
   "authority.title": "Otoritas",
   "authority.connectCta": "Hubungkan akun SEObserver Anda untuk membuka data Otoritas (TrustFlow, CitationFlow, metrik backlink per halaman).",
   "authority.connectBtn": "Hubungkan SEObserver",
@@ -944,9 +901,7 @@
   "authority.enrichment": "Pengayaan otoritas",
   "authority.enrichmentDisconnected": "Hubungkan SEObserver untuk memperkaya {count} halaman yang di-crawl dengan data TrustFlow, CitationFlow, dan backlink",
   "authority.enrichmentConnected": "{matched} dari {total} halaman cocok dengan data otoritas — lihat tab Otoritas",
-
   "resources.source": "Sumber",
-
   "tests.attributeName": "Nama atribut",
   "tests.cssExists": "Selektor CSS ada",
   "tests.cssExtractAllAttr": "Ekstrak SEMUA atribut CSS",
@@ -954,9 +909,7 @@
   "tests.regexExtract": "Grup tangkapan Regex",
   "tests.regexExtractAll": "Tangkap SEMUA Regex",
   "tests.xpathExpression": "Ekspresi XPath",
-
   "tabs.extract": "Ekstrak",
-
   "extract.sets": "Set Ekstraktor",
   "extract.newSet": "+ Set Ekstraktor Baru",
   "extract.noSets": "Belum ada set ekstraktor. Buat satu untuk mengekstrak data saat crawl.",
@@ -996,10 +949,8 @@
   "extract.xpathExpr": "Ekspresi XPath",
   "extract.resultsAvailable": "{count} halaman dengan data ekstraksi — klik untuk melihat",
   "extract.runRequiresHtml": "Jalankan ulang pada HTML tersimpan (memerlukan store_html diaktifkan)",
-
   "newCrawl.extractorSet": "Set ekstraktor (opsional)",
   "newCrawl.noExtractorSet": "Tanpa set ekstraktor",
-
   "neardup.urlA": "URL A",
   "neardup.urlB": "URL B",
   "neardup.titleA": "Judul A",
@@ -1021,7 +972,6 @@
   "neardup.noCanonical": "Tanpa canonical",
   "neardup.selfCanonical": "Self-canonical",
   "neardup.crossCanonical": "Mengarah ke lain",
-
   "onboarding.step1Title": "Pilih bahasa Anda",
   "onboarding.step1Subtitle": "Anda dapat mengubahnya nanti di Pengaturan.",
   "onboarding.step2Title": "Default crawl",
@@ -1046,8 +996,10 @@
   "onboarding.downloadProgress": "Mengunduh mesin database... {percent}%",
   "onboarding.downloadComplete": "Mesin database siap",
   "onboarding.waitingForEngine": "Menunggu mesin database...",
-
   "settings.telemetryTitle": "Analitik",
   "settings.telemetryDesc": "Kirim data penggunaan anonim untuk membantu kami meningkatkan CrawlObserver. Tidak ada data pribadi, URL, atau konten crawl yang pernah dikumpulkan.",
-  "settings.telemetryEnabled": "Analitik anonim diaktifkan"
+  "settings.telemetryEnabled": "Analitik anonim diaktifkan",
+  "settings.sessionRecording": "Perekaman sesi",
+  "settings.sessionRecordingDesc": "Rekam sesi browser lengkap dan kirim ke PostHog. Ini mencakup semua URL, konten halaman, dan klik yang terlihat di antarmuka CrawlObserver Anda.",
+  "settings.sessionRecordingWarning": "PERINGATAN: Saat diaktifkan, tim CrawlObserver dapat melihat semua yang ditampilkan di sesi browser Anda. Aktifkan ini hanya untuk tujuan debugging."
 }
