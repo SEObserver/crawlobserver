@@ -101,12 +101,14 @@ type ResourcesConfig struct {
 }
 
 type ServerConfig struct {
-	Host       string          `mapstructure:"host"`
-	Port       int             `mapstructure:"port"`
-	Username   string          `mapstructure:"username"`
-	Password   string          `mapstructure:"password"`
-	SQLitePath string          `mapstructure:"sqlite_path"`
-	RateLimit  RateLimitConfig `mapstructure:"rate_limit"`
+	Host              string          `mapstructure:"host"`
+	Port              int             `mapstructure:"port"`
+	Username          string          `mapstructure:"username"`
+	Password          string          `mapstructure:"password"`
+	SQLitePath        string          `mapstructure:"sqlite_path"`
+	RateLimit         RateLimitConfig `mapstructure:"rate_limit"`
+	PasswordGenerated bool            `mapstructure:"-"` // transient, not persisted
+	WeakPassword      bool            `mapstructure:"-"` // transient, not persisted
 }
 
 type RateLimitConfig struct {
@@ -213,7 +215,7 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("generating random password: %w", err)
 		}
 		cfg.Server.Password = hex.EncodeToString(b)
-		fmt.Fprintf(os.Stderr, "\n  *** No password configured. Generated random password: %s ***\n  *** Set server.password in config.yaml to silence this message. ***\n\n", cfg.Server.Password)
+		cfg.Server.PasswordGenerated = true
 	}
 
 	// Resolve relative SQLite path to a stable location so that all modes
@@ -230,9 +232,9 @@ func Load() (*Config, error) {
 		}
 	}
 
-	// Warn about weak password when exposed on all interfaces
+	// Flag weak password when exposed on all interfaces
 	if cfg.Server.Host == "0.0.0.0" && isWeakPassword(cfg.Server.Password) {
-		fmt.Fprintf(os.Stderr, "\n  *** WARNING: server is listening on 0.0.0.0 with a weak password! ***\n  *** Set a strong password (>= 8 chars) in server.password before exposing to the internet. ***\n\n")
+		cfg.Server.WeakPassword = true
 	}
 
 	// Existing user upgrade: if config file existed BEFORE this Load() call
