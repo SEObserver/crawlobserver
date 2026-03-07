@@ -21,6 +21,7 @@
     if (firstRender) {
       firstRender = false;
       current = target;
+      // eslint-disable-next-line svelte/no-dom-manipulating -- rAF animation bypass
       span.textContent = format(target);
       return;
     }
@@ -35,11 +36,13 @@
       const p1 = 1 - progress;
       const eased = 1 - p1 * p1 * p1 * p1 * p1;
       current = Math.round(start + delta * eased);
+      // eslint-disable-next-line svelte/no-dom-manipulating -- rAF animation bypass
       span.textContent = format(current);
       if (progress < 1) {
         animFrame = requestAnimationFrame(tick);
       } else {
         current = target;
+        // eslint-disable-next-line svelte/no-dom-manipulating -- rAF animation bypass
         span.textContent = format(target);
         animFrame = null;
       }

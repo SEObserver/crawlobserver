@@ -204,7 +204,6 @@
     onclick={() => (showExportDialog = false)}
     onkeydown={a11yKeydown(() => (showExportDialog = false))}
   >
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="html-modal export-modal" role="dialog" onclick={(e) => e.stopPropagation()}>
       <div class="html-modal-header">
         <div class="html-modal-url">{t('actionBar.exportSession')}</div>
