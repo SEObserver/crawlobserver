@@ -1,10 +1,108 @@
 <script>
   import { fmtN, fmt, a11yKeydown } from '../../utils.js';
   import { t } from '../../i18n/index.svelte.js';
+  import { getStatusTimeline } from '../../api.js';
   import DonutChart from '../charts/DonutChart.svelte';
   import HBarChart from '../charts/HBarChart.svelte';
+  import AreaChart from '../charts/AreaChart.svelte';
 
-  let { stats, sessionId, onnavigate } = $props();
+  let { stats, sessionId, isRunning = false, onnavigate } = $props();
+
+  // Status timeline chart
+  let timeline = $state(null);
+  let timelineLoading = $state(false);
+  let pollTimer = $state(null);
+
+  function fetchTimeline() {
+    if (!sessionId || timelineLoading) return;
+    timelineLoading = true;
+    getStatusTimeline(sessionId)
+      .then((data) => {
+        timeline = data;
+      })
+      .catch((err) => console.error('[OverviewReport] timeline fetch failed:', err))
+      .finally(() => {
+        timelineLoading = false;
+      });
+  }
+
+  $effect(() => {
+    console.log('[OverviewReport] effect:', { sessionId, timeline, timelineLoading });
+    if (sessionId && !timeline && !timelineLoading) {
+      fetchTimeline();
+    }
+  });
+
+  $effect(() => {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    if (isRunning && sessionId) {
+      pollTimer = setInterval(fetchTimeline, 10_000);
+    }
+    return () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
+  });
+
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  const timelineSeries = $derived.by(() => {
+    if (!timeline?.length) return [];
+    return [
+      {
+        key: 'ok',
+        label: '2xx',
+        color: 'var(--success, #22c55e)',
+        values: timeline.map((b) => b.ok),
+      },
+      {
+        key: 'redirect',
+        label: '3xx',
+        color: 'var(--info, #6366f1)',
+        values: timeline.map((b) => b.redirect),
+      },
+      {
+        key: 's403',
+        label: '403',
+        color: '#f97316',
+        values: timeline.map((b) => b.s403),
+      },
+      {
+        key: 's429',
+        label: '429',
+        color: '#ef4444',
+        values: timeline.map((b) => b.s429),
+      },
+      {
+        key: 'client_err',
+        label: '4xx',
+        color: '#f59e0b',
+        values: timeline.map((b) => b.client_err),
+      },
+      {
+        key: 'server_err',
+        label: '5xx',
+        color: '#dc2626',
+        values: timeline.map((b) => b.server_err),
+      },
+      {
+        key: 'fetch_err',
+        label: t('report.technical.fetchErrors'),
+        color: '#9333ea',
+        values: timeline.map((b) => b.fetch_err),
+      },
+    ];
+  });
+
+  const timelineLabels = $derived(timeline?.map((b) => fmtTime(b.ts)) || []);
 
   function nav(tab, filters = {}) {
     onnavigate?.(`/sessions/${sessionId}/${tab}`, filters);
@@ -110,6 +208,13 @@
 </script>
 
 {#if stats}
+  {#if timelineSeries.length > 0}
+    <div class="report-section">
+      <h3 class="chart-title">{t('report.technical.statusTimeline')}</h3>
+      <AreaChart series={timelineSeries} labels={timelineLabels} height={140} yLabel={t('common.pages')} />
+    </div>
+  {/if}
+
   <div class="report-section">
     <div class="stats-grid">
       <div

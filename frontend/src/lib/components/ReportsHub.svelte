@@ -9,7 +9,7 @@
   import SitemapReport from './reports/SitemapReport.svelte';
   import InternationalReport from './reports/InternationalReport.svelte';
 
-  let { sessionId, stats, initialSubView = 'overview', onnavigate, onpushurl, onerror } = $props();
+  let { sessionId, stats, isRunning = false, initialSubView = 'overview', onnavigate, onpushurl, onerror } = $props();
 
   let subView = $state(initialSubView);
   let auditData = $state(null);
@@ -77,7 +77,7 @@
   </div>
 
   {#if subView === 'overview'}
-    <OverviewReport {stats} {sessionId} {onnavigate} />
+    <OverviewReport {stats} {sessionId} {isRunning} {onnavigate} />
   {:else if auditLoading}
     <p class="reports-msg-muted">{t('reports.loadingAudit')}</p>
   {:else if auditError && !auditData}
@@ -87,7 +87,7 @@
   {:else if subView === 'content'}
     <ContentReport {stats} audit={auditData} {sessionId} {onnavigate} />
   {:else if subView === 'technical'}
-    <TechnicalReport {stats} audit={auditData} {sessionId} {onnavigate} />
+    <TechnicalReport {stats} audit={auditData} {sessionId} {isRunning} {onnavigate} />
   {:else if subView === 'links'}
     <LinksReport {stats} audit={auditData} {sessionId} {onnavigate} />
   {:else if subView === 'structure'}
