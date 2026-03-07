@@ -70,7 +70,8 @@ func TestDetectCSVSource_SemicolonDelimiter(t *testing.T) {
 
 func TestDetectCSVSource_BOM(t *testing.T) {
 	bom := []byte{0xEF, 0xBB, 0xBF}
-	data := append(bom, []byte("Address,Status Code,Content\nhttp://example.com,200,text/html\n")...)
+	data := bom
+	data = append(data, []byte("Address,Status Code,Content\nhttp://example.com,200,text/html\n")...)
 	data = stripBOM(data)
 	source, _, _, err := detectCSV(data)
 	if err != nil {
@@ -290,7 +291,8 @@ func TestCsvRowToPage_EmptyURL(t *testing.T) {
 
 func TestStripBOM(t *testing.T) {
 	bom := []byte{0xEF, 0xBB, 0xBF}
-	input := append(bom, []byte("hello")...)
+	input := bom
+	input = append(input, []byte("hello")...)
 	result := stripBOM(input)
 	if string(result) != "hello" {
 		t.Errorf("expected 'hello', got %q", result)

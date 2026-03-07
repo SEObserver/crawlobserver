@@ -666,8 +666,10 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 		// Retry decision (after health tracking so retries are counted)
 		if e.shouldRetryResult(result) {
 			e.enqueueRetry(result)
-			if err := e.store.InsertRetryAttempt(e.ctx, e.session.ID, time.Now(), result.StatusCode, result.URL); err != nil {
-				applog.Warnf("crawler", "failed to record retry attempt: %v", err)
+			if e.store != nil {
+				if err := e.store.InsertRetryAttempt(e.ctx, e.session.ID, time.Now(), result.StatusCode, result.URL); err != nil {
+					applog.Warnf("crawler", "failed to record retry attempt: %v", err)
+				}
 			}
 			continue // skip storage
 		}
