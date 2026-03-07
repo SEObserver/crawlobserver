@@ -10,28 +10,6 @@
     onnavigate?.(`/sessions/${sessionId}/${tab}`, filters);
   }
 
-  // Health score computation
-  function computeHealth(s) {
-    if (!s || !s.total_pages || s.total_pages === 0) return 0;
-    const total = s.total_pages;
-    const pct200 = (s.status_codes?.[200] || 0) / total;
-    const noErrors = 1 - (s.error_count || 0) / total;
-    const speedOK = Math.max(0, Math.min(1, 1 - (s.avg_fetch_ms || 0) / 2000));
-    let depthOK = 0;
-    if (s.depth_distribution) {
-      const shallow = Object.entries(s.depth_distribution)
-        .filter(([d]) => Number(d) <= 3)
-        .reduce((sum, [, c]) => sum + c, 0);
-      depthOK = shallow / total;
-    }
-    return Math.round(pct200 * 40 + noErrors * 20 + speedOK * 20 + depthOK * 20);
-  }
-
-  const healthScore = $derived(computeHealth(stats));
-  const healthColor = $derived(
-    healthScore > 80 ? 'var(--success)' : healthScore >= 50 ? 'var(--warning)' : 'var(--error)',
-  );
-
   function statusCodeSegments(s) {
     if (!s?.status_codes) return [];
     const groups = { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 };
@@ -132,26 +110,6 @@
 </script>
 
 {#if stats}
-  <div class="report-section">
-    <h3 class="chart-title">{t('report.overview.healthScore')}</h3>
-    <div class="health-score">
-      <DonutChart
-        segments={[
-          { value: healthScore, color: healthColor, label: t('report.overview.score') },
-          {
-            value: 100 - healthScore,
-            color: 'var(--border)',
-            label: t('report.overview.remaining'),
-          },
-        ]}
-        size={220}
-        strokeWidth={24}
-        centerLabel="{healthScore}%"
-        centerSubLabel={t('report.overview.health')}
-      />
-    </div>
-  </div>
-
   <div class="report-section">
     <div class="stats-grid">
       <div
