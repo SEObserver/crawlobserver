@@ -29,6 +29,7 @@
     onerror,
     onstop,
     onresume,
+    onretry,
     ondelete,
     onrefresh,
     oncompare,
@@ -147,6 +148,7 @@
     onerror={(msg) => onerror?.(msg)}
     onstop={(id) => onstop?.(id)}
     onresume={(id) => onresume?.(id)}
+    onretry={(id, statusCode, count) => onretry?.(id, statusCode, count)}
     ondelete={(id) => ondelete?.(id)}
     onrefresh={() => onrefresh?.()}
     oncompare={(id) => oncompare?.(id)}
@@ -179,6 +181,7 @@
       <ReportsHub
         sessionId={session.ID}
         {stats}
+        isRunning={session.is_running}
         initialSubView={subView || 'overview'}
         onnavigate={(url, f) => onnavigate?.(url, f)}
         onpushurl={(u) => pushURL(u)}

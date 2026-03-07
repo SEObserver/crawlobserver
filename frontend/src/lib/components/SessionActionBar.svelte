@@ -1,10 +1,20 @@
 <script>
-  import { recomputeDepths, retryFailed, exportSession } from '../api.js';
+  import { recomputeDepths, exportSession } from '../api.js';
   import { fmtN, a11yKeydown } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
 
-  let { session, stats, liveProgress, onerror, onstop, onresume, ondelete, onrefresh, oncompare } =
-    $props();
+  let {
+    session,
+    stats,
+    liveProgress,
+    onerror,
+    onstop,
+    onresume,
+    onretry,
+    ondelete,
+    onrefresh,
+    oncompare,
+  } = $props();
 
   let showExportDialog = $state(false);
   let exportIncludeHTML = $state(false);
@@ -16,8 +26,6 @@
   }
 
   let recomputing = $state(false);
-  let retryingFailed = $state(false);
-  let retryingStatus = $state(null);
 
   async function handleRecomputeDepths() {
     recomputing = true;
@@ -28,30 +36,6 @@
       onerror?.(e.message);
     } finally {
       recomputing = false;
-    }
-  }
-
-  async function handleRetryFailed() {
-    retryingFailed = true;
-    try {
-      await retryFailed(session.ID);
-      setTimeout(() => onrefresh?.(), 2000);
-    } catch (e) {
-      onerror?.(e.message);
-    } finally {
-      retryingFailed = false;
-    }
-  }
-
-  async function handleRetryStatus(code) {
-    retryingStatus = code;
-    try {
-      await retryFailed(session.ID, code);
-      setTimeout(() => onrefresh?.(), 2000);
-    } catch (e) {
-      onerror?.(e.message);
-    } finally {
-      retryingStatus = null;
     }
   }
 
@@ -84,7 +68,9 @@
 </script>
 
 <div class="action-bar">
-  {#if session.is_running}
+  {#if session.Status === 'stopping'}
+    <span class="badge badge-warning">{t('actionBar.stopping')}</span>
+  {:else if session.is_running}
     {@const live = liveProgress[session.ID]}
     <span class="badge badge-info">
       {#if live && live.phase === 'fetching_sitemaps'}
@@ -134,25 +120,19 @@
     {#if stats?.status_codes?.[0] > 0}
       <button
         class="btn btn-sm"
-        onclick={handleRetryFailed}
-        disabled={retryingFailed}
+        onclick={() => onretry?.(session.ID, 0, stats.status_codes[0])}
         title={t('actionBar.retryFailed', { count: stats.status_codes[0] })}
       >
-        {retryingFailed
-          ? t('actionBar.retrying')
-          : t('actionBar.retryFailed', { count: stats.status_codes[0] })}
+        {t('actionBar.retryFailed', { count: stats.status_codes[0] })}
       </button>
     {/if}
     {#each retryableStatusCodes() as [code, count]}
       <button
         class="btn btn-sm"
-        onclick={() => handleRetryStatus(+code)}
-        disabled={retryingStatus === +code}
+        onclick={() => onretry?.(session.ID, +code, count)}
         title={t('actionBar.retryStatus', { count: fmtN(count), status: code })}
       >
-        {retryingStatus === +code
-          ? t('actionBar.retrying')
-          : t('actionBar.retryStatus', { count: fmtN(count), status: code })}
+        {t('actionBar.retryStatus', { count: fmtN(count), status: code })}
       </button>
     {/each}
     <button

@@ -379,6 +379,12 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		if overrides.ForceIPv4 {
 			crawlerCfg.ForceIPv4 = true
 		}
+		if overrides.JSRenderMode != "" {
+			crawlerCfg.JSRender.Mode = overrides.JSRenderMode
+		}
+		if overrides.JSRenderMaxPages > 0 {
+			crawlerCfg.JSRender.MaxPages = overrides.JSRenderMaxPages
+		}
 		cfg.Crawler = crawlerCfg
 	}
 	engine := NewEngine(&cfg, m.store)
@@ -393,6 +399,23 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 	// Restore the original session with its seed URLs, not the uncrawled URLs
 	engine.ResumeSession(sessionID, originalSession.SeedURLs)
 	engine.session.ProjectID = originalSession.ProjectID
+
+	// Apply non-config overrides (external links, extractors, JS links)
+	if overrides != nil {
+		if overrides.CheckExternalLinks != nil {
+			engine.checkExternal = *overrides.CheckExternalLinks
+		}
+		engine.externalWorkers = overrides.ExternalLinkWorkers
+		if engine.externalWorkers <= 0 {
+			engine.externalWorkers = defaultExternalWorkers
+		}
+		engine.followJSLinks = overrides.FollowJSLinks
+		if overrides.ExtractorSetID != "" && m.extractorLoader != nil {
+			if es, err := m.extractorLoader.GetExtractorSet(overrides.ExtractorSetID); err == nil {
+				engine.extractors = es.Extractors
+			}
+		}
+	}
 
 	// Stream crawled URLs from ClickHouse to pre-seed dedup (no []string allocation).
 	// Only the FNV hash map is kept in memory (~8 bytes/URL, scalable to millions).
@@ -482,6 +505,9 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 	}
 	if overrides != nil {
 		crawlerCfg := cfg.Crawler
+		if overrides.MaxDepth > 0 {
+			crawlerCfg.MaxDepth = overrides.MaxDepth
+		}
 		if overrides.Workers > 0 {
 			crawlerCfg.Workers = overrides.Workers
 		}
@@ -490,6 +516,28 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 				crawlerCfg.Delay = d
 			}
 		}
+		crawlerCfg.StoreHTML = overrides.StoreHTML
+		if overrides.CrawlScope != "" {
+			crawlerCfg.CrawlScope = overrides.CrawlScope
+		}
+		if overrides.UserAgent != "" {
+			crawlerCfg.UserAgent = overrides.UserAgent
+		}
+		if overrides.TLSProfile != "" {
+			crawlerCfg.TLSProfile = overrides.TLSProfile
+		}
+		if overrides.SourceIP != "" {
+			crawlerCfg.SourceIP = overrides.SourceIP
+		}
+		if overrides.ForceIPv4 {
+			crawlerCfg.ForceIPv4 = true
+		}
+		if overrides.JSRenderMode != "" {
+			crawlerCfg.JSRender.Mode = overrides.JSRenderMode
+		}
+		if overrides.JSRenderMaxPages > 0 {
+			crawlerCfg.JSRender.MaxPages = overrides.JSRenderMaxPages
+		}
 		cfg.Crawler = crawlerCfg
 	}
 	cfg.Crawler.MaxPages = len(failedURLs)
@@ -497,8 +545,23 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 	engine := NewEngine(&cfg, m.store)
 	engine.ResumeSession(sessionID, originalSession.SeedURLs)
 	engine.session.ProjectID = originalSession.ProjectID
-	// No PreSeedDedup needed: we feed exact URLs with MaxPages = len(failedURLs),
-	// so the engine won't discover new links beyond the retry set.
+
+	// Apply non-config overrides (external links, extractors, JS links)
+	if overrides != nil {
+		if overrides.CheckExternalLinks != nil {
+			engine.checkExternal = *overrides.CheckExternalLinks
+		}
+		engine.externalWorkers = overrides.ExternalLinkWorkers
+		if engine.externalWorkers <= 0 {
+			engine.externalWorkers = defaultExternalWorkers
+		}
+		engine.followJSLinks = overrides.FollowJSLinks
+		if overrides.ExtractorSetID != "" && m.extractorLoader != nil {
+			if es, err := m.extractorLoader.GetExtractorSet(overrides.ExtractorSetID); err == nil {
+				engine.extractors = es.Extractors
+			}
+		}
+	}
 
 	// Try to acquire a semaphore slot (non-blocking)
 	select {

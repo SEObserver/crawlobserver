@@ -366,11 +366,33 @@ export async function computePageRank(sessionId) {
 /**
  * @param {string} sessionId
  * @param {number} statusCode
+ * @param {Object|null} options
  * @returns {Promise<Object>}
  */
-export async function retryFailed(sessionId, statusCode = 0) {
+export async function retryFailed(sessionId, statusCode = 0, options = null) {
   const qs = statusCode ? `?status_code=${statusCode}` : '';
-  return fetchJSON(`/sessions/${sessionId}/retry-failed${qs}`, { method: 'POST' });
+  const opts = { method: 'POST' };
+  if (options) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(options);
+  }
+  return fetchJSON(`/sessions/${sessionId}/retry-failed${qs}`, opts);
+}
+
+/**
+ * @param {string} sessionId
+ * @returns {Promise<Object[]>}
+ */
+export async function getStatusTimeline(sessionId) {
+  return fetchJSON(`/sessions/${encodeURIComponent(sessionId)}/status-timeline`);
+}
+
+/**
+ * @param {string} sessionId
+ * @returns {Promise<Object[]>}
+ */
+export async function getStatusTimelineRecent(sessionId) {
+  return fetchJSON(`/sessions/${encodeURIComponent(sessionId)}/status-timeline-recent`);
 }
 
 /**
