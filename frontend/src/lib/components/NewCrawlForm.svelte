@@ -25,6 +25,7 @@
   let followJSLinks = $state(false);
   let sourceIP = $state('');
   let forceIPv4 = $state(false);
+  let ignoreRobots = $state(false);
   let extractorSetId = $state('');
   let extractorSets = $state([]);
   let checkingIP = $state(false);
@@ -114,6 +115,7 @@
         js_render_max_pages: jsRenderMode !== 'off' ? jsRenderMaxPages : undefined,
         follow_js_links: jsRenderMode !== 'off' ? followJSLinks : undefined,
         extractor_set_id: extractorSetId || undefined,
+        ignore_robots: ignoreRobots || undefined,
       });
       onstart?.();
     } catch (e) {
@@ -250,6 +252,10 @@
     <label class="inline-checkbox">
       <input type="checkbox" bind:checked={fetchSitemaps} disabled={crawlSitemapOnly} />
       {t('newCrawl.fetchSitemaps')}
+    </label>
+    <label class="inline-checkbox">
+      <input type="checkbox" bind:checked={ignoreRobots} />
+      {t('newCrawl.ignoreRobots')}
     </label>
   </div>
 

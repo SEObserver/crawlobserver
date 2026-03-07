@@ -55,6 +55,7 @@
   let externalLinkWorkers = $state(3);
   let crawlSitemapOnly = $state(false);
   let fetchSitemaps = $state(false);
+  let ignoreRobots = $state(false);
   let extractorSetId = $state('');
   let extractorSets = $state([]);
   let crawlProjectId = $state(sess?.ProjectID || '');
@@ -165,6 +166,7 @@
       js_render_max_pages: jsRenderMode !== 'off' ? jsRenderMaxPages : undefined,
       follow_js_links: jsRenderMode !== 'off' ? followJSLinks : undefined,
       extractor_set_id: extractorSetId || undefined,
+      ignore_robots: ignoreRobots || undefined,
     };
   }
 
@@ -364,6 +366,10 @@
             {t('newCrawl.fetchSitemaps')}
           </label>
         {/if}
+        <label class="inline-checkbox">
+          <input type="checkbox" bind:checked={ignoreRobots} />
+          {t('newCrawl.ignoreRobots')}
+        </label>
       </div>
 
       <!-- JS Rendering / Extractors / Project -->

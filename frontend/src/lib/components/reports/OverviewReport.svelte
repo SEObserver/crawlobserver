@@ -245,6 +245,11 @@
 </script>
 
 {#if stats}
+  {#if stats.total_pages === 0}
+    <div class="alert alert-info">
+      {t('report.overview.zeroPagesExplain')}
+    </div>
+  {/if}
   {#if timelineSeries.length > 0 || recentSeries.length > 0}
     <div class="report-section">
       <div class="report-grid">

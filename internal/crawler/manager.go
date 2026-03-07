@@ -105,6 +105,7 @@ type CrawlRequest struct {
 	SourceIP            string   `json:"source_ip"`
 	ForceIPv4           bool     `json:"force_ipv4"`
 	ExtractorSetID      string   `json:"extractor_set_id"`
+	IgnoreRobots        bool     `json:"ignore_robots"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -169,6 +170,9 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	}
 	if req.ForceIPv4 {
 		cfg.Crawler.ForceIPv4 = true
+	}
+	if req.IgnoreRobots {
+		cfg.Crawler.RespectRobots = false
 	}
 
 	// JS rendering overrides
@@ -379,6 +383,9 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		if overrides.ForceIPv4 {
 			crawlerCfg.ForceIPv4 = true
 		}
+		if overrides.IgnoreRobots {
+			crawlerCfg.RespectRobots = false
+		}
 		if overrides.JSRenderMode != "" {
 			crawlerCfg.JSRender.Mode = overrides.JSRenderMode
 		}
@@ -531,6 +538,9 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 		}
 		if overrides.ForceIPv4 {
 			crawlerCfg.ForceIPv4 = true
+		}
+		if overrides.IgnoreRobots {
+			crawlerCfg.RespectRobots = false
 		}
 		if overrides.JSRenderMode != "" {
 			crawlerCfg.JSRender.Mode = overrides.JSRenderMode
