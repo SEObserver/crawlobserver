@@ -604,11 +604,12 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 
 		// Host health tracking BEFORE retry — 403/429 must be recorded even when retried
 		host := extractHost(result.URL)
-		if result.StatusCode == 403 || result.StatusCode == 429 {
+		switch {
+		case result.StatusCode == 403 || result.StatusCode == 429:
 			e.hostHealth.RecordRateLimit(host)
-		} else if result.Error != "" || result.StatusCode >= 500 {
+		case result.Error != "" || result.StatusCode >= 500:
 			e.hostHealth.RecordFailure(host)
-		} else {
+		default:
 			e.hostHealth.RecordSuccess(host)
 		}
 		rp := e.resultsProcessed.Add(1)
@@ -624,7 +625,8 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 			// Adaptive throttle on rate-limit responses (403/429)
 			rlRate := e.hostHealth.RateLimitRate()
 			currentDelay := e.front.Delay()
-			if rlRate > 0.20 {
+			switch {
+			case rlRate > 0.20:
 				// >20% rate-limited: aggressive slowdown
 				newDelay := currentDelay * 2
 				if newDelay < 2*time.Second {
@@ -638,7 +640,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 						rlRate*100, currentDelay, newDelay)
 					e.front.SetDelay(newDelay)
 				}
-			} else if rlRate > 0.05 {
+			case rlRate > 0.05:
 				// 5-20% rate-limited: moderate slowdown
 				newDelay := currentDelay
 				if newDelay < 1*time.Second {
@@ -649,7 +651,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 						rlRate*100, currentDelay, newDelay)
 					e.front.SetDelay(newDelay)
 				}
-			} else if rlRate < 0.02 && currentDelay > e.baseDelay {
+			case rlRate < 0.02 && currentDelay > e.baseDelay:
 				// <2% rate-limited: ease off, restore toward original delay
 				newDelay := currentDelay / 2
 				if newDelay < e.baseDelay {
