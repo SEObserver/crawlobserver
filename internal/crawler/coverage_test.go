@@ -2436,8 +2436,8 @@ func TestParseWorkerCircuitBreaker(t *testing.T) {
 	}
 	e.buffer = storage.NewBuffer(inserter, cfg.Storage.BatchSize, cfg.Storage.FlushInterval, e.session.ID)
 
-	// Set pagesCrawled to 100 so the circuit breaker check fires (100 % 100 == 0)
-	e.pagesCrawled.Store(100)
+	// Set resultsProcessed to 9 so the next result makes it 10 (10 % 10 == 0)
+	e.resultsProcessed.Store(9)
 
 	// Record many failures so error rate > 10%
 	for i := 0; i < 50; i++ {

@@ -17,7 +17,7 @@ func newTestPolicy() *RetryPolicy {
 
 func TestShouldRetry_RetryableCodes(t *testing.T) {
 	p := newTestPolicy()
-	for _, code := range []int{429, 500, 502, 503, 504} {
+	for _, code := range []int{403, 429, 500, 502, 503, 504} {
 		if !p.ShouldRetry(code, "", 0) {
 			t.Errorf("expected ShouldRetry=true for status %d, attempt 0", code)
 		}
@@ -26,7 +26,7 @@ func TestShouldRetry_RetryableCodes(t *testing.T) {
 
 func TestShouldRetry_NonRetryableCodes(t *testing.T) {
 	p := newTestPolicy()
-	for _, code := range []int{200, 301, 403, 404} {
+	for _, code := range []int{200, 301, 404} {
 		if p.ShouldRetry(code, "", 0) {
 			t.Errorf("expected ShouldRetry=false for status %d", code)
 		}

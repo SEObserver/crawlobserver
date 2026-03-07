@@ -20,6 +20,7 @@ type RetryPolicy struct {
 
 // retryableCodes is the set of HTTP status codes eligible for retry.
 var retryableCodes = map[int]bool{
+	403: true, // Cloudflare and WAFs often return 403 when rate-limiting
 	429: true,
 	500: true,
 	502: true,
@@ -195,22 +196,47 @@ func (rq *RetryQueue) Len() int {
 	return rq.heap.Len()
 }
 
-// HostHealth tracks success/failure rates per host.
+// Result types for the sliding window ring buffer.
+const (
+	resultSuccess   byte = 0
+	resultFailure   byte = 1
+	resultRateLimit byte = 2
+)
+
+const defaultWindowSize = 500
+
+// HostHealth tracks success/failure rates per host and maintains a sliding
+// window for global error rate and rate-limit rate computations.
 type HostHealth struct {
 	mu    sync.Mutex
 	hosts map[string]*hostStats
+
+	// Sliding window ring buffer for recent results
+	window   []byte
+	windowAt int  // next write position
+	windowN  int  // number of entries written (capped at len(window))
 }
 
 type hostStats struct {
 	successes           int64
 	failures            int64
+	rateLimits          int64 // 403/429 count
 	consecutiveFailures int
 }
 
-// NewHostHealth creates a new HostHealth tracker.
+// NewHostHealth creates a new HostHealth tracker with a default sliding window.
 func NewHostHealth() *HostHealth {
+	return NewHostHealthWithWindow(defaultWindowSize)
+}
+
+// NewHostHealthWithWindow creates a HostHealth tracker with a custom window size.
+func NewHostHealthWithWindow(windowSize int) *HostHealth {
+	if windowSize <= 0 {
+		windowSize = defaultWindowSize
+	}
 	return &HostHealth{
-		hosts: make(map[string]*hostStats),
+		hosts:  make(map[string]*hostStats),
+		window: make([]byte, windowSize),
 	}
 }
 
@@ -223,6 +249,14 @@ func (hh *HostHealth) getOrCreate(host string) *hostStats {
 	return s
 }
 
+func (hh *HostHealth) pushWindow(r byte) {
+	hh.window[hh.windowAt] = r
+	hh.windowAt = (hh.windowAt + 1) % len(hh.window)
+	if hh.windowN < len(hh.window) {
+		hh.windowN++
+	}
+}
+
 // RecordSuccess records a successful fetch for a host.
 func (hh *HostHealth) RecordSuccess(host string) {
 	hh.mu.Lock()
@@ -230,6 +264,7 @@ func (hh *HostHealth) RecordSuccess(host string) {
 	s := hh.getOrCreate(host)
 	s.successes++
 	s.consecutiveFailures = 0
+	hh.pushWindow(resultSuccess)
 }
 
 // RecordFailure records a failed fetch for a host.
@@ -239,6 +274,37 @@ func (hh *HostHealth) RecordFailure(host string) {
 	s := hh.getOrCreate(host)
 	s.failures++
 	s.consecutiveFailures++
+	hh.pushWindow(resultFailure)
+}
+
+// RecordRateLimit records a rate-limit response (403/429) for a host.
+// Also counts as a failure.
+func (hh *HostHealth) RecordRateLimit(host string) {
+	hh.mu.Lock()
+	defer hh.mu.Unlock()
+	s := hh.getOrCreate(host)
+	s.failures++
+	s.rateLimits++
+	s.consecutiveFailures++
+	hh.pushWindow(resultRateLimit)
+}
+
+// RateLimitRate returns the proportion of rate-limited responses (403/429)
+// over the sliding window of recent requests.
+func (hh *HostHealth) RateLimitRate() float64 {
+	hh.mu.Lock()
+	defer hh.mu.Unlock()
+
+	if hh.windowN == 0 {
+		return 0
+	}
+	var rl int
+	for i := 0; i < hh.windowN; i++ {
+		if hh.window[i] == resultRateLimit {
+			rl++
+		}
+	}
+	return float64(rl) / float64(hh.windowN)
 }
 
 // ShouldRetry returns false if the host has exceeded the consecutive failure threshold.
@@ -252,20 +318,19 @@ func (hh *HostHealth) ShouldRetry(host string, maxConsecutiveFails int) bool {
 	return s.consecutiveFailures < maxConsecutiveFails
 }
 
-// GlobalErrorRate returns the global error rate across all hosts.
+// GlobalErrorRate returns the error rate over the sliding window of recent requests.
 func (hh *HostHealth) GlobalErrorRate() float64 {
 	hh.mu.Lock()
 	defer hh.mu.Unlock()
 
-	var totalSuccess, totalFailure int64
-	for _, s := range hh.hosts {
-		totalSuccess += s.successes
-		totalFailure += s.failures
-	}
-
-	total := totalSuccess + totalFailure
-	if total == 0 {
+	if hh.windowN == 0 {
 		return 0
 	}
-	return float64(totalFailure) / float64(total)
+	var failures int
+	for i := 0; i < hh.windowN; i++ {
+		if hh.window[i] != resultSuccess {
+			failures++
+		}
+	}
+	return float64(failures) / float64(hh.windowN)
 }

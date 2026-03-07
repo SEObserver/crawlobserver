@@ -158,6 +158,18 @@ func (f *Frontier) MarkSeen(url string) {
 	f.urldb.Add(url)
 }
 
+// SetDelay updates the per-host politeness delay.
+func (f *Frontier) SetDelay(delay time.Duration) {
+	f.hostQueue.SetDelay(delay)
+}
+
+// Delay returns the current per-host politeness delay.
+func (f *Frontier) Delay() time.Duration {
+	f.hostQueue.mu.Lock()
+	defer f.hostQueue.mu.Unlock()
+	return f.hostQueue.delay
+}
+
 // Close closes the frontier, preventing new URLs from being added.
 func (f *Frontier) Close() {
 	f.mu.Lock()
