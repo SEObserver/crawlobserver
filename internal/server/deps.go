@@ -32,6 +32,8 @@ type CrawlStore interface {
 	GlobalStats(ctx context.Context) ([]storage.GlobalSessionStats, *storage.StorageStatsResult, error)
 	RecomputeDepths(ctx context.Context, sessionID string, seedURLs []string) error
 	ComputePageRank(ctx context.Context, sessionID string) error
+	StatusTimeline(ctx context.Context, sessionID string) ([]storage.StatusTimelineBucket, error)
+	StatusTimelineRecent(ctx context.Context, sessionID string) ([]storage.StatusTimelineBucket, error)
 	PageRankDistribution(ctx context.Context, sessionID string, buckets int) (*storage.PageRankDistributionResult, error)
 	PageRankTreemap(ctx context.Context, sessionID string, depth, minPages int) ([]storage.PageRankTreemapEntry, error)
 	PageRankTop(ctx context.Context, sessionID string, limit, offset int, directory string) (*storage.PageRankTopResult, error)

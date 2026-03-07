@@ -641,6 +641,17 @@ PARTITION BY project_id
 ORDER BY (project_id, provider, data_type, domain, item_url)
 `
 
+const CreateRetryAttempts = `
+CREATE TABLE IF NOT EXISTS crawlobserver.retry_attempts (
+    crawl_session_id String,
+    attempted_at DateTime,
+    status_code UInt16,
+    url String
+) ENGINE = MergeTree
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, attempted_at)
+`
+
 // Migrations is the ordered list of migrations.
 var Migrations = []Migration{
 	{Name: "create database", DDL: CreateDatabase},
@@ -673,4 +684,5 @@ var Migrations = []Migration{
 	{Name: "create extractions", DDL: CreateExtractions},
 	{Name: "create provider_data", DDL: CreateProviderData},
 	{Name: "alter provider_backlinks add ttf_topic", DDL: `ALTER TABLE crawlobserver.provider_backlinks ADD COLUMN IF NOT EXISTS source_ttf_topic String DEFAULT ''`},
+	{Name: "create retry_attempts", DDL: CreateRetryAttempts},
 }

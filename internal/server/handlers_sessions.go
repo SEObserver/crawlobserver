@@ -644,8 +644,19 @@ func (s *Server) handleRetryFailed(w http.ResponseWriter, r *http.Request) {
 
 	var overrides *crawler.CrawlRequest
 	statusCode := queryInt(r, "status_code", 0)
+	if r.Body != nil && r.ContentLength != 0 {
+		var req crawler.CrawlRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+		overrides = &req
+	}
 	if statusCode > 0 {
-		overrides = &crawler.CrawlRequest{RetryStatusCode: statusCode}
+		if overrides == nil {
+			overrides = &crawler.CrawlRequest{}
+		}
+		overrides.RetryStatusCode = statusCode
 	}
 
 	count, err := s.manager.RetryFailed(sessionID, overrides)
@@ -659,6 +670,32 @@ func (s *Server) handleRetryFailed(w http.ResponseWriter, r *http.Request) {
 		"message": fmt.Sprintf("Retrying %d pages (status %d) for session %s", count, statusCode, sessionID),
 		"count":   count,
 	})
+}
+
+func (s *Server) handleStatusTimeline(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	buckets, err := s.store.StatusTimeline(r.Context(), sessionID)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, buckets)
+}
+
+func (s *Server) handleStatusTimelineRecent(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	buckets, err := s.store.StatusTimelineRecent(r.Context(), sessionID)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, buckets)
 }
 
 func (s *Server) handlePageRankDistribution(w http.ResponseWriter, r *http.Request) {

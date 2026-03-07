@@ -1381,3 +1381,182 @@ func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID st
 	}
 	return result, nil
 }
+
+// InsertRetryAttempt records a single retry attempt.
+func (s *Store) InsertRetryAttempt(ctx context.Context, sessionID string, attemptedAt time.Time, statusCode int, url string) error {
+	return s.conn.Exec(ctx, `INSERT INTO crawlobserver.retry_attempts (crawl_session_id, attempted_at, status_code, url) VALUES (?, ?, ?, ?)`,
+		sessionID, attemptedAt, uint16(statusCode), url)
+}
+
+// StatusTimelineBucket holds counts per status code category for a time interval.
+type StatusTimelineBucket struct {
+	Timestamp  time.Time `json:"ts"`
+	OK         uint64    `json:"ok"`
+	Redirect   uint64    `json:"redirect"`
+	Status403  uint64    `json:"s403"`
+	Status429  uint64    `json:"s429"`
+	ClientErr  uint64    `json:"client_err"`  // 4xx excluding 403/429
+	ServerErr  uint64    `json:"server_err"`  // 5xx
+	FetchErr   uint64    `json:"fetch_err"`   // status_code = 0
+	Total      uint64    `json:"total"`
+	Retried403 uint64    `json:"retried_403"`
+	Retried429 uint64    `json:"retried_429"`
+	Retried5xx uint64    `json:"retried_5xx"`
+}
+
+// StatusTimeline returns time-bucketed status code counts for a crawl session.
+// The interval is auto-computed to produce ~60-100 buckets.
+func (s *Store) StatusTimeline(ctx context.Context, sessionID string) ([]StatusTimelineBucket, error) {
+	// Determine crawl duration to auto-size the interval
+	var minTS, maxTS time.Time
+	err := s.conn.QueryRow(ctx, `
+		SELECT min(crawled_at), max(crawled_at) FROM crawlobserver.pages
+		WHERE crawl_session_id = ?`, sessionID).Scan(&minTS, &maxTS)
+	if err != nil {
+		return nil, fmt.Errorf("querying time range: %w", err)
+	}
+	duration := maxTS.Sub(minTS)
+	if duration <= 0 {
+		return nil, nil
+	}
+
+	// Pick interval: target ~80 buckets
+	intervalSec := int(duration.Seconds() / 80)
+	if intervalSec < 5 {
+		intervalSec = 5
+	}
+
+	rows, err := s.conn.Query(ctx, fmt.Sprintf(`
+		SELECT
+			toStartOfInterval(crawled_at, INTERVAL %d SECOND) AS ts,
+			countIf(status_code >= 200 AND status_code < 300) AS ok,
+			countIf(status_code >= 300 AND status_code < 400) AS redirect,
+			countIf(status_code = 403) AS s403,
+			countIf(status_code = 429) AS s429,
+			countIf(status_code >= 400 AND status_code < 500 AND status_code != 403 AND status_code != 429) AS client_err,
+			countIf(status_code >= 500) AS server_err,
+			countIf(status_code = 0) AS fetch_err,
+			count() AS total
+		FROM crawlobserver.pages
+		WHERE crawl_session_id = ?
+		GROUP BY ts
+		ORDER BY ts`, intervalSec), sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying status timeline: %w", err)
+	}
+	defer rows.Close()
+
+	var buckets []StatusTimelineBucket
+	for rows.Next() {
+		var b StatusTimelineBucket
+		if err := rows.Scan(&b.Timestamp, &b.OK, &b.Redirect, &b.Status403, &b.Status429,
+			&b.ClientErr, &b.ServerErr, &b.FetchErr, &b.Total); err != nil {
+			return nil, fmt.Errorf("scanning status timeline: %w", err)
+		}
+		buckets = append(buckets, b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating status timeline: %w", err)
+	}
+
+	// Merge retry data
+	retryQuery := fmt.Sprintf(`
+		SELECT toStartOfInterval(attempted_at, INTERVAL %d SECOND) AS ts,
+			countIf(status_code = 403), countIf(status_code = 429), countIf(status_code >= 500)
+		FROM crawlobserver.retry_attempts WHERE crawl_session_id = ? GROUP BY ts`, intervalSec)
+	mergeRetryData(ctx, s, retryQuery, sessionID, buckets)
+
+	return buckets, nil
+}
+
+// StatusTimelineRecent returns the last 10 minutes of crawl activity in 10-second buckets.
+func (s *Store) StatusTimelineRecent(ctx context.Context, sessionID string) ([]StatusTimelineBucket, error) {
+	var maxTS time.Time
+	err := s.conn.QueryRow(ctx, `
+		SELECT max(crawled_at) FROM crawlobserver.pages
+		WHERE crawl_session_id = ?`, sessionID).Scan(&maxTS)
+	if err != nil {
+		return nil, fmt.Errorf("querying max time: %w", err)
+	}
+	if maxTS.IsZero() {
+		return nil, nil
+	}
+
+	boundary := maxTS.Add(-10 * time.Minute)
+
+	rows, err := s.conn.Query(ctx, fmt.Sprintf(`
+		SELECT
+			toStartOfInterval(crawled_at, INTERVAL 10 SECOND) AS ts,
+			countIf(status_code >= 200 AND status_code < 300) AS ok,
+			countIf(status_code >= 300 AND status_code < 400) AS redirect,
+			countIf(status_code = 403) AS s403,
+			countIf(status_code = 429) AS s429,
+			countIf(status_code >= 400 AND status_code < 500 AND status_code != 403 AND status_code != 429) AS client_err,
+			countIf(status_code >= 500) AS server_err,
+			countIf(status_code = 0) AS fetch_err,
+			count() AS total
+		FROM crawlobserver.pages
+		WHERE crawl_session_id = ? AND crawled_at >= '%s'
+		GROUP BY ts
+		ORDER BY ts`, boundary.Format("2006-01-02 15:04:05")), sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying recent status timeline: %w", err)
+	}
+	defer rows.Close()
+
+	var buckets []StatusTimelineBucket
+	for rows.Next() {
+		var b StatusTimelineBucket
+		if err := rows.Scan(&b.Timestamp, &b.OK, &b.Redirect, &b.Status403, &b.Status429,
+			&b.ClientErr, &b.ServerErr, &b.FetchErr, &b.Total); err != nil {
+			return nil, fmt.Errorf("scanning recent status timeline: %w", err)
+		}
+		buckets = append(buckets, b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating recent status timeline: %w", err)
+	}
+
+	// Merge retry data
+	retryQuery := fmt.Sprintf(`
+		SELECT toStartOfInterval(attempted_at, INTERVAL 10 SECOND) AS ts,
+			countIf(status_code = 403), countIf(status_code = 429), countIf(status_code >= 500)
+		FROM crawlobserver.retry_attempts WHERE crawl_session_id = ? AND attempted_at >= '%s' GROUP BY ts`,
+		boundary.Format("2006-01-02 15:04:05"))
+	mergeRetryData(ctx, s, retryQuery, sessionID, buckets)
+
+	return buckets, nil
+}
+
+// mergeRetryData queries retry_attempts and merges counts into existing buckets by timestamp.
+func mergeRetryData(ctx context.Context, s *Store, query string, sessionID string, buckets []StatusTimelineBucket) {
+	if len(buckets) == 0 {
+		return
+	}
+	rows, err := s.conn.Query(ctx, query, sessionID)
+	if err != nil {
+		applog.Warnf("storage", "retry timeline query failed: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	// Build lookup by timestamp
+	idx := make(map[time.Time]int, len(buckets))
+	for i := range buckets {
+		idx[buckets[i].Timestamp] = i
+	}
+
+	for rows.Next() {
+		var ts time.Time
+		var r403, r429, r5xx uint64
+		if err := rows.Scan(&ts, &r403, &r429, &r5xx); err != nil {
+			applog.Warnf("storage", "retry timeline scan failed: %v", err)
+			return
+		}
+		if i, ok := idx[ts]; ok {
+			buckets[i].Retried403 = r403
+			buckets[i].Retried429 = r429
+			buckets[i].Retried5xx = r5xx
+		}
+	}
+}

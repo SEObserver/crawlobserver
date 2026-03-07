@@ -44,10 +44,12 @@ type Engine struct {
 	allowedDomains  map[string]bool
 	allowedPrefixes []string
 
-	retryQueue     *RetryQueue
-	hostHealth     *HostHealth
-	retryPolicy    *RetryPolicy
-	pendingRetries atomic.Int64
+	retryQueue       *RetryQueue
+	hostHealth       *HostHealth
+	retryPolicy      *RetryPolicy
+	pendingRetries   atomic.Int64
+	resultsProcessed atomic.Int64 // all results including retries, for circuit breaker
+	baseDelay        time.Duration // original frontier delay, for adaptive throttle
 
 	sitemapOnly      bool
 	fetchSitemaps    bool
@@ -116,8 +118,9 @@ func NewEngine(cfg *config.Config, store *storage.Store) *Engine {
 			BaseDelay:  cfg.Crawler.Retry.BaseDelay,
 			MaxDelay:   cfg.Crawler.Retry.MaxDelay,
 		},
-		ctx:    ctx,
-		cancel: cancel,
+		baseDelay: cfg.Crawler.Delay,
+		ctx:       ctx,
+		cancel:    cancel,
 	}
 }
 
@@ -599,31 +602,76 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 		default:
 		}
 
-		// Retry decision
-		if e.shouldRetryResult(result) {
-			e.enqueueRetry(result)
-			continue // skip storage
-		}
-		// Decrement pending retries if this was a retry attempt (success or final failure)
-		if result.Attempt > 0 {
-			e.pendingRetries.Add(-1)
-		}
-
-		// Host health tracking
+		// Host health tracking BEFORE retry — 403/429 must be recorded even when retried
 		host := extractHost(result.URL)
-		if result.Error != "" || result.StatusCode >= 500 {
+		if result.StatusCode == 403 || result.StatusCode == 429 {
+			e.hostHealth.RecordRateLimit(host)
+		} else if result.Error != "" || result.StatusCode >= 500 {
 			e.hostHealth.RecordFailure(host)
 		} else {
 			e.hostHealth.RecordSuccess(host)
 		}
+		rp := e.resultsProcessed.Add(1)
 
-		// Circuit breaker: check every 100 pages
-		if pages := e.pagesCrawled.Load(); pages > 0 && pages%100 == 0 {
+		// Circuit breaker + adaptive throttle: check every 10 results (including retries)
+		if rp > 0 && rp%10 == 0 {
 			if rate := e.hostHealth.GlobalErrorRate(); rate > e.cfg.Crawler.Retry.MaxGlobalErrorRate {
 				applog.Errorf("crawler", "STOPPING: global error rate %.2f exceeds threshold %.2f",
 					rate, e.cfg.Crawler.Retry.MaxGlobalErrorRate)
 				e.Stop()
 			}
+
+			// Adaptive throttle on rate-limit responses (403/429)
+			rlRate := e.hostHealth.RateLimitRate()
+			currentDelay := e.front.Delay()
+			if rlRate > 0.20 {
+				// >20% rate-limited: aggressive slowdown
+				newDelay := currentDelay * 2
+				if newDelay < 2*time.Second {
+					newDelay = 2 * time.Second
+				}
+				if newDelay > 30*time.Second {
+					newDelay = 30 * time.Second
+				}
+				if newDelay != currentDelay {
+					applog.Warnf("crawler", "Rate-limit throttle: %.0f%% rate-limited, delay %v -> %v",
+						rlRate*100, currentDelay, newDelay)
+					e.front.SetDelay(newDelay)
+				}
+			} else if rlRate > 0.05 {
+				// 5-20% rate-limited: moderate slowdown
+				newDelay := currentDelay
+				if newDelay < 1*time.Second {
+					newDelay = 1 * time.Second
+				}
+				if newDelay != currentDelay {
+					applog.Warnf("crawler", "Rate-limit throttle: %.0f%% rate-limited, delay %v -> %v",
+						rlRate*100, currentDelay, newDelay)
+					e.front.SetDelay(newDelay)
+				}
+			} else if rlRate < 0.02 && currentDelay > e.baseDelay {
+				// <2% rate-limited: ease off, restore toward original delay
+				newDelay := currentDelay / 2
+				if newDelay < e.baseDelay {
+					newDelay = e.baseDelay
+				}
+				applog.Infof("crawler", "Rate-limit easing: %.0f%% rate-limited, delay %v -> %v",
+					rlRate*100, currentDelay, newDelay)
+				e.front.SetDelay(newDelay)
+			}
+		}
+
+		// Retry decision (after health tracking so retries are counted)
+		if e.shouldRetryResult(result) {
+			e.enqueueRetry(result)
+			if err := e.store.InsertRetryAttempt(e.ctx, e.session.ID, time.Now(), result.StatusCode, result.URL); err != nil {
+				applog.Warnf("crawler", "failed to record retry attempt: %v", err)
+			}
+			continue // skip storage
+		}
+		// Decrement pending retries if this was a retry attempt (success or final failure)
+		if result.Attempt > 0 {
+			e.pendingRetries.Add(-1)
 		}
 
 		now := time.Now()
