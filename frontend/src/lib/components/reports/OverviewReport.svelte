@@ -6,6 +6,7 @@
   import DonutChart from '../charts/DonutChart.svelte';
   import HBarChart from '../charts/HBarChart.svelte';
   import AreaChart from '../charts/AreaChart.svelte';
+  import AnimatedNumber from '../AnimatedNumber.svelte';
 
   let { stats, sessionId, isRunning = false, onnavigate } = $props();
 
@@ -282,7 +283,7 @@
         tabindex="0"
         onkeydown={a11yKeydown(() => nav('overview'))}
       >
-        <div class="stat-value">{fmtN(stats.total_pages)}</div>
+        <div class="stat-value"><AnimatedNumber value={stats.total_pages} /></div>
         <div class="stat-label">{t('report.overview.totalPages')}</div>
       </div>
       <div
@@ -292,7 +293,7 @@
         tabindex="0"
         onkeydown={a11yKeydown(() => nav('internal'))}
       >
-        <div class="stat-value">{fmtN(stats.internal_links)}</div>
+        <div class="stat-value"><AnimatedNumber value={stats.internal_links} /></div>
         <div class="stat-label">{t('report.overview.internalLinks')}</div>
       </div>
       <div
@@ -302,7 +303,7 @@
         tabindex="0"
         onkeydown={a11yKeydown(() => nav('external'))}
       >
-        <div class="stat-value">{fmtN(stats.external_links)}</div>
+        <div class="stat-value"><AnimatedNumber value={stats.external_links} /></div>
         <div class="stat-label">{t('report.overview.externalLinks')}</div>
       </div>
       <div
@@ -313,7 +314,7 @@
         onkeydown={a11yKeydown(() => nav('response', { status_code: '>=400' }))}
       >
         <div class="stat-value" style={errorCount > 0 ? 'color: var(--error)' : ''}>
-          {fmtN(errorCount)}
+          <AnimatedNumber value={errorCount} />
         </div>
         <div class="stat-label">{t('report.overview.errors')}</div>
       </div>
@@ -324,7 +325,9 @@
         tabindex="0"
         onkeydown={a11yKeydown(() => nav('response'))}
       >
-        <div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div>
+        <div class="stat-value">
+          <AnimatedNumber value={Math.round(stats.avg_fetch_ms)} format={fmt} />
+        </div>
         <div class="stat-label">{t('report.overview.avgResponse')}</div>
       </div>
       <div class="stat-card">

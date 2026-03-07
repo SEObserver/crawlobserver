@@ -6,6 +6,7 @@
   import DonutChart from '../charts/DonutChart.svelte';
   import HBarChart from '../charts/HBarChart.svelte';
   import AreaChart from '../charts/AreaChart.svelte';
+  import AnimatedNumber from '../AnimatedNumber.svelte';
 
   let { stats, audit, sessionId, isRunning = false, onnavigate } = $props();
 
@@ -274,7 +275,7 @@
             onclick={() => nav('indexability', { is_indexable: 'true' })}
             onkeydown={a11yKeydown(() => nav('indexability', { is_indexable: 'true' }))}
           >
-            <div class="stat-value text-success">{fmtN(tech.indexable)}</div>
+            <div class="stat-value text-success"><AnimatedNumber value={tech.indexable} /></div>
             <div class="stat-label">{t('report.technical.indexable')}</div>
           </div>
           <div
@@ -284,7 +285,7 @@
             onclick={() => nav('indexability', { is_indexable: 'false' })}
             onkeydown={a11yKeydown(() => nav('indexability', { is_indexable: 'false' }))}
           >
-            <div class="stat-value text-error">{fmtN(tech.non_indexable)}</div>
+            <div class="stat-value text-error"><AnimatedNumber value={tech.non_indexable} /></div>
             <div class="stat-label">{t('report.technical.nonIndexable')}</div>
           </div>
         </div>
@@ -308,7 +309,7 @@
           onclick={() => nav('indexability', { canonical_is_self: 'true' })}
           onkeydown={a11yKeydown(() => nav('indexability', { canonical_is_self: 'true' }))}
         >
-          <div class="stat-value text-success">{fmtN(tech.canonical_self)}</div>
+          <div class="stat-value text-success"><AnimatedNumber value={tech.canonical_self} /></div>
           <div class="stat-label">{t('report.technical.selfCanonical')}</div>
         </div>
         <div
@@ -318,7 +319,7 @@
           onclick={() => nav('indexability', { canonical_is_self: 'false' })}
           onkeydown={a11yKeydown(() => nav('indexability', { canonical_is_self: 'false' }))}
         >
-          <div class="stat-value text-info">{fmtN(tech.canonical_other)}</div>
+          <div class="stat-value text-info"><AnimatedNumber value={tech.canonical_other} /></div>
           <div class="stat-label">{t('report.technical.otherCanonical')}</div>
         </div>
         <div
@@ -328,7 +329,9 @@
           onclick={() => nav('indexability', { canonical: '' })}
           onkeydown={a11yKeydown(() => nav('indexability', { canonical: '' }))}
         >
-          <div class="stat-value text-warning">{fmtN(tech.canonical_missing)}</div>
+          <div class="stat-value text-warning">
+            <AnimatedNumber value={tech.canonical_missing} />
+          </div>
           <div class="stat-label">{t('report.technical.missing')}</div>
         </div>
       </div>
@@ -345,7 +348,7 @@
         onclick={() => nav('response', { status_code: '3' })}
         onkeydown={a11yKeydown(() => nav('response', { status_code: '3' }))}
       >
-        <div class="stat-value">{fmtN(tech.has_redirect || 0)}</div>
+        <div class="stat-value"><AnimatedNumber value={tech.has_redirect || 0} /></div>
         <div class="stat-label">{t('report.technical.pagesWithRedirect')}</div>
       </div>
       <div
@@ -355,7 +358,9 @@
         onclick={() => nav('response', { status_code: '3' })}
         onkeydown={a11yKeydown(() => nav('response', { status_code: '3' }))}
       >
-        <div class="stat-value text-warning">{fmtN(tech.redirect_chains_over_2 || 0)}</div>
+        <div class="stat-value text-warning">
+          <AnimatedNumber value={tech.redirect_chains_over_2 || 0} />
+        </div>
         <div class="stat-label">{t('report.technical.chainsOver2')}</div>
       </div>
       <div
@@ -365,7 +370,7 @@
         onclick={() => nav('response', { status_code: '5' })}
         onkeydown={a11yKeydown(() => nav('response', { status_code: '5' }))}
       >
-        <div class="stat-value text-error">{fmtN(tech.error_pages || 0)}</div>
+        <div class="stat-value text-error"><AnimatedNumber value={tech.error_pages || 0} /></div>
         <div class="stat-label">{t('report.technical.errorPages')}</div>
       </div>
     </div>
@@ -412,7 +417,9 @@
           onclick={() => nav('response')}
           onkeydown={a11yKeydown(() => nav('response'))}
         >
-          <div class="stat-value">{fmt(Math.round(stats.avg_fetch_ms))}</div>
+          <div class="stat-value">
+            <AnimatedNumber value={Math.round(stats.avg_fetch_ms)} format={fmt} />
+          </div>
           <div class="stat-label">{t('report.technical.average')}</div>
         </div>
       </div>
