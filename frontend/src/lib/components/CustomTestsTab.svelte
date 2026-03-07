@@ -232,7 +232,9 @@
           {#each rulesets as rs}
             <tr>
               <td><strong>{rs.name}</strong></td>
-              <td class="nowrap">{t('tests.rulesCount', { count: rs.rule_count ?? rs.rules?.length ?? 0 })}</td>
+              <td class="nowrap"
+                >{t('tests.rulesCount', { count: rs.rule_count ?? rs.rules?.length ?? 0 })}</td
+              >
               <td class="text-muted text-sm">{new Date(rs.updated_at).toLocaleDateString()}</td>
               <td class="ct-td-actions">
                 <button class="btn btn-sm" onclick={() => editRulesetById(rs.id)}

@@ -9,7 +9,15 @@
   import SitemapReport from './reports/SitemapReport.svelte';
   import InternationalReport from './reports/InternationalReport.svelte';
 
-  let { sessionId, stats, isRunning = false, initialSubView = 'overview', onnavigate, onpushurl, onerror } = $props();
+  let {
+    sessionId,
+    stats,
+    isRunning = false,
+    initialSubView = 'overview',
+    onnavigate,
+    onpushurl,
+    onerror,
+  } = $props();
 
   let subView = $state(initialSubView);
   let auditData = $state(null);
