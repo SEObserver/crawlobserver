@@ -332,7 +332,14 @@
       </div>
       <div class="stat-card">
         <div class="stat-value">
-          {stats.pages_per_second > 0 ? stats.pages_per_second.toFixed(1) : '-'}
+          {#if stats.pages_per_second > 0}
+            <AnimatedNumber
+              value={Math.round(stats.pages_per_second * 10)}
+              format={(v) => (v / 10).toFixed(1)}
+            />
+          {:else}
+            -
+          {/if}
         </div>
         <div class="stat-label">{t('report.overview.pagesPerSec')}</div>
       </div>

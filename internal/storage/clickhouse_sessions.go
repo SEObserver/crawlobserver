@@ -255,16 +255,29 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 
 	// Crawl duration and pages/sec
 	var startedAt, finishedAt time.Time
+	var status string
 	durRow := s.conn.QueryRow(ctx, `
-		SELECT started_at, finished_at
+		SELECT started_at, finished_at, status
 		FROM crawlobserver.crawl_sessions FINAL
 		WHERE id = ?`, sessionID)
-	if err := durRow.Scan(&startedAt, &finishedAt); err == nil {
-		if !finishedAt.IsZero() && finishedAt.After(startedAt) {
+	if err := durRow.Scan(&startedAt, &finishedAt, &status); err == nil {
+		if status == "running" {
+			stats.CrawlDurationSec = time.Since(startedAt).Seconds()
+			// Live pages/sec = pages crawled in last 60s / 60
+			var recentCount uint64
+			recentRow := s.conn.QueryRow(ctx, `
+				SELECT count()
+				FROM crawlobserver.pages
+				WHERE crawl_session_id = ?
+				  AND crawled_at >= now() - INTERVAL 60 SECOND`, sessionID)
+			if err := recentRow.Scan(&recentCount); err == nil && recentCount > 0 {
+				stats.PagesPerSecond = float64(recentCount) / 60.0
+			}
+		} else if !finishedAt.IsZero() && finishedAt.After(startedAt) {
 			stats.CrawlDurationSec = finishedAt.Sub(startedAt).Seconds()
-		}
-		if stats.CrawlDurationSec > 0 {
-			stats.PagesPerSecond = float64(stats.TotalPages) / stats.CrawlDurationSec
+			if stats.CrawlDurationSec > 0 {
+				stats.PagesPerSecond = float64(stats.TotalPages) / stats.CrawlDurationSec
+			}
 		}
 	}
 
