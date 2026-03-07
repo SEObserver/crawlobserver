@@ -110,6 +110,8 @@
           <div class="session-meta">
             {#if isQueued}
               <span class="badge badge-queued">{t('session.queued')}</span>
+            {:else if s.Status === 'stopping'}
+              <span class="badge badge-warning">{t('actionBar.stopping')}</span>
             {:else if isRunning}
               <span class="badge badge-info">
                 {#if live && live.phase === 'fetching_sitemaps'}
@@ -152,7 +154,9 @@
           </div>
         </div>
         <div class="session-actions" onclick={(e) => e.stopPropagation()}>
-          {#if isRunning || isQueued}
+          {#if s.Status === 'stopping'}
+            <!-- no actions while stopping -->
+          {:else if isRunning || isQueued}
             <button class="btn btn-sm btn-danger" onclick={() => onstop?.(s.ID)}
               >{t('common.stop')}</button
             >

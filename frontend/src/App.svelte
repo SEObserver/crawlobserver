@@ -86,6 +86,9 @@
   let currentView = $state('home');
   let showResumeModal = $state(false);
   let resumeSessionId = $state(null);
+  let resumeModalMode = $state('resume');
+  let retryStatusCode = $state(0);
+  let retryCount = $state(0);
   let confirmState = $state(null);
   let globalStats = $state(null);
   let compareSessionA = $state('');
@@ -230,6 +233,7 @@
   }
 
   async function applyRoute() {
+    trackPageView(location.pathname + location.hash);
     const route = parseRoute();
 
     // Top-level pages (home, new-crawl, settings, stats, api, project)
@@ -313,8 +317,13 @@
       }
       const found = sessions.find((s) => s.ID === route.sessionId);
       if (found) {
+        try {
+          stats = await getStats(found.ID);
+        } catch (e) {
+          console.warn('Stats fetch failed in applyRoute:', e);
+          stats = null;
+        }
         selectedSession = found;
-        stats = await getStats(found.ID);
         loadStorageStats();
       }
     }
@@ -327,7 +336,6 @@
 
   async function selectSession(session) {
     currentView = 'session';
-    selectedSession = session;
     selectedProject = null;
     routeTab = 'reports';
     routeFilters = {};
@@ -337,10 +345,12 @@
     pushURL(`/sessions/${session.ID}/reports`);
     try {
       stats = await getStats(session.ID);
-      loadStorageStats();
     } catch (e) {
       error = e.message;
+      stats = null;
     }
+    selectedSession = session;
+    loadStorageStats();
   }
 
   function goHome() {
@@ -445,19 +455,39 @@
   }
 
   function onCrawlStarted() {
+    trackEvent('crawl_started_ui');
     currentView = 'home';
     pushURL('/');
     setTimeout(() => loadSessions(), RELOAD_DELAY_MS);
   }
 
+  function updateSessionState(id, patch) {
+    sessions = sessions.map((s) => (s.ID === id ? { ...s, ...patch } : s));
+    if (selectedSession?.ID === id) {
+      selectedSession = { ...selectedSession, ...patch };
+    }
+  }
+
   async function handleStop(id) {
     try {
+      trackEvent('crawl_stopped_ui');
+      updateSessionState(id, { Status: 'stopping', is_running: false });
       await stopCrawl(id);
       setTimeout(async () => {
         await loadSessions();
         const sess = sessions.find((s) => s.ID === id);
-        if (sess && selectedSession?.ID !== id) {
-          selectSession(sess);
+        if (sess) {
+          if (selectedSession?.ID === id) {
+            // Already viewing: update in place without recreating the component
+            try {
+              stats = await getStats(id);
+            } catch (e) {
+              console.warn('Stats refresh after stop failed:', e);
+            }
+            selectedSession = sess;
+          } else {
+            selectSession(sess);
+          }
         }
       }, STOP_RELOAD_DELAY_MS);
     } catch (e) {
@@ -467,6 +497,17 @@
 
   function openResumeModal(id) {
     resumeSessionId = id;
+    resumeModalMode = 'resume';
+    retryStatusCode = 0;
+    retryCount = 0;
+    showResumeModal = true;
+  }
+
+  function openRetryModal(id, statusCode, count) {
+    resumeSessionId = id;
+    resumeModalMode = 'retry';
+    retryStatusCode = statusCode;
+    retryCount = count;
     showResumeModal = true;
   }
 
@@ -476,11 +517,24 @@
   }
 
   async function onResumeComplete() {
+    trackEvent(resumeModalMode === 'retry' ? 'crawl_retried_ui' : 'crawl_resumed_ui');
+    const sid = resumeSessionId;
+    updateSessionState(sid, { Status: 'running', is_running: true });
     closeResumeModal();
     await loadSessions();
-    const sess = sessions.find((s) => s.ID === resumeSessionId);
+    const sess = sessions.find((s) => s.ID === sid);
     if (sess) {
-      await selectSession(sess);
+      if (selectedSession?.ID === sid) {
+        // Already viewing this session: update in place without recreating the component
+        try {
+          stats = await getStats(sid);
+        } catch (e) {
+          console.warn('Stats refresh after resume failed:', e);
+        }
+        selectedSession = sess;
+      } else {
+        await selectSession(sess);
+      }
     }
   }
 
@@ -557,7 +611,6 @@
   }
 
   async function bootApp() {
-    applyRoute();
     startSystemStatsPolling();
     getProjects()
       .then((p) => (projects = p))
@@ -567,7 +620,7 @@
         .then((gs) => (globalStats = gs))
         .catch(() => {});
 
-    // Init telemetry if enabled
+    // Init telemetry BEFORE first applyRoute so pageviews are tracked
     try {
       const tel = await getTelemetry();
       if (tel.enabled) {
@@ -577,6 +630,8 @@
     } catch {
       // Telemetry init failure is non-fatal
     }
+
+    applyRoute();
   }
 
   function onOnboardingComplete() {
@@ -759,6 +814,7 @@
               onerror={(msg) => (error = msg)}
               onstop={handleStop}
               onresume={openResumeModal}
+              onretry={openRetryModal}
               ondelete={handleDelete}
               onrefresh={() => selectSession(selectedSession)}
               oncompare={(id) => navigateTo(`/compare?a=${id}`)}
@@ -775,6 +831,10 @@
     <ResumeModal
       sessionId={resumeSessionId}
       {sessions}
+      {projects}
+      mode={resumeModalMode}
+      {retryStatusCode}
+      {retryCount}
       onresume={onResumeComplete}
       onclose={closeResumeModal}
       onerror={(msg) => (error = msg)}

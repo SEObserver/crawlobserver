@@ -161,6 +161,8 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/sessions/{id}/events", s.handleSSE)
 	mux.HandleFunc("GET /api/sessions/{id}/page-html", s.handlePageHTML)
 	mux.HandleFunc("GET /api/sessions/{id}/page-detail", s.handlePageDetail)
+	mux.HandleFunc("GET /api/sessions/{id}/status-timeline", s.handleStatusTimeline)
+	mux.HandleFunc("GET /api/sessions/{id}/status-timeline-recent", s.handleStatusTimelineRecent)
 	mux.HandleFunc("GET /api/sessions/{id}/pagerank-distribution", s.handlePageRankDistribution)
 	mux.HandleFunc("GET /api/sessions/{id}/pagerank-treemap", s.handlePageRankTreemap)
 	mux.HandleFunc("GET /api/sessions/{id}/pagerank-top", s.handlePageRankTop)
@@ -300,6 +302,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if path == "/" {
+			w.Header().Set("Cache-Control", "no-cache")
 			fileServer.ServeHTTP(w, r)
 			return
 		}
@@ -321,6 +324,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 			}
 			return
 		}
+		w.Header().Set("Cache-Control", "no-cache")
 		r.URL.Path = "/"
 		fileServer.ServeHTTP(w, r)
 	})
@@ -747,11 +751,15 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
+		scriptSrc := "'self'"
 		connectSrc := "'self'"
+		workerSrc := "'self'"
 		if s.cfg.Telemetry.Enabled {
-			connectSrc = "'self' https://eu.i.posthog.com"
+			scriptSrc = "'self' https://*.posthog.com https://*.i.posthog.com"
+			connectSrc = "'self' https://*.posthog.com https://*.i.posthog.com"
+			workerSrc = "'self' blob:"
 		}
-		csp := fmt.Sprintf("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-src 'self' blob:; connect-src %s; base-uri 'self'; form-action 'self'; object-src 'none'", connectSrc)
+		csp := fmt.Sprintf("default-src 'self'; script-src %s; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-src 'self' blob:; connect-src %s; worker-src %s; base-uri 'self'; form-action 'self'; object-src 'none'", scriptSrc, connectSrc, workerSrc)
 		w.Header().Set("Content-Security-Policy", csp)
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		next.ServeHTTP(w, r)

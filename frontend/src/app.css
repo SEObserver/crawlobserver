@@ -812,6 +812,9 @@ tr:hover .url-actions {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
+  z-index: 1;
+  overflow: visible;
 }
 
 .chart-title {

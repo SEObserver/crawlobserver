@@ -20,9 +20,7 @@ export async function initTelemetry(instanceId, sessionRecording = false) {
       ip: false,
       autocapture: false,
       capture_pageview: false,
-      persistence: 'memory',
-      // WARNING: when session_recording is true, full browser sessions
-      // (all URLs, page content, and clicks) are recorded and sent to PostHog.
+      persistence: 'localStorage',
       disable_session_recording: !sessionRecording,
     });
     posthog.identify(instanceId);
@@ -49,7 +47,9 @@ export function trackEvent(name, props) {
  */
 export function trackPageView(page) {
   if (posthog && initialized) {
-    posthog.capture('$pageview', { $current_url: page });
+    posthog.capture('$pageview', {
+      $current_url: window.location.origin + page,
+    });
   }
 }
 
