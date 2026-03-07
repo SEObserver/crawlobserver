@@ -1,10 +1,147 @@
 <script>
+  import { onMount } from 'svelte';
   import { fmtN, fmt, a11yKeydown } from '../../utils.js';
   import { t } from '../../i18n/index.svelte.js';
+  import { getStatusTimeline, getStatusTimelineRecent } from '../../api.js';
   import DonutChart from '../charts/DonutChart.svelte';
   import HBarChart from '../charts/HBarChart.svelte';
+  import AreaChart from '../charts/AreaChart.svelte';
 
-  let { stats, audit, sessionId, onnavigate } = $props();
+  let { stats, audit, sessionId, isRunning = false, onnavigate } = $props();
+
+  // Status timeline charts
+  let timeline = $state(null);
+  let recentTimeline = $state(null);
+  let timelineLoading = $state(false);
+  let pollTimer = null; // NOT $state — avoids read/write loop in $effect
+
+  function fetchTimeline() {
+    if (!sessionId || timelineLoading) return;
+    timelineLoading = true;
+    Promise.all([
+      getStatusTimeline(sessionId),
+      getStatusTimelineRecent(sessionId),
+    ])
+      .then(([data, recent]) => {
+        timeline = data ?? [];
+        recentTimeline = recent ?? [];
+      })
+      .catch((err) => {
+        console.error('[TechnicalReport] timeline fetch failed:', err);
+        timeline = [];
+        recentTimeline = [];
+      })
+      .finally(() => {
+        timelineLoading = false;
+      });
+  }
+
+  onMount(() => {
+    fetchTimeline();
+  });
+
+  // Poll while running — also fetch immediately when isRunning transitions to true
+  $effect(() => {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    if (isRunning && sessionId) {
+      fetchTimeline();
+      pollTimer = setInterval(fetchTimeline, 5_000);
+    }
+    return () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
+  });
+
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function fmtTimeSec(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function buildSeries(data) {
+    if (!data?.length) return [];
+    return [
+      {
+        key: 'retried_403',
+        label: t('report.technical.retried403'),
+        color: '#f97316',
+        opacity: 0.3,
+        values: data.map((b) => b.retried_403 || 0),
+      },
+      {
+        key: 'retried_429',
+        label: t('report.technical.retried429'),
+        color: '#ef4444',
+        opacity: 0.3,
+        values: data.map((b) => b.retried_429 || 0),
+      },
+      {
+        key: 'retried_5xx',
+        label: t('report.technical.retried5xx'),
+        color: '#dc2626',
+        opacity: 0.3,
+        values: data.map((b) => b.retried_5xx || 0),
+      },
+      {
+        key: 'ok',
+        label: '2xx',
+        color: 'var(--success, #22c55e)',
+        values: data.map((b) => b.ok),
+      },
+      {
+        key: 'redirect',
+        label: '3xx',
+        color: 'var(--info, #6366f1)',
+        values: data.map((b) => b.redirect),
+      },
+      {
+        key: 's403',
+        label: '403',
+        color: '#f97316',
+        values: data.map((b) => b.s403),
+      },
+      {
+        key: 's429',
+        label: '429',
+        color: '#ef4444',
+        values: data.map((b) => b.s429),
+      },
+      {
+        key: 'client_err',
+        label: '4xx',
+        color: '#f59e0b',
+        values: data.map((b) => b.client_err),
+      },
+      {
+        key: 'server_err',
+        label: '5xx',
+        color: '#dc2626',
+        values: data.map((b) => b.server_err),
+      },
+      {
+        key: 'fetch_err',
+        label: t('report.technical.fetchErrors'),
+        color: '#9ca3af',
+        values: data.map((b) => b.fetch_err),
+      },
+    ];
+  }
+
+  const timelineSeries = $derived(buildSeries(timeline));
+  const recentSeries = $derived(buildSeries(recentTimeline));
+
+  const timelineLabels = $derived(timeline?.map((b) => fmtTime(b.ts)) || []);
+  const recentLabels = $derived(recentTimeline?.map((b) => fmtTimeSec(b.ts)) || []);
 
   function nav(tab, filters = {}) {
     onnavigate?.(`/sessions/${sessionId}/${tab}`, filters);
@@ -236,6 +373,25 @@
       </div>
     </div>
   </div>
+
+  {#if timelineSeries.length > 0 || recentSeries.length > 0}
+    <div class="report-section">
+      <div class="report-grid">
+        {#if timelineSeries.length > 0}
+          <div class="chart-section">
+            <h3 class="chart-title">{t('report.technical.statusTimeline')}</h3>
+            <AreaChart series={timelineSeries} labels={timelineLabels} height={120} yLabel={t('common.pages')} />
+          </div>
+        {/if}
+        {#if recentSeries.length > 0}
+          <div class="chart-section">
+            <h3 class="chart-title">{t('report.technical.statusTimelineRecent')}</h3>
+            <AreaChart series={recentSeries} labels={recentLabels} height={120} yLabel={t('common.pages')} />
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
 
   <div class="report-section">
     <h3 class="chart-title">{t('report.technical.responseTime')}</h3>
