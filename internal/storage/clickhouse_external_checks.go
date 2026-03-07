@@ -32,17 +32,25 @@ func (s *Store) InsertExternalLinkChecks(ctx context.Context, checks []ExternalL
 	return batch.Send()
 }
 
-// GetExternalLinkChecks returns paginated external link check results for a session.
-func (s *Store) GetExternalLinkChecks(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]ExternalLinkCheck, error) {
+// GetExternalLinkChecks returns paginated external link check results for a session,
+// joined with the internal source page that links to each external URL.
+func (s *Store) GetExternalLinkChecks(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter, sort *SortParam) ([]ExternalLinkCheckWithSource, error) {
 	where, args, err := BuildWhereClause(filters)
 	if err != nil {
 		return nil, err
 	}
 
-	query := `SELECT crawl_session_id, url, status_code, error, content_type,
-		redirect_url, response_time_ms, checked_at
-		FROM crawlobserver.external_link_checks
-		WHERE crawl_session_id = ?`
+	query := `SELECT ec.crawl_session_id, ec.url, ec.status_code, ec.error, ec.content_type,
+		ec.redirect_url, ec.response_time_ms, ec.checked_at,
+		l.source_url, p.pagerank, p.depth
+		FROM crawlobserver.external_link_checks AS ec
+		INNER JOIN crawlobserver.links AS l
+			ON l.crawl_session_id = ec.crawl_session_id
+			AND l.target_url = ec.url AND l.is_internal = false
+		LEFT JOIN crawlobserver.pages AS p
+			ON p.crawl_session_id = ec.crawl_session_id
+			AND p.url = l.source_url
+		WHERE ec.crawl_session_id = ?`
 	queryArgs := []interface{}{sessionID}
 
 	if where != "" {
@@ -50,7 +58,8 @@ func (s *Store) GetExternalLinkChecks(ctx context.Context, sessionID string, lim
 		queryArgs = append(queryArgs, args...)
 	}
 
-	query += " ORDER BY status_code ASC, url ASC LIMIT ? OFFSET ?"
+	query += BuildOrderByClause(sort, "ec.status_code ASC, ec.url ASC")
+	query += " LIMIT ? OFFSET ?"
 	queryArgs = append(queryArgs, limit, offset)
 
 	rows, err := s.conn.Query(ctx, query, queryArgs...)
@@ -59,11 +68,12 @@ func (s *Store) GetExternalLinkChecks(ctx context.Context, sessionID string, lim
 	}
 	defer rows.Close()
 
-	var results []ExternalLinkCheck
+	var results []ExternalLinkCheckWithSource
 	for rows.Next() {
-		var c ExternalLinkCheck
+		var c ExternalLinkCheckWithSource
 		if err := rows.Scan(&c.CrawlSessionID, &c.URL, &c.StatusCode, &c.Error,
-			&c.ContentType, &c.RedirectURL, &c.ResponseTimeMs, &c.CheckedAt); err != nil {
+			&c.ContentType, &c.RedirectURL, &c.ResponseTimeMs, &c.CheckedAt,
+			&c.SourceURL, &c.SourcePageRank, &c.SourceDepth); err != nil {
 			return nil, err
 		}
 		results = append(results, c)
@@ -72,8 +82,12 @@ func (s *Store) GetExternalLinkChecks(ctx context.Context, sessionID string, lim
 }
 
 // GetExternalLinkCheckDomains returns aggregated external check stats per domain.
-func (s *Store) GetExternalLinkCheckDomains(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter) ([]ExternalDomainCheck, error) {
+func (s *Store) GetExternalLinkCheckDomains(ctx context.Context, sessionID string, limit, offset int, filters []ParsedFilter, havingFilters []ParsedFilter, sort *SortParam) ([]ExternalDomainCheck, error) {
 	where, args, err := BuildWhereClause(filters)
+	if err != nil {
+		return nil, err
+	}
+	having, havingArgs, err := BuildWhereClause(havingFilters)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +109,13 @@ func (s *Store) GetExternalLinkCheckDomains(ctx context.Context, sessionID strin
 		queryArgs = append(queryArgs, args...)
 	}
 
-	query += " GROUP BY domain ORDER BY total_urls DESC LIMIT ? OFFSET ?"
+	query += " GROUP BY domain"
+	if having != "" {
+		query += " HAVING " + having
+		queryArgs = append(queryArgs, havingArgs...)
+	}
+	query += BuildOrderByClause(sort, "total_urls DESC")
+	query += " LIMIT ? OFFSET ?"
 	queryArgs = append(queryArgs, limit, offset)
 
 	rows, err := s.conn.Query(ctx, query, queryArgs...)

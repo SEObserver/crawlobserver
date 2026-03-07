@@ -215,6 +215,14 @@ type ExternalLinkCheck struct {
 	CheckedAt      time.Time `json:"checked_at"`
 }
 
+// ExternalLinkCheckWithSource extends ExternalLinkCheck with the internal source page info.
+type ExternalLinkCheckWithSource struct {
+	ExternalLinkCheck
+	SourceURL      string  `json:"source_url"`
+	SourcePageRank float64 `json:"source_pagerank"`
+	SourceDepth    uint16  `json:"source_depth"`
+}
+
 // ExternalDomainCheck represents aggregated external check stats per domain.
 type ExternalDomainCheck struct {
 	Domain        string `json:"domain"`

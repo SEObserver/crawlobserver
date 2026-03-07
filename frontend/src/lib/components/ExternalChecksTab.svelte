@@ -3,6 +3,7 @@
   import { fetchAll, downloadCSV } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
   import SearchSelect from './SearchSelect.svelte';
+  import DataTable from './DataTable.svelte';
 
   let {
     sessionId,
@@ -22,20 +23,27 @@
   let checksOffset = $state(0);
   let hasMoreDomains = $state(false);
   let hasMoreChecks = $state(false);
-  let domainFilter = $state(initialFilters.domain || '');
+  let sortColumn = $state('');
+  let sortOrder = $state('');
+
+  let domainFilters = $state({
+    domain: initialFilters.domain || '',
+  });
   let urlFilters = $state({
     url: initialFilters.url || '',
     status_code: initialFilters.status_code || '',
+    error: initialFilters.error || '',
+    source_url: initialFilters.source_url || '',
   });
   const PAGE_SIZE = 100;
 
   function pushFilters() {
     const base = `${basePath || `/sessions/${sessionId}/ext-checks`}/${view}`;
     const params = new URLSearchParams();
-    if (view === 'domains' && domainFilter) params.set('domain', domainFilter);
-    if (view === 'urls' && urlFilters.url) params.set('url', urlFilters.url);
-    if (view === 'urls' && urlFilters.status_code)
-      params.set('status_code', urlFilters.status_code);
+    const f = view === 'domains' ? domainFilters : urlFilters;
+    for (const [k, v] of Object.entries(f)) {
+      if (v) params.set(k, v);
+    }
     const qs = params.toString();
     onpushurl?.(qs ? `${base}?${qs}` : base);
   }
@@ -43,12 +51,13 @@
   async function loadDomains() {
     loading = true;
     try {
-      const filters = domainFilter ? { domain: domainFilter } : {};
       const result = await getExternalLinkCheckDomains(
         sessionId,
         PAGE_SIZE,
         domainsOffset,
-        filters,
+        domainFilters,
+        sortColumn,
+        sortOrder,
       );
       domains = result || [];
       hasMoreDomains = domains.length === PAGE_SIZE;
@@ -62,7 +71,14 @@
   async function loadChecks() {
     loading = true;
     try {
-      const result = await getExternalLinkChecks(sessionId, PAGE_SIZE, checksOffset, urlFilters);
+      const result = await getExternalLinkChecks(
+        sessionId,
+        PAGE_SIZE,
+        checksOffset,
+        urlFilters,
+        sortColumn,
+        sortOrder,
+      );
       checks = result || [];
       hasMoreChecks = checks.length === PAGE_SIZE;
     } catch (e) {
@@ -72,9 +88,18 @@
     }
   }
 
+  function loadData() {
+    if (view === 'domains') loadDomains();
+    else loadChecks();
+  }
+
   function switchToUrls(domain) {
-    urlFilters = domain ? { url: domain } : { url: '', status_code: '' };
+    urlFilters = domain
+      ? { url: domain, status_code: '', error: '', source_url: '' }
+      : { url: '', status_code: '', error: '', source_url: '' };
     checksOffset = 0;
+    sortColumn = '';
+    sortOrder = '';
     view = 'urls';
     pushFilters();
     loadChecks();
@@ -82,6 +107,8 @@
 
   function switchToDomains() {
     domainsOffset = 0;
+    sortColumn = '';
+    sortOrder = '';
     view = 'domains';
     pushFilters();
     loadDomains();
@@ -107,6 +134,48 @@
     return total > 0 ? (n / total) * 100 : 0;
   }
 
+  function handleSort(col, ord) {
+    sortColumn = col;
+    sortOrder = ord;
+    if (view === 'domains') domainsOffset = 0;
+    else checksOffset = 0;
+    loadData();
+  }
+
+  function setFilter(key, val) {
+    if (view === 'domains') {
+      domainFilters[key] = val;
+      domainFilters = { ...domainFilters };
+    } else {
+      urlFilters[key] = val;
+      urlFilters = { ...urlFilters };
+    }
+  }
+
+  function applyFilters() {
+    if (view === 'domains') domainsOffset = 0;
+    else checksOffset = 0;
+    pushFilters();
+    loadData();
+  }
+
+  function clearFilters() {
+    if (view === 'domains') {
+      domainFilters = { domain: '' };
+      domainsOffset = 0;
+    } else {
+      urlFilters = { url: '', status_code: '', error: '', source_url: '' };
+      checksOffset = 0;
+    }
+    pushFilters();
+    loadData();
+  }
+
+  function hasActiveFilters() {
+    const f = view === 'domains' ? domainFilters : urlFilters;
+    return Object.values(f).some((v) => v && v !== '');
+  }
+
   let exporting = $state(false);
 
   async function handleExportCSV() {
@@ -115,12 +184,7 @@
     try {
       if (view === 'domains') {
         const allData = await fetchAll((limit, offset) =>
-          getExternalLinkCheckDomains(
-            sessionId,
-            limit,
-            offset,
-            domainFilter ? { domain: domainFilter } : {},
-          ),
+          getExternalLinkCheckDomains(sessionId, limit, offset, domainFilters, sortColumn, sortOrder),
         );
         downloadCSV(
           'external-checks-domains.csv',
@@ -148,12 +212,32 @@
         );
       } else {
         const allData = await fetchAll((limit, offset) =>
-          getExternalLinkChecks(sessionId, limit, offset, urlFilters),
+          getExternalLinkChecks(sessionId, limit, offset, urlFilters, sortColumn, sortOrder),
         );
         downloadCSV(
           'external-checks-urls.csv',
-          ['URL', 'Status', 'Content Type', 'Redirect URL', 'Error', 'Time (ms)'],
-          ['url', 'status_code', 'content_type', 'redirect_url', 'error', 'response_time_ms'],
+          [
+            'URL',
+            'Status',
+            'Content Type',
+            'Redirect URL',
+            'Error',
+            'Time (ms)',
+            'Source Page',
+            'Source PR',
+            'Source Depth',
+          ],
+          [
+            'url',
+            'status_code',
+            'content_type',
+            'redirect_url',
+            'error',
+            'response_time_ms',
+            'source_url',
+            'source_pagerank',
+            'source_depth',
+          ],
           allData,
         );
       }
@@ -212,192 +296,154 @@
         {t('common.exportCsv')}
       {/if}
     </button>
-    {#if view === 'domains'}
-      <input
-        type="text"
-        class="ext-filter-input"
-        placeholder={t('extChecks.filterDomains')}
-        bind:value={domainFilter}
-        onkeydown={(e) => {
-          if (e.key === 'Enter') {
-            domainsOffset = 0;
-            loadDomains();
-          }
-        }}
-      />
-    {:else}
-      <input
-        type="text"
-        class="ext-filter-input"
-        placeholder={t('extChecks.filterUrls')}
-        bind:value={urlFilters.url}
-        onkeydown={(e) => {
-          if (e.key === 'Enter') {
-            checksOffset = 0;
-            pushFilters();
-            loadChecks();
-          }
-        }}
-      />
-      <SearchSelect
-        small
-        bind:value={urlFilters.status_code}
-        onchange={() => {
-          checksOffset = 0;
-          pushFilters();
-          loadChecks();
-        }}
-        options={[
-          { value: '', label: t('extChecks.allStatus') },
-          { value: '0', label: t('extChecks.dead') },
-          { value: '200-299', label: t('extChecks.ok2xx') },
-          { value: '300-399', label: t('extChecks.redirect3xx') },
-          { value: '400-499', label: t('extChecks.client4xx') },
-          { value: '>=500', label: t('extChecks.server5xx') },
-        ]}
-      />
-    {/if}
   </div>
 
   {#if loading}
     <div class="ext-loading">{t('common.loading')}</div>
   {:else if view === 'domains'}
-    <table class="ext-table">
-      <thead>
+    <DataTable
+      columns={[
+        { label: t('extChecks.domain'), sortKey: 'domain' },
+        { label: t('extChecks.urls'), sortKey: 'total_urls' },
+        { label: t('extChecks.statusDist') },
+        { label: t('extChecks.ok'), sortKey: 'ok', class: 'num' },
+        { label: '3xx', sortKey: 'redirects', class: 'num' },
+        { label: '4xx', sortKey: 'client_errors', class: 'num' },
+        { label: '5xx', sortKey: 'server_errors', class: 'num' },
+        { label: 'Dead', sortKey: 'unreachable', class: 'num' },
+        { label: t('extChecks.avgMs'), sortKey: 'avg_response_ms', class: 'num' },
+      ]}
+      filterKeys={['domain', null, null, null, null, null, null, 'unreachable', null]}
+      filters={domainFilters}
+      data={domains}
+      offset={domainsOffset}
+      pageSize={PAGE_SIZE}
+      hasMore={hasMoreDomains}
+      hasActiveFilters={hasActiveFilters()}
+      onsetfilter={setFilter}
+      onapplyfilters={applyFilters}
+      onclearfilters={clearFilters}
+      onnextpage={() => {
+        domainsOffset += PAGE_SIZE;
+        loadDomains();
+      }}
+      onprevpage={() => {
+        domainsOffset = Math.max(0, domainsOffset - PAGE_SIZE);
+        loadDomains();
+      }}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
+    >
+      {#snippet row(d)}
         <tr>
-          <th>{t('extChecks.domain')}</th>
-          <th>{t('extChecks.urls')}</th>
-          <th>{t('extChecks.statusDist')}</th>
-          <th>{t('extChecks.ok')}</th>
-          <th>3xx</th>
-          <th>4xx</th>
-          <th>5xx</th>
-          <th>Dead</th>
-          <th>{t('extChecks.avgMs')}</th>
+          <td
+            ><button class="link-btn" onclick={() => switchToUrls(d.domain)}>{d.domain}</button
+            ></td
+          >
+          <td>{d.total_urls}</td>
+          <td class="cell-bar">
+            <div class="status-bar">
+              {#if d.ok > 0}<div
+                  class="bar-ok"
+                  style="width: {pct(d.ok, maxCount(d))}%"
+                  title="{d.ok} OK"
+                ></div>{/if}
+              {#if d.redirects > 0}<div
+                  class="bar-redirect"
+                  style="width: {pct(d.redirects, maxCount(d))}%"
+                  title="{d.redirects} redirects"
+                ></div>{/if}
+              {#if d.client_errors > 0}<div
+                  class="bar-client"
+                  style="width: {pct(d.client_errors, maxCount(d))}%"
+                  title="{d.client_errors} 4xx"
+                ></div>{/if}
+              {#if d.server_errors > 0}<div
+                  class="bar-server"
+                  style="width: {pct(d.server_errors, maxCount(d))}%"
+                  title="{d.server_errors} 5xx"
+                ></div>{/if}
+              {#if d.unreachable > 0}<div
+                  class="bar-dead"
+                  style="width: {pct(d.unreachable, maxCount(d))}%"
+                  title="{d.unreachable} dead"
+                ></div>{/if}
+            </div>
+          </td>
+          <td class="num">{d.ok}</td>
+          <td class="num">{d.redirects}</td>
+          <td class="num">{d.client_errors}</td>
+          <td class="num">{d.server_errors}</td>
+          <td class="num">{d.unreachable}</td>
+          <td class="num">{d.avg_response_ms}</td>
         </tr>
-      </thead>
-      <tbody>
-        {#each domains as d}
-          <tr>
-            <td
-              ><button class="link-btn" onclick={() => switchToUrls(d.domain)}>{d.domain}</button
-              ></td
-            >
-            <td>{d.total_urls}</td>
-            <td class="cell-bar">
-              <div class="status-bar">
-                {#if d.ok > 0}<div
-                    class="bar-ok"
-                    style="width: {pct(d.ok, maxCount(d))}%"
-                    title="{d.ok} OK"
-                  ></div>{/if}
-                {#if d.redirects > 0}<div
-                    class="bar-redirect"
-                    style="width: {pct(d.redirects, maxCount(d))}%"
-                    title="{d.redirects} redirects"
-                  ></div>{/if}
-                {#if d.client_errors > 0}<div
-                    class="bar-client"
-                    style="width: {pct(d.client_errors, maxCount(d))}%"
-                    title="{d.client_errors} 4xx"
-                  ></div>{/if}
-                {#if d.server_errors > 0}<div
-                    class="bar-server"
-                    style="width: {pct(d.server_errors, maxCount(d))}%"
-                    title="{d.server_errors} 5xx"
-                  ></div>{/if}
-                {#if d.unreachable > 0}<div
-                    class="bar-dead"
-                    style="width: {pct(d.unreachable, maxCount(d))}%"
-                    title="{d.unreachable} dead"
-                  ></div>{/if}
-              </div>
-            </td>
-            <td class="num">{d.ok}</td>
-            <td class="num">{d.redirects}</td>
-            <td class="num">{d.client_errors}</td>
-            <td class="num">{d.server_errors}</td>
-            <td class="num">{d.unreachable}</td>
-            <td class="num">{d.avg_response_ms}</td>
-          </tr>
-        {/each}
-        {#if domains.length === 0}
-          <tr><td colspan="9" class="ext-empty">{t('extChecks.noChecks')}</td></tr>
-        {/if}
-      </tbody>
-    </table>
-
-    <div class="ext-pagination">
-      <button
-        disabled={domainsOffset === 0}
-        onclick={() => {
-          domainsOffset = Math.max(0, domainsOffset - PAGE_SIZE);
-          loadDomains();
-        }}>{t('common.previous')}</button
-      >
-      <span>{domainsOffset + 1} - {domainsOffset + domains.length}</span>
-      <button
-        disabled={!hasMoreDomains}
-        onclick={() => {
-          domainsOffset += PAGE_SIZE;
-          loadDomains();
-        }}>{t('common.next')}</button
-      >
-    </div>
+      {/snippet}
+    </DataTable>
   {:else}
-    <table class="ext-table">
-      <thead>
-        <tr>
-          <th>{t('common.url')}</th>
-          <th>{t('common.status')}</th>
-          <th>{t('extChecks.contentType')}</th>
-          <th>{t('extChecks.redirect')}</th>
-          <th>{t('common.error')}</th>
-          <th>{t('extChecks.timeMs')}</th>
+    <DataTable
+      columns={[
+        { label: t('common.url'), sortKey: 'url' },
+        { label: t('common.status'), sortKey: 'status_code' },
+        { label: t('extChecks.contentType'), sortKey: 'content_type' },
+        { label: t('extChecks.redirect') },
+        { label: t('common.error'), sortKey: 'error' },
+        { label: t('extChecks.timeMs'), sortKey: 'response_time_ms', class: 'num' },
+        { label: t('extChecks.sourcePage'), sortKey: 'source_url' },
+        { label: t('extChecks.sourcePr'), sortKey: 'source_pagerank', class: 'num' },
+        { label: t('extChecks.sourceDepth'), sortKey: 'source_depth', class: 'num' },
+      ]}
+      filterKeys={['url', 'status_code', null, null, 'error', null, 'source_url', null, null]}
+      filters={urlFilters}
+      data={checks}
+      offset={checksOffset}
+      pageSize={PAGE_SIZE}
+      hasMore={hasMoreChecks}
+      hasActiveFilters={hasActiveFilters()}
+      onsetfilter={setFilter}
+      onapplyfilters={applyFilters}
+      onclearfilters={clearFilters}
+      onnextpage={() => {
+        checksOffset += PAGE_SIZE;
+        loadChecks();
+      }}
+      onprevpage={() => {
+        checksOffset = Math.max(0, checksOffset - PAGE_SIZE);
+        loadChecks();
+      }}
+      {sortColumn}
+      {sortOrder}
+      onsort={handleSort}
+    >
+      {#snippet row(c)}
+        <tr class="clickable-row" onclick={() => viewSources(c.url)}>
+          <td class="cell-url"
+            ><a href={c.url} target="_blank" rel="noopener" onclick={(e) => e.stopPropagation()}
+              >{c.url}</a
+            ></td
+          >
+          <td
+            ><span class="badge {statusClass(c.status_code)}"
+              >{c.status_code || t('extChecks.deadLabel')}</span
+            ></td
+          >
+          <td>{c.content_type || '-'}</td>
+          <td class="cell-url">{c.redirect_url || '-'}</td>
+          <td class="cell-error" title={c.error}>{c.error ? c.error.substring(0, 60) : '-'}</td>
+          <td class="num">{c.response_time_ms}</td>
+          <td class="cell-url"
+            >{#if c.source_url}<a
+                href={`/sessions/${sessionId}/url/${encodeURIComponent(c.source_url)}`}
+                onclick={(e) => e.stopPropagation()}>{c.source_url}</a
+              >{:else}-{/if}</td
+          >
+          <td class="num text-accent font-medium"
+            >{c.source_pagerank > 0 ? c.source_pagerank.toFixed(1) : '-'}</td
+          >
+          <td class="num">{c.source_depth || '-'}</td>
         </tr>
-      </thead>
-      <tbody>
-        {#each checks as c}
-          <tr class="clickable-row" onclick={() => viewSources(c.url)}>
-            <td class="cell-url"
-              ><a href={c.url} target="_blank" rel="noopener" onclick={(e) => e.stopPropagation()}
-                >{c.url}</a
-              ></td
-            >
-            <td
-              ><span class="badge {statusClass(c.status_code)}"
-                >{c.status_code || t('extChecks.deadLabel')}</span
-              ></td
-            >
-            <td>{c.content_type || '-'}</td>
-            <td class="cell-url">{c.redirect_url || '-'}</td>
-            <td class="cell-error" title={c.error}>{c.error ? c.error.substring(0, 60) : '-'}</td>
-            <td class="num">{c.response_time_ms}</td>
-          </tr>
-        {/each}
-        {#if checks.length === 0}
-          <tr><td colspan="6" class="ext-empty">{t('extChecks.noChecksFound')}</td></tr>
-        {/if}
-      </tbody>
-    </table>
-
-    <div class="ext-pagination">
-      <button
-        disabled={checksOffset === 0}
-        onclick={() => {
-          checksOffset = Math.max(0, checksOffset - PAGE_SIZE);
-          loadChecks();
-        }}>{t('common.previous')}</button
-      >
-      <span>{checksOffset + 1} - {checksOffset + checks.length}</span>
-      <button
-        disabled={!hasMoreChecks}
-        onclick={() => {
-          checksOffset += PAGE_SIZE;
-          loadChecks();
-        }}>{t('common.next')}</button
-      >
-    </div>
+      {/snippet}
+    </DataTable>
   {/if}
 </div>
 
@@ -433,44 +479,8 @@
     color: #fff;
     border-color: var(--accent);
   }
-  .ext-filter-input {
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--fg);
-    border-radius: 6px;
-    font-size: 13px;
-    min-width: 200px;
-  }
-  .ext-checks-header :global(.ss-wrap) {
-    width: 150px;
-    flex-shrink: 0;
-  }
-  .ext-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-  .ext-table th {
-    text-align: left;
-    padding: 8px 10px;
-    border-bottom: 2px solid var(--border);
-    font-weight: 600;
-    color: var(--text-muted);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .ext-table td {
-    padding: 6px 10px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
-  }
-  .ext-table tbody tr:hover {
-    background: var(--bg-hover);
-  }
   .cell-url {
-    max-width: 400px;
+    max-width: 300px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -570,29 +580,7 @@
   .bar-dead {
     background: #9ca3af;
   }
-  .ext-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin-top: 16px;
-    font-size: 13px;
-  }
-  .ext-pagination button {
-    padding: 4px 12px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--fg);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-  }
-  .ext-pagination button:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-  .ext-loading,
-  .ext-empty {
+  .ext-loading {
     text-align: center;
     padding: 32px;
     color: var(--text-muted);

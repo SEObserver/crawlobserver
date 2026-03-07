@@ -91,16 +91,49 @@ var LinkFilters = map[string]FilterDef{
 
 // ExternalCheckFilters defines the allowed filter columns for the external_link_checks table.
 var ExternalCheckFilters = map[string]FilterDef{
-	"url":          {Column: "url", Type: FilterLike},
-	"status_code":  {Column: "status_code", Type: FilterUint},
-	"error":        {Column: "error", Type: FilterLike},
-	"content_type": {Column: "content_type", Type: FilterLike},
-	"redirect_url": {Column: "redirect_url", Type: FilterLike},
+	"url":              {Column: "ec.url", Type: FilterLike},
+	"status_code":      {Column: "ec.status_code", Type: FilterUint},
+	"error":            {Column: "ec.error", Type: FilterLike},
+	"content_type":     {Column: "ec.content_type", Type: FilterLike},
+	"redirect_url":     {Column: "ec.redirect_url", Type: FilterLike},
+	"response_time_ms": {Column: "ec.response_time_ms", Type: FilterUint},
+	"source_url":       {Column: "l.source_url", Type: FilterLike},
+	"source_depth":     {Column: "p.depth", Type: FilterUint},
+}
+
+// ExternalCheckSortColumns maps query param names to DB column names for external_link_checks.
+var ExternalCheckSortColumns = map[string]string{
+	"url":              "ec.url",
+	"status_code":      "ec.status_code",
+	"error":            "ec.error",
+	"content_type":     "ec.content_type",
+	"response_time_ms": "ec.response_time_ms",
+	"source_url":       "l.source_url",
+	"source_pagerank":  "p.pagerank",
+	"source_depth":     "p.depth",
 }
 
 // ExternalDomainCheckFilters defines the allowed filter columns for domain-level external checks.
+// Note: "unreachable" is handled as a HAVING clause in the query since it's an aggregate alias.
 var ExternalDomainCheckFilters = map[string]FilterDef{
 	"domain": {Column: "domain", Type: FilterLike},
+}
+
+// ExternalDomainCheckHavingFilters defines aggregate-level filters applied via HAVING.
+var ExternalDomainCheckHavingFilters = map[string]FilterDef{
+	"unreachable": {Column: "unreachable", Type: FilterUint},
+}
+
+// ExternalDomainCheckSortColumns maps query param names to DB column names for domain-level external checks.
+var ExternalDomainCheckSortColumns = map[string]string{
+	"domain":          "domain",
+	"total_urls":      "total_urls",
+	"ok":              "ok",
+	"redirects":       "redirects",
+	"client_errors":   "client_errors",
+	"server_errors":   "server_errors",
+	"unreachable":     "unreachable",
+	"avg_response_ms": "avg_response_ms",
 }
 
 // PageResourceCheckFilters defines the allowed filter columns for page_resource_checks.

@@ -595,6 +595,9 @@
   "extChecks.deadLabel": "Dead",
   "extChecks.noChecksFound": "No checks found",
   "extChecks.viewSources": "View pages linking to this URL",
+  "extChecks.sourcePage": "Source Page",
+  "extChecks.sourcePr": "PR",
+  "extChecks.sourceDepth": "Depth",
 
   "resources.summary": "Summary",
   "resources.urls": "URLs",

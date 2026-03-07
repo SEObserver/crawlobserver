@@ -1049,14 +1049,15 @@ func (s *Server) handleExternalLinkChecks(w http.ResponseWriter, r *http.Request
 	}
 	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	filters := parseFilters(r, storage.ExternalCheckFilters)
+	sort := parseSort(r, storage.ExternalCheckSortColumns)
 
-	checks, err := s.store.GetExternalLinkChecks(r.Context(), sessionID, limit, offset, filters)
+	checks, err := s.store.GetExternalLinkChecks(r.Context(), sessionID, limit, offset, filters, sort)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
 	if checks == nil {
-		checks = []storage.ExternalLinkCheck{}
+		checks = []storage.ExternalLinkCheckWithSource{}
 	}
 	writeJSON(w, checks)
 }
@@ -1068,8 +1069,10 @@ func (s *Server) handleExternalLinkCheckDomains(w http.ResponseWriter, r *http.R
 	}
 	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	filters := parseFilters(r, storage.ExternalDomainCheckFilters)
+	havingFilters := parseFilters(r, storage.ExternalDomainCheckHavingFilters)
+	sort := parseSort(r, storage.ExternalDomainCheckSortColumns)
 
-	domains, err := s.store.GetExternalLinkCheckDomains(r.Context(), sessionID, limit, offset, filters)
+	domains, err := s.store.GetExternalLinkCheckDomains(r.Context(), sessionID, limit, offset, filters, havingFilters, sort)
 	if err != nil {
 		internalError(w, r, err)
 		return

@@ -344,10 +344,10 @@ func (m *mockStore) StreamPagesHTML(_ context.Context, _ string) (<-chan storage
 }
 
 // External Link Check mock methods
-func (m *mockStore) GetExternalLinkChecks(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter) ([]storage.ExternalLinkCheck, error) {
-	return []storage.ExternalLinkCheck{}, m.err
+func (m *mockStore) GetExternalLinkChecks(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter, _ *storage.SortParam) ([]storage.ExternalLinkCheckWithSource, error) {
+	return []storage.ExternalLinkCheckWithSource{}, m.err
 }
-func (m *mockStore) GetExternalLinkCheckDomains(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter) ([]storage.ExternalDomainCheck, error) {
+func (m *mockStore) GetExternalLinkCheckDomains(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter, _ []storage.ParsedFilter, _ *storage.SortParam) ([]storage.ExternalDomainCheck, error) {
 	return []storage.ExternalDomainCheck{}, m.err
 }
 func (m *mockStore) GetExpiredDomains(_ context.Context, _ string, _, _ int) (*storage.ExpiredDomainsResult, error) {

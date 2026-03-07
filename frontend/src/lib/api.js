@@ -902,11 +902,15 @@ export async function getExternalLinkChecks(
   limit = DEFAULT_LIMIT,
   offset = 0,
   filters = {},
+  sort = '',
+  order = '',
 ) {
   let url = `/sessions/${sessionId}/external-checks?limit=${limit}&offset=${offset}`;
   for (const [k, v] of Object.entries(filters)) {
     if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
   }
+  if (sort) url += `&sort=${encodeURIComponent(sort)}`;
+  if (order) url += `&order=${encodeURIComponent(order)}`;
   return fetchJSON(url);
 }
 
@@ -922,11 +926,15 @@ export async function getExternalLinkCheckDomains(
   limit = DEFAULT_LIMIT,
   offset = 0,
   filters = {},
+  sort = '',
+  order = '',
 ) {
   let url = `/sessions/${sessionId}/external-checks/domains?limit=${limit}&offset=${offset}`;
   for (const [k, v] of Object.entries(filters)) {
     if (v !== '' && v != null) url += `&${k}=${encodeURIComponent(v)}`;
   }
+  if (sort) url += `&sort=${encodeURIComponent(sort)}`;
+  if (order) url += `&order=${encodeURIComponent(order)}`;
   return fetchJSON(url);
 }
 
