@@ -20,7 +20,13 @@
     const n = series[0].values.length;
     const layers = [];
     for (let si = 0; si < series.length; si++) {
-      const layer = { key: series[si].key, color: series[si].color, label: series[si].label, opacity: series[si].opacity, points: [] };
+      const layer = {
+        key: series[si].key,
+        color: series[si].color,
+        label: series[si].label,
+        opacity: series[si].opacity,
+        points: [],
+      };
       for (let i = 0; i < n; i++) {
         const y0 = si > 0 ? layers[si - 1].points[i].y1 : 0;
         const y1 = y0 + (series[si].values[i] || 0);
@@ -103,13 +109,7 @@
   >
     <!-- Y grid -->
     {#each yTicks as tick}
-      <line
-        x1={ML}
-        y1={y(tick)}
-        x2={W - MR}
-        y2={y(tick)}
-        class="grid-line"
-      />
+      <line x1={ML} y1={y(tick)} x2={W - MR} y2={y(tick)} class="grid-line" />
       <text x={ML - 6} y={y(tick) + 4} text-anchor="end" class="axis-label">{fmtN(tick)}</text>
     {/each}
 
@@ -120,7 +120,9 @@
 
     <!-- X axis labels -->
     {#each xLabelIndices as idx}
-      <text x={x(idx)} y={height - 4} text-anchor="middle" class="axis-label">{labels[idx] || ''}</text>
+      <text x={x(idx)} y={height - 4} text-anchor="middle" class="axis-label"
+        >{labels[idx] || ''}</text
+      >
     {/each}
 
     <!-- Hover line + tooltip -->
@@ -139,7 +141,12 @@
 
     <!-- Y label -->
     {#if yLabel}
-      <text x={12} y={MT + chartH / 2} transform="rotate(-90,12,{MT + chartH / 2})" class="axis-label y-label">{yLabel}</text>
+      <text
+        x={12}
+        y={MT + chartH / 2}
+        transform="rotate(-90,12,{MT + chartH / 2})"
+        class="axis-label y-label">{yLabel}</text
+      >
     {/if}
   </svg>
 

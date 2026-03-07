@@ -220,6 +220,14 @@ func (m *mockStore) ComputePageRank(_ context.Context, _ string) error {
 	return m.err
 }
 
+func (m *mockStore) StatusTimeline(_ context.Context, _ string) ([]storage.StatusTimelineBucket, error) {
+	return nil, m.err
+}
+
+func (m *mockStore) StatusTimelineRecent(_ context.Context, _ string) ([]storage.StatusTimelineBucket, error) {
+	return nil, m.err
+}
+
 func (m *mockStore) PageRankDistribution(_ context.Context, _ string, _ int) (*storage.PageRankDistributionResult, error) {
 	return m.pagerankDist, m.err
 }

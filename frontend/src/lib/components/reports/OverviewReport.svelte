@@ -18,10 +18,7 @@
   function fetchTimeline() {
     if (!sessionId || timelineLoading) return;
     timelineLoading = true;
-    Promise.all([
-      getStatusTimeline(sessionId),
-      getStatusTimelineRecent(sessionId),
-    ])
+    Promise.all([getStatusTimeline(sessionId), getStatusTimelineRecent(sessionId)])
       .then(([data, recent]) => {
         timeline = data ?? [];
         recentTimeline = recent ?? [];
@@ -253,13 +250,23 @@
         {#if timelineSeries.length > 0}
           <div class="chart-section">
             <h3 class="chart-title">{t('report.technical.statusTimeline')}</h3>
-            <AreaChart series={timelineSeries} labels={timelineLabels} height={120} yLabel={t('common.pages')} />
+            <AreaChart
+              series={timelineSeries}
+              labels={timelineLabels}
+              height={120}
+              yLabel={t('common.pages')}
+            />
           </div>
         {/if}
         {#if recentSeries.length > 0}
           <div class="chart-section">
             <h3 class="chart-title">{t('report.technical.statusTimelineRecent')}</h3>
-            <AreaChart series={recentSeries} labels={recentLabels} height={120} yLabel={t('common.pages')} />
+            <AreaChart
+              series={recentSeries}
+              labels={recentLabels}
+              height={120}
+              yLabel={t('common.pages')}
+            />
           </div>
         {/if}
       </div>
