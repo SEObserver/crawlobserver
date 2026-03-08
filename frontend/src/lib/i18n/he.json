@@ -1007,5 +1007,8 @@
   "settings.sessionRecordingWarning": "אזהרה: כשמופעל, צוות CrawlObserver יכול לראות את כל מה שמוצג במושב הדפדפן שלך. הפעל זאת רק למטרות איתור באגים.",
   "settings.sessionRecordingBanner": "הקלטת הסשן פעילה — צוות CrawlObserver יכול לראות את המסך שלך.",
   "crawlForm.identityNetwork": "זהות ורשת",
-  "crawlForm.advancedOptions": "אפשרויות מתקדמות"
+  "crawlForm.advancedOptions": "אפשרויות מתקדמות",
+  "sidebar.collapse": "כווץ סרגל צד",
+  "sidebar.expand": "הרחב סרגל צד",
+  "report.overview.0connError": "שגיאות חיבור"
 }

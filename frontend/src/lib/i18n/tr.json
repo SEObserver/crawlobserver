@@ -1007,5 +1007,8 @@
   "settings.sessionRecordingWarning": "UYARI: Etkinleştirildiğinde, CrawlObserver ekibi tarayıcı oturumunuzda görüntülenen her şeyi görebilir. Bunu yalnızca hata ayıklama amacıyla etkinleştirin.",
   "settings.sessionRecordingBanner": "Oturum kaydı aktif — CrawlObserver ekibi ekranınızı görebilir.",
   "crawlForm.identityNetwork": "Kimlik ve ağ",
-  "crawlForm.advancedOptions": "Gelişmiş seçenekler"
+  "crawlForm.advancedOptions": "Gelişmiş seçenekler",
+  "sidebar.collapse": "Kenar çubuğunu daralt",
+  "sidebar.expand": "Kenar çubuğunu genişlet",
+  "report.overview.0connError": "Bağlantı hataları"
 }

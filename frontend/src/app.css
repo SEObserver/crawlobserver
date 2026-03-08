@@ -219,6 +219,7 @@ a:hover {
   margin-left: var(--sidebar-width);
   padding-top: var(--topbar-height);
   min-height: 100vh;
+  transition: margin-left 0.2s ease;
 }
 
 .main-content {

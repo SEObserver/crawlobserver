@@ -1007,5 +1007,8 @@
   "settings.sessionRecordingWarning": "警告：有効にすると、CrawlObserverチームがブラウザセッションに表示されるすべての内容を確認できます。デバッグ目的でのみ有効にしてください。",
   "settings.sessionRecordingBanner": "セッション録画が有効です — CrawlObserverチームがあなたの画面を見ることができます。",
   "crawlForm.identityNetwork": "ID とネットワーク",
-  "crawlForm.advancedOptions": "詳細オプション"
+  "crawlForm.advancedOptions": "詳細オプション",
+  "sidebar.collapse": "サイドバーを折りたたむ",
+  "sidebar.expand": "サイドバーを展開",
+  "report.overview.0connError": "接続エラー"
 }

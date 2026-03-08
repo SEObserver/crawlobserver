@@ -147,10 +147,11 @@
 
   function statusCodeSegments(s) {
     if (!s?.status_codes) return [];
-    const groups = { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 };
+    const groups = { '0': 0, '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 };
     for (const [code, count] of Object.entries(s.status_codes)) {
       const c = Number(code);
-      if (c >= 200 && c < 300) groups['2xx'] += count;
+      if (c === 0) groups['0'] += count;
+      else if (c >= 200 && c < 300) groups['2xx'] += count;
       else if (c >= 300 && c < 400) groups['3xx'] += count;
       else if (c >= 400 && c < 500) groups['4xx'] += count;
       else groups['5xx'] += count;
@@ -183,6 +184,13 @@
         color: 'var(--error)',
         label: t('report.overview.5xxServerError'),
         onclick: () => nav('overview', { status_code: '5' }),
+      });
+    if (groups['0'] > 0)
+      segs.push({
+        value: groups['0'],
+        color: 'var(--text-muted)',
+        label: t('report.overview.0connError'),
+        onclick: () => nav('overview', { status_code: '0' }),
       });
     return segs;
   }

@@ -1007,5 +1007,8 @@
   "settings.sessionRecordingWarning": "ADVERTENCIA: Cuando está activado, el equipo de CrawlObserver puede ver todo lo que se muestra en su sesión del navegador. Active esto solo con fines de depuración.",
   "settings.sessionRecordingBanner": "La grabación de sesión está activa — el equipo de CrawlObserver puede ver su pantalla.",
   "crawlForm.identityNetwork": "Identidad y red",
-  "crawlForm.advancedOptions": "Opciones avanzadas"
+  "crawlForm.advancedOptions": "Opciones avanzadas",
+  "sidebar.collapse": "Contraer barra lateral",
+  "sidebar.expand": "Expandir barra lateral",
+  "report.overview.0connError": "Errores de conexión"
 }

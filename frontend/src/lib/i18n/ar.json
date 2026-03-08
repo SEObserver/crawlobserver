@@ -1007,5 +1007,8 @@
   "settings.sessionRecordingWarning": "تحذير: عند التفعيل، يمكن لفريق CrawlObserver رؤية كل ما يُعرض في جلسة المتصفح. فعّل هذا الخيار فقط لأغراض التصحيح.",
   "settings.sessionRecordingBanner": "تسجيل الجلسة نشط — يمكن لفريق CrawlObserver رؤية شاشتك.",
   "crawlForm.identityNetwork": "الهوية والشبكة",
-  "crawlForm.advancedOptions": "خيارات متقدمة"
+  "crawlForm.advancedOptions": "خيارات متقدمة",
+  "sidebar.collapse": "طي الشريط الجانبي",
+  "sidebar.expand": "توسيع الشريط الجانبي",
+  "report.overview.0connError": "أخطاء الاتصال"
 }

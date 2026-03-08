@@ -1007,5 +1007,8 @@
   "settings.sessionRecordingWarning": "WAARSCHUWING: Wanneer ingeschakeld, kan het CrawlObserver-team alles zien wat in uw browsersessie wordt weergegeven. Schakel dit alleen in voor debugdoeleinden.",
   "settings.sessionRecordingBanner": "Sessieopname is actief — het CrawlObserver-team kan uw scherm zien.",
   "crawlForm.identityNetwork": "Identiteit & netwerk",
-  "crawlForm.advancedOptions": "Geavanceerde opties"
+  "crawlForm.advancedOptions": "Geavanceerde opties",
+  "sidebar.collapse": "Zijbalk inklappen",
+  "sidebar.expand": "Zijbalk uitklappen",
+  "report.overview.0connError": "Verbindingsfouten"
 }

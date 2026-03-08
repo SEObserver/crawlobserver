@@ -1007,5 +1007,8 @@
   "settings.sessionRecordingWarning": "ATTENZIONE: Quando attivato, il team di CrawlObserver può vedere tutto ciò che viene visualizzato nella tua sessione del browser. Attiva questa opzione solo a scopo di debug.",
   "settings.sessionRecordingBanner": "La registrazione della sessione è attiva — il team CrawlObserver può vedere il tuo schermo.",
   "crawlForm.identityNetwork": "Identità e rete",
-  "crawlForm.advancedOptions": "Opzioni avanzate"
+  "crawlForm.advancedOptions": "Opzioni avanzate",
+  "sidebar.collapse": "Comprimi barra laterale",
+  "sidebar.expand": "Espandi barra laterale",
+  "report.overview.0connError": "Errori di connessione"
 }

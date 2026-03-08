@@ -1007,5 +1007,8 @@
   "settings.sessionRecordingWarning": "警告：启用后，CrawlObserver 团队可以看到您浏览器会话中显示的所有内容。请仅在调试时启用此功能。",
   "settings.sessionRecordingBanner": "会话录制已启用 — CrawlObserver 团队可以看到您的屏幕。",
   "crawlForm.identityNetwork": "身份与网络",
-  "crawlForm.advancedOptions": "高级选项"
+  "crawlForm.advancedOptions": "高级选项",
+  "sidebar.collapse": "折叠侧栏",
+  "sidebar.expand": "展开侧栏",
+  "report.overview.0connError": "连接错误"
 }

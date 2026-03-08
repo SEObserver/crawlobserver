@@ -62,7 +62,7 @@
   }
 
   function effectiveFilters() {
-    if (filters.content_type) return filters;
+    if (filters.content_type || filters.status_code) return filters;
     return { content_type: 'text/html', ...filters };
   }
 
