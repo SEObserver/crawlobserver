@@ -13,6 +13,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/server"
 	"github.com/SEObserver/crawlobserver/internal/telemetry"
+	"github.com/SEObserver/crawlobserver/internal/updater"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +53,17 @@ func runServe(cmd *cobra.Command, args []string) error {
 	defer keyStore.Close()
 
 	srv := server.New(cfg, store, keyStore)
+	srv.UpdateStatus = updater.NewUpdateStatus()
+
+	// Background update check
+	go func() {
+		time.Sleep(3 * time.Second)
+		srv.UpdateStatus.Check()
+		snap := srv.UpdateStatus.Snapshot()
+		if snap.Available {
+			applog.Infof("cli", "Update available: %s -> %s  (run 'crawlobserver update' to install)", snap.CurrentVersion, snap.LatestVersion)
+		}
+	}()
 
 	defer telemetry.Close()
 
