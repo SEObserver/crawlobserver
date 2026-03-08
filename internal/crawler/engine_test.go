@@ -2315,3 +2315,302 @@ func TestIsInScope_SubdirectoryHostCaseInsensitive(t *testing.T) {
 		t.Error("subdirectory scope should match same-case prefix")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// isExcluded — unit tests for URL exclude patterns
+// ---------------------------------------------------------------------------
+
+func TestIsExcluded(t *testing.T) {
+	e := &Engine{}
+
+	// No patterns — nothing excluded
+	if e.isExcluded("https://example.com/anything") {
+		t.Error("should not exclude when no patterns configured")
+	}
+
+	e.excludePatterns = []string{"/register?redirect_url=", "/login?", "/cart/"}
+
+	tests := []struct {
+		url      string
+		excluded bool
+	}{
+		{"https://pro.manomano.fr/register?redirect_url=https%3A%2F%2Fpro.manomano.fr%2Fp%2Fpage", true},
+		{"https://example.com/login?next=/dashboard", true},
+		{"https://example.com/cart/item-123", true},
+		{"https://example.com/products/widget", false},
+		{"https://example.com/register", false},     // no ?redirect_url=
+		{"https://example.com/login", false},         // no trailing ?
+		{"https://example.com/shopping-cart", false},  // not /cart/
+	}
+
+	for _, tt := range tests {
+		got := e.isExcluded(tt.url)
+		if got != tt.excluded {
+			t.Errorf("isExcluded(%q) = %v, want %v", tt.url, got, tt.excluded)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Exclude patterns — functional test: excluded URLs are not fetched but links are recorded
+// ---------------------------------------------------------------------------
+
+func TestExcludePatternsNotFetched(t *testing.T) {
+	var fetched sync.Map
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fetched.Store(r.URL.Path, true)
+		switch r.URL.Path {
+		case "/robots.txt":
+			w.Header().Set("Content-Type", "text/plain")
+			fmt.Fprint(w, "User-agent: *\nAllow: /\n")
+		default:
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, `<html><body>
+				<a href="/page2">page2</a>
+				<a href="/register?redirect_url=%2Fpage3">register</a>
+				<a href="/login?next=%2Fdash">login</a>
+			</body></html>`)
+		}
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		Crawler: config.CrawlerConfig{
+			Workers:         2,
+			Delay:           0,
+			MaxPages:        100,
+			Timeout:         5 * time.Second,
+			MaxBodySize:     1 << 20,
+			UserAgent:       "TestBot/1.0",
+			RespectRobots:   false,
+			CrawlScope:      "host",
+			AllowPrivateIPs: true,
+			MaxFrontierSize: 10000,
+			Retry:           config.RetryConfig{MaxRetries: 0},
+		},
+		Storage: config.StorageConfig{
+			BatchSize:     100,
+			FlushInterval: 1 * time.Second,
+		},
+	}
+
+	engine := NewEngine(cfg, nil)
+	engine.excludePatterns = []string{"/register?redirect_url=", "/login?"}
+
+	seed := server.URL + "/"
+	engine.session = NewSession([]string{seed}, cfg)
+	engine.buildScope()
+
+	fetchCh := make(chan *frontier.CrawlURL, 10)
+	resultCh := make(chan *fetcher.FetchResult, 10)
+
+	// Run fetch worker in background
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		engine.fetchWorker(0, fetchCh, resultCh)
+	}()
+
+	// Dispatch the seed directly (not via frontier)
+	fetchCh <- &frontier.CrawlURL{URL: seed, Depth: 0}
+	// Mark it as seen so frontier knows about it
+	engine.front.MarkSeen(seed)
+	result := <-resultCh
+
+	// Parse links
+	pageData, _ := parser.Parse(result.Body, result.FinalURL)
+
+	// Process links like the engine does
+	for _, link := range pageData.Links {
+		if link.IsInternal && engine.isInScope(link.TargetURL) && !engine.isExcluded(link.TargetURL) {
+			engine.front.Add(frontier.CrawlURL{URL: link.TargetURL, Depth: 1})
+		}
+	}
+
+	close(fetchCh)
+	wg.Wait()
+
+	// Only /page2 should have been added to the frontier (not the excluded ones).
+	// The frontier has the seed already seen, so Len() should reflect only /page2.
+	queueLen := engine.front.Len()
+	if queueLen != 1 {
+		t.Errorf("frontier should have 1 URL (/page2), got %d", queueLen)
+	}
+
+	// Adding /page2 again should return false (already seen)
+	added := engine.front.Add(frontier.CrawlURL{URL: server.URL + "/page2", Depth: 1})
+	if added {
+		t.Error("/page2 should already be in frontier (seen)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Stop — functional test: Stop() cancels in-flight HTTP requests promptly
+// ---------------------------------------------------------------------------
+
+func TestStopCancelsInFlightRequests(t *testing.T) {
+	// Server that blocks forever on /slow
+	reqReceived := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/robots.txt":
+			w.Header().Set("Content-Type", "text/plain")
+			fmt.Fprint(w, "User-agent: *\nAllow: /\n")
+		case "/slow":
+			close(reqReceived)
+			// Block until client disconnects
+			<-r.Context().Done()
+		default:
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, "<html><body>ok</body></html>")
+		}
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{
+		Crawler: config.CrawlerConfig{
+			Workers:         1,
+			Delay:           0,
+			MaxPages:        100,
+			Timeout:         30 * time.Second,
+			MaxBodySize:     1 << 20,
+			UserAgent:       "TestBot/1.0",
+			RespectRobots:   false,
+			CrawlScope:      "host",
+			AllowPrivateIPs: true,
+			MaxFrontierSize: 10000,
+			Retry:           config.RetryConfig{MaxRetries: 0},
+		},
+	}
+
+	engine := NewEngine(cfg, nil)
+
+	in := make(chan *frontier.CrawlURL, 1)
+	out := make(chan *fetcher.FetchResult, 1)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		engine.fetchWorker(0, in, out)
+	}()
+
+	// Send a slow request
+	in <- &frontier.CrawlURL{URL: server.URL + "/slow", Depth: 0}
+
+	// Wait for the request to reach the server
+	select {
+	case <-reqReceived:
+	case <-time.After(5 * time.Second):
+		t.Fatal("server never received the /slow request")
+	}
+
+	// Stop the engine — this should cancel the in-flight request
+	engine.Stop()
+	close(in)
+
+	// The fetch worker should exit quickly
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Good — worker exited promptly after Stop()
+	case <-time.After(3 * time.Second):
+		t.Fatal("fetchWorker did not exit within 3s after Stop() — context cancellation not working")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Dispatcher — Stop() unblocks dispatcher sleep promptly
+// ---------------------------------------------------------------------------
+
+func TestDispatcherExitsOnStopDuringSleep(t *testing.T) {
+	cfg := &config.Config{
+		Crawler: config.CrawlerConfig{
+			Workers: 1,
+			Delay:   5 * time.Second, // long delay so dispatcher enters sleep
+		},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	e := &Engine{
+		cfg:    cfg,
+		front:  frontier.New(5*time.Second, 10000),
+		ctx:    ctx,
+		cancel: cancel,
+	}
+
+	// Add two URLs on the same host — after popping one, the host is in cooldown
+	e.front.Add(frontier.CrawlURL{URL: "https://example.com/page1"})
+	e.front.Add(frontier.CrawlURL{URL: "https://example.com/page2"})
+
+	fetchCh := make(chan *frontier.CrawlURL, 10)
+	done := make(chan struct{})
+	go func() {
+		e.dispatcher(fetchCh)
+		close(done)
+	}()
+
+	// Drain the first URL — the second will cause the dispatcher to sleep (host cooldown)
+	select {
+	case <-fetchCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("dispatcher did not send first URL")
+	}
+
+	// Give dispatcher time to enter the sleep
+	time.Sleep(50 * time.Millisecond)
+
+	// Stop — should unblock the sleep immediately
+	e.Stop()
+
+	select {
+	case <-done:
+		// Good — dispatcher exited promptly
+	case <-time.After(2 * time.Second):
+		t.Fatal("dispatcher did not exit within 2s after Stop() — sleep not cancelled")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FetchWithContext — unit test: context cancellation aborts HTTP request
+// ---------------------------------------------------------------------------
+
+func TestFetchWithContextCancellation(t *testing.T) {
+	reqReceived := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(reqReceived)
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	f := fetcher.New("TestBot/1.0", 30*time.Second, 1<<20, fetcher.DialOptions{AllowPrivateIPs: true}, "")
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan *fetcher.FetchResult)
+	go func() {
+		done <- f.FetchWithContext(ctx, server.URL+"/slow", 0, "")
+	}()
+
+	// Wait for request to arrive
+	<-reqReceived
+
+	// Cancel context
+	cancel()
+
+	select {
+	case result := <-done:
+		if result.Error == "" {
+			t.Error("expected an error after context cancellation")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("FetchWithContext did not return within 3s after context cancel")
+	}
+}

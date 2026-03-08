@@ -78,6 +78,8 @@ type Engine struct {
 
 	extractors []extraction.Extractor
 
+	excludePatterns []string // URL substrings: if URL contains any, skip fetching
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -224,6 +226,16 @@ func (e *Engine) isInScope(targetURL string) bool {
 	default: // "host"
 		return e.allowedHosts[host]
 	}
+}
+
+// isExcluded checks if a URL matches any of the exclude patterns (substring match).
+func (e *Engine) isExcluded(targetURL string) bool {
+	for _, pat := range e.excludePatterns {
+		if strings.Contains(targetURL, pat) {
+			return true
+		}
+	}
+	return false
 }
 
 // Run starts the crawl with the given seed URLs.
@@ -542,7 +554,11 @@ func (e *Engine) dispatcher(fetchCh chan<- *frontier.CrawlURL) {
 			if wait > maxBackoff {
 				wait = maxBackoff
 			}
-			time.Sleep(wait)
+			select {
+			case <-time.After(wait):
+			case <-e.ctx.Done():
+				return
+			}
 			continue
 		}
 
@@ -571,7 +587,7 @@ func (e *Engine) fetchWorker(id int, in <-chan *frontier.CrawlURL, out chan<- *f
 			continue
 		}
 
-		result := e.fetch.Fetch(crawlURL.URL, crawlURL.Depth, crawlURL.FoundOn)
+		result := e.fetch.FetchWithContext(e.ctx, crawlURL.URL, crawlURL.Depth, crawlURL.FoundOn)
 		result.Attempt = crawlURL.Attempt
 
 		// Only count first attempts for progress
@@ -804,8 +820,8 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 
 					if link.IsInternal {
 						internalOut++
-						// Check crawl scope before adding to frontier
-						if !e.sitemapOnly && e.isInScope(link.TargetURL) {
+						// Check crawl scope and exclude patterns before adding to frontier
+						if !e.sitemapOnly && e.isInScope(link.TargetURL) && !e.isExcluded(link.TargetURL) {
 							newDepth := result.Depth + 1
 							if e.cfg.Crawler.MaxDepth == 0 || newDepth <= e.cfg.Crawler.MaxDepth {
 								priority := newDepth

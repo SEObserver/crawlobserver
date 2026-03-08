@@ -56,6 +56,7 @@
   let crawlSitemapOnly = $state(false);
   let fetchSitemaps = $state(false);
   let ignoreRobots = $state(false);
+  let excludePatternsInput = $state((crawlerCfg.ExcludePatterns || []).join('\n'));
   let extractorSetId = $state('');
   let extractorSets = $state([]);
   let crawlProjectId = $state(sess?.ProjectID || '');
@@ -167,6 +168,12 @@
       follow_js_links: jsRenderMode !== 'off' ? followJSLinks : undefined,
       extractor_set_id: extractorSetId || undefined,
       ignore_robots: ignoreRobots || undefined,
+      exclude_patterns: excludePatternsInput.trim()
+        ? excludePatternsInput
+            .split('\n')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined,
     };
   }
 
@@ -369,6 +376,20 @@
           <input type="checkbox" bind:checked={ignoreRobots} />
           {t('newCrawl.ignoreRobots')}
         </label>
+      </div>
+
+      <!-- Exclude patterns -->
+      <div class="form-section">
+        <div class="form-group form-full-width">
+          <label for="r-excludePatterns">{t('newCrawl.excludePatterns')}</label>
+          <textarea
+            id="r-excludePatterns"
+            bind:value={excludePatternsInput}
+            rows="3"
+            placeholder={t('newCrawl.excludePatternsPlaceholder')}
+          ></textarea>
+          <p class="form-hint">{t('newCrawl.excludePatternsHint')}</p>
+        </div>
       </div>
 
       <!-- JS Rendering / Extractors / Project -->

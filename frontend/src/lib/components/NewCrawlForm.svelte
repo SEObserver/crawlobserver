@@ -26,6 +26,7 @@
   let sourceIP = $state('');
   let forceIPv4 = $state(false);
   let ignoreRobots = $state(false);
+  let excludePatternsInput = $state('');
   let extractorSetId = $state('');
   let extractorSets = $state([]);
   let checkingIP = $state(false);
@@ -116,6 +117,13 @@
         follow_js_links: jsRenderMode !== 'off' ? followJSLinks : undefined,
         extractor_set_id: extractorSetId || undefined,
         ignore_robots: ignoreRobots || undefined,
+        exclude_patterns:
+          excludePatternsInput.trim()
+            ? excludePatternsInput
+                .split('\n')
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : undefined,
       });
       onstart?.();
     } catch (e) {
@@ -257,6 +265,16 @@
       <input type="checkbox" bind:checked={ignoreRobots} />
       {t('newCrawl.ignoreRobots')}
     </label>
+    <div class="form-group" style="grid-column: 1 / -1;">
+      <label for="excludePatterns">{t('newCrawl.excludePatterns')}</label>
+      <textarea
+        id="excludePatterns"
+        bind:value={excludePatternsInput}
+        rows="3"
+        placeholder={t('newCrawl.excludePatternsPlaceholder')}
+      ></textarea>
+      <p class="form-hint">{t('newCrawl.excludePatternsHint')}</p>
+    </div>
   </div>
 
   <!-- JS Rendering / Project -->

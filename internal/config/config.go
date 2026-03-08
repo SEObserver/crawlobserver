@@ -51,6 +51,7 @@ type CrawlerConfig struct {
 	MaxConcurrentSessions int            `mapstructure:"max_concurrent_sessions"` // 0 = 20
 	MaxFrontierSize       int            `mapstructure:"max_frontier_size"`       // 0 = 5_000_000
 	MaxWorkers            int            `mapstructure:"max_workers"`             // 0 = 100
+	ExcludePatterns       []string       `mapstructure:"exclude_patterns"`       // URL substrings to exclude from crawl (links still recorded)
 	Retry                 RetryConfig    `mapstructure:"retry"`
 	JSRender              JSRenderConfig `mapstructure:"js_render"`
 }

@@ -106,6 +106,7 @@ type CrawlRequest struct {
 	ForceIPv4           bool     `json:"force_ipv4"`
 	ExtractorSetID      string   `json:"extractor_set_id"`
 	IgnoreRobots        bool     `json:"ignore_robots"`
+	ExcludePatterns     []string `json:"exclude_patterns"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -174,6 +175,9 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	if req.IgnoreRobots {
 		cfg.Crawler.RespectRobots = false
 	}
+	if len(req.ExcludePatterns) > 0 {
+		cfg.Crawler.ExcludePatterns = req.ExcludePatterns
+	}
 
 	// JS rendering overrides
 	if req.JSRenderMode != "" {
@@ -208,6 +212,9 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	if engine.resourceWorkers <= 0 {
 		engine.resourceWorkers = defaultResourceWorkers
 	}
+
+	// URL exclude patterns
+	engine.excludePatterns = req.ExcludePatterns
 
 	// JS rendering
 	engine.followJSLinks = req.FollowJSLinks
@@ -392,9 +399,13 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		if overrides.JSRenderMaxPages > 0 {
 			crawlerCfg.JSRender.MaxPages = overrides.JSRenderMaxPages
 		}
+		if len(overrides.ExcludePatterns) > 0 {
+			crawlerCfg.ExcludePatterns = overrides.ExcludePatterns
+		}
 		cfg.Crawler = crawlerCfg
 	}
 	engine := NewEngine(&cfg, m.store)
+	engine.excludePatterns = cfg.Crawler.ExcludePatterns
 	engine.sitemapOnly = overrides != nil && overrides.CrawlSitemapOnly
 	// On resume, don't re-fetch sitemaps (already in DB) unless explicitly requested
 	if overrides != nil && overrides.FetchSitemaps != nil {

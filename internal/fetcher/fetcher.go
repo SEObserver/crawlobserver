@@ -92,6 +92,11 @@ func (f *Fetcher) Client() *http.Client {
 
 // Fetch retrieves a URL and returns the result with redirect chain.
 func (f *Fetcher) Fetch(targetURL string, depth int, foundOn string) *FetchResult {
+	return f.FetchWithContext(context.Background(), targetURL, depth, foundOn)
+}
+
+// FetchWithContext retrieves a URL using the provided context for cancellation.
+func (f *Fetcher) FetchWithContext(ctx context.Context, targetURL string, depth int, foundOn string) *FetchResult {
 	result := &FetchResult{
 		URL:     targetURL,
 		Depth:   depth,
@@ -102,7 +107,7 @@ func (f *Fetcher) Fetch(targetURL string, depth int, foundOn string) *FetchResul
 
 	// Create redirect tracker for this request
 	tracker := &redirectTracker{}
-	ctx := context.WithValue(context.Background(), redirectTrackerKey{}, tracker)
+	ctx = context.WithValue(ctx, redirectTrackerKey{}, tracker)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
 	if err != nil {

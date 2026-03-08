@@ -18,6 +18,25 @@
 
   let showExportDialog = $state(false);
   let exportIncludeHTML = $state(false);
+  let showConfigModal = $state(false);
+
+  function parsedConfig() {
+    if (!session?.Config) return null;
+    try {
+      return JSON.parse(session.Config);
+    } catch {
+      return null;
+    }
+  }
+
+  function fmtDuration(ns) {
+    if (!ns || ns <= 0) return '0';
+    const ms = ns / 1e6;
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+    const s = ms / 1000;
+    if (s < 60) return `${s}s`;
+    return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
+  }
 
   function handleExport() {
     exportSession(session.ID, exportIncludeHTML);
@@ -173,6 +192,25 @@
   </button>
   <button
     class="btn btn-sm"
+    onclick={() => (showConfigModal = true)}
+    title={t('actionBar.showConfig')}
+  >
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      ><circle cx="12" cy="12" r="3" /><path
+        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+      /></svg
+    >
+  </button>
+  <button
+    class="btn btn-sm"
     onclick={() => oncompare?.(session.ID)}
     title={t('actionBar.compareWith')}
   >
@@ -245,6 +283,66 @@
   </div>
 {/if}
 
+{#if showConfigModal}
+  {@const cfg = parsedConfig()}
+  <div
+    class="html-modal-overlay"
+    role="button"
+    tabindex="0"
+    onclick={() => (showConfigModal = false)}
+    onkeydown={a11yKeydown(() => (showConfigModal = false))}
+  >
+    <div class="html-modal config-modal" role="dialog" onclick={(e) => e.stopPropagation()}>
+      <div class="html-modal-header">
+        <div class="html-modal-url">{t('actionBar.crawlConfig')}</div>
+        <div class="html-modal-actions">
+          <button
+            class="btn btn-sm"
+            title={t('common.close')}
+            onclick={() => (showConfigModal = false)}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          </button>
+        </div>
+      </div>
+      <div class="config-body">
+        {#if cfg?.Crawler}
+          <table class="config-table">
+            <tbody>
+              <tr><td class="config-key">{t('actionBar.cfgWorkers')}</td><td>{cfg.Crawler.Workers}</td></tr>
+              <tr><td class="config-key">{t('actionBar.cfgDelay')}</td><td>{fmtDuration(cfg.Crawler.Delay)}</td></tr>
+              <tr><td class="config-key">{t('actionBar.cfgMaxPages')}</td><td>{cfg.Crawler.MaxPages || '∞'}</td></tr>
+              <tr><td class="config-key">{t('actionBar.cfgMaxDepth')}</td><td>{cfg.Crawler.MaxDepth || '∞'}</td></tr>
+              <tr><td class="config-key">{t('actionBar.cfgScope')}</td><td>{cfg.Crawler.CrawlScope}</td></tr>
+              <tr><td class="config-key">{t('actionBar.cfgUserAgent')}</td><td class="config-ua">{cfg.Crawler.UserAgent}</td></tr>
+              <tr><td class="config-key">{t('actionBar.cfgTLS')}</td><td>{cfg.Crawler.TLSProfile || 'default'}</td></tr>
+              <tr><td class="config-key">{t('actionBar.cfgRobots')}</td><td>{cfg.Crawler.RespectRobots ? t('common.yes') : t('common.no')}</td></tr>
+              <tr><td class="config-key">{t('actionBar.cfgStoreHTML')}</td><td>{cfg.Crawler.StoreHTML ? t('common.yes') : t('common.no')}</td></tr>
+              {#if cfg.Crawler.SourceIP}
+                <tr><td class="config-key">{t('actionBar.cfgSourceIP')}</td><td>{cfg.Crawler.SourceIP}</td></tr>
+              {/if}
+              {#if cfg.Crawler.ForceIPv4}
+                <tr><td class="config-key">IPv4</td><td>{t('common.yes')}</td></tr>
+              {/if}
+              {#if cfg.Crawler.JSRender?.Mode && cfg.Crawler.JSRender.Mode !== 'off'}
+                <tr><td class="config-key">JS Render</td><td>{cfg.Crawler.JSRender.Mode} ({cfg.Crawler.JSRender.MaxPages} pages)</td></tr>
+              {/if}
+              {#if cfg.Crawler.ExcludePatterns?.length}
+                <tr>
+                  <td class="config-key">{t('actionBar.cfgExclude')}</td>
+                  <td><code class="config-patterns">{cfg.Crawler.ExcludePatterns.join('\n')}</code></td>
+                </tr>
+              {/if}
+            </tbody>
+          </table>
+        {:else}
+          <p class="text-muted">{t('actionBar.noConfig')}</p>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .action-bar-meta {
     font-size: 12px;
@@ -311,5 +409,43 @@
     display: flex;
     gap: 8px;
     justify-content: flex-end;
+  }
+  .config-modal {
+    max-width: 520px;
+    height: auto;
+  }
+  .config-body {
+    padding: 16px 20px;
+  }
+  .config-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .config-table td {
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .config-table tr:last-child td {
+    border-bottom: none;
+  }
+  .config-key {
+    color: var(--text-muted);
+    white-space: nowrap;
+    padding-right: 16px;
+    width: 1%;
+  }
+  .config-ua {
+    word-break: break-all;
+    font-size: 12px;
+  }
+  .config-patterns {
+    white-space: pre-wrap;
+    font-size: 12px;
+    background: var(--bg-input);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    display: block;
   }
 </style>
