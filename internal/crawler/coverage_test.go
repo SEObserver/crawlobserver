@@ -2675,14 +2675,15 @@ func TestE2E_CrawlWithExternalAndResourceChecks(t *testing.T) {
 	engine.checkResources = true
 	engine.resourceWorkers = 2
 
-	fetchCh, shutdown := engine.startWorkers()
+	fetchCh, drainWorkers, finalize := engine.startWorkers()
 	engine.dispatcher(fetchCh)
 
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		defer func() { recover() }()
-		shutdown()
+		drainWorkers()
+		finalize()
 	}()
 	<-done
 
@@ -2726,17 +2727,18 @@ func TestStartWorkersShutdownNilOptionalChannels(t *testing.T) {
 	engine.checkExternal = false
 	engine.checkResources = false
 
-	fetchCh, shutdown := engine.startWorkers()
+	fetchCh, drainWorkers, finalize := engine.startWorkers()
 
 	// Close fetchCh immediately to let workers exit
 	close(fetchCh)
 
-	// shutdown() panics on finalizeSession because store is nil, recover from it
+	// finalize() panics on finalizeSession because store is nil, recover from it
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		defer func() { recover() }()
-		shutdown()
+		drainWorkers()
+		finalize()
 	}()
 
 	select {

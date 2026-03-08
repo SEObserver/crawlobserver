@@ -80,8 +80,10 @@ type Engine struct {
 
 	excludePatterns []string // URL substrings: if URL contains any, skip fetching
 
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx     context.Context
+	cancel  context.CancelFunc
+	done    chan struct{} // closed when workers are drained (before finalization)
+	stopped atomic.Bool   // true when Stop() was called (voluntary stop)
 }
 
 // renderItem transports data from parseWorker to renderWorker.
@@ -123,6 +125,7 @@ func NewEngine(cfg *config.Config, store *storage.Store) *Engine {
 		baseDelay: cfg.Crawler.Delay,
 		ctx:       ctx,
 		cancel:    cancel,
+		done:      make(chan struct{}),
 	}
 }
 
@@ -241,17 +244,20 @@ func (e *Engine) isExcluded(targetURL string) bool {
 // Run starts the crawl with the given seed URLs.
 func (e *Engine) Run(seeds []string) error {
 	if err := e.initCrawl(seeds); err != nil {
+		close(e.done)
 		return err
 	}
 	e.seedFrontier(seeds)
 	e.prefetchRobots()
 
-	fetchCh, shutdown := e.startWorkers()
+	fetchCh, drainWorkers, finalize := e.startWorkers()
 
 	// Dispatcher blocks until frontier is drained or context is cancelled
 	e.dispatcher(fetchCh)
 
-	shutdown()
+	drainWorkers()
+	close(e.done) // signal that crawl pipeline is drained (Stop can return)
+	finalize()
 	return nil
 }
 
@@ -272,7 +278,7 @@ func (e *Engine) initCrawl(seeds []string) error {
 	e.buffer = buf
 	e.bufferMu.Unlock()
 	e.buffer.SetOnDataLost(func(lostPages, lostLinks int64) {
-		applog.Errorf("crawler", "[%s] DATA LOSS: %d pages, %d links dropped — stopping crawl (disk full?)", e.session.ID, lostPages, lostLinks)
+		applog.Errorf("crawler", "%s DATA LOSS: %d pages, %d links dropped — stopping crawl (disk full?)", e.logTag(), lostPages, lostLinks)
 		e.Stop()
 	})
 
@@ -301,8 +307,8 @@ func (e *Engine) initCrawl(seeds []string) error {
 		}
 	}
 
-	applog.Infof("crawler", "Starting crawl session %s with %d seed(s), %d workers",
-		e.session.ID, len(seeds), e.cfg.Crawler.Workers)
+	applog.Infof("crawler", "%s Starting crawl with %d seed(s), %d workers",
+		e.logTag(), len(seeds), e.cfg.Crawler.Workers)
 	return nil
 }
 
@@ -336,7 +342,7 @@ func (e *Engine) prefetchRobots() {
 
 // startWorkers launches all worker goroutines and returns the pipeline channels
 // along with a shutdown function that must be called after the dispatcher returns.
-func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
+func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func(), func()) {
 	fetchCh := make(chan *frontier.CrawlURL, e.cfg.Crawler.Workers)
 	parseCh := make(chan *fetcher.FetchResult, e.cfg.Crawler.Workers)
 
@@ -445,7 +451,8 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 		applog.Infof("crawler", "Started %d resource check workers", numResWorkers)
 	}
 
-	shutdown := func() {
+	// drainWorkers stops all workers and flushes buffers (fast).
+	drainWorkers := func() {
 		// Stop retry dispatcher, then close fetch channel
 		retryCancel()
 		retryWg.Wait()
@@ -484,18 +491,20 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func()) {
 
 		// Final buffer flush
 		e.buffer.Close()
+		e.persistRobotsData()
+	}
 
+	// finalize runs heavy post-crawl computations (depths, PageRank, session update).
+	finalize := func() {
 		bufState := e.buffer.ErrorState()
 		if bufState.LostPages > 0 || bufState.LostLinks > 0 {
-			applog.Warnf("crawler", "[%s] Crawl ended with data loss: %d pages, %d links dropped",
-				e.session.ID, bufState.LostPages, bufState.LostLinks)
+			applog.Warnf("crawler", "%s Crawl ended with data loss: %d pages, %d links dropped",
+				e.logTag(), bufState.LostPages, bufState.LostLinks)
 		}
-
-		e.persistRobotsData()
 		e.finalizeSession(bufState)
 	}
 
-	return fetchCh, shutdown
+	return fetchCh, drainWorkers, finalize
 }
 
 // BufferState returns the current buffer error state for monitoring.
@@ -509,11 +518,38 @@ func (e *Engine) BufferState() storage.BufferErrorState {
 	return buf.ErrorState()
 }
 
+// logTag returns a short prefix like "[abc123 example.com]" for log lines.
+func (e *Engine) logTag() string {
+	sid := ""
+	domain := ""
+	if e.session != nil {
+		sid = e.session.ID
+		if len(sid) > 8 {
+			sid = sid[:8]
+		}
+		if len(e.session.SeedURLs) > 0 {
+			if u, err := url.Parse(e.session.SeedURLs[0]); err == nil {
+				domain = u.Hostname()
+			}
+		}
+	}
+	if domain != "" {
+		return fmt.Sprintf("[%s %s]", sid, domain)
+	}
+	return fmt.Sprintf("[%s]", sid)
+}
+
 // Stop gracefully stops the engine.
 func (e *Engine) Stop() {
-	applog.Info("crawler", "Stopping crawl engine...")
+	applog.Infof("crawler", "%s Stopping crawl engine...", e.logTag())
+	e.stopped.Store(true)
 	e.cancel()
 	e.front.Close()
+}
+
+// Done returns a channel that is closed when Run() completes.
+func (e *Engine) Done() <-chan struct{} {
+	return e.done
 }
 
 func (e *Engine) dispatcher(fetchCh chan<- *frontier.CrawlURL) {
@@ -530,7 +566,7 @@ func (e *Engine) dispatcher(fetchCh chan<- *frontier.CrawlURL) {
 
 		// Check max pages limit
 		if e.maxPages > 0 && e.pagesCrawled.Load() >= e.maxPages {
-			applog.Infof("crawler", "Reached max pages limit (%d)", e.maxPages)
+			applog.Infof("crawler", "%s Reached max pages limit (%d)", e.logTag(), e.maxPages)
 			return
 		}
 
@@ -545,7 +581,7 @@ func (e *Engine) dispatcher(fetchCh chan<- *frontier.CrawlURL) {
 				// Force exit if no progress for 30 seconds
 				lastProgress := e.lastProgressAt.Load()
 				if lastProgress > 0 && time.Now().Unix()-lastProgress > 30 {
-					applog.Infof("crawler", "No progress for 30s with empty frontier, finishing (pending retries: %d)", e.pendingRetries.Load())
+					applog.Infof("crawler", "%s No progress for 30s with empty frontier, finishing (pending retries: %d)", e.logTag(), e.pendingRetries.Load())
 					return
 				}
 			}
@@ -583,7 +619,7 @@ func (e *Engine) fetchWorker(id int, in <-chan *frontier.CrawlURL, out chan<- *f
 		// Always fetch robots.txt for storage; only block if configured
 		allowed := e.robots.IsAllowed(crawlURL.URL)
 		if e.cfg.Crawler.RespectRobots && !allowed {
-			applog.Infof("crawler", "Blocked by robots.txt: %s", crawlURL.URL)
+			applog.Infof("crawler", "%s Blocked by robots.txt: %s", e.logTag(), crawlURL.URL)
 			continue
 		}
 
@@ -598,8 +634,8 @@ func (e *Engine) fetchWorker(id int, in <-chan *frontier.CrawlURL, out chan<- *f
 
 		count := e.pagesCrawled.Load()
 		if count%100 == 0 {
-			applog.Infof("crawler", "Progress: %d pages crawled, %d in queue, %d pending retries",
-				count, e.front.Len(), e.pendingRetries.Load())
+			applog.Infof("crawler", "%s Progress: %d pages, %d queued, %d retries",
+				e.logTag(), count, e.front.Len(), e.pendingRetries.Load())
 		}
 
 		select {
@@ -633,8 +669,8 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 		// Circuit breaker + adaptive throttle: check every 10 results (including retries)
 		if rp > 0 && rp%10 == 0 {
 			if rate := e.hostHealth.GlobalErrorRate(); rate > e.cfg.Crawler.Retry.MaxGlobalErrorRate {
-				applog.Errorf("crawler", "STOPPING: global error rate %.2f exceeds threshold %.2f",
-					rate, e.cfg.Crawler.Retry.MaxGlobalErrorRate)
+				applog.Errorf("crawler", "%s STOPPING: global error rate %.2f exceeds threshold %.2f",
+					e.logTag(), rate, e.cfg.Crawler.Retry.MaxGlobalErrorRate)
 				e.Stop()
 			}
 
@@ -652,8 +688,8 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 					newDelay = 30 * time.Second
 				}
 				if newDelay != currentDelay {
-					applog.Warnf("crawler", "Rate-limit throttle: %.0f%% rate-limited, delay %v -> %v",
-						rlRate*100, currentDelay, newDelay)
+					applog.Warnf("crawler", "%s Rate-limit throttle: %.0f%% rate-limited, delay %v -> %v",
+						e.logTag(), rlRate*100, currentDelay, newDelay)
 					e.front.SetDelay(newDelay)
 				}
 			case rlRate > 0.05:
@@ -663,8 +699,8 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 					newDelay = 1 * time.Second
 				}
 				if newDelay != currentDelay {
-					applog.Warnf("crawler", "Rate-limit throttle: %.0f%% rate-limited, delay %v -> %v",
-						rlRate*100, currentDelay, newDelay)
+					applog.Warnf("crawler", "%s Rate-limit throttle: %.0f%% rate-limited, delay %v -> %v",
+						e.logTag(), rlRate*100, currentDelay, newDelay)
 					e.front.SetDelay(newDelay)
 				}
 			case rlRate < 0.02 && currentDelay > e.baseDelay:
@@ -673,8 +709,8 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 				if newDelay < e.baseDelay {
 					newDelay = e.baseDelay
 				}
-				applog.Infof("crawler", "Rate-limit easing: %.0f%% rate-limited, delay %v -> %v",
-					rlRate*100, currentDelay, newDelay)
+				applog.Infof("crawler", "%s Rate-limit easing: %.0f%% rate-limited, delay %v -> %v",
+					e.logTag(), rlRate*100, currentDelay, newDelay)
 				e.front.SetDelay(newDelay)
 			}
 		}
@@ -951,8 +987,8 @@ func (e *Engine) enqueueRetry(result *fetcher.FetchResult) {
 	delay := e.retryPolicy.ComputeDelay(result.Attempt, retryAfter)
 
 	host := extractHost(result.URL)
-	applog.Infof("crawler", "Retry #%d for %s (status=%d, err=%q) in %v",
-		nextAttempt, result.URL, result.StatusCode, result.Error, delay)
+	applog.Infof("crawler", "%s Retry #%d for %s (status=%d, err=%q) in %v",
+		e.logTag(), nextAttempt, result.URL, result.StatusCode, result.Error, delay)
 
 	// Track pending retries (first enqueue only)
 	if result.Attempt == 0 {
@@ -1072,7 +1108,7 @@ func (e *Engine) flushExternalChecks() {
 		if err := e.store.InsertExternalLinkChecks(ctx, batch); err != nil {
 			applog.Warnf("crawler", "failed to flush external link checks: %v", err)
 		} else {
-			applog.Infof("crawler", "Flushed %d external link checks", len(batch))
+			applog.Infof("crawler", "%s Flushed %d external link checks", e.logTag(), len(batch))
 		}
 	}
 }
@@ -1282,24 +1318,20 @@ func (e *Engine) persistRobotsData() {
 	if err := e.store.InsertRobotsData(ctx, robotsRows); err != nil {
 		applog.Warnf("crawler", "failed to persist robots.txt data: %v", err)
 	} else {
-		applog.Infof("crawler", "Persisted robots.txt for %d hosts", len(robotsRows))
+		applog.Infof("crawler", "%s Persisted robots.txt for %d hosts", e.logTag(), len(robotsRows))
 	}
 }
 
-// finalizeSession recomputes depths and PageRank, then updates the session status.
+// finalizeSession updates session status immediately, then recomputes depths and PageRank.
 // Uses a dedicated context because the crawl context (e.ctx) may already be cancelled.
 func (e *Engine) finalizeSession(bufState storage.BufferErrorState) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	if err := e.store.RecomputeDepths(ctx, e.session.ID, e.session.SeedURLs); err != nil {
-		applog.Warnf("crawler", "depth recomputation failed: %v", err)
-	}
-	if err := e.store.ComputePageRank(ctx, e.session.ID); err != nil {
-		applog.Warnf("crawler", "PageRank computation failed: %v", err)
-	}
-
-	if bufState.LostPages > 0 || bufState.LostLinks > 0 {
+	// 1. Determine and persist status FIRST so the UI updates immediately.
+	if e.stopped.Load() {
+		e.session.Status = "stopped"
+	} else if bufState.LostPages > 0 || bufState.LostLinks > 0 {
 		e.session.Status = "completed_with_errors"
 	} else {
 		e.session.Status = "completed"
@@ -1315,8 +1347,18 @@ func (e *Engine) finalizeSession(bufState storage.BufferErrorState) {
 		applog.Errorf("crawler", "updating session: %v", err)
 	}
 
-	applog.Infof("crawler", "Crawl complete: %d pages crawled, session %s",
-		e.pagesCrawled.Load(), e.session.ID)
+	applog.Infof("crawler", "%s Session marked %s (%d pages), computing depths & PageRank...",
+		e.logTag(), e.session.Status, e.session.Pages)
+
+	// 2. Heavy computations run after status is persisted.
+	if err := e.store.RecomputeDepths(ctx, e.session.ID, e.session.SeedURLs); err != nil {
+		applog.Warnf("crawler", "%s depth recomputation failed: %v", e.logTag(), err)
+	}
+	if err := e.store.ComputePageRank(ctx, e.session.ID); err != nil {
+		applog.Warnf("crawler", "%s PageRank computation failed: %v", e.logTag(), err)
+	}
+
+	applog.Infof("crawler", "%s Finalization complete", e.logTag())
 }
 
 // newCheckClient creates an HTTP client for external/resource check workers.

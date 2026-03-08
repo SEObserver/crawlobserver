@@ -532,7 +532,7 @@ func runTestCrawl(t *testing.T, cfg *config.Config, seeds []string) *e2eInserter
 	engine.buffer = storage.NewBuffer(inserter, cfg.Storage.BatchSize, cfg.Storage.FlushInterval, engine.session.ID)
 	engine.seedFrontier(seeds)
 
-	fetchCh, shutdown := engine.startWorkers()
+	fetchCh, drainWorkers, finalize := engine.startWorkers()
 	engine.dispatcher(fetchCh)
 
 	// shutdown() calls persistRobotsData/finalizeSession which panic on nil store.
@@ -541,7 +541,8 @@ func runTestCrawl(t *testing.T, cfg *config.Config, seeds []string) *e2eInserter
 	go func() {
 		defer close(done)
 		defer func() { recover() }()
-		shutdown()
+		drainWorkers()
+		finalize()
 	}()
 	<-done
 

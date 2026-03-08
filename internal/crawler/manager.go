@@ -246,6 +246,7 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 }
 
 // StopCrawl stops a running crawl session or removes it from the queue.
+// It waits up to 30 seconds for the engine to fully shut down.
 func (m *Manager) StopCrawl(sessionID string) error {
 	// Check if queued first
 	if m.dequeue(sessionID) {
@@ -270,6 +271,14 @@ func (m *Manager) StopCrawl(sessionID string) error {
 	}
 
 	engine.Stop()
+
+	// Wait for the engine workers to drain (max 15s).
+	// Finalization (depths, PageRank) continues in background.
+	select {
+	case <-engine.Done():
+	case <-time.After(15 * time.Second):
+		applog.Warnf("crawler", "Timeout waiting for engine %s workers to drain", sessionID)
+	}
 	return nil
 }
 
@@ -808,6 +817,16 @@ func (m *Manager) runEngine(sessionID string, engine *Engine, seeds []string) {
 		Set("seed_count", len(seeds)).
 		Set("workers", engine.cfg.Crawler.Workers).
 		Set("source", "ui"))
+
+	// Remove engine from map as soon as workers are drained (before finalization).
+	// This makes the SSE report is_running=false immediately when Stop is called.
+	go func() {
+		<-engine.Done()
+		m.mu.Lock()
+		delete(m.engines, sessionID)
+		m.mu.Unlock()
+	}()
+
 	err := engine.Run(seeds)
 	status := "completed"
 	if err != nil {
@@ -817,6 +836,7 @@ func (m *Manager) runEngine(sessionID string, engine *Engine, seeds []string) {
 		Set("status", status).
 		Set("source", "ui"))
 	m.mu.Lock()
+	// Engine already removed via Done() goroutine above, but ensure cleanup
 	delete(m.engines, sessionID)
 	if err != nil {
 		if len(m.lastErrors) >= maxLastErrors {

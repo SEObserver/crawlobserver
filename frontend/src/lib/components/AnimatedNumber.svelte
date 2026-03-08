@@ -32,10 +32,7 @@
     function tick(now) {
       const elapsed = now - t0;
       const progress = Math.min(elapsed / duration, 1);
-      // ease-out quint — strong deceleration at the end
-      const p1 = 1 - progress;
-      const eased = 1 - p1 * p1 * p1 * p1 * p1;
-      current = Math.round(start + delta * eased);
+      current = Math.round(start + delta * progress);
       // eslint-disable-next-line svelte/no-dom-manipulating -- rAF animation bypass
       span.textContent = format(current);
       if (progress < 1) {
