@@ -1005,5 +1005,7 @@
   "settings.sessionRecording": "Oturum kaydı",
   "settings.sessionRecordingDesc": "Tam tarayıcı oturumlarını kaydedin ve PostHog'a gönderin. Bu, CrawlObserver arayüzünüzde görünen tüm URL'leri, sayfa içeriklerini ve tıklamaları içerir.",
   "settings.sessionRecordingWarning": "UYARI: Etkinleştirildiğinde, CrawlObserver ekibi tarayıcı oturumunuzda görüntülenen her şeyi görebilir. Bunu yalnızca hata ayıklama amacıyla etkinleştirin.",
-  "settings.sessionRecordingBanner": "Oturum kaydı aktif — CrawlObserver ekibi ekranınızı görebilir."
+  "settings.sessionRecordingBanner": "Oturum kaydı aktif — CrawlObserver ekibi ekranınızı görebilir.",
+  "crawlForm.identityNetwork": "Kimlik ve ağ",
+  "crawlForm.advancedOptions": "Gelişmiş seçenekler"
 }

@@ -1005,5 +1005,7 @@
   "settings.sessionRecording": "הקלטת מושב",
   "settings.sessionRecordingDesc": "הקלט מושבי דפדפן מלאים ושלח אותם ל-PostHog. זה כולל את כל הכתובות, תוכן העמודים והלחיצות הנראים בממשק CrawlObserver שלך.",
   "settings.sessionRecordingWarning": "אזהרה: כשמופעל, צוות CrawlObserver יכול לראות את כל מה שמוצג במושב הדפדפן שלך. הפעל זאת רק למטרות איתור באגים.",
-  "settings.sessionRecordingBanner": "הקלטת הסשן פעילה — צוות CrawlObserver יכול לראות את המסך שלך."
+  "settings.sessionRecordingBanner": "הקלטת הסשן פעילה — צוות CrawlObserver יכול לראות את המסך שלך.",
+  "crawlForm.identityNetwork": "זהות ורשת",
+  "crawlForm.advancedOptions": "אפשרויות מתקדמות"
 }

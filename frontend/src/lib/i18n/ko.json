@@ -1005,5 +1005,7 @@
   "settings.sessionRecording": "세션 녹화",
   "settings.sessionRecordingDesc": "전체 브라우저 세션을 녹화하여 PostHog에 전송합니다. CrawlObserver 인터페이스에 표시되는 모든 URL, 페이지 콘텐츠 및 클릭이 포함됩니다.",
   "settings.sessionRecordingWarning": "경고: 활성화하면 CrawlObserver 팀이 브라우저 세션에 표시되는 모든 내용을 볼 수 있습니다. 디버깅 목적으로만 활성화하세요.",
-  "settings.sessionRecordingBanner": "세션 녹화가 활성화되어 있습니다 — CrawlObserver 팀이 화면을 볼 수 있습니다."
+  "settings.sessionRecordingBanner": "세션 녹화가 활성화되어 있습니다 — CrawlObserver 팀이 화면을 볼 수 있습니다.",
+  "crawlForm.identityNetwork": "신원 및 네트워크",
+  "crawlForm.advancedOptions": "고급 옵션"
 }

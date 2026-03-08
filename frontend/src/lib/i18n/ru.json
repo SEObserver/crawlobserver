@@ -1005,5 +1005,7 @@
   "settings.sessionRecording": "Запись сессии",
   "settings.sessionRecordingDesc": "Записывайте полные сессии браузера и отправляйте их в PostHog. Это включает все URL-адреса, содержимое страниц и клики, видимые в интерфейсе CrawlObserver.",
   "settings.sessionRecordingWarning": "ВНИМАНИЕ: При включении команда CrawlObserver может видеть всё, что отображается в вашей сессии браузера. Включайте только для целей отладки.",
-  "settings.sessionRecordingBanner": "Запись сеанса активна — команда CrawlObserver может видеть ваш экран."
+  "settings.sessionRecordingBanner": "Запись сеанса активна — команда CrawlObserver может видеть ваш экран.",
+  "crawlForm.identityNetwork": "Идентификация и сеть",
+  "crawlForm.advancedOptions": "Расширенные настройки"
 }

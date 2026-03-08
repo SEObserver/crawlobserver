@@ -1005,5 +1005,7 @@
   "settings.sessionRecording": "セッション録画",
   "settings.sessionRecordingDesc": "ブラウザセッション全体を録画してPostHogに送信します。CrawlObserverインターフェースに表示されるすべてのURL、ページコンテンツ、クリックが含まれます。",
   "settings.sessionRecordingWarning": "警告：有効にすると、CrawlObserverチームがブラウザセッションに表示されるすべての内容を確認できます。デバッグ目的でのみ有効にしてください。",
-  "settings.sessionRecordingBanner": "セッション録画が有効です — CrawlObserverチームがあなたの画面を見ることができます。"
+  "settings.sessionRecordingBanner": "セッション録画が有効です — CrawlObserverチームがあなたの画面を見ることができます。",
+  "crawlForm.identityNetwork": "ID とネットワーク",
+  "crawlForm.advancedOptions": "詳細オプション"
 }

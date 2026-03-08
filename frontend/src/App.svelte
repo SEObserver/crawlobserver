@@ -5,7 +5,7 @@
   //   - Consider a lightweight store to reduce prop drilling from App.svelte
 
   // TODO: Increase test coverage (frontend + backend):
-  //   - Frontend: add tests for Sidebar, SessionDetailPage, ComparePage, NewCrawlForm
+  //   - Frontend: add tests for Sidebar, SessionDetailPage, ComparePage, CrawlForm
   //   - Frontend: add E2E tests with Playwright
   //   - Backend: add tests for engine shutdown/cancellation, buffer overflow, rate limiting
   //   - Backend: add tests for SSRF protection edge cases, auth middleware
@@ -36,8 +36,7 @@
   import { createSSEManager } from './lib/sse.js';
   import { applyTheme, loadThemeFromServer, saveDarkMode } from './lib/theme.js';
   import OnboardingWizard from './lib/components/OnboardingWizard.svelte';
-  import ResumeModal from './lib/components/ResumeModal.svelte';
-  import NewCrawlForm from './lib/components/NewCrawlForm.svelte';
+  import CrawlForm from './lib/components/CrawlForm.svelte';
   import GlobalStatsPage from './lib/components/GlobalStatsPage.svelte';
   import SettingsPage from './lib/components/SettingsPage.svelte';
   import APIManagementPage from './lib/components/APIManagementPage.svelte';
@@ -753,10 +752,11 @@
             onprojectschanged={(p) => (projects = p)}
           />
         {:else if currentView === 'new-crawl'}
-          <NewCrawlForm
+          <CrawlForm
+            mode="new"
             {projects}
             initialProjectId={new URLSearchParams(window.location.search).get('project') || ''}
-            onstart={onCrawlStarted}
+            onsubmit={onCrawlStarted}
             oncancel={() => {
               const proj = new URLSearchParams(window.location.search).get('project');
               proj ? navigateTo(`/projects/${proj}`) : navigateTo('/');
@@ -828,17 +828,34 @@
   </div>
 
   {#if showResumeModal}
-    <ResumeModal
-      sessionId={resumeSessionId}
-      {sessions}
-      {projects}
-      mode={resumeModalMode}
-      {retryStatusCode}
-      {retryCount}
-      onresume={onResumeComplete}
-      onclose={closeResumeModal}
-      onerror={(msg) => (error = msg)}
-    />
+    <div class="modal-overlay" role="button" tabindex="0" onclick={closeResumeModal} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') closeResumeModal(); }}>
+      <div class="modal-dialog" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+        <div class="modal-header">
+          <h2>
+            {#if resumeModalMode === 'retry'}
+              {t('resumeModal.retryTitle')}
+            {:else}
+              {t('resumeModal.title')}
+            {/if}
+          </h2>
+          <button class="btn btn-sm" title={t('common.close')} onclick={closeResumeModal}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <CrawlForm
+            mode={resumeModalMode}
+            session={sessions.find((s) => s.ID === resumeSessionId)}
+            {projects}
+            {retryStatusCode}
+            {retryCount}
+            onsubmit={onResumeComplete}
+            oncancel={closeResumeModal}
+            onerror={(msg) => (error = msg)}
+          />
+        </div>
+      </div>
+    </div>
   {/if}
 
   {#if confirmState}

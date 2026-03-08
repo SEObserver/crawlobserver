@@ -58,11 +58,9 @@
   "common.source": "Source",
   "common.target": "Target",
   "common.filter": "Filter",
-
   "timeAgo.justNow": "just now",
   "timeAgo.minutesAgo": "{count}m ago",
   "timeAgo.hoursAgo": "{count}h ago",
-
   "app.skipToContent": "Skip to content",
   "app.updateAvailable": "Update available: v{version}",
   "app.backupAndUpdate": "Backup & Update",
@@ -70,7 +68,6 @@
   "app.downloadingUpdate": "Downloading and installing update...",
   "app.updateInstalled": "Update installed. Restart to apply.",
   "app.updateFailed": "Update failed: {error}",
-
   "sidebar.mainMenu": "Main Menu",
   "sidebar.dashboard": "Dashboard",
   "sidebar.newCrawl": "New Crawl",
@@ -95,7 +92,6 @@
   "sidebar.darkMode": "Dark mode",
   "sidebar.byBrand": "by SEObserver",
   "sidebar.viewAllProjects": "View all projects",
-
   "sessions.title": "Crawl Sessions",
   "sessions.newCrawl": "New Crawl",
   "sessions.noSessions": "No crawl sessions yet",
@@ -105,7 +101,6 @@
   "sessions.lost": "lost",
   "sessions.pagesCount": "{count} pages",
   "sessions.resume": "Resume",
-
   "newCrawl.title": "New Crawl",
   "newCrawl.seedUrls": "Seed URLs (one per line)",
   "newCrawl.workers": "Workers",
@@ -154,7 +149,6 @@
   "newCrawl.yourIP": "Your IP: {ip}",
   "newCrawl.startCrawl": "Start Crawl",
   "newCrawl.starting": "Starting...",
-
   "session.queued": "Queued",
   "session.sessions": "Sessions",
   "session.urlDetail": "URL Detail",
@@ -196,7 +190,6 @@
   "session.anchorText": "Anchor Text",
   "session.tag": "Tag",
   "session.rel": "Rel",
-
   "actionBar.inQueue": "in queue",
   "actionBar.started": "Started",
   "actionBar.recomputeDepths": "Recompute Depths",
@@ -226,7 +219,6 @@
   "actionBar.cfgSourceIP": "Source IP",
   "actionBar.cfgExclude": "Exclude patterns",
   "actionBar.noConfig": "No configuration data available.",
-
   "stats.title": "Global Stats",
   "stats.loadingStats": "Loading global stats...",
   "stats.totalPages": "Total Pages",
@@ -248,7 +240,6 @@
   "stats.deleteUnassigned": "Delete all unassigned sessions",
   "stats.confirmDeleteUnassigned": "Delete all sessions without a project? This cannot be undone.",
   "stats.deletedCount": "{count} session(s) deleted",
-
   "compare.title": "Compare Crawls",
   "compare.sessionA": "Session A (before)",
   "compare.sessionB": "Session B (after)",
@@ -269,7 +260,6 @@
   "compare.removed": "Removed",
   "compare.noPages": "No {type} pages found.",
   "compare.noLinks": "No {type} links found.",
-
   "logs.title": "Application Logs",
   "logs.exportJsonl": "Export JSONL",
   "logs.allLevels": "All Levels",
@@ -288,7 +278,6 @@
   "logs.component": "Component",
   "logs.message": "Message",
   "logs.noLogs": "No logs found",
-
   "api.subtitle": "Use this API to automate crawls, read results, or connect your tools (LLMs, scripts, etc.)",
   "api.reference": "API Reference",
   "api.referenceDesc": "All available endpoints with absolute URLs. Copy and paste to your LLM or script.",
@@ -318,14 +307,12 @@
   "api.revoke": "Revoke",
   "api.neverUsed": "Never used",
   "api.used": "Used",
-
   "projects.title": "All Projects",
   "projects.newProject": "New Project",
   "projects.searchProjects": "Search projects...",
   "projects.projectCount": "project(s)",
   "projects.created": "Created",
   "projects.noProjects": "No projects found",
-
   "project.dashboard": "Dashboard",
   "project.doubleClickRename": "Double-click to rename",
   "project.deleteProject": "Delete project",
@@ -338,7 +325,6 @@
   "project.seoData": "SEO Data",
   "project.seedUrl": "Seed URL",
   "project.noSessions": "No crawl sessions in this project yet.",
-
   "settings.title": "Settings",
   "settings.appName": "App Name",
   "settings.logoUrl": "Logo URL",
@@ -380,12 +366,9 @@
   "settings.restoreFailed": "Restore failed: {error}",
   "settings.deleteBackupConfirm": "Delete backup {name}?",
   "settings.deleteFailed": "Delete failed: {error}",
-
   "dataTable.clearFilters": "Clear filters",
-
   "confirmModal.cancel": "Cancel",
   "confirmModal.confirm": "Confirm",
-
   "resumeModal.title": "Resume Crawl",
   "resumeModal.maxPages": "Max pages (0 = unlimited)",
   "resumeModal.maxDepth": "Max depth (0 = unlimited)",
@@ -402,12 +385,10 @@
   "resumeModal.retryInfo": "Retrying {count} pages with status {status}",
   "resumeModal.retryBtn": "Retry",
   "resumeModal.retryingBtn": "Retrying...",
-
   "htmlModal.render": "Render",
   "htmlModal.source": "Source",
   "htmlModal.noHtml": "No HTML stored for this page.",
   "htmlModal.pageRender": "Page render",
-
   "urlDetail.openUrl": "Open URL",
   "urlDetail.viewHtml": "View HTML",
   "urlDetail.statusCode": "Status Code",
@@ -467,7 +448,6 @@
   "urlDetail.deltaImages": "Images Δ",
   "urlDetail.newSchema": "New Schema",
   "urlDetail.pageNotFound": "Page not found.",
-
   "tabs.allPages": "All Pages",
   "tabs.titles": "Titles",
   "tabs.meta": "Meta",
@@ -489,7 +469,6 @@
   "tabs.directives": "Directives",
   "tabs.nearDuplicates": "Duplicates",
   "tabs.authority": "Off-site",
-
   "pages.all": "All",
   "pages.titles": "Titles",
   "pages.meta": "Meta",
@@ -498,7 +477,6 @@
   "pages.indexability": "Indexability",
   "pages.response": "Response",
   "pages.redirects": "Redirects",
-
   "links.internal": "Internal",
   "links.external": "External",
   "links.checks": "Checks",
@@ -517,12 +495,10 @@
   "links.lastSeen": "Last Seen",
   "links.backlinksCount": "{count} backlinks",
   "links.noBacklinks": "No backlink data available.",
-
   "directives.robots": "Robots.txt",
   "directives.sitemaps": "Sitemaps",
   "directives.sitemapOnly": "Sitemap only",
   "directives.inBoth": "In both",
-
   "pagerank.topPages": "Top Pages",
   "pagerank.byDirectory": "By Directory",
   "pagerank.distribution": "Distribution",
@@ -554,7 +530,6 @@
   "pagerank.weightedNeedProject": "Associate this session with a project that has SEObserver data to see Weighted PageRank.",
   "pagerank.score": "Internal PageRank Score",
   "pagerank.pagesLog": "Pages (log)",
-
   "robots.noData": "No robots.txt data. Run a crawl first.",
   "robots.host": "Host",
   "robots.fetched": "Fetched",
@@ -581,7 +556,6 @@
   "robots.urlsNewlyAllowed": "URLs newly allowed",
   "robots.noChanges": "No changes — all URLs keep their current status.",
   "robots.selectHost": "Select a host to view its robots.txt",
-
   "sitemaps.noData": "No sitemaps found. Run a crawl first.",
   "sitemaps.urls": "URLs",
   "sitemaps.noUrls": "No URLs in this sitemap.",
@@ -589,7 +563,6 @@
   "sitemaps.changeFreq": "Change Freq",
   "sitemaps.priority": "Priority",
   "sitemaps.selectSitemap": "Select a sitemap to view its URLs",
-
   "extChecks.domains": "Domains",
   "extChecks.urls": "URLs",
   "extChecks.filterDomains": "Filter domains...",
@@ -615,7 +588,6 @@
   "extChecks.sourcePage": "Source Page",
   "extChecks.sourcePr": "PR",
   "extChecks.sourceDepth": "Depth",
-
   "resources.summary": "Summary",
   "resources.urls": "URLs",
   "resources.filterUrls": "Filter URLs...",
@@ -638,7 +610,6 @@
   "resources.pagesCount": "Pages",
   "resources.timeMs": "Time (ms)",
   "resources.noChecksFound": "No checks found",
-
   "tests.rulesets": "Rulesets",
   "tests.newRuleset": "+ New Ruleset",
   "tests.noRulesets": "No rulesets yet. Create one to start testing pages.",
@@ -690,7 +661,6 @@
   "tests.nameRequired": "Ruleset name is required",
   "tests.ruleRequired": "At least one rule is required",
   "tests.deleteConfirm": "Delete this ruleset?",
-
   "gsc.notAssociated": "This session is not associated with a project.",
   "gsc.associateFirst": "Associate it with a project first, then connect Google Search Console.",
   "gsc.connectTitle": "Connect Google Search Console",
@@ -745,7 +715,6 @@
   "gsc.mobile": "Mobile",
   "gsc.rich": "Rich",
   "gsc.noInspectionData": "No inspection data available.",
-
   "providers.notAssociated": "This session is not associated with a project.",
   "providers.associateFirst": "Associate it with a project first, then connect an SEO data provider.",
   "providers.connectTitle": "Connect SEObserver",
@@ -814,7 +783,6 @@
   "providers.limitTopPages": "Top Pages",
   "providers.dangerZone": "Danger Zone",
   "providers.disconnectWarning": "Disconnecting will remove the API key and all fetched data for this provider.",
-
   "reports.overview": "Overview",
   "reports.content": "Content",
   "reports.technical": "Technical",
@@ -825,7 +793,6 @@
   "reports.loadingAudit": "Loading audit data...",
   "reports.loadFailed": "Failed to load audit: {error}",
   "reports.requiresAudit": "Requires audit computation. Click a sub-view to load.",
-
   "report.overview.healthScore": "Health Score",
   "report.overview.health": "Health",
   "report.overview.totalPages": "Total Pages",
@@ -848,7 +815,6 @@
   "report.overview.3xxRedirect": "3xx Redirect",
   "report.overview.4xxClientError": "4xx Client Error",
   "report.overview.5xxServerError": "5xx Server Error",
-
   "report.content.titles": "Titles",
   "report.content.missing": "Missing",
   "report.content.tooLong": "Too Long",
@@ -870,7 +836,6 @@
   "report.content.metaTooShortChart": "Too Short (<70)",
   "report.content.okH1": "OK (1 H1)",
   "report.content.multiple": "Multiple",
-
   "report.technical.indexability": "Indexability",
   "report.technical.indexable": "Indexable",
   "report.technical.nonIndexable": "Non-Indexable",
@@ -895,7 +860,6 @@
   "report.technical.missing": "Missing",
   "report.technical.self": "Self",
   "report.technical.other": "Other",
-
   "report.links.internalLinks": "Internal Links",
   "report.links.totalInternal": "Total Internal",
   "report.links.noOutlinks": "Pages No Outlinks",
@@ -909,12 +873,10 @@
   "report.links.topExternalDomains": "Top External Domains",
   "report.links.topAnchors": "Top Internal Anchor Texts",
   "report.links.noData": "No links audit data available.",
-
   "report.structure.directories": "Directories",
   "report.structure.depthDist": "Depth Distribution",
   "report.structure.orphanPages": "Orphan Pages",
   "report.structure.noData": "No structure audit data available.",
-
   "report.sitemap.coverage": "Sitemap Coverage",
   "report.sitemap.coverageLabel": "coverage",
   "report.sitemap.inBoth": "In Both",
@@ -922,7 +884,6 @@
   "report.sitemap.sitemapOnly": "Sitemap Only",
   "report.sitemap.totalUrls": "Total Sitemap URLs",
   "report.sitemap.noData": "No sitemap audit data available.",
-
   "report.international.schemaTypes": "Schema.org Types",
   "report.international.noSchema": "No schema types detected.",
   "report.international.pagesWithSchema": "Pages with Schema",
@@ -932,12 +893,9 @@
   "report.international.pagesWithHreflang": "Pages with Hreflang",
   "report.international.pagesWithLang": "Pages with Lang",
   "report.international.noData": "No international audit data available.",
-
   "api.confirmDeleteProject": "Delete this project? Associated API keys will also be deleted.",
   "api.confirmRevokeKey": "Revoke this API key?",
-
   "gsc.robots": "Robots",
-
   "providers.apiKeyLabel": "API Key",
   "providers.domainCol": "Domain",
   "providers.fetchingPhase": "Fetching",
@@ -961,7 +919,6 @@
   "providers.apiCalls.duration": "Duration",
   "providers.apiCalls.rows": "Rows",
   "providers.apiCalls.error": "Error",
-
   "authority.title": "Authority",
   "authority.connectCta": "Connect your SEObserver account to unlock Authority data (TrustFlow, CitationFlow, backlink metrics per page).",
   "authority.connectBtn": "Connect SEObserver",
@@ -977,9 +934,7 @@
   "authority.enrichment": "Authority enrichment",
   "authority.enrichmentDisconnected": "Connect SEObserver to enrich {count} crawled pages with TrustFlow, CitationFlow and backlink data",
   "authority.enrichmentConnected": "{matched} of {total} pages matched with authority data — see Authority tab",
-
   "resources.source": "Source",
-
   "tests.attributeName": "Attribute name",
   "tests.cssExists": "CSS selector exists",
   "tests.cssExtractAllAttr": "CSS extract ALL attributes",
@@ -987,9 +942,7 @@
   "tests.regexExtract": "Regex capture group",
   "tests.regexExtractAll": "Regex capture ALL",
   "tests.xpathExpression": "XPath expression",
-
   "tabs.extract": "Extract",
-
   "extract.sets": "Extractor Sets",
   "extract.newSet": "+ New Extractor Set",
   "extract.noSets": "No extractor sets yet. Create one to extract data during crawl.",
@@ -1029,10 +982,8 @@
   "extract.xpathExpr": "XPath expression",
   "extract.resultsAvailable": "{count} pages with extraction data — click to view",
   "extract.runRequiresHtml": "Re-run on stored HTML (requires store_html enabled)",
-
   "newCrawl.extractorSet": "Extractor set (optional)",
   "newCrawl.noExtractorSet": "No extractor set",
-
   "neardup.urlA": "URL A",
   "neardup.urlB": "URL B",
   "neardup.titleA": "Title A",
@@ -1054,7 +1005,6 @@
   "neardup.noCanonical": "No canonical",
   "neardup.selfCanonical": "Self-canonical",
   "neardup.crossCanonical": "Points to other",
-
   "onboarding.step1Title": "Choose your language",
   "onboarding.step1Subtitle": "You can change this later in Settings.",
   "onboarding.step2Title": "Crawl defaults",
@@ -1079,12 +1029,13 @@
   "onboarding.downloadProgress": "Downloading database engine... {percent}%",
   "onboarding.downloadComplete": "Database engine ready",
   "onboarding.waitingForEngine": "Waiting for database engine...",
-
   "settings.telemetryTitle": "Analytics",
   "settings.telemetryDesc": "Send anonymous usage data to help us improve CrawlObserver. No personal data, URLs, or crawl content is ever collected.",
   "settings.telemetryEnabled": "Anonymous analytics enabled",
   "settings.sessionRecording": "Session recording",
   "settings.sessionRecordingDesc": "Record full browser sessions and send them to PostHog. This includes all URLs, page content, and clicks visible in your CrawlObserver UI.",
   "settings.sessionRecordingWarning": "WARNING: When enabled, the CrawlObserver team can see everything displayed in your browser session. Only enable this for debugging purposes.",
-  "settings.sessionRecordingBanner": "Session recording is active — the CrawlObserver team can see your screen."
+  "settings.sessionRecordingBanner": "Session recording is active — the CrawlObserver team can see your screen.",
+  "crawlForm.identityNetwork": "Identity & network",
+  "crawlForm.advancedOptions": "Advanced options"
 }
