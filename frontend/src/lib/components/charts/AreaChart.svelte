@@ -152,8 +152,12 @@
 
     <!-- HTML tooltip -->
     {#if hoverIdx >= 0}
-      {@const mainRows = [...series].filter(s => !s.key?.startsWith('retried_') && (s.values[hoverIdx] || 0) > 0).reverse()}
-      {@const retryRows = [...series].filter(s => s.key?.startsWith('retried_') && (s.values[hoverIdx] || 0) > 0).reverse()}
+      {@const mainRows = [...series]
+        .filter((s) => !s.key?.startsWith('retried_') && (s.values[hoverIdx] || 0) > 0)
+        .reverse()}
+      {@const retryRows = [...series]
+        .filter((s) => s.key?.startsWith('retried_') && (s.values[hoverIdx] || 0) > 0)
+        .reverse()}
       <div class="chart-tooltip" style="left:{tooltipLeft}px;top:{tooltipTop}px">
         <div class="chart-tooltip-title">{labels[hoverIdx] || ''}</div>
         {#each mainRows as s}
@@ -223,7 +227,7 @@
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm, 4px);
-    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.15));
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
     padding: 8px 10px;
     pointer-events: none;
     white-space: nowrap;

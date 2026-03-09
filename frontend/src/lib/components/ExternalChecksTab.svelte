@@ -184,7 +184,14 @@
     try {
       if (view === 'domains') {
         const allData = await fetchAll((limit, offset) =>
-          getExternalLinkCheckDomains(sessionId, limit, offset, domainFilters, sortColumn, sortOrder),
+          getExternalLinkCheckDomains(
+            sessionId,
+            limit,
+            offset,
+            domainFilters,
+            sortColumn,
+            sortOrder,
+          ),
         );
         downloadCSV(
           'external-checks-domains.csv',
@@ -338,8 +345,7 @@
       {#snippet row(d)}
         <tr>
           <td
-            ><button class="link-btn" onclick={() => switchToUrls(d.domain)}>{d.domain}</button
-            ></td
+            ><button class="link-btn" onclick={() => switchToUrls(d.domain)}>{d.domain}</button></td
           >
           <td>{d.total_urls}</td>
           <td class="cell-bar">

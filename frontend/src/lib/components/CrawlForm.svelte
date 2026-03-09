@@ -22,7 +22,8 @@
   let crawlerCfg = {};
   if (!isNew && session?.Config) {
     try {
-      const parsed = typeof session.Config === 'string' ? JSON.parse(session.Config) : session.Config;
+      const parsed =
+        typeof session.Config === 'string' ? JSON.parse(session.Config) : session.Config;
       crawlerCfg = parsed?.Crawler || {};
     } catch {}
   }
@@ -62,26 +63,26 @@
   const detectedUA = detectUAPreset();
 
   // --- Form state ---
-  let seedInput = $state(isNew ? '' : (session?.SeedURLs?.join('\n') || ''));
-  let workers = $state(isNew ? 10 : (crawlerCfg.Workers || 10));
+  let seedInput = $state(isNew ? '' : session?.SeedURLs?.join('\n') || '');
+  let workers = $state(isNew ? 10 : crawlerCfg.Workers || 10);
   let crawlDelayMs = $state(isNew ? 1000 : nsToMs(crawlerCfg.Delay));
-  let maxPages = $state(isNew ? 0 : (crawlerCfg.MaxPages || 0));
-  let maxDepth = $state(isNew ? 0 : (crawlerCfg.MaxDepth || 0));
-  let storeHtml = $state(isNew ? false : (crawlerCfg.StoreHTML || false));
-  let crawlScope = $state(isNew ? 'host' : (crawlerCfg.CrawlScope || 'host'));
-  let crawlProjectId = $state(isNew ? initialProjectId : (session?.ProjectID || ''));
+  let maxPages = $state(isNew ? 0 : crawlerCfg.MaxPages || 0);
+  let maxDepth = $state(isNew ? 0 : crawlerCfg.MaxDepth || 0);
+  let storeHtml = $state(isNew ? false : crawlerCfg.StoreHTML || false);
+  let crawlScope = $state(isNew ? 'host' : crawlerCfg.CrawlScope || 'host');
+  let crawlProjectId = $state(isNew ? initialProjectId : session?.ProjectID || '');
   let checkExternalLinks = $state(true);
   let externalLinkWorkers = $state(3);
   let userAgentPreset = $state(detectedUA.preset);
   let userAgentCustom = $state(detectedUA.custom);
   let crawlSitemapOnly = $state(false);
   let fetchSitemaps = $state(isNew ? true : false);
-  let tlsProfile = $state(isNew ? '' : (crawlerCfg.TLSProfile || ''));
-  let jsRenderMode = $state(isNew ? 'off' : (crawlerCfg.JSRender?.Mode || 'off'));
-  let jsRenderMaxPages = $state(isNew ? 4 : (crawlerCfg.JSRender?.MaxPages || 4));
+  let tlsProfile = $state(isNew ? '' : crawlerCfg.TLSProfile || '');
+  let jsRenderMode = $state(isNew ? 'off' : crawlerCfg.JSRender?.Mode || 'off');
+  let jsRenderMaxPages = $state(isNew ? 4 : crawlerCfg.JSRender?.MaxPages || 4);
   let followJSLinks = $state(false);
-  let sourceIP = $state(isNew ? '' : (crawlerCfg.SourceIP || ''));
-  let forceIPv4 = $state(isNew ? false : (crawlerCfg.ForceIPv4 || false));
+  let sourceIP = $state(isNew ? '' : crawlerCfg.SourceIP || '');
+  let forceIPv4 = $state(isNew ? false : crawlerCfg.ForceIPv4 || false);
   let ignoreRobots = $state(isNew ? false : false);
   let excludePatternsInput = $state(isNew ? '' : (crawlerCfg.ExcludePatterns || []).join('\n'));
   let extractorSetId = $state('');
@@ -92,7 +93,9 @@
 
   // Load extractor sets on mount
   getExtractorSets()
-    .then((sets) => { extractorSets = sets; })
+    .then((sets) => {
+      extractorSets = sets;
+    })
     .catch(() => {});
 
   let userAgentPresets = $derived([
@@ -165,7 +168,10 @@
       extractor_set_id: extractorSetId || undefined,
       ignore_robots: ignoreRobots || undefined,
       exclude_patterns: excludePatternsInput.trim()
-        ? excludePatternsInput.split('\n').map((s) => s.trim()).filter(Boolean)
+        ? excludePatternsInput
+            .split('\n')
+            .map((s) => s.trim())
+            .filter(Boolean)
         : undefined,
     };
   }
@@ -179,7 +185,10 @@
           .map((s) => s.trim())
           .filter(Boolean)
           .map((s) => (/^https?:\/\//i.test(s) ? s : `http://${s}`));
-        if (seeds.length === 0) { submitting = false; return; }
+        if (seeds.length === 0) {
+          submitting = false;
+          return;
+        }
         await startCrawl(seeds, buildOptions());
       } else if (isRetry) {
         await retryFailed(session.ID, retryStatusCode, buildOptions());
@@ -197,10 +206,16 @@
   // Submit button labels
   let submitLabel = $derived(
     isNew
-      ? (submitting ? t('newCrawl.starting') : t('newCrawl.startCrawl'))
+      ? submitting
+        ? t('newCrawl.starting')
+        : t('newCrawl.startCrawl')
       : isRetry
-        ? (submitting ? t('resumeModal.retryingBtn') : t('resumeModal.retryBtn'))
-        : (submitting ? t('resumeModal.resuming') : t('resumeModal.resume'))
+        ? submitting
+          ? t('resumeModal.retryingBtn')
+          : t('resumeModal.retryBtn')
+        : submitting
+          ? t('resumeModal.resuming')
+          : t('resumeModal.resume'),
   );
 
   let submitDisabled = $derived(submitting || (isNew && !seedInput.trim()));
@@ -222,7 +237,8 @@
   <div class="form-group">
     <label for="cf-seeds">{t('newCrawl.seedUrls')}</label>
     {#if isNew}
-      <textarea id="cf-seeds" bind:value={seedInput} rows="3" placeholder="https://example.com"></textarea>
+      <textarea id="cf-seeds" bind:value={seedInput} rows="3" placeholder="https://example.com"
+      ></textarea>
     {:else}
       <textarea id="cf-seeds" rows="2" disabled value={seedInput}></textarea>
     {/if}
@@ -370,7 +386,13 @@
         {#if checkExternalLinks}
           <div class="form-group form-group-inline">
             <label for="cf-extworkers">{t('newCrawl.extWorkers')}</label>
-            <input id="cf-extworkers" type="number" bind:value={externalLinkWorkers} min="1" max="20" />
+            <input
+              id="cf-extworkers"
+              type="number"
+              bind:value={externalLinkWorkers}
+              min="1"
+              max="20"
+            />
           </div>
         {/if}
         <label class="inline-checkbox">

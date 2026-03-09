@@ -828,8 +828,22 @@
   </div>
 
   {#if showResumeModal}
-    <div class="modal-overlay" role="button" tabindex="0" onclick={closeResumeModal} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') closeResumeModal(); }}>
-      <div class="modal-dialog" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+    <div
+      class="modal-overlay"
+      role="button"
+      tabindex="0"
+      onclick={closeResumeModal}
+      onkeydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') closeResumeModal();
+      }}
+    >
+      <div
+        class="modal-dialog"
+        role="dialog"
+        tabindex="-1"
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+      >
         <div class="modal-header">
           <h2>
             {#if resumeModalMode === 'retry'}
@@ -839,7 +853,17 @@
             {/if}
           </h2>
           <button class="btn btn-sm" title={t('common.close')} onclick={closeResumeModal}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+            >
           </button>
         </div>
         <div class="modal-body">
