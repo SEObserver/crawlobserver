@@ -33,7 +33,20 @@ func downloadURL() (string, error) {
 		}
 	}
 	if runtime.GOOS == "windows" {
-		return "", fmt.Errorf("managed mode auto-download is not supported on Windows; use clickhouse.mode=external with Docker, or set clickhouse.binary_path to a local ClickHouse binary")
+		return "", fmt.Errorf(`ClickHouse does not provide a standalone Windows binary.
+
+CrawlObserver needs Docker to run ClickHouse on Windows.
+
+Step 1 — Install Docker Desktop (free):
+         https://docs.docker.com/desktop/setup/install/windows-install/
+
+Step 2 — Open a terminal in the CrawlObserver folder and run:
+         docker compose up -d
+
+Step 3 — Start CrawlObserver:
+         crawlobserver serve
+
+Full setup guide: https://github.com/SEObserver/crawlobserver#quick-start`)
 	}
 	return "", fmt.Errorf("unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH)
 }
