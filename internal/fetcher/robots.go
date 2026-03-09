@@ -3,6 +3,7 @@ package fetcher
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"sync"
@@ -173,6 +174,7 @@ func (rc *RobotsCache) fetch(host string) *RobotsCacheEntry {
 
 	parsed, err := robotstxt.FromBytes(body)
 	if err != nil {
+		log.Printf("[robots] %s: malformed robots.txt: %v", host, err)
 		parsed = &robotstxt.RobotsData{}
 	}
 	entry.parsed = parsed
