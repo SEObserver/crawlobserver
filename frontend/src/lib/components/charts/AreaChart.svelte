@@ -83,6 +83,9 @@
   // Tooltip state
   let hoverIdx = $state(-1);
   let tooltipX = $state(0);
+  let tooltipLeft = $state(0);
+  let tooltipTop = $state(0);
+  let wrapperEl = $state(null);
 
   function onMouseMove(e) {
     const svg = e.currentTarget;
@@ -92,6 +95,11 @@
     if (idx >= 0 && idx < nPoints) {
       hoverIdx = idx;
       tooltipX = x(idx);
+      // Position HTML tooltip relative to wrapper
+      const pxPerUnit = rect.width / W;
+      const lineX = tooltipX * pxPerUnit;
+      tooltipLeft = lineX > rect.width / 2 ? lineX - 140 : lineX + 12;
+      tooltipTop = MT * pxPerUnit;
     } else {
       hoverIdx = -1;
     }
@@ -99,56 +107,75 @@
 </script>
 
 {#if nPoints > 0}
-  <svg
-    class="area-chart"
-    viewBox="0 0 {W} {height}"
-    preserveAspectRatio="xMinYMin meet"
-    onmousemove={onMouseMove}
-    onmouseleave={() => (hoverIdx = -1)}
-    role="img"
-  >
-    <!-- Y grid -->
-    {#each yTicks as tick}
-      <line x1={ML} y1={y(tick)} x2={W - MR} y2={y(tick)} class="grid-line" />
-      <text x={ML - 6} y={y(tick) + 4} text-anchor="end" class="axis-label">{fmtN(tick)}</text>
-    {/each}
-
-    <!-- Stacked areas (bottom to top) -->
-    {#each stacked as layer}
-      <path d={areaPath(layer)} fill={layer.color} opacity={layer.opacity ?? 0.75} />
-    {/each}
-
-    <!-- X axis labels -->
-    {#each xLabelIndices as idx}
-      <text x={x(idx)} y={height - 4} text-anchor="middle" class="axis-label"
-        >{labels[idx] || ''}</text
-      >
-    {/each}
-
-    <!-- Hover line + tooltip -->
-    {#if hoverIdx >= 0}
-      {@const tx = tooltipX > W / 2 ? tooltipX - 130 : tooltipX + 8}
-      <line x1={tooltipX} y1={MT} x2={tooltipX} y2={MT + chartH} class="hover-line" />
-      <rect x={tx} y={MT} width="120" height={series.length * 16 + 22} rx="4" class="tooltip-bg" />
-      <text x={tx + 6} y={MT + 14} class="tooltip-title">{labels[hoverIdx] || ''}</text>
-      {#each [...series].reverse() as s, i}
-        <rect x={tx + 6} y={MT + 22 + i * 16} width="8" height="8" rx="2" fill={s.color} />
-        <text x={tx + 18} y={MT + 30 + i * 16} class="tooltip-text">
-          {s.label}: {fmtN(s.values[hoverIdx] || 0)}
-        </text>
+  <div class="area-chart-wrapper" bind:this={wrapperEl}>
+    <svg
+      class="area-chart"
+      viewBox="0 0 {W} {height}"
+      preserveAspectRatio="xMinYMin meet"
+      onmousemove={onMouseMove}
+      onmouseleave={() => (hoverIdx = -1)}
+      role="img"
+    >
+      <!-- Y grid -->
+      {#each yTicks as tick}
+        <line x1={ML} y1={y(tick)} x2={W - MR} y2={y(tick)} class="grid-line" />
+        <text x={ML - 6} y={y(tick) + 4} text-anchor="end" class="axis-label">{fmtN(tick)}</text>
       {/each}
-    {/if}
 
-    <!-- Y label -->
-    {#if yLabel}
-      <text
-        x={12}
-        y={MT + chartH / 2}
-        transform="rotate(-90,12,{MT + chartH / 2})"
-        class="axis-label y-label">{yLabel}</text
-      >
+      <!-- Stacked areas (bottom to top) -->
+      {#each stacked as layer}
+        <path d={areaPath(layer)} fill={layer.color} opacity={layer.opacity ?? 0.75} />
+      {/each}
+
+      <!-- X axis labels -->
+      {#each xLabelIndices as idx}
+        <text x={x(idx)} y={height - 4} text-anchor="middle" class="axis-label"
+          >{labels[idx] || ''}</text
+        >
+      {/each}
+
+      <!-- Hover line -->
+      {#if hoverIdx >= 0}
+        <line x1={tooltipX} y1={MT} x2={tooltipX} y2={MT + chartH} class="hover-line" />
+      {/if}
+
+      <!-- Y label -->
+      {#if yLabel}
+        <text
+          x={12}
+          y={MT + chartH / 2}
+          transform="rotate(-90,12,{MT + chartH / 2})"
+          class="axis-label y-label">{yLabel}</text
+        >
+      {/if}
+    </svg>
+
+    <!-- HTML tooltip -->
+    {#if hoverIdx >= 0}
+      {@const mainRows = [...series].filter(s => !s.key?.startsWith('retried_') && (s.values[hoverIdx] || 0) > 0).reverse()}
+      {@const retryRows = [...series].filter(s => s.key?.startsWith('retried_') && (s.values[hoverIdx] || 0) > 0).reverse()}
+      <div class="chart-tooltip" style="left:{tooltipLeft}px;top:{tooltipTop}px">
+        <div class="chart-tooltip-title">{labels[hoverIdx] || ''}</div>
+        {#each mainRows as s}
+          <div class="chart-tooltip-row">
+            <span class="chart-tooltip-swatch" style="background:{s.color}"></span>
+            <span class="chart-tooltip-label">{s.label}</span>
+            <span class="chart-tooltip-value">{fmtN(s.values[hoverIdx] || 0)}</span>
+          </div>
+        {/each}
+        {#if retryRows.length > 0}
+          <div class="chart-tooltip-divider"></div>
+          {#each retryRows as s}
+            <div class="chart-tooltip-row">
+              <span class="chart-tooltip-swatch" style="background:{s.color};opacity:0.5"></span>
+              <span class="chart-tooltip-label">{s.label}</span>
+              <span class="chart-tooltip-value">{fmtN(s.values[hoverIdx] || 0)}</span>
+            </div>
+          {/each}
+        {/if}
+      </div>
     {/if}
-  </svg>
+  </div>
 
   <!-- Legend -->
   <div class="area-legend">
@@ -162,6 +189,9 @@
 {/if}
 
 <style>
+  .area-chart-wrapper {
+    position: relative;
+  }
   .area-chart {
     width: 100%;
     display: block;
@@ -185,22 +215,54 @@
     stroke-width: 1;
     stroke-dasharray: 4 2;
   }
-  .tooltip-bg {
-    fill: var(--bg-card);
-    stroke: var(--border);
-    stroke-width: 1;
+
+  /* HTML tooltip */
+  .chart-tooltip {
+    position: absolute;
+    z-index: 50;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm, 4px);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.15));
+    padding: 8px 10px;
+    pointer-events: none;
+    white-space: nowrap;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text);
   }
-  .tooltip-title {
-    font-size: 10px;
-    fill: var(--text-secondary);
+  .chart-tooltip-title {
     font-weight: 600;
-    font-family: inherit;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
   }
-  .tooltip-text {
-    font-size: 10px;
-    fill: var(--text);
-    font-family: inherit;
+  .chart-tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
+  .chart-tooltip-label {
+    flex: 1;
+  }
+  .chart-tooltip-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    text-align: right;
+  }
+  .chart-tooltip-swatch {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .chart-tooltip-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
   .area-legend {
     display: flex;
     flex-wrap: wrap;

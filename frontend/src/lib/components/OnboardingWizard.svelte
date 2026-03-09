@@ -43,12 +43,28 @@
   // Download progress polling
   let downloadPercent = $state(0);
   let clickhouseReady = $state(false);
+  let serverOS = $state('');
   let pollTimer = null;
+
+  let showWindowsStep = $derived(serverOS === 'windows');
+  let totalSteps = $derived(showWindowsStep ? 4 : 3);
+  let crawlStep = $derived(showWindowsStep ? 3 : 2);
+  let telemetryStep = $derived(showWindowsStep ? 4 : 3);
+
+  // Auto-advance past Windows step when ClickHouse is detected
+  $effect(() => {
+    if (showWindowsStep && step === 2 && clickhouseReady) {
+      setTimeout(() => {
+        step = crawlStep;
+      }, 1500);
+    }
+  });
 
   function pollStatus() {
     pollTimer = setInterval(async () => {
       try {
         const status = await getSetupStatus();
+        if (status.os) serverOS = status.os;
         if (status.download_progress) {
           downloadPercent = status.download_progress.percent || 0;
         }
@@ -74,7 +90,12 @@
   }
 
   function nextStep() {
-    if (step < 3) step++;
+    let next = step + 1;
+    // Skip Windows step if CH is already ready
+    if (showWindowsStep && next === 2 && clickhouseReady) {
+      next = crawlStep;
+    }
+    if (next <= totalSteps) step = next;
   }
 
   async function finish() {
@@ -111,6 +132,10 @@
     }
   }
 
+  function copyCommand(text) {
+    navigator.clipboard.writeText(text);
+  }
+
   import { onDestroy } from 'svelte';
   onDestroy(() => {
     if (pollTimer) clearInterval(pollTimer);
@@ -136,7 +161,39 @@
       <div class="actions">
         <button class="btn btn-primary btn-lg" onclick={nextStep}>{t('onboarding.next')}</button>
       </div>
-    {:else if step === 2}
+    {:else if showWindowsStep && step === 2}
+      <h1>{t('onboarding.windowsTitle')}</h1>
+      <p class="subtitle">{t('onboarding.windowsSubtitle')}</p>
+      <div class="windows-options">
+        <div class="windows-card">
+          <div class="windows-card-header">
+            <svg class="windows-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 20h20V4H2v16zm2-2V6h16v12H4z"/><path d="M7 14c1-2 3-3 5-3s4 1 5 3"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/></svg>
+            <h3>{t('onboarding.windowsDocker')}</h3>
+          </div>
+          <pre class="windows-steps">{t('onboarding.windowsDockerSteps')}</pre>
+          <a class="windows-link" href="https://www.docker.com/products/docker-desktop/" target="_blank" rel="noopener">
+            {t('onboarding.windowsDockerLink')} &#x2197;
+          </a>
+        </div>
+        <div class="windows-card">
+          <div class="windows-card-header">
+            <svg class="windows-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="16" rx="2"/><path d="M6 9h12M6 13h8"/><path d="M8 19l-2 2m10-2l2 2"/></svg>
+            <h3>{t('onboarding.windowsWsl')}</h3>
+          </div>
+          <pre class="windows-steps">{t('onboarding.windowsWslSteps')}</pre>
+        </div>
+      </div>
+      <div class="windows-status">
+        {#if clickhouseReady}
+          <span class="windows-detected">{t('onboarding.windowsDetected')}</span>
+        {:else}
+          <span class="windows-waiting">
+            <span class="spinner-sm"></span>
+            {t('onboarding.windowsWaiting')}
+          </span>
+        {/if}
+      </div>
+    {:else if step === crawlStep}
       <h1>{t('onboarding.step2Title')}</h1>
       <p class="subtitle">{t('onboarding.step2Subtitle')}</p>
       <div class="presets">
@@ -172,7 +229,7 @@
       <div class="actions">
         <button class="btn btn-primary btn-lg" onclick={nextStep}>{t('onboarding.next')}</button>
       </div>
-    {:else if step === 3}
+    {:else if step === telemetryStep}
       <h1>{t('onboarding.step3Title')}</h1>
       <p class="subtitle">{t('onboarding.step3Subtitle')}</p>
       <div class="telemetry-info">
@@ -202,19 +259,21 @@
 
     <!-- Progress bar -->
     <div class="progress-section">
-      {#if clickhouseReady}
-        <span class="progress-label progress-done">{t('onboarding.downloadComplete')}</span>
-      {:else if downloadPercent > 0}
-        <span class="progress-label"
-          >{t('onboarding.downloadProgress', { percent: downloadPercent })}</span
-        >
+      {#if !showWindowsStep}
+        {#if clickhouseReady}
+          <span class="progress-label progress-done">{t('onboarding.downloadComplete')}</span>
+        {:else if downloadPercent > 0}
+          <span class="progress-label"
+            >{t('onboarding.downloadProgress', { percent: downloadPercent })}</span
+          >
+        {/if}
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: {clickhouseReady ? 100 : downloadPercent}%"></div>
+        </div>
       {/if}
-      <div class="progress-bar">
-        <div class="progress-fill" style="width: {clickhouseReady ? 100 : downloadPercent}%"></div>
-      </div>
       <!-- Steps indicator -->
       <div class="steps">
-        {#each [1, 2, 3] as s}
+        {#each Array.from({ length: totalSteps }, (_, i) => i + 1) as s}
           {#if s >= startStep}
             <div class="step-dot" class:active={step === s} class:done={step > s}></div>
           {/if}
@@ -444,6 +503,97 @@
   }
   .btn-lg:active:not(:disabled) {
     transform: translateY(0);
+  }
+
+  /* Windows setup step */
+  .windows-options {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    text-align: left;
+  }
+
+  .windows-card {
+    flex: 1;
+    padding: 20px;
+    border: 2px solid var(--border, #e0e0e0);
+    border-radius: 12px;
+    background: var(--bg-card, #fff);
+  }
+
+  .windows-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .windows-card-header h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary, #1a1a2e);
+    margin: 0;
+  }
+
+  .windows-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--accent, #7c3aed);
+    flex-shrink: 0;
+  }
+
+  .windows-steps {
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: var(--text-secondary, #555);
+    background: var(--bg, #f8f9fc);
+    padding: 12px;
+    border-radius: 8px;
+    margin: 0 0 12px;
+    white-space: pre-line;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    overflow-x: auto;
+  }
+
+  .windows-link {
+    font-size: 0.82rem;
+    color: var(--accent, #7c3aed);
+    text-decoration: none;
+  }
+  .windows-link:hover {
+    text-decoration: underline;
+  }
+
+  .windows-status {
+    margin-bottom: 32px;
+    font-size: 0.9rem;
+  }
+
+  .windows-waiting {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted, #888);
+  }
+
+  .windows-detected {
+    color: var(--success, #22c55e);
+    font-weight: 600;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .spinner-sm {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border, #e0e0e0);
+    border-top-color: var(--accent, #7c3aed);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
   }
 
   .progress-section {

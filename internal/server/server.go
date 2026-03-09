@@ -199,6 +199,8 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("POST /api/sessions/{id}/resume", s.handleResumeCrawl)
 	mux.HandleFunc("POST /api/sessions/{id}/recompute-depths", s.handleRecomputeDepths)
 	mux.HandleFunc("POST /api/sessions/{id}/compute-pagerank", s.handleComputePageRank)
+	mux.HandleFunc("POST /api/sessions/{id}/compute-near-duplicates", s.handleComputeNearDuplicates)
+	mux.HandleFunc("POST /api/sessions/{id}/recompute-content-hashes", s.handleRecomputeContentHashes)
 	mux.HandleFunc("POST /api/sessions/{id}/retry-failed", s.handleRetryFailed)
 	mux.HandleFunc("POST /api/sessions/{id}/robots-test", s.handleRobotsTest)
 	mux.HandleFunc("POST /api/sessions/{id}/robots-simulate", s.handleRobotsSimulate)
@@ -611,6 +613,7 @@ func (s *Server) handleSetupStatus(w http.ResponseWriter, r *http.Request) {
 		"download_progress": dp,
 		"clickhouse_ready":  chReady,
 		"telemetry_asked":   s.cfg.Telemetry.AskedAt != "",
+		"os":                runtime.GOOS,
 	})
 }
 

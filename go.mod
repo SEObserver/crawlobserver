@@ -3,6 +3,7 @@ module github.com/SEObserver/crawlobserver
 go 1.25.7
 
 require (
+	codeberg.org/readeck/go-readability/v2 v2.1.1
 	github.com/ClickHouse/clickhouse-go/v2 v2.43.0
 	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/PuerkitoBio/purell v1.2.1
@@ -22,7 +23,10 @@ require (
 )
 
 require (
+	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
+	github.com/go-shiori/dom v0.0.0-20230515143342-73569d674e1c // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/gogs/chardet v0.0.0-20211120154057-b7413eaefb8f // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 )
 

@@ -3,7 +3,9 @@ package storage
 import (
 	"context"
 	"fmt"
+	"math/bits"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/applog"
@@ -702,6 +704,64 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 	return nil
 }
 
+// UpdateContentHashes updates content_hash for pages via a temp Join table + mutation.
+func (s *Store) UpdateContentHashes(ctx context.Context, sessionID string, hashes map[string]uint64) error {
+	if len(hashes) == 0 {
+		return nil
+	}
+	if !isValidUUID(sessionID) {
+		return fmt.Errorf("invalid session ID: %s", sessionID)
+	}
+
+	tmpTable := fmt.Sprintf("crawlobserver.tmp_contenthash_%s", strings.ReplaceAll(sessionID, "-", ""))
+	if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
+		return fmt.Errorf("dropping old temp content hash table: %w", err)
+	}
+	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (page_url String, new_hash UInt64) ENGINE = Join(ANY, LEFT, page_url)", tmpTable)); err != nil {
+		return fmt.Errorf("creating temp content hash table: %w", err)
+	}
+	defer func() {
+		if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tmpTable)); err != nil {
+			applog.Warnf("storage", "cleanup temp table %s: %v", tmpTable, err)
+		}
+	}()
+
+	const chunkSize = 5000
+	urls := make([]string, 0, len(hashes))
+	for u := range hashes {
+		urls = append(urls, u)
+	}
+	for i := 0; i < len(urls); i += chunkSize {
+		end := i + chunkSize
+		if end > len(urls) {
+			end = len(urls)
+		}
+		batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (page_url, new_hash)", tmpTable))
+		if err != nil {
+			return fmt.Errorf("preparing content hash batch: %w", err)
+		}
+		for _, u := range urls[i:end] {
+			if err := batch.Append(u, hashes[u]); err != nil {
+				return fmt.Errorf("appending content hash: %w", err)
+			}
+		}
+		if err := batch.Send(); err != nil {
+			return fmt.Errorf("sending content hash batch: %w", err)
+		}
+	}
+
+	query := fmt.Sprintf(`ALTER TABLE crawlobserver.pages UPDATE
+		content_hash = joinGet('%s', 'new_hash', url)
+		WHERE crawl_session_id = ?
+		SETTINGS mutations_sync = 1`,
+		tmpTable)
+	if err := s.conn.Exec(ctx, query, sessionID); err != nil {
+		return fmt.Errorf("updating content_hash via joinGet: %w", err)
+	}
+
+	return nil
+}
+
 // RecomputeDepths runs a BFS from seed URLs and updates depth/found_on in the pages table.
 // BFSResult holds the output of a BFS depth computation.
 type BFSResult struct {
@@ -1140,49 +1200,27 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 	return result, nil
 }
 
-// NearDuplicates finds pages with similar content using SimHash Hamming distance.
-// threshold is the max Hamming distance (e.g. 3 = ≤3 bits differ out of 64).
+// NearDuplicates reads pre-computed near-duplicate pairs from the dedicated table.
 func (s *Store) NearDuplicates(ctx context.Context, sessionID string, threshold int, limit, offset int) (*NearDuplicatesResult, error) {
 	if threshold <= 0 {
 		threshold = 3
 	}
 
-	// Count total pairs
 	var total uint64
 	err := s.conn.QueryRow(ctx, `
 		SELECT count()
-		FROM crawlobserver.pages AS a
-		INNER JOIN crawlobserver.pages AS b
-			ON a.crawl_session_id = b.crawl_session_id
-			AND a.url < b.url
-		WHERE a.crawl_session_id = ?
-			AND a.content_hash != 0
-			AND b.content_hash != 0
-			AND a.status_code >= 200 AND a.status_code < 300
-			AND b.status_code >= 200 AND b.status_code < 300
-			AND bitCount(bitXor(a.content_hash, b.content_hash)) <= ?`,
+		FROM crawlobserver.near_duplicate_pairs
+		WHERE crawl_session_id = ? AND hamming_distance <= ?`,
 		sessionID, threshold).Scan(&total)
 	if err != nil {
 		return nil, fmt.Errorf("counting near-duplicates: %w", err)
 	}
 
 	rows, err := s.conn.Query(ctx, `
-		SELECT
-			a.url, b.url,
-			a.title, b.title,
-			a.canonical, b.canonical,
-			a.word_count, b.word_count,
-			1.0 - (bitCount(bitXor(a.content_hash, b.content_hash)) / 64.0) AS similarity
-		FROM crawlobserver.pages AS a
-		INNER JOIN crawlobserver.pages AS b
-			ON a.crawl_session_id = b.crawl_session_id
-			AND a.url < b.url
-		WHERE a.crawl_session_id = ?
-			AND a.content_hash != 0
-			AND b.content_hash != 0
-			AND a.status_code >= 200 AND a.status_code < 300
-			AND b.status_code >= 200 AND b.status_code < 300
-			AND bitCount(bitXor(a.content_hash, b.content_hash)) <= ?
+		SELECT url_a, url_b, title_a, title_b, canonical_a, canonical_b,
+		       word_count_a, word_count_b, similarity
+		FROM crawlobserver.near_duplicate_pairs
+		WHERE crawl_session_id = ? AND hamming_distance <= ?
 		ORDER BY similarity DESC
 		LIMIT ? OFFSET ?`,
 		sessionID, threshold, limit, offset)
@@ -1203,6 +1241,286 @@ func (s *Store) NearDuplicates(ctx context.Context, sessionID string, threshold 
 		return nil, fmt.Errorf("iterating near-duplicates: %w", err)
 	}
 	return result, nil
+}
+
+// ComputeNearDuplicates pre-computes near-duplicate pairs using Multi-Index Hashing
+// (Norouzi et al., 2012). The 64-bit SimHash is split into 3 parts (~21 bits each).
+// By pigeonhole: if two hashes differ by ≤5 bits, at least one part differs by ≤1 bit.
+// For each part, we look up exact match + single-bit neighbors → ~66 lookups per page.
+// With ~2M possible buckets vs 250K pages, density is ~0.12/bucket → no quadratic blowup.
+func (s *Store) ComputeNearDuplicates(ctx context.Context, sessionID string) error {
+	const maxThreshold = 5
+
+	start := time.Now()
+	if !isValidUUID(sessionID) {
+		return fmt.Errorf("invalid session ID: %s", sessionID)
+	}
+
+	type pageInfo struct {
+		URL       string
+		Hash      uint64
+		Title     string
+		Canonical string
+		WordCount uint32
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT url, content_hash, title, canonical, word_count
+		FROM crawlobserver.pages FINAL
+		WHERE crawl_session_id = ?
+		  AND status_code >= 200 AND status_code < 300
+		  AND content_hash != 0`,
+		sessionID)
+	if err != nil {
+		return fmt.Errorf("loading pages for near-duplicates: %w", err)
+	}
+	defer rows.Close()
+
+	var pages []pageInfo
+	for rows.Next() {
+		var p pageInfo
+		if err := rows.Scan(&p.URL, &p.Hash, &p.Title, &p.Canonical, &p.WordCount); err != nil {
+			return fmt.Errorf("scanning page: %w", err)
+		}
+		pages = append(pages, p)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterating pages: %w", err)
+	}
+
+	n := len(pages)
+	if n == 0 {
+		return nil
+	}
+	applog.Infof("storage", "NearDuplicates: loaded %d pages in %s", n, time.Since(start))
+
+	// Multi-Index Hashing (Norouzi et al., 2012): 3 parts of the 64-bit hash
+	// Part 0: bits  0-20 (21 bits), Part 1: bits 21-42 (22 bits), Part 2: bits 43-63 (21 bits)
+	// Pigeonhole: if hamming(h1,h2) ≤ 5, at least one part has distance ≤ 1.
+	type partDef struct {
+		shift   uint
+		numBits uint
+		mask    uint64
+	}
+	parts := [3]partDef{
+		{shift: 0, numBits: 21, mask: (1 << 21) - 1},
+		{shift: 21, numBits: 22, mask: (1 << 22) - 1},
+		{shift: 43, numBits: 21, mask: (1 << 21) - 1},
+	}
+
+	// Phase 1: Build index tables — map[partValue] → []pageIndex
+	// Skip oversized buckets: on real crawl data, identical boilerplate pages
+	// cluster into huge buckets that cause O(K^2) iteration.
+	const maxBucketSize = 500
+	type indexTable map[uint32][]int
+	tables := [3]indexTable{}
+	var skippedBuckets int
+	for p := 0; p < 3; p++ {
+		tables[p] = make(indexTable, n)
+		for i := 0; i < n; i++ {
+			val := uint32((pages[i].Hash >> parts[p].shift) & parts[p].mask)
+			tables[p][val] = append(tables[p][val], i)
+		}
+		// Remove oversized buckets
+		for val, indices := range tables[p] {
+			if len(indices) > maxBucketSize {
+				skippedBuckets++
+				delete(tables[p], val)
+			}
+		}
+	}
+	applog.Infof("storage", "NearDuplicates: index tables built in %s (%d oversized buckets removed)", time.Since(start), skippedBuckets)
+
+	// Phase 2: Search candidates using parallel workers.
+	// No per-worker seen map — POPCNT is a single CPU instruction, cheaper than map lookup.
+	// Duplicates are removed in Phase 3 via sort+dedup.
+	type pairResult struct {
+		a, b       int
+		hamming    uint8
+		similarity float64
+	}
+
+	numWorkers := 8
+	if n < numWorkers*100 {
+		numWorkers = 1
+	}
+	chunkSize := (n + numWorkers - 1) / numWorkers
+
+	workerResults := make([][]pairResult, numWorkers)
+	var wg sync.WaitGroup
+
+	for w := 0; w < numWorkers; w++ {
+		wStart := w * chunkSize
+		wEnd := wStart + chunkSize
+		if wEnd > n {
+			wEnd = n
+		}
+		if wStart >= n {
+			break
+		}
+
+		wg.Add(1)
+		go func(workerID, lo, hi int) {
+			defer wg.Done()
+			var local []pairResult
+
+			for i := lo; i < hi; i++ {
+				h := pages[i].Hash
+				for p := 0; p < 3; p++ {
+					val := uint32((h >> parts[p].shift) & parts[p].mask)
+
+					// Exact match (distance 0 on this part)
+					for _, j := range tables[p][val] {
+						if j <= i {
+							continue
+						}
+						dist := bits.OnesCount64(h ^ pages[j].Hash)
+						if dist <= maxThreshold {
+							local = append(local, pairResult{
+								a: i, b: j,
+								hamming:    uint8(dist),
+								similarity: 1.0 - float64(dist)/64.0,
+							})
+						}
+					}
+
+					// 1-bit neighbors on this part
+					for b := uint(0); b < parts[p].numBits; b++ {
+						neighbor := val ^ (1 << b)
+						for _, j := range tables[p][neighbor] {
+							if j <= i {
+								continue
+							}
+							dist := bits.OnesCount64(h ^ pages[j].Hash)
+							if dist <= maxThreshold {
+								local = append(local, pairResult{
+									a: i, b: j,
+									hamming:    uint8(dist),
+									similarity: 1.0 - float64(dist)/64.0,
+								})
+							}
+						}
+					}
+				}
+			}
+			workerResults[workerID] = local
+		}(w, wStart, wEnd)
+	}
+	wg.Wait()
+
+	// Phase 3: Merge, deduplicate, and cap results.
+	// Real crawl data can produce millions of pairs; cap to keep storage/UI manageable.
+	const maxPairs = 500_000
+
+	var rawCount int
+	for _, wr := range workerResults {
+		rawCount += len(wr)
+	}
+
+	// Deduplicate across workers and cap total pairs (lowest hamming first).
+	// Collect into buckets by hamming distance for priority ordering.
+	distBuckets := make([][]pairResult, maxThreshold+1) // [0..5]
+	seen := make(map[uint64]struct{}, min(rawCount, maxPairs*2))
+	totalPairs := 0
+
+	for _, wr := range workerResults {
+		for _, p := range wr {
+			key := uint64(p.a)<<32 | uint64(p.b)
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			distBuckets[p.hamming] = append(distBuckets[p.hamming], p)
+			totalPairs++
+		}
+	}
+	seen = nil // free memory
+	workerResults = nil
+
+	// Flatten buckets in priority order (distance 0 first), stop at maxPairs
+	var pairs []pairResult
+	capped := false
+	for d := 0; d <= maxThreshold; d++ {
+		remaining := maxPairs - len(pairs)
+		if remaining <= 0 {
+			capped = true
+			break
+		}
+		if len(distBuckets[d]) <= remaining {
+			pairs = append(pairs, distBuckets[d]...)
+		} else {
+			pairs = append(pairs, distBuckets[d][:remaining]...)
+			capped = true
+			break
+		}
+	}
+	distBuckets = nil
+
+	if capped {
+		applog.Infof("storage", "NearDuplicates: %d total pairs deduped, capped to %d (max %d) in %s",
+			totalPairs, len(pairs), maxPairs, time.Since(start))
+	} else {
+		applog.Infof("storage", "NearDuplicates: found %d pairs (%d raw) in %s",
+			len(pairs), rawCount, time.Since(start))
+	}
+
+	// Delete old data for this session
+	sessUUID, err := uuid.Parse(sessionID)
+	if err != nil {
+		return fmt.Errorf("parsing session UUID: %w", err)
+	}
+	partitionID := fmt.Sprintf("%x-%x-%x-%x-%x", sessUUID[0:4], sessUUID[4:6], sessUUID[6:8], sessUUID[8:10], sessUUID[10:16])
+	if err := s.conn.Exec(ctx, fmt.Sprintf(
+		"ALTER TABLE crawlobserver.near_duplicate_pairs DROP PARTITION ID '%s'", partitionID)); err != nil {
+		applog.Warnf("storage", "NearDuplicates: drop partition: %v", err)
+	}
+
+	// Batch insert
+	const insertChunk = 10000
+	for i := 0; i < len(pairs); i += insertChunk {
+		end := i + insertChunk
+		if end > len(pairs) {
+			end = len(pairs)
+		}
+
+		batch, err := s.conn.PrepareBatch(ctx, `
+			INSERT INTO crawlobserver.near_duplicate_pairs (
+				crawl_session_id, url_a, url_b, title_a, title_b,
+				canonical_a, canonical_b, word_count_a, word_count_b,
+				hamming_distance, similarity
+			)`)
+		if err != nil {
+			return fmt.Errorf("preparing near-duplicate batch: %w", err)
+		}
+
+		for _, p := range pairs[i:end] {
+			pa, pb := pages[p.a], pages[p.b]
+			urlA, urlB := pa.URL, pb.URL
+			titleA, titleB := pa.Title, pb.Title
+			canA, canB := pa.Canonical, pb.Canonical
+			wcA, wcB := pa.WordCount, pb.WordCount
+			if urlA > urlB {
+				urlA, urlB = urlB, urlA
+				titleA, titleB = titleB, titleA
+				canA, canB = canB, canA
+				wcA, wcB = wcB, wcA
+			}
+			if err := batch.Append(
+				sessUUID, urlA, urlB, titleA, titleB,
+				canA, canB, wcA, wcB,
+				p.hamming, p.similarity,
+			); err != nil {
+				return fmt.Errorf("appending near-duplicate pair: %w", err)
+			}
+		}
+
+		if err := batch.Send(); err != nil {
+			return fmt.Errorf("sending near-duplicate batch: %w", err)
+		}
+	}
+
+	applog.Infof("storage", "NearDuplicates: inserted %d pairs in %s", len(pairs), time.Since(start))
+	return nil
 }
 
 // PagesWithAuthority joins crawled pages with provider top_pages (Majestic authority data).

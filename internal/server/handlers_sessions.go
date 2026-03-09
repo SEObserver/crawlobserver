@@ -636,6 +636,80 @@ func (s *Server) handleComputePageRank(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleComputeNearDuplicates(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	sessionID := r.PathValue("id")
+
+	go func() {
+		if err := s.store.ComputeNearDuplicates(context.Background(), sessionID); err != nil {
+			applog.Errorf("server", "ComputeNearDuplicates %s: %v", sessionID, err)
+		}
+	}()
+
+	writeJSON(w, map[string]string{
+		"status":  "ok",
+		"message": fmt.Sprintf("Near-duplicate computation started for session %s", sessionID),
+	})
+}
+
+func (s *Server) handleRecomputeContentHashes(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	sessionID := r.PathValue("id")
+
+	go func() {
+		ctx := context.Background()
+		const batchSize = 500
+		hashes := make(map[string]uint64)
+		offset := 0
+
+		for {
+			bodies, err := s.store.GetPageBodies(ctx, sessionID, batchSize, offset)
+			if err != nil {
+				applog.Errorf("server", "RecomputeContentHashes %s: reading bodies at offset %d: %v", sessionID, offset, err)
+				return
+			}
+			if len(bodies) == 0 {
+				break
+			}
+			for _, b := range bodies {
+				pageURL, err := url.Parse(b.URL)
+				if err != nil {
+					continue
+				}
+				text := parser.ExtractMainContent([]byte(b.BodyHTML), pageURL)
+				h := parser.SimHash(text)
+				if h != 0 {
+					hashes[b.URL] = h
+				}
+			}
+			offset += len(bodies)
+		}
+
+		applog.Infof("server", "RecomputeContentHashes %s: extracted %d hashes from %d pages", sessionID, len(hashes), offset)
+
+		if err := s.store.UpdateContentHashes(ctx, sessionID, hashes); err != nil {
+			applog.Errorf("server", "RecomputeContentHashes %s: updating hashes: %v", sessionID, err)
+			return
+		}
+
+		if err := s.store.ComputeNearDuplicates(ctx, sessionID); err != nil {
+			applog.Errorf("server", "RecomputeContentHashes %s: computing near-duplicates: %v", sessionID, err)
+			return
+		}
+
+		applog.Infof("server", "RecomputeContentHashes %s: done", sessionID)
+	}()
+
+	writeJSON(w, map[string]string{
+		"status":  "ok",
+		"message": fmt.Sprintf("Content hash recomputation started for session %s", sessionID),
+	})
+}
+
 func (s *Server) handleRetryFailed(w http.ResponseWriter, r *http.Request) {
 	if !requireFullAccess(w, r) {
 		return

@@ -641,6 +641,24 @@ PARTITION BY project_id
 ORDER BY (project_id, provider, data_type, domain, item_url)
 `
 
+const CreateNearDuplicatePairs = `
+CREATE TABLE IF NOT EXISTS crawlobserver.near_duplicate_pairs (
+    crawl_session_id UUID,
+    url_a String,
+    url_b String,
+    title_a String,
+    title_b String,
+    canonical_a String,
+    canonical_b String,
+    word_count_a UInt32,
+    word_count_b UInt32,
+    hamming_distance UInt8,
+    similarity Float64
+) ENGINE = ReplacingMergeTree()
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, url_a, url_b)
+`
+
 const CreateRetryAttempts = `
 CREATE TABLE IF NOT EXISTS crawlobserver.retry_attempts (
     crawl_session_id String,
@@ -685,4 +703,5 @@ var Migrations = []Migration{
 	{Name: "create provider_data", DDL: CreateProviderData},
 	{Name: "alter provider_backlinks add ttf_topic", DDL: `ALTER TABLE crawlobserver.provider_backlinks ADD COLUMN IF NOT EXISTS source_ttf_topic String DEFAULT ''`},
 	{Name: "create retry_attempts", DDL: CreateRetryAttempts},
+	{Name: "create near_duplicate_pairs", DDL: CreateNearDuplicatePairs},
 }

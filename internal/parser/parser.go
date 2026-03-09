@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	"github.com/PuerkitoBio/goquery"
+	readability "codeberg.org/readeck/go-readability/v2"
 )
 
 // PageData holds all extracted SEO signals from a page.
@@ -82,7 +83,7 @@ func Parse(body []byte, pageURL string) (*PageData, error) {
 	data.OGImage = extractMetaProperty(doc, "og:image")
 	data.SchemaTypes = extractSchemaTypes(doc)
 	data.WordCount = countWords(doc)
-	data.ContentHash = SimHash(doc.Find("body").Text())
+	data.ContentHash = SimHash(ExtractMainContent(body, baseURL))
 	data.Resources = ExtractResources(doc, baseURL)
 
 	return data, nil
@@ -213,4 +214,26 @@ func extractSchemaTypes(doc *goquery.Document) []string {
 	})
 
 	return types
+}
+
+// ExtractMainContent uses Mozilla Readability to extract the main article text,
+// stripping navigation, sidebars, footers, and other boilerplate.
+// This produces a much better SimHash signal than raw body text.
+// Falls back to full body text if Readability fails (e.g. non-article pages).
+func ExtractMainContent(body []byte, pageURL *url.URL) string {
+	article, err := readability.FromReader(bytes.NewReader(body), pageURL)
+	if err != nil || article.Node == nil {
+		return ""
+	}
+	var buf strings.Builder
+	if err := article.RenderText(&buf); err != nil {
+		return ""
+	}
+	text := buf.String()
+	// Readability can return very short text for non-article pages (homepages, etc.).
+	// If the extracted content is too short, it's not meaningful for SimHash.
+	if len(text) < 100 {
+		return ""
+	}
+	return text
 }

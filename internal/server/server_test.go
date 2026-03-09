@@ -220,6 +220,14 @@ func (m *mockStore) ComputePageRank(_ context.Context, _ string) error {
 	return m.err
 }
 
+func (m *mockStore) ComputeNearDuplicates(_ context.Context, _ string) error {
+	return m.err
+}
+
+func (m *mockStore) UpdateContentHashes(_ context.Context, _ string, _ map[string]uint64) error {
+	return m.err
+}
+
 func (m *mockStore) StatusTimeline(_ context.Context, _ string) ([]storage.StatusTimelineBucket, error) {
 	return nil, m.err
 }

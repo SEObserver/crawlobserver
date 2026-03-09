@@ -32,6 +32,7 @@ type CrawlStore interface {
 	GlobalStats(ctx context.Context) ([]storage.GlobalSessionStats, *storage.StorageStatsResult, error)
 	RecomputeDepths(ctx context.Context, sessionID string, seedURLs []string) error
 	ComputePageRank(ctx context.Context, sessionID string) error
+	ComputeNearDuplicates(ctx context.Context, sessionID string) error
 	StatusTimeline(ctx context.Context, sessionID string) ([]storage.StatusTimelineBucket, error)
 	StatusTimelineRecent(ctx context.Context, sessionID string) ([]storage.StatusTimelineBucket, error)
 	PageRankDistribution(ctx context.Context, sessionID string, buckets int) (*storage.PageRankDistributionResult, error)
@@ -60,6 +61,7 @@ type CrawlStore interface {
 	InsertPageResourceChecks(ctx context.Context, checks []storage.PageResourceCheck) error
 	RunCustomTestsSQL(ctx context.Context, sessionID string, rules []customtests.TestRule) (map[string]map[string]string, error)
 	NearDuplicates(ctx context.Context, sessionID string, threshold int, limit, offset int) (*storage.NearDuplicatesResult, error)
+	UpdateContentHashes(ctx context.Context, sessionID string, hashes map[string]uint64) error
 	StreamPagesHTML(ctx context.Context, sessionID string) (<-chan storage.PageHTMLRow, error)
 	PagesWithAuthority(ctx context.Context, sessionID, projectID string, limit, offset int) ([]storage.PageWithAuthority, int, error)
 	ListRedirectPages(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.RedirectPageRow, error)

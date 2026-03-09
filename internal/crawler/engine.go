@@ -1357,6 +1357,9 @@ func (e *Engine) finalizeSession(bufState storage.BufferErrorState) {
 	if err := e.store.ComputePageRank(ctx, e.session.ID); err != nil {
 		applog.Warnf("crawler", "%s PageRank computation failed: %v", e.logTag(), err)
 	}
+	if err := e.store.ComputeNearDuplicates(ctx, e.session.ID); err != nil {
+		applog.Warnf("crawler", "%s near-duplicate computation failed: %v", e.logTag(), err)
+	}
 
 	applog.Infof("crawler", "%s Finalization complete", e.logTag())
 }
