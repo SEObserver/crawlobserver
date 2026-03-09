@@ -46,6 +46,9 @@
   let serverOS = $state('');
   let pollTimer = null;
 
+  let winMethod = $state('docker');
+  let copiedCmd = $state('');
+
   let showWindowsStep = $derived(serverOS === 'windows');
   let totalSteps = $derived(showWindowsStep ? 4 : 3);
   let crawlStep = $derived(showWindowsStep ? 3 : 2);
@@ -134,6 +137,11 @@
 
   function copyCommand(text) {
     navigator.clipboard.writeText(text);
+    // Determine which command was copied for visual feedback
+    if (text.startsWith('docker')) copiedCmd = 'docker';
+    else if (text === 'wsl --install') copiedCmd = 'wsl1';
+    else copiedCmd = 'wsl3';
+    setTimeout(() => (copiedCmd = ''), 2000);
   }
 
   import { onDestroy } from 'svelte';
@@ -164,58 +172,138 @@
     {:else if showWindowsStep && step === 2}
       <h1>{t('onboarding.windowsTitle')}</h1>
       <p class="subtitle">{t('onboarding.windowsSubtitle')}</p>
-      <div class="windows-options">
-        <div class="windows-card">
-          <div class="windows-card-header">
-            <svg
-              class="windows-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              ><path d="M2 20h20V4H2v16zm2-2V6h16v12H4z" /><path
-                d="M7 14c1-2 3-3 5-3s4 1 5 3"
-              /><circle cx="9" cy="9" r="1" /><circle cx="15" cy="9" r="1" /></svg
-            >
-            <h3>{t('onboarding.windowsDocker')}</h3>
-          </div>
-          <pre class="windows-steps">{t('onboarding.windowsDockerSteps')}</pre>
-          <a
-            class="windows-link"
-            href="https://www.docker.com/products/docker-desktop/"
-            target="_blank"
-            rel="noopener"
-          >
-            {t('onboarding.windowsDockerLink')} &#x2197;
-          </a>
-        </div>
-        <div class="windows-card">
-          <div class="windows-card-header">
-            <svg
-              class="windows-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              ><rect x="2" y="3" width="20" height="16" rx="2" /><path d="M6 9h12M6 13h8" /><path
-                d="M8 19l-2 2m10-2l2 2"
-              /></svg
-            >
-            <h3>{t('onboarding.windowsWsl')}</h3>
-          </div>
-          <pre class="windows-steps">{t('onboarding.windowsWslSteps')}</pre>
-        </div>
-      </div>
-      <div class="windows-status">
-        {#if clickhouseReady}
-          <span class="windows-detected">{t('onboarding.windowsDetected')}</span>
-        {:else}
-          <span class="windows-waiting">
-            <span class="spinner-sm"></span>
-            {t('onboarding.windowsWaiting')}
+
+      <!-- Prerequisite checklist -->
+      <div class="prereq-checklist">
+        <div class="prereq-item" class:prereq-ok={clickhouseReady}>
+          <span class="prereq-icon">
+            {#if clickhouseReady}
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            {:else}
+              <span class="spinner-sm"></span>
+            {/if}
           </span>
-        {/if}
+          <span class="prereq-label">ClickHouse</span>
+          <span class="prereq-status" class:prereq-status-ok={clickhouseReady}>
+            {clickhouseReady ? t('onboarding.winCheckOk') : t('onboarding.winCheckSearching')}
+          </span>
+        </div>
       </div>
+
+      {#if !clickhouseReady}
+        <p class="win-install-prompt">{t('onboarding.winInstallPrompt')}</p>
+
+        <!-- Method selector tabs -->
+        <div class="win-method-tabs">
+          <button
+            class="win-method-tab"
+            class:win-method-active={winMethod === 'docker'}
+            onclick={() => (winMethod = 'docker')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="win-tab-icon">
+              <path d="M2 20h20V4H2v16zm2-2V6h16v12H4z" /><path d="M7 14c1-2 3-3 5-3s4 1 5 3" /><circle cx="9" cy="9" r="1" /><circle cx="15" cy="9" r="1" />
+            </svg>
+            Docker Desktop
+          </button>
+          <button
+            class="win-method-tab"
+            class:win-method-active={winMethod === 'wsl'}
+            onclick={() => (winMethod = 'wsl')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="win-tab-icon">
+              <rect x="2" y="3" width="20" height="16" rx="2" /><path d="M6 9h12M6 13h8" /><path d="M8 19l-2 2m10-2l2 2" />
+            </svg>
+            WSL
+          </button>
+        </div>
+
+        {#if winMethod === 'docker'}
+          <div class="win-steps">
+            <div class="win-step">
+              <span class="win-step-num">1</span>
+              <div class="win-step-content">
+                <p class="win-step-text">{t('onboarding.winDockerStep1')}</p>
+                <a class="win-step-link" href="https://www.docker.com/products/docker-desktop/" target="_blank" rel="noopener">
+                  {t('onboarding.windowsDockerLink')} &#x2197;
+                </a>
+              </div>
+            </div>
+            <div class="win-step">
+              <span class="win-step-num">2</span>
+              <div class="win-step-content">
+                <p class="win-step-text">{t('onboarding.winDockerStep2')}</p>
+              </div>
+            </div>
+            <div class="win-step">
+              <span class="win-step-num">3</span>
+              <div class="win-step-content">
+                <p class="win-step-text">{t('onboarding.winDockerStep3')}</p>
+                <div class="win-cmd-block">
+                  <code>docker run -d --name clickhouse -p 9000:9000 clickhouse/clickhouse-server</code>
+                  <button class="win-copy-btn" onclick={() => copyCommand('docker run -d --name clickhouse -p 9000:9000 clickhouse/clickhouse-server')} title={t('common.copy')}>
+                    {#if copiedCmd === 'docker'}
+                      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    {:else}
+                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="6" width="10" height="10" rx="1.5"/><path d="M4 14V4.5A.5.5 0 014.5 4H14"/></svg>
+                    {/if}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        {:else}
+          <div class="win-steps">
+            <div class="win-step">
+              <span class="win-step-num">1</span>
+              <div class="win-step-content">
+                <p class="win-step-text">{t('onboarding.winWslStep1')}</p>
+                <div class="win-cmd-block">
+                  <code>wsl --install</code>
+                  <button class="win-copy-btn" onclick={() => copyCommand('wsl --install')} title={t('common.copy')}>
+                    {#if copiedCmd === 'wsl1'}
+                      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    {:else}
+                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="6" width="10" height="10" rx="1.5"/><path d="M4 14V4.5A.5.5 0 014.5 4H14"/></svg>
+                    {/if}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="win-step">
+              <span class="win-step-num">2</span>
+              <div class="win-step-content">
+                <p class="win-step-text">{t('onboarding.winWslStep2')}</p>
+              </div>
+            </div>
+            <div class="win-step">
+              <span class="win-step-num">3</span>
+              <div class="win-step-content">
+                <p class="win-step-text">{t('onboarding.winWslStep3')}</p>
+                <div class="win-cmd-block">
+                  <code>curl https://clickhouse.com/ | sh && ./clickhouse server</code>
+                  <button class="win-copy-btn" onclick={() => copyCommand('curl https://clickhouse.com/ | sh && ./clickhouse server')} title={t('common.copy')}>
+                    {#if copiedCmd === 'wsl3'}
+                      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    {:else}
+                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="6" width="10" height="10" rx="1.5"/><path d="M4 14V4.5A.5.5 0 014.5 4H14"/></svg>
+                    {/if}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        {/if}
+      {:else}
+        <div class="win-success-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="win-success-icon">
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+          <div>
+            <p class="win-success-title">{t('onboarding.windowsDetected')}</p>
+            <p class="win-success-sub">{t('onboarding.winReadyToContinue')}</p>
+          </div>
+        </div>
+      {/if}
     {:else if step === crawlStep}
       <h1>{t('onboarding.step2Title')}</h1>
       <p class="subtitle">{t('onboarding.step2Subtitle')}</p>
@@ -531,79 +619,212 @@
     transform: translateY(0);
   }
 
-  /* Windows setup step */
-  .windows-options {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 24px;
-    text-align: left;
+  /* Windows setup step — prerequisite checklist */
+  .prereq-checklist {
+    margin-bottom: 20px;
   }
-
-  .windows-card {
-    flex: 1;
-    padding: 20px;
-    border: 2px solid var(--border, #e0e0e0);
-    border-radius: 12px;
-    background: var(--bg-card, #fff);
-  }
-
-  .windows-card-header {
+  .prereq-item {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border, #e0e0e0);
+    font-size: 0.9rem;
   }
-  .windows-card-header h3 {
-    font-size: 0.95rem;
+  .prereq-item.prereq-ok {
+    border-color: var(--success, #22c55e);
+    background: color-mix(in srgb, var(--success, #22c55e) 6%, var(--bg-card, #fff));
+  }
+  .prereq-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .prereq-icon svg {
+    width: 18px;
+    height: 18px;
+    color: var(--success, #22c55e);
+  }
+  .prereq-label {
     font-weight: 600;
     color: var(--text-primary, #1a1a2e);
-    margin: 0;
+  }
+  .prereq-status {
+    margin-left: auto;
+    font-size: 0.82rem;
+    color: var(--text-muted, #888);
+  }
+  .prereq-status.prereq-status-ok {
+    color: var(--success, #22c55e);
+    font-weight: 600;
   }
 
-  .windows-icon {
-    width: 24px;
-    height: 24px;
-    color: var(--accent, #7c3aed);
+  .win-install-prompt {
+    font-size: 0.88rem;
+    color: var(--text-secondary, #555);
+    margin: 16px 0 20px;
+  }
+
+  /* Method selector tabs */
+  .win-method-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .win-method-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 2px solid var(--border, #e0e0e0);
+    border-radius: 10px;
+    background: var(--bg-card, #fff);
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-secondary, #555);
+    transition: all 0.15s ease;
+  }
+  .win-method-tab:hover {
+    border-color: var(--accent, #7c3aed);
+    color: var(--text-primary, #1a1a2e);
+  }
+  .win-method-tab.win-method-active {
+    border-color: var(--accent, #7c3aed);
+    background: var(--accent, #7c3aed);
+    color: #fff;
+  }
+  .win-tab-icon {
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
   }
 
-  .windows-steps {
-    font-size: 0.8rem;
-    line-height: 1.7;
-    color: var(--text-secondary, #555);
-    background: var(--bg, #f8f9fc);
-    padding: 12px;
-    border-radius: 8px;
-    margin: 0 0 12px;
-    white-space: pre-line;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    overflow-x: auto;
+  /* Step-by-step instructions */
+  .win-steps {
+    text-align: left;
+    margin-bottom: 24px;
   }
-
-  .windows-link {
+  .win-step {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .win-step:last-child {
+    margin-bottom: 0;
+  }
+  .win-step-num {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent, #7c3aed);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .win-step-content {
+    flex: 1;
+    min-width: 0;
+  }
+  .win-step-text {
+    font-size: 0.88rem;
+    color: var(--text-primary, #1a1a2e);
+    line-height: 1.5;
+    margin: 2px 0 0;
+  }
+  .win-step-link {
+    display: inline-block;
     font-size: 0.82rem;
     color: var(--accent, #7c3aed);
     text-decoration: none;
+    margin-top: 6px;
   }
-  .windows-link:hover {
+  .win-step-link:hover {
     text-decoration: underline;
   }
 
-  .windows-status {
-    margin-bottom: 32px;
-    font-size: 0.9rem;
-  }
-
-  .windows-waiting {
-    display: inline-flex;
+  /* Command block with copy button */
+  .win-cmd-block {
+    display: flex;
     align-items: center;
     gap: 8px;
+    margin-top: 8px;
+    background: var(--bg, #f8f9fc);
+    border: 1px solid var(--border, #e0e0e0);
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+  .win-cmd-block code {
+    flex: 1;
+    font-size: 0.78rem;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: var(--text-primary, #1a1a2e);
+    word-break: break-all;
+  }
+  .win-copy-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
     color: var(--text-muted, #888);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .win-copy-btn:hover {
+    background: var(--border, #e0e0e0);
+    color: var(--text-primary, #1a1a2e);
+  }
+  .win-copy-btn svg {
+    width: 16px;
+    height: 16px;
   }
 
-  .windows-detected {
+  /* Success state */
+  .win-success-box {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--success, #22c55e) 8%, var(--bg-card, #fff));
+    border: 1px solid var(--success, #22c55e);
+    margin-bottom: 24px;
+    text-align: left;
+  }
+  .win-success-icon {
+    width: 36px;
+    height: 36px;
     color: var(--success, #22c55e);
-    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .win-success-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--success, #22c55e);
+    margin: 0 0 2px;
+  }
+  .win-success-sub {
+    font-size: 0.82rem;
+    color: var(--text-secondary, #555);
+    margin: 0;
   }
 
   @keyframes spin {

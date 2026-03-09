@@ -58,6 +58,7 @@ type mockStore struct {
 	pageBodies           []storage.PageBody
 	extractionResult     *extraction.ExtractionResult
 	err                  error
+	deleteSessionErr     error
 	deleteCalls          []string
 	updateProjectCalls   []updateProjectCall
 	getSessionByID       map[string]*storage.CrawlSession
@@ -123,6 +124,9 @@ func (m *mockStore) GetSession(_ context.Context, sessionID string) (*storage.Cr
 }
 
 func (m *mockStore) DeleteSession(_ context.Context, sessionID string) error {
+	if m.deleteSessionErr != nil {
+		return m.deleteSessionErr
+	}
 	m.deleteCalls = append(m.deleteCalls, sessionID)
 	return m.err
 }
@@ -7990,6 +7994,90 @@ func TestDeleteProjectWithSessions_StoreError(t *testing.T) {
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("expected 500, got %d", rec.Code)
+	}
+}
+
+func TestDeleteProjectWithSessions_DeleteSessionError_StopsAndKeepsProject(t *testing.T) {
+	srv, handler, ks := newTestServer(t)
+	ms := srv.store.(*mockStore)
+
+	proj, err := ks.CreateProject("bureau-vallee")
+	if err != nil {
+		t.Fatal(err)
+	}
+	projID := proj.ID
+	ms.sessions = []storage.CrawlSession{
+		{ID: "sess-a", ProjectID: &projID},
+		{ID: "sess-b", ProjectID: &projID},
+	}
+	// DeleteSession will fail
+	ms.deleteSessionErr = fmt.Errorf("ClickHouse DROP PARTITION failed")
+
+	req := authRequest(httptest.NewRequest("DELETE", "/api/projects/"+projID+"/with-sessions", nil))
+	req.SetPathValue("id", projID)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	// Handler should return 500
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 when session delete fails, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// No session should have been recorded as deleted (error happened before append)
+	if len(ms.deleteCalls) != 0 {
+		t.Errorf("expected 0 delete calls (error before recording), got %d", len(ms.deleteCalls))
+	}
+
+	// Project should NOT have been deleted (still exists in keyStore)
+	_, getErr := ks.GetProject(projID)
+	if getErr != nil {
+		t.Errorf("project should still exist after session delete failure, got err: %v", getErr)
+	}
+}
+
+func TestDeleteProjectWithSessions_VerifyAllSessionsDeleted(t *testing.T) {
+	srv, handler, ks := newTestServer(t)
+	ms := srv.store.(*mockStore)
+
+	proj, err := ks.CreateProject("full-delete-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	projID := proj.ID
+	ms.sessions = []storage.CrawlSession{
+		{ID: "sess-1", ProjectID: &projID},
+		{ID: "sess-2", ProjectID: &projID},
+		{ID: "sess-3", ProjectID: &projID},
+	}
+
+	req := authRequest(httptest.NewRequest("DELETE", "/api/projects/"+projID+"/with-sessions", nil))
+	req.SetPathValue("id", projID)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// All 3 sessions should have been deleted
+	if len(ms.deleteCalls) != 3 {
+		t.Errorf("expected 3 delete calls, got %d: %v", len(ms.deleteCalls), ms.deleteCalls)
+	}
+	expected := map[string]bool{"sess-1": true, "sess-2": true, "sess-3": true}
+	for _, id := range ms.deleteCalls {
+		if !expected[id] {
+			t.Errorf("unexpected delete call for session %s", id)
+		}
+		delete(expected, id)
+	}
+	if len(expected) > 0 {
+		t.Errorf("sessions not deleted: %v", expected)
+	}
+
+	// Project should be deleted
+	_, getErr := ks.GetProject(projID)
+	if getErr == nil {
+		t.Errorf("project should have been deleted but still exists")
 	}
 }
 

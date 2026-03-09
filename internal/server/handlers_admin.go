@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -319,7 +320,11 @@ func (s *Server) handleDeleteProjectWithSessions(w http.ResponseWriter, r *http.
 		if s.manager.IsRunning(sess.ID) {
 			continue
 		}
-		_ = s.store.DeleteSession(r.Context(), sess.ID)
+		if err := s.store.DeleteSession(r.Context(), sess.ID); err != nil {
+			applog.Errorf("server", "failed to delete session %s: %v", sess.ID, err)
+			internalError(w, r, fmt.Errorf("deleting session %s: %w", sess.ID, err))
+			return
+		}
 	}
 
 	// Delete the project itself
