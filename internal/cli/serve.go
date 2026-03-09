@@ -108,10 +108,7 @@ func runServeSetupMode(cfg *config.Config) error {
 
 	// Background goroutine: poll for ClickHouse, then setup
 	go func() {
-		for {
-			if detectMode(cfg) == "external" {
-				break
-			}
+		for detectMode(cfg) != "external" {
 			time.Sleep(3 * time.Second)
 		}
 

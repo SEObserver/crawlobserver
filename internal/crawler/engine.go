@@ -1329,11 +1329,12 @@ func (e *Engine) finalizeSession(bufState storage.BufferErrorState) {
 	defer cancel()
 
 	// 1. Determine and persist status FIRST so the UI updates immediately.
-	if e.stopped.Load() {
+	switch {
+	case e.stopped.Load():
 		e.session.Status = "stopped"
-	} else if bufState.LostPages > 0 || bufState.LostLinks > 0 {
+	case bufState.LostPages > 0 || bufState.LostLinks > 0:
 		e.session.Status = "completed_with_errors"
-	} else {
+	default:
 		e.session.Status = "completed"
 	}
 	if total, err := e.store.CountPages(ctx, e.session.ID); err == nil {

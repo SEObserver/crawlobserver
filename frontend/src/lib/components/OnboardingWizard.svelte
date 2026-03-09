@@ -167,17 +167,40 @@
       <div class="windows-options">
         <div class="windows-card">
           <div class="windows-card-header">
-            <svg class="windows-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 20h20V4H2v16zm2-2V6h16v12H4z"/><path d="M7 14c1-2 3-3 5-3s4 1 5 3"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/></svg>
+            <svg
+              class="windows-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              ><path d="M2 20h20V4H2v16zm2-2V6h16v12H4z" /><path
+                d="M7 14c1-2 3-3 5-3s4 1 5 3"
+              /><circle cx="9" cy="9" r="1" /><circle cx="15" cy="9" r="1" /></svg
+            >
             <h3>{t('onboarding.windowsDocker')}</h3>
           </div>
           <pre class="windows-steps">{t('onboarding.windowsDockerSteps')}</pre>
-          <a class="windows-link" href="https://www.docker.com/products/docker-desktop/" target="_blank" rel="noopener">
+          <a
+            class="windows-link"
+            href="https://www.docker.com/products/docker-desktop/"
+            target="_blank"
+            rel="noopener"
+          >
             {t('onboarding.windowsDockerLink')} &#x2197;
           </a>
         </div>
         <div class="windows-card">
           <div class="windows-card-header">
-            <svg class="windows-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="16" rx="2"/><path d="M6 9h12M6 13h8"/><path d="M8 19l-2 2m10-2l2 2"/></svg>
+            <svg
+              class="windows-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              ><rect x="2" y="3" width="20" height="16" rx="2" /><path d="M6 9h12M6 13h8" /><path
+                d="M8 19l-2 2m10-2l2 2"
+              /></svg
+            >
             <h3>{t('onboarding.windowsWsl')}</h3>
           </div>
           <pre class="windows-steps">{t('onboarding.windowsWslSteps')}</pre>
@@ -268,7 +291,10 @@
           >
         {/if}
         <div class="progress-bar">
-          <div class="progress-fill" style="width: {clickhouseReady ? 100 : downloadPercent}%"></div>
+          <div
+            class="progress-fill"
+            style="width: {clickhouseReady ? 100 : downloadPercent}%"
+          ></div>
         </div>
       {/if}
       <!-- Steps indicator -->
