@@ -54,9 +54,25 @@ curl -fsSL crawlobserver.com/install.sh | sh
 crawlobserver
 ```
 
-That's it. Open `http://127.0.0.1:8899` — the setup wizard guides you through the rest. No Docker, no dependencies, no manual setup. CrawlObserver downloads and manages its own database on first run.
+That's it. Open `http://127.0.0.1:8899` — the setup wizard guides you through the rest. CrawlObserver downloads and manages its own database on first run.
 
 > **macOS desktop app:** download the DMG from the [latest release](https://github.com/SEObserver/crawlobserver/releases/latest).
+
+<details>
+<summary><strong>Windows</strong></summary>
+
+ClickHouse does not provide a native Windows binary, so CrawlObserver needs Docker to run the database:
+
+1. Install [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) (free)
+2. Download `crawlobserver-windows-amd64.exe` from the [latest release](https://github.com/SEObserver/crawlobserver/releases/latest)
+3. Open a terminal in the download folder and run:
+
+```powershell
+docker compose up -d
+.\crawlobserver-windows-amd64.exe serve
+```
+
+</details>
 
 <details>
 <summary><strong>Build from source</strong></summary>
