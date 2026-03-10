@@ -472,8 +472,10 @@ type InterlinkingOpportunity struct {
 	TargetTitle     string  `json:"target_title"`
 	SourcePageRank  float64 `json:"source_pagerank"`
 	TargetPageRank  float64 `json:"target_pagerank"`
-	SourceWordCount uint32  `json:"source_word_count"`
-	TargetWordCount uint32  `json:"target_word_count"`
+	SourceWordCount  uint32  `json:"source_word_count"`
+	TargetWordCount  uint32  `json:"target_word_count"`
+	OpportunityScore float64 `json:"opportunity_score"`
+	Category         string  `json:"category"` // "opportunity" | "cannibalization"
 }
 
 // SimulationMeta holds metadata for a PageRank simulation with virtual links.

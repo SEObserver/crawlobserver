@@ -775,4 +775,11 @@ var Migrations = []Migration{
 	{Name: "create interlinking_simulations", DDL: CreateInterlinkingSimulations},
 	{Name: "create interlinking_simulation_results", DDL: CreateInterlinkingSimulationResults},
 	{Name: "create page_embeddings", DDL: CreatePageEmbeddings},
+	{Name: "alter interlinking_opportunities v2", DDL: AlterInterlinkingOpportunitiesV2},
 }
+
+const AlterInterlinkingOpportunitiesV2 = `
+ALTER TABLE crawlobserver.interlinking_opportunities
+    ADD COLUMN IF NOT EXISTS opportunity_score Float64 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS category LowCardinality(String) DEFAULT 'opportunity'
+`

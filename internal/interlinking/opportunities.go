@@ -2,12 +2,36 @@ package interlinking
 
 import (
 	"context"
+	"math"
 	"sort"
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
+
+// computeOpportunityScore returns a score that peaks at similarity=0.5
+// (complementary content in the same cluster) and drops to 0 at similarity=0 and 1.
+func computeOpportunityScore(similarity, srcPR, tgtPR float64, srcWC, tgtWC uint32) float64 {
+	// Bell curve: peaks at similarity=0.5, zero at 0 and 1
+	relevance := 4.0 * similarity * (1.0 - similarity)
+	// Higher when source PR > target PR (juice flows down)
+	srcLog := math.Log(1.0 + srcPR)
+	tgtLog := math.Max(1.0, math.Log(1.0+tgtPR))
+	prBenefit := srcLog / tgtLog
+	// Penalize thin content
+	minWC := math.Min(float64(srcWC), float64(tgtWC))
+	contentQuality := math.Min(1.0, minWC/500.0)
+	return relevance * prBenefit * contentQuality
+}
+
+// classifyPair returns "cannibalization" for very similar pages, "opportunity" otherwise.
+func classifyPair(similarity float64) string {
+	if similarity >= 0.85 {
+		return "cannibalization"
+	}
+	return "opportunity"
+}
 
 // ComputeOpportunitiesOptions controls the interlinking analysis.
 type ComputeOpportunitiesOptions struct {
@@ -129,31 +153,59 @@ func ComputeOpportunities(ctx context.Context, store OpportunityStore, opts Comp
 	}
 	applog.Infof("interlinking", "%d opportunities after filtering existing links", len(filtered))
 
-	// Sort by similarity descending and cap at max
-	sort.Slice(filtered, func(i, j int) bool {
-		return filtered[i].Similarity > filtered[j].Similarity
+	// Classify each pair and compute opportunity score
+	type scoredPair struct {
+		pair     SimilarPair
+		score    float64
+		category string
+	}
+	var opportunities, cannibalization []scoredPair
+	for _, p := range filtered {
+		src := corpus.Docs[p.SourceIdx]
+		tgt := corpus.Docs[p.TargetIdx]
+		cat := classifyPair(p.Similarity)
+		score := computeOpportunityScore(p.Similarity, src.PageRank, tgt.PageRank, src.WordCount, tgt.WordCount)
+		sp := scoredPair{pair: p, score: score, category: cat}
+		if cat == "cannibalization" {
+			cannibalization = append(cannibalization, sp)
+		} else {
+			opportunities = append(opportunities, sp)
+		}
+	}
+
+	// Sort opportunities by score DESC, cannibalization by similarity DESC
+	sort.Slice(opportunities, func(i, j int) bool {
+		return opportunities[i].score > opportunities[j].score
 	})
-	if len(filtered) > opts.MaxOpportunities {
-		filtered = filtered[:opts.MaxOpportunities]
+	sort.Slice(cannibalization, func(i, j int) bool {
+		return cannibalization[i].pair.Similarity > cannibalization[j].pair.Similarity
+	})
+
+	// Merge and cap at MaxOpportunities
+	all := append(opportunities, cannibalization...)
+	if len(all) > opts.MaxOpportunities {
+		all = all[:opts.MaxOpportunities]
 	}
 
 	// Build storage rows
-	opps := make([]storage.InterlinkingOpportunity, len(filtered))
-	for i, p := range filtered {
-		src := corpus.Docs[p.SourceIdx]
-		tgt := corpus.Docs[p.TargetIdx]
+	opps := make([]storage.InterlinkingOpportunity, len(all))
+	for i, sp := range all {
+		src := corpus.Docs[sp.pair.SourceIdx]
+		tgt := corpus.Docs[sp.pair.TargetIdx]
 		opps[i] = storage.InterlinkingOpportunity{
-			CrawlSessionID:  opts.SessionID,
-			SourceURL:       src.URL,
-			TargetURL:       tgt.URL,
-			Similarity:      p.Similarity,
-			Method:          opts.Method,
-			SourceTitle:     src.Title,
-			TargetTitle:     tgt.Title,
-			SourcePageRank:  src.PageRank,
-			TargetPageRank:  tgt.PageRank,
-			SourceWordCount: src.WordCount,
-			TargetWordCount: tgt.WordCount,
+			CrawlSessionID:   opts.SessionID,
+			SourceURL:        src.URL,
+			TargetURL:        tgt.URL,
+			Similarity:       sp.pair.Similarity,
+			Method:           opts.Method,
+			SourceTitle:      src.Title,
+			TargetTitle:      tgt.Title,
+			SourcePageRank:   src.PageRank,
+			TargetPageRank:   tgt.PageRank,
+			SourceWordCount:  src.WordCount,
+			TargetWordCount:  tgt.WordCount,
+			OpportunityScore: sp.score,
+			Category:         sp.category,
 		}
 	}
 
