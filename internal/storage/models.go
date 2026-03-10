@@ -461,6 +461,66 @@ type WeightedPageRankResult struct {
 	Total uint64                 `json:"total"`
 }
 
+// InterlinkingOpportunity represents a pair of semantically similar pages without an existing internal link.
+type InterlinkingOpportunity struct {
+	CrawlSessionID  string  `json:"crawl_session_id"`
+	SourceURL       string  `json:"source_url"`
+	TargetURL       string  `json:"target_url"`
+	Similarity      float64 `json:"similarity"`
+	Method          string  `json:"method"`
+	SourceTitle     string  `json:"source_title"`
+	TargetTitle     string  `json:"target_title"`
+	SourcePageRank  float64 `json:"source_pagerank"`
+	TargetPageRank  float64 `json:"target_pagerank"`
+	SourceWordCount uint32  `json:"source_word_count"`
+	TargetWordCount uint32  `json:"target_word_count"`
+}
+
+// SimulationMeta holds metadata for a PageRank simulation with virtual links.
+type SimulationMeta struct {
+	ID                string    `json:"id"`
+	CrawlSessionID    string    `json:"crawl_session_id"`
+	VirtualLinksCount uint32    `json:"virtual_links_count"`
+	PagesImproved     uint32    `json:"pages_improved"`
+	PagesDeclined     uint32    `json:"pages_declined"`
+	AvgDiff           float64   `json:"avg_diff"`
+	MaxDiff           float64   `json:"max_diff"`
+	ComputedAt        time.Time `json:"computed_at"`
+}
+
+// SimulationResultRow holds per-page PageRank diff for a simulation.
+type SimulationResultRow struct {
+	URL            string  `json:"url"`
+	PageRankBefore float64 `json:"pagerank_before"`
+	PageRankAfter  float64 `json:"pagerank_after"`
+	PageRankDiff   float64 `json:"pagerank_diff"`
+}
+
+// PageMetadata holds per-URL metadata for interlinking analysis.
+type PageMetadata struct {
+	Title         string
+	Lang          string
+	PageRank      float64
+	WordCount     uint32
+	Canonical     string
+	CanonicalSelf bool
+}
+
+// PageRankGraph holds the link graph data needed for PageRank computation.
+type PageRankGraph struct {
+	N             uint32
+	OutLinks      [][]uint32 // internal dofollow edges only
+	TotalOutLinks []uint32   // all outlinks (internal+external, all rel)
+	URLToID       map[string]uint32
+	IDToURL       []string
+}
+
+// VirtualLink represents a proposed internal link to add to the graph.
+type VirtualLink struct {
+	SourceURL string `json:"source"`
+	TargetURL string `json:"target"`
+}
+
 // ResourceTypeSummary holds aggregated stats for one resource type.
 type ResourceTypeSummary struct {
 	ResourceType string `json:"resource_type"`

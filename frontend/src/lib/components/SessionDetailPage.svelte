@@ -15,6 +15,7 @@
   import DirectivesTab from './DirectivesTab.svelte';
   import AuthorityTab from './AuthorityTab.svelte';
   import NearDuplicatesTab from './NearDuplicatesTab.svelte';
+  import InterlinkingTab from './InterlinkingTab.svelte';
 
   let {
     session,
@@ -257,6 +258,11 @@
       <ExtractTab
         sessionId={session.ID}
         sessionConfig={session.Config}
+        onerror={(msg) => onerror?.(msg)}
+      />
+    {:else if tab === 'interlinking'}
+      <InterlinkingTab
+        sessionId={session.ID}
         onerror={(msg) => onerror?.(msg)}
       />
     {/if}

@@ -198,6 +198,14 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("POST /api/sessions/{id}/recompute-depths", s.handleRecomputeDepths)
 	mux.HandleFunc("POST /api/sessions/{id}/compute-pagerank", s.handleComputePageRank)
 	mux.HandleFunc("POST /api/sessions/{id}/compute-near-duplicates", s.handleComputeNearDuplicates)
+
+	// Interlinking
+	mux.HandleFunc("POST /api/sessions/{id}/compute-interlinking", s.handleComputeInterlinking)
+	mux.HandleFunc("GET /api/sessions/{id}/interlinking-opportunities", s.handleInterlinkingOpportunities)
+	mux.HandleFunc("POST /api/sessions/{id}/simulate-interlinking", s.handleSimulateInterlinking)
+	mux.HandleFunc("GET /api/sessions/{id}/interlinking-simulations", s.handleListSimulations)
+	mux.HandleFunc("GET /api/sessions/{id}/interlinking-simulations/{simId}", s.handleGetSimulationResults)
+	mux.HandleFunc("POST /api/sessions/{id}/import-virtual-links", s.handleImportVirtualLinks)
 	mux.HandleFunc("POST /api/sessions/{id}/recompute-content-hashes", s.handleRecomputeContentHashes)
 	mux.HandleFunc("POST /api/sessions/{id}/retry-failed", s.handleRetryFailed)
 	mux.HandleFunc("POST /api/sessions/{id}/robots-test", s.handleRobotsTest)

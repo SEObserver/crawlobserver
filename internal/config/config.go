@@ -21,9 +21,10 @@ type Config struct {
 	Resources     ResourcesConfig  `mapstructure:"resources"`
 	Server        ServerConfig     `mapstructure:"server"`
 	Theme         ThemeConfig      `mapstructure:"theme"`
-	GSC           GSCConfig        `mapstructure:"gsc"`
-	Telemetry     TelemetryConfig  `mapstructure:"telemetry"`
-	SetupComplete bool             `mapstructure:"setup_complete"`
+	GSC           GSCConfig           `mapstructure:"gsc"`
+	Interlinking  InterlinkingConfig  `mapstructure:"interlinking"`
+	Telemetry     TelemetryConfig     `mapstructure:"telemetry"`
+	SetupComplete bool                `mapstructure:"setup_complete"`
 }
 
 type TelemetryConfig struct {
@@ -134,6 +135,19 @@ type ThemeConfig struct {
 	Mode        string `mapstructure:"mode" json:"mode"` // "light" or "dark"
 }
 
+type InterlinkingConfig struct {
+	SimilarityThreshold float64          `mapstructure:"similarity_threshold"`
+	MaxOpportunities    int              `mapstructure:"max_opportunities"`
+	Embeddings          EmbeddingsConfig `mapstructure:"embeddings"`
+}
+
+type EmbeddingsConfig struct {
+	Provider  string `mapstructure:"provider"`
+	APIKey    string `mapstructure:"api_key"`
+	Model     string `mapstructure:"model"`
+	BatchSize int    `mapstructure:"batch_size"`
+}
+
 type GSCConfig struct {
 	ClientID     string `mapstructure:"client_id"`
 	ClientSecret string `mapstructure:"client_secret"`
@@ -197,6 +211,13 @@ func SetDefaults() {
 	viper.SetDefault("theme.logo_url", "")
 	viper.SetDefault("theme.accent_color", "#7c3aed")
 	viper.SetDefault("theme.mode", "light")
+
+	viper.SetDefault("interlinking.similarity_threshold", 0.3)
+	viper.SetDefault("interlinking.max_opportunities", 1000)
+	viper.SetDefault("interlinking.embeddings.provider", "")
+	viper.SetDefault("interlinking.embeddings.api_key", "")
+	viper.SetDefault("interlinking.embeddings.model", "text-embedding-3-small")
+	viper.SetDefault("interlinking.embeddings.batch_size", 100)
 
 	viper.SetDefault("gsc.client_id", "")
 	viper.SetDefault("gsc.client_secret", "")

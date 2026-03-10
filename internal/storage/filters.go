@@ -13,6 +13,7 @@ const (
 	FilterUint                    // Numeric → =N, >N, <N, >=N, <=N
 	FilterBool                    // Bool → = true/false
 	FilterArray                   // Array(String) → arrayExists(x -> x ILIKE '%val%', col)
+	FilterFloat                   // Float → =N, >N, <N, >=N, <=N (decimal)
 )
 
 type FilterDef struct {
@@ -303,6 +304,20 @@ func BuildWhereClause(filters []ParsedFilter) (string, []interface{}, error) {
 			clauses = append(clauses, fmt.Sprintf("%s = ?", f.Def.Column))
 			args = append(args, b)
 
+		case FilterFloat:
+			if lo, hi, ok := parseFloatRange(val); ok {
+				clauses = append(clauses, fmt.Sprintf("%s >= ? AND %s <= ?", f.Def.Column, f.Def.Column))
+				args = append(args, lo, hi)
+				continue
+			}
+			op, numStr := parseUintOp(val)
+			fv, err := strconv.ParseFloat(numStr, 64)
+			if err != nil {
+				continue
+			}
+			clauses = append(clauses, fmt.Sprintf("%s %s ?", f.Def.Column, op))
+			args = append(args, fv)
+
 		case FilterArray:
 			clauses = append(clauses, fmt.Sprintf("arrayExists(x -> x ILIKE ?, %s)", f.Def.Column))
 			args = append(args, "%"+val+"%")
@@ -333,6 +348,23 @@ func parseUintRange(val string) (uint64, uint64, bool) {
 	return lo, hi, true
 }
 
+// parseFloatRange tries to parse "N-M" range syntax for floats. Returns lo, hi, ok.
+func parseFloatRange(val string) (float64, float64, bool) {
+	if len(val) > 0 && (val[0] == '>' || val[0] == '<' || val[0] == '=') {
+		return 0, 0, false
+	}
+	parts := strings.SplitN(val, "-", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return 0, 0, false
+	}
+	lo, err1 := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+	hi, err2 := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+	if err1 != nil || err2 != nil {
+		return 0, 0, false
+	}
+	return lo, hi, true
+}
+
 // parseUintOp extracts a comparison operator prefix from a value string.
 func parseUintOp(val string) (string, string) {
 	if strings.HasPrefix(val, ">=") {
@@ -348,4 +380,42 @@ func parseUintOp(val string) (string, string) {
 		return "<", strings.TrimSpace(val[1:])
 	}
 	return "=", val
+}
+
+// InterlinkingFilters defines the allowed filter columns for interlinking_opportunities.
+var InterlinkingFilters = map[string]FilterDef{
+	"source_url":       {Column: "source_url", Type: FilterLike},
+	"target_url":       {Column: "target_url", Type: FilterLike},
+	"similarity":       {Column: "similarity", Type: FilterFloat},
+	"source_pagerank":  {Column: "source_pagerank", Type: FilterFloat},
+	"target_pagerank":  {Column: "target_pagerank", Type: FilterFloat},
+	"source_word_count": {Column: "source_word_count", Type: FilterUint},
+	"target_word_count": {Column: "target_word_count", Type: FilterUint},
+}
+
+// InterlinkingSortColumns maps query param names to DB column names for interlinking_opportunities.
+var InterlinkingSortColumns = map[string]string{
+	"similarity":       "similarity",
+	"source_url":       "source_url",
+	"target_url":       "target_url",
+	"source_pagerank":  "source_pagerank",
+	"target_pagerank":  "target_pagerank",
+	"source_word_count": "source_word_count",
+	"target_word_count": "target_word_count",
+}
+
+// SimulationResultFilters defines the allowed filter columns for interlinking_simulation_results.
+var SimulationResultFilters = map[string]FilterDef{
+	"url":             {Column: "url", Type: FilterLike},
+	"pagerank_before": {Column: "pagerank_before", Type: FilterFloat},
+	"pagerank_after":  {Column: "pagerank_after", Type: FilterFloat},
+	"pagerank_diff":   {Column: "pagerank_diff", Type: FilterFloat},
+}
+
+// SimulationResultSortColumns maps query param names to DB column names for simulation results.
+var SimulationResultSortColumns = map[string]string{
+	"url":             "url",
+	"pagerank_before": "pagerank_before",
+	"pagerank_after":  "pagerank_after",
+	"pagerank_diff":   "pagerank_diff",
 }

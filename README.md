@@ -237,7 +237,7 @@ Under the hood, CrawlObserver uses ClickHouse in managed mode: it downloads a st
 <details>
 <summary><strong>How internal PageRank works</strong></summary>
 
-CrawlObserver computes PageRank in-memory using the iterative power method (damping factor 0.85, up to 20 iterations, 1e-6 convergence threshold). The result is normalized to a 0&ndash;100 scale.
+CrawlObserver computes PageRank in-memory using the iterative power method (damping factor 0.85, up to 20 iterations, 1e-6 convergence threshold). The result is normalized to a 0&ndash;100 logarithmic scale.
 
 **Key modeling choices:**
 
@@ -248,6 +248,10 @@ CrawlObserver computes PageRank in-memory using the iterative power method (damp
 3. **External-only pages are not dangling.** A page that links only to external sites is *not* treated as a dangling node. Its rank leaks out of the internal graph instead of being redistributed. Only pages with zero outgoing links (true dead ends) trigger dangling-node redistribution.
 
 4. **Self-links are excluded.** A page linking to itself does not count as an outgoing link for PageRank purposes.
+
+5. **Redirect/canonical consolidation.** Pages that redirect (3xx) or have a non-self canonical are consolidated into their final target in the link graph. Links pointing to `/old` (which 301s to `/new`) are treated as links to `/new`. Redirect chains incur a 10% PR loss per hop (retention factor 0.90), while canonical consolidation transfers PR without penalty.
+
+6. **Logarithmic scale.** The final 0&ndash;100 normalization uses `log1p(linear) / log1p(100) * 100` instead of a linear scale. This spreads the distribution so that smaller pages are more differentiated (a page at 10% of the max scores ~52 instead of 10, a page at 1% scores ~15 instead of 1). The maximum remains 100.
 
 These choices mean that CrawlObserver's internal PageRank is conservative: pages that link heavily to external sites or use nofollow on internal links will show lower PR flow than a naive internal-only model would suggest. We believe this better reflects how search engines handle link equity.
 

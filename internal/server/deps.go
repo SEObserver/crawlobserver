@@ -70,6 +70,17 @@ type CrawlStore interface {
 	DeleteExtractions(ctx context.Context, sessionID string) error
 	HasStoredHTML(ctx context.Context, sessionID string) (bool, error)
 	RunExtractionsPostCrawl(ctx context.Context, sessionID string, extractors []extraction.Extractor) (*extraction.ExtractionResult, error)
+	// Interlinking
+	DeleteInterlinkingOpportunities(ctx context.Context, sessionID string) error
+	InsertInterlinkingOpportunities(ctx context.Context, sessionID string, opps []storage.InterlinkingOpportunity) error
+	ListInterlinkingOpportunities(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.InterlinkingOpportunity, int, error)
+	LoadInternalLinkSet(ctx context.Context, sessionID string) (map[[2]string]struct{}, error)
+	LoadPageMetadata(ctx context.Context, sessionID string) (map[string]storage.PageMetadata, error)
+	LoadPageRankGraph(ctx context.Context, sessionID string) (*storage.PageRankGraph, error)
+	InsertSimulation(ctx context.Context, sessionID string, simID string, virtualLinks []storage.VirtualLink, results []storage.SimulationResultRow, meta storage.SimulationMeta) error
+	ListSimulations(ctx context.Context, sessionID string) ([]storage.SimulationMeta, error)
+	GetSimulation(ctx context.Context, sessionID, simID string) (*storage.SimulationMeta, error)
+	ListSimulationResults(ctx context.Context, sessionID, simID string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.SimulationResultRow, int, error)
 }
 
 // GSCStore handles Google Search Console data.

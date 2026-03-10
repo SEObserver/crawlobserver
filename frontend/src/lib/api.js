@@ -1143,6 +1143,67 @@ export async function runExtractions(sessionId, extractorSetId) {
   });
 }
 
+// --- Interlinking ---
+
+export async function computeInterlinking(sessionId, options = {}) {
+  return fetchJSON(`/sessions/${sessionId}/compute-interlinking`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  });
+}
+
+export async function getInterlinkingOpportunities(
+  sessionId,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  sort = '',
+  order = '',
+  filters = {},
+) {
+  let url = `/sessions/${sessionId}/interlinking-opportunities?limit=${limit}&offset=${offset}`;
+  if (sort) url += `&sort=${encodeURIComponent(sort)}`;
+  if (order) url += `&order=${encodeURIComponent(order)}`;
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== '' && value != null) url += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+  }
+  return fetchJSON(url);
+}
+
+export async function simulateInterlinking(sessionId, links) {
+  return fetchJSON(`/sessions/${sessionId}/simulate-interlinking`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ links }),
+  });
+}
+
+export async function importVirtualLinks(sessionId, links) {
+  return fetchJSON(`/sessions/${sessionId}/import-virtual-links`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ links }),
+  });
+}
+
+export async function getInterlinkingSimulations(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/interlinking-simulations`);
+}
+
+export async function getInterlinkingSimulation(
+  sessionId,
+  simId,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  sort = '',
+  order = '',
+) {
+  let url = `/sessions/${sessionId}/interlinking-simulations/${simId}?limit=${limit}&offset=${offset}`;
+  if (sort) url += `&sort=${encodeURIComponent(sort)}`;
+  if (order) url += `&order=${encodeURIComponent(order)}`;
+  return fetchJSON(url);
+}
+
 // --- Application Logs ---
 
 /**

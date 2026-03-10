@@ -61,6 +61,8 @@ export const TAB_ICONS = {
     '<rect x="4" y="4" width="11" height="14" rx="2"/><rect x="9" y="6" width="11" height="14" rx="2"/>',
   extract:
     '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 14l2 2 4-4"/>',
+  interlinking:
+    '<circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="8.5" y1="7.5" x2="15.5" y2="16.5"/><line x1="15.5" y1="7.5" x2="8.5" y2="16.5"/>',
 };
 
 export function getTabs() {
@@ -75,6 +77,7 @@ export function getTabs() {
     { id: 'authority', label: t('tabs.authority'), icon: TAB_ICONS.authority, premium: true },
     { id: 'tests', label: t('tabs.tests'), icon: TAB_ICONS.tests },
     { id: 'extract', label: t('tabs.extract'), icon: TAB_ICONS.extract },
+    { id: 'interlinking', label: t('tabs.interlinking'), icon: TAB_ICONS.interlinking },
   ];
 }
 
@@ -89,6 +92,7 @@ export const TAB_SUB_VIEWS = {
   authority: null,
   tests: null,
   extract: null,
+  interlinking: null,
 };
 
 export const TAB_DEFAULT_SUB_VIEW = {
@@ -102,6 +106,7 @@ export const TAB_DEFAULT_SUB_VIEW = {
   authority: null,
   tests: null,
   extract: null,
+  interlinking: null,
 };
 
 // Map old flat tab IDs to { tab, subView } for URL compat

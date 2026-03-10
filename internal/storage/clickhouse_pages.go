@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/bits"
 	"strings"
 	"sync"
@@ -480,10 +481,15 @@ func isValidUUID(s string) bool {
 // behavior where external/nofollow links consume link equity without passing it.
 //
 // Returns normalized scores in 0–100 range.
-func ComputePageRankIterations(n uint32, outLinks [][]uint32, totalOutLinks []uint32) []float64 {
+func ComputePageRankIterations(n uint32, outLinks [][]uint32, totalOutLinks []uint32, edgeWeights ...[][]float64) []float64 {
 	const damping = 0.85
 	const iterations = 20
 	const tolerance = 1e-6
+
+	var weights [][]float64
+	if len(edgeWeights) > 0 {
+		weights = edgeWeights[0]
+	}
 
 	rank := make([]float64, n)
 	newRank := make([]float64, n)
@@ -517,8 +523,12 @@ func ComputePageRankIterations(n uint32, outLinks [][]uint32, totalOutLinks []ui
 				continue
 			}
 			contrib := damping * rank[src] / float64(totalOutLinks[src])
-			for _, tgt := range outLinks[src] {
-				newRank[tgt] += contrib
+			for i, tgt := range outLinks[src] {
+				w := 1.0
+				if weights != nil && weights[src] != nil {
+					w = weights[src][i]
+				}
+				newRank[tgt] += contrib * w
 			}
 		}
 
@@ -538,7 +548,9 @@ func ComputePageRankIterations(n uint32, outLinks [][]uint32, totalOutLinks []ui
 		}
 	}
 
-	// Normalize to 0–100 scale.
+	// Normalize to 0–100 with logarithmic scale.
+	// Log scale spreads the distribution: a page at 10% of max goes from
+	// score 10 → ~52, a page at 1% goes from 1 → ~15. Max stays 100.
 	var maxRank float64
 	for _, r := range rank {
 		if r > maxRank {
@@ -546,8 +558,10 @@ func ComputePageRankIterations(n uint32, outLinks [][]uint32, totalOutLinks []ui
 		}
 	}
 	if maxRank > 0 {
+		logMax := math.Log1p(100.0)
 		for i := range rank {
-			rank[i] = (rank[i] / maxRank) * 100.0
+			linear := (rank[i] / maxRank) * 100.0
+			rank[i] = math.Log1p(linear) / logMax * 100.0
 		}
 	}
 	return rank
@@ -563,26 +577,106 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		return fmt.Errorf("invalid session ID: %s", sessionID)
 	}
 
-	// 1. Load all crawled URLs and assign numeric IDs
+	// 1. Load all crawled URLs with redirect/canonical resolution data
 	urlRows, err := s.conn.Query(ctx, `
-		SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+		SELECT url, final_url, status_code, canonical, canonical_is_self,
+			length(redirect_chain) AS redirect_hops
+		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
 	if err != nil {
 		return fmt.Errorf("querying URLs: %w", err)
 	}
 	defer urlRows.Close()
 
-	urlToID := make(map[string]uint32)
-	idToURL := make([]string, 0)
+	type pageInfo struct {
+		url            string
+		finalURL       string
+		statusCode     uint16
+		canonical      string
+		canonicalSelf  bool
+		redirectHops   uint64
+	}
+
+	var allPages []pageInfo
 	for urlRows.Next() {
-		var u string
-		if err := urlRows.Scan(&u); err != nil {
+		var p pageInfo
+		if err := urlRows.Scan(&p.url, &p.finalURL, &p.statusCode, &p.canonical, &p.canonicalSelf, &p.redirectHops); err != nil {
 			return fmt.Errorf("scanning URL: %w", err)
 		}
-		urlToID[u] = uint32(len(idToURL))
-		idToURL = append(idToURL, u)
+		allPages = append(allPages, p)
 	}
 	if err := urlRows.Err(); err != nil {
 		return fmt.Errorf("iterating URLs: %w", err)
+	}
+	if len(allPages) == 0 {
+		return nil
+	}
+
+	// 1b. Build redirect/canonical resolution map
+	// resolveTarget[url] = final resolved URL, resolveHops[url] = number of redirect hops
+	const redirectPRRetention = 0.90
+	knownURLs := make(map[string]bool, len(allPages))
+	for _, p := range allPages {
+		knownURLs[p.url] = true
+	}
+
+	resolveTarget := make(map[string]string, len(allPages))
+	resolveHops := make(map[string]uint64, len(allPages))
+	for _, p := range allPages {
+		// 3xx redirect: resolve to final_url
+		if p.statusCode >= 300 && p.statusCode < 400 && p.finalURL != "" && p.finalURL != p.url {
+			if knownURLs[p.finalURL] {
+				resolveTarget[p.url] = p.finalURL
+				resolveHops[p.url] = p.redirectHops
+			}
+		} else if p.canonical != "" && !p.canonicalSelf && p.canonical != p.url {
+			// Non-self canonical: resolve to canonical (no hop penalty)
+			if knownURLs[p.canonical] {
+				resolveTarget[p.url] = p.canonical
+				resolveHops[p.url] = 0
+			}
+		}
+	}
+
+	// Resolve transitive chains (e.g. A→B→C canonical chains).
+	// Follow each chain to its terminal, accumulating hops.
+	// If a cycle is detected (visited URL seen again), drop the entry.
+	resolved := make(map[string]string, len(resolveTarget))
+	resolvedHops := make(map[string]uint64, len(resolveTarget))
+	for src := range resolveTarget {
+		visited := map[string]bool{src: true}
+		cur := src
+		var totalHops uint64
+		cycle := false
+		for {
+			tgt, ok := resolveTarget[cur]
+			if !ok {
+				break // cur is the terminal (not in resolveTarget)
+			}
+			totalHops += resolveHops[cur]
+			if visited[tgt] {
+				cycle = true
+				break
+			}
+			visited[tgt] = true
+			cur = tgt
+		}
+		if !cycle {
+			resolved[src] = cur
+			resolvedHops[src] = totalHops
+		}
+	}
+	resolveTarget = resolved
+	resolveHops = resolvedHops
+
+	// Build idToURL with only resolved final targets (no redirects/canonical sources)
+	urlToID := make(map[string]uint32)
+	idToURL := make([]string, 0)
+	for _, p := range allPages {
+		if _, isRedirected := resolveTarget[p.url]; isRedirected {
+			continue // skip: this URL is consolidated into its target
+		}
+		urlToID[p.url] = uint32(len(idToURL))
+		idToURL = append(idToURL, p.url)
 	}
 
 	n := uint32(len(idToURL))
@@ -590,7 +684,8 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		return nil
 	}
 
-	applog.Infof("storage", "PageRank: loaded %d URLs in %s", n, time.Since(start))
+	applog.Infof("storage", "PageRank: loaded %d URLs (%d consolidated via redirect/canonical) in %s",
+		len(allPages), len(allPages)-int(n), time.Since(start))
 
 	// 2. Build URL→ID temp table in ClickHouse for server-side ID resolution
 	idTable := fmt.Sprintf("crawlobserver.tmp_urlids_%s", strings.ReplaceAll(sessionID, "-", ""))
@@ -606,19 +701,34 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		}
 	}()
 
-	// Insert URL→ID mappings
+	// Insert URL→ID mappings (including redirected/canonical URLs → target ID)
+	type urlIDPair struct {
+		url string
+		id  uint32
+	}
+	allMappings := make([]urlIDPair, 0, len(allPages))
+	for j := 0; j < int(n); j++ {
+		allMappings = append(allMappings, urlIDPair{idToURL[j], uint32(j)})
+	}
+	// Map redirected/canonical source URLs to their resolved target's ID
+	for src, tgt := range resolveTarget {
+		if tgtID, ok := urlToID[tgt]; ok {
+			allMappings = append(allMappings, urlIDPair{src, tgtID})
+		}
+	}
+
 	const idChunk = 10000
-	for i := 0; i < int(n); i += idChunk {
+	for i := 0; i < len(allMappings); i += idChunk {
 		end := i + idChunk
-		if end > int(n) {
-			end = int(n)
+		if end > len(allMappings) {
+			end = len(allMappings)
 		}
 		batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (url, id)", idTable))
 		if err != nil {
 			return fmt.Errorf("preparing URL ID batch: %w", err)
 		}
-		for j := i; j < end; j++ {
-			if err := batch.Append(idToURL[j], uint32(j)); err != nil {
+		for _, m := range allMappings[i:end] {
+			if err := batch.Append(m.url, m.id); err != nil {
 				return fmt.Errorf("appending URL ID: %w", err)
 			}
 		}
@@ -633,6 +743,7 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 	// 3. Load total outlink count per page (internal + external, all rel types).
 	// Used as divisor for PR distribution so that external and nofollow links
 	// properly dilute internal PageRank.
+	// Only count links from non-redirect, non-canonical-source pages (real content pages).
 	t2 := time.Now()
 	totalOutLinks := make([]uint32, n)
 	countRows, err := s.conn.Query(ctx, fmt.Sprintf(`
@@ -641,10 +752,15 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 			toUInt32(uniqExact(target_url)) AS total_outlinks
 		FROM crawlobserver.links
 		WHERE crawl_session_id = ?
-			AND source_url IN (SELECT url FROM %s)
+			AND source_url IN (
+				SELECT url FROM crawlobserver.pages
+				WHERE crawl_session_id = ?
+				  AND status_code < 300
+				  AND (canonical_is_self OR canonical = '' OR canonical = url)
+			)
 			AND source_url != target_url
 		GROUP BY src_id`,
-		idTable, idTable), sessionID)
+		idTable), sessionID, sessionID)
 	if err != nil {
 		return fmt.Errorf("querying total outlink counts: %w", err)
 	}
@@ -661,44 +777,118 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		return fmt.Errorf("iterating outlink counts: %w", err)
 	}
 
-	// 4. Load internal dofollow links as edges for PR distribution.
+	// 4a. Build hops table for redirect PR decay
+	hopsTable := fmt.Sprintf("crawlobserver.tmp_hops_%s", strings.ReplaceAll(sessionID, "-", ""))
+	if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", hopsTable)); err != nil {
+		applog.Warnf("storage", "pre-cleanup hops table %s: %v", hopsTable, err)
+	}
+	if err := s.conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (url String, hops UInt64) ENGINE = Join(ANY, LEFT, url)", hopsTable)); err != nil {
+		return fmt.Errorf("creating hops table: %w", err)
+	}
+	defer func() {
+		if err := s.conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", hopsTable)); err != nil {
+			applog.Warnf("storage", "cleanup hops table %s: %v", hopsTable, err)
+		}
+	}()
+
+	// Insert hops: redirected URLs have their redirect_hops, all others have 0
+	type urlHopsPair struct {
+		url  string
+		hops uint64
+	}
+	hopEntries := make([]urlHopsPair, 0, len(allPages))
+	for _, p := range allPages {
+		hops := resolveHops[p.url] // 0 for non-redirected pages
+		hopEntries = append(hopEntries, urlHopsPair{p.url, hops})
+	}
+	for i := 0; i < len(hopEntries); i += idChunk {
+		end := i + idChunk
+		if end > len(hopEntries) {
+			end = len(hopEntries)
+		}
+		batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (url, hops)", hopsTable))
+		if err != nil {
+			return fmt.Errorf("preparing hops batch: %w", err)
+		}
+		for _, h := range hopEntries[i:end] {
+			if err := batch.Append(h.url, h.hops); err != nil {
+				return fmt.Errorf("appending hops: %w", err)
+			}
+		}
+		if err := batch.Send(); err != nil {
+			return fmt.Errorf("sending hops batch: %w", err)
+		}
+	}
+
+	// 4b. Load internal dofollow links as edges for PR distribution.
 	// Nofollow, sponsored, and UGC links are excluded — they dilute PR
 	// (counted in totalOutLinks) but do not pass it.
+	// source_url must be a real content page (not a redirect or canonical source).
+	// target_url is resolved via idTable (redirects/canonicals map to target ID).
+	// tgt_hops captures redirect hops for PR decay.
 	linkRows, err := s.conn.Query(ctx, fmt.Sprintf(`
 		SELECT
 			joinGet('%s', 'id', source_url) AS src_id,
-			joinGet('%s', 'id', target_url) AS tgt_id
+			joinGet('%s', 'id', target_url) AS tgt_id,
+			joinGet('%s', 'hops', target_url) AS tgt_hops
 		FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND is_internal = true
 			AND NOT hasAny(splitByString(' ', lower(rel)), ['nofollow', 'sponsored', 'ugc'])
-			AND source_url IN (SELECT url FROM %s)
+			AND source_url IN (
+				SELECT url FROM crawlobserver.pages
+				WHERE crawl_session_id = ?
+				  AND status_code < 300
+				  AND (canonical_is_self OR canonical = '' OR canonical = url)
+			)
 			AND target_url IN (SELECT url FROM %s)
-		GROUP BY src_id, tgt_id
+		GROUP BY src_id, tgt_id, tgt_hops
 		HAVING src_id != tgt_id`,
-		idTable, idTable, idTable, idTable), sessionID)
+		idTable, idTable, hopsTable, idTable), sessionID, sessionID)
 	if err != nil {
 		return fmt.Errorf("querying links: %w", err)
 	}
 	defer linkRows.Close()
 
-	outLinks := make([][]uint32, n)
-	var edgeCount int
+	// Deduplicate edges: if multiple links resolve to the same (src, tgt) pair
+	// with different hop counts (e.g. link to /old via redirect + direct link to /new),
+	// keep only the best path (minimum hops → maximum weight).
+	type edgeKey struct{ src, tgt uint32 }
+	bestHops := make(map[edgeKey]uint64)
 	for linkRows.Next() {
 		var srcID, tgtID uint32
-		if err := linkRows.Scan(&srcID, &tgtID); err != nil {
+		var tgtHops uint64
+		if err := linkRows.Scan(&srcID, &tgtID, &tgtHops); err != nil {
 			return fmt.Errorf("scanning link IDs: %w", err)
 		}
-		outLinks[srcID] = append(outLinks[srcID], tgtID)
-		edgeCount++
+		k := edgeKey{srcID, tgtID}
+		if prev, exists := bestHops[k]; !exists || tgtHops < prev {
+			bestHops[k] = tgtHops
+		}
 	}
 	if err := linkRows.Err(); err != nil {
 		return fmt.Errorf("iterating link IDs: %w", err)
 	}
 
+	outLinks := make([][]uint32, n)
+	edgeWeights := make([][]float64, n)
+	hasWeights := false
+	edgeCount := len(bestHops)
+	for k, hops := range bestHops {
+		outLinks[k.src] = append(outLinks[k.src], k.tgt)
+		w := math.Pow(redirectPRRetention, float64(hops))
+		edgeWeights[k.src] = append(edgeWeights[k.src], w)
+		if w < 1.0 {
+			hasWeights = true
+		}
+	}
+	if !hasWeights {
+		edgeWeights = nil // no redirect edges, save memory
+	}
+
 	applog.Infof("storage", "PageRank: loaded outlink counts + %d internal dofollow edges in %s", edgeCount, time.Since(t2))
 
 	// 5. PageRank iteration + normalization
-	rank := ComputePageRankIterations(n, outLinks, totalOutLinks)
+	rank := ComputePageRankIterations(n, outLinks, totalOutLinks, edgeWeights)
 
 
 	// 7. Write back via temp table + single mutation (avoids 100s of mutations)
@@ -719,18 +909,39 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		}
 	}()
 
+	// Build all URL→PR pairs: resolved targets get their computed PR,
+	// redirected/canonical sources get the same PR as their target.
+	type urlPRPair struct {
+		url string
+		pr  float64
+	}
+	prPairs := make([]urlPRPair, 0, len(allPages))
+	for j := 0; j < int(n); j++ {
+		prPairs = append(prPairs, urlPRPair{idToURL[j], rank[j]})
+	}
+	// Map resolved source URLs to their target's PR
+	idFromURL := make(map[string]uint32, len(idToURL))
+	for j, u := range idToURL {
+		idFromURL[u] = uint32(j)
+	}
+	for src, tgt := range resolveTarget {
+		if tgtID, ok := idFromURL[tgt]; ok {
+			prPairs = append(prPairs, urlPRPair{src, rank[tgtID]})
+		}
+	}
+
 	const chunkSize = 5000
-	for i := 0; i < int(n); i += chunkSize {
+	for i := 0; i < len(prPairs); i += chunkSize {
 		end := i + chunkSize
-		if end > int(n) {
-			end = int(n)
+		if end > len(prPairs) {
+			end = len(prPairs)
 		}
 		batch, err := s.conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (page_url, new_pagerank)", tmpTable))
 		if err != nil {
 			return fmt.Errorf("preparing pagerank batch: %w", err)
 		}
-		for j := i; j < end; j++ {
-			if err := batch.Append(idToURL[j], rank[j]); err != nil {
+		for _, p := range prPairs[i:end] {
+			if err := batch.Append(p.url, p.pr); err != nil {
 				return fmt.Errorf("appending to pagerank batch: %w", err)
 			}
 		}

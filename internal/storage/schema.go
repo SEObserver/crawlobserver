@@ -676,6 +676,66 @@ ALTER TABLE crawlobserver.external_link_checks
     ADD COLUMN IF NOT EXISTS ns_error String DEFAULT ''
 `
 
+const CreateInterlinkingOpportunities = `
+CREATE TABLE IF NOT EXISTS crawlobserver.interlinking_opportunities (
+    crawl_session_id UUID,
+    source_url String,
+    target_url String,
+    similarity Float64,
+    method LowCardinality(String),
+    source_title String,
+    target_title String,
+    source_pagerank Float64,
+    target_pagerank Float64,
+    source_word_count UInt32,
+    target_word_count UInt32,
+    computed_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(computed_at)
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, similarity, source_url, target_url)
+`
+
+const CreateInterlinkingSimulations = `
+CREATE TABLE IF NOT EXISTS crawlobserver.interlinking_simulations (
+    id UUID,
+    crawl_session_id UUID,
+    virtual_links_count UInt32,
+    pages_improved UInt32,
+    pages_declined UInt32,
+    avg_diff Float64,
+    max_diff Float64,
+    computed_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(computed_at)
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, id)
+`
+
+const CreateInterlinkingSimulationResults = `
+CREATE TABLE IF NOT EXISTS crawlobserver.interlinking_simulation_results (
+    simulation_id UUID,
+    crawl_session_id UUID,
+    url String,
+    pagerank_before Float64,
+    pagerank_after Float64,
+    pagerank_diff Float64,
+    computed_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(computed_at)
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, simulation_id, pagerank_diff, url)
+`
+
+const CreatePageEmbeddings = `
+CREATE TABLE IF NOT EXISTS crawlobserver.page_embeddings (
+    crawl_session_id UUID,
+    url String,
+    embedding Array(Float32),
+    model LowCardinality(String),
+    computed_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(computed_at)
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, url)
+`
+
 // Migrations is the ordered list of migrations.
 var Migrations = []Migration{
 	{Name: "create database", DDL: CreateDatabase},
@@ -711,4 +771,8 @@ var Migrations = []Migration{
 	{Name: "create retry_attempts", DDL: CreateRetryAttempts},
 	{Name: "create near_duplicate_pairs", DDL: CreateNearDuplicatePairs},
 	{Name: "alter external_link_checks add ns columns", DDL: AlterExternalLinkChecksNS},
+	{Name: "create interlinking_opportunities", DDL: CreateInterlinkingOpportunities},
+	{Name: "create interlinking_simulations", DDL: CreateInterlinkingSimulations},
+	{Name: "create interlinking_simulation_results", DDL: CreateInterlinkingSimulationResults},
+	{Name: "create page_embeddings", DDL: CreatePageEmbeddings},
 }
