@@ -67,6 +67,9 @@ type JSRenderConfig struct {
 
 type CloudflareConfig struct {
 	Enabled      bool          `mapstructure:"enabled"`
+	Resolver     string        `mapstructure:"resolver"`      // "none" (default) or "api"
+	APIURL       string        `mapstructure:"api_url"`       // external solver API endpoint
+	APIKey       string        `mapstructure:"api_key"`       // Bearer token for the API
 	SolveTimeout time.Duration `mapstructure:"solve_timeout"`
 	MaxHoldURLs  int           `mapstructure:"max_hold_urls"`
 }
@@ -179,6 +182,9 @@ func SetDefaults() {
 	viper.SetDefault("crawler.js_render.page_timeout", "15s")
 	viper.SetDefault("crawler.js_render.block_resources", true)
 	viper.SetDefault("crawler.cloudflare.enabled", true)
+	viper.SetDefault("crawler.cloudflare.resolver", "none")
+	viper.SetDefault("crawler.cloudflare.api_url", "")
+	viper.SetDefault("crawler.cloudflare.api_key", "")
 	viper.SetDefault("crawler.cloudflare.solve_timeout", "30s")
 	viper.SetDefault("crawler.cloudflare.max_hold_urls", 1000)
 
@@ -397,6 +403,14 @@ func validate(cfg *Config) error {
 		if cfg.Crawler.Retry.MaxDelay < cfg.Crawler.Retry.BaseDelay {
 			return fmt.Errorf("crawler.retry.max_delay must be >= base_delay")
 		}
+	}
+	switch cfg.Crawler.Cloudflare.Resolver {
+	case "", "none", "api":
+	default:
+		return fmt.Errorf("crawler.cloudflare.resolver must be \"none\" or \"api\"")
+	}
+	if cfg.Crawler.Cloudflare.Resolver == "api" && cfg.Crawler.Cloudflare.APIURL == "" {
+		return fmt.Errorf("crawler.cloudflare.api_url is required when resolver is \"api\"")
 	}
 	if cfg.Storage.BatchSize < 1 {
 		return fmt.Errorf("storage.batch_size must be >= 1")

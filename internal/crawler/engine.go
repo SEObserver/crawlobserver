@@ -82,11 +82,12 @@ type Engine struct {
 
 	extractors []extraction.Extractor
 
-	cfSolver       *cfsolve.Solver
-	cfHoldQueue    map[string][]*RetryItem // host → URLs parked during CF solve
-	cfSolvingHosts map[string]bool         // hosts currently being CF-solved
-	cfHoldMu       sync.Mutex
-	cookieJar      *cookiejar.Jar
+	cfResolver      cfsolve.ChallengeResolver
+	cfHoldQueue     map[string][]*RetryItem // host → URLs parked during CF solve
+	cfSolvingHosts  map[string]bool         // hosts currently being CF-solved
+	cfFailedHosts   map[string]time.Time     // host → time when block expires
+	cfHoldMu        sync.Mutex
+	cookieJar       *cookiejar.Jar
 	pendingCFSolves atomic.Int64
 
 	excludePatterns []string // URL substrings: if URL contains any, skip fetching
@@ -302,6 +303,7 @@ func (e *Engine) initCrawl(seeds []string) error {
 	e.cookieJar = jar
 	e.fetch.SetCookieJar(jar)
 	e.cfHoldQueue = make(map[string][]*RetryItem)
+	e.cfFailedHosts = make(map[string]time.Time)
 
 	// Initialize JS rendering pool if enabled
 	e.renderMode = renderer.ParseDetectionMode(e.cfg.Crawler.JSRender.Mode)
@@ -506,9 +508,9 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func(), func()) {
 			e.flushResourceRefs()
 		}
 
-		// Shutdown CF solver
-		if e.cfSolver != nil {
-			e.cfSolver.Close()
+		// Shutdown CF resolver
+		if e.cfResolver != nil {
+			e.cfResolver.Close()
 		}
 
 		// Final buffer flush
@@ -638,8 +640,13 @@ func (e *Engine) fetchWorker(id int, in <-chan *frontier.CrawlURL, out chan<- *f
 		default:
 		}
 
-		// If this host is being CF-solved, park the URL directly without fetching.
+		// If this host is permanently blocked by CF, skip it.
 		host := extractHost(crawlURL.URL)
+		if e.isHostCFBlocked(host) {
+			continue
+		}
+
+		// If this host is being CF-solved, park the URL directly without fetching.
 		if e.isHostCFSolving(host) {
 			e.holdURLForCF(host, crawlURL)
 			continue
@@ -684,6 +691,11 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 		}
 
 		host := extractHost(result.URL)
+
+		// Skip hosts permanently blocked after CF solve failure
+		if e.isHostCFBlocked(host) {
+			continue
+		}
 
 		// Cloudflare challenge detection — intercept before health tracking
 		isCF := e.cfg.Crawler.Cloudflare.Enabled &&
@@ -1123,61 +1135,97 @@ func (e *Engine) solveCFChallenge(host, challengeURL string) {
 		}
 	}()
 
-	solver := e.ensureCFSolver()
-	result := solver.Solve(e.ctx, challengeURL)
+	resolver := e.ensureCFResolver()
+	result, err := resolver.Solve(e.ctx, challengeURL)
+	if err != nil {
+		applog.Warnf("crawler", "%s CF resolve error for %s: %v", e.logTag(), host, err)
+		e.releaseCFHold(host, false)
+		return
+	}
 
 	if result.Solved {
+		// Inject cookies into the shared jar
+		if u, parseErr := url.Parse(challengeURL); parseErr == nil && len(result.Cookies) > 0 {
+			e.cookieJar.SetCookies(u, result.Cookies)
+		}
 		applog.Infof("crawler", "%s CF challenge solved for %s, got %d cookies", e.logTag(), host, len(result.Cookies))
 		e.releaseCFHold(host, true)
 	} else {
-		applog.Warnf("crawler", "%s CF challenge failed for %s: %v", e.logTag(), host, result.Err)
+		applog.Warnf("crawler", "%s CF challenge failed for %s", e.logTag(), host)
 		e.releaseCFHold(host, false)
 	}
 }
 
-// ensureCFSolver lazily creates the shared CF Solver instance.
-func (e *Engine) ensureCFSolver() *cfsolve.Solver {
+// ensureCFResolver lazily creates the shared ChallengeResolver instance.
+func (e *Engine) ensureCFResolver() cfsolve.ChallengeResolver {
 	e.cfHoldMu.Lock()
 	defer e.cfHoldMu.Unlock()
-	if e.cfSolver == nil {
-		e.cfSolver = cfsolve.New(
-			e.fetch.UserAgent(),
-			e.cookieJar,
-			e.cfg.Crawler.Cloudflare.SolveTimeout,
-		)
+	if e.cfResolver == nil {
+		switch e.cfg.Crawler.Cloudflare.Resolver {
+		case "api":
+			e.cfResolver = cfsolve.NewAPIResolver(
+				e.cfg.Crawler.Cloudflare.APIURL,
+				e.cfg.Crawler.Cloudflare.APIKey,
+				e.cfg.Crawler.Cloudflare.SolveTimeout,
+			)
+		default:
+			e.cfResolver = &cfsolve.NullResolver{}
+		}
 	}
-	return e.cfSolver
+	return e.cfResolver
+}
+
+// cfBlockDuration is the cooldown period after a failed CF solve before retrying.
+const cfBlockDuration = 10 * time.Minute
+
+// isHostCFBlocked returns true if a host is temporarily blocked after a failed CF solve.
+func (e *Engine) isHostCFBlocked(host string) bool {
+	e.cfHoldMu.Lock()
+	defer e.cfHoldMu.Unlock()
+	expiry, ok := e.cfFailedHosts[host]
+	if !ok {
+		return false
+	}
+	if time.Now().After(expiry) {
+		delete(e.cfFailedHosts, host)
+		return false
+	}
+	return true
 }
 
 // releaseCFHold re-enqueues URLs held during CF challenge resolution.
 // If solved=true, URLs are retried with attempt=0 (fresh start with cookies).
-// If solved=false, URLs are retried with attempt=1 (normal retry path).
+// If solved=false, the host is blocked for cfBlockDuration and held URLs are dropped.
 func (e *Engine) releaseCFHold(host string, solved bool) {
 	e.cfHoldMu.Lock()
 	items := e.cfHoldQueue[host]
 	delete(e.cfHoldQueue, host)
 	delete(e.cfSolvingHosts, host)
+	if !solved {
+		e.cfFailedHosts[host] = time.Now().Add(cfBlockDuration)
+	}
 	e.cfHoldMu.Unlock()
+
+	if !solved {
+		applog.Warnf("crawler", "%s CF-blocked %s for %v (%d URLs dropped)", e.logTag(), host, cfBlockDuration, len(items))
+		return
+	}
 
 	if len(items) == 0 {
 		return
 	}
 
-	attempt := 1
-	if solved {
-		attempt = 0
-	}
 	for _, item := range items {
 		e.retryQueue.Push(&RetryItem{
 			URL:     item.URL,
 			Host:    item.Host,
 			Depth:   item.Depth,
 			FoundOn: item.FoundOn,
-			Attempt: attempt,
-			ReadyAt: time.Now(), // immediate
+			Attempt: 0,
+			ReadyAt: time.Now(),
 		})
 	}
-	applog.Infof("crawler", "%s Released %d CF-held URLs for %s (solved=%v)", e.logTag(), len(items), host, solved)
+	applog.Infof("crawler", "%s Released %d CF-held URLs for %s", e.logTag(), len(items), host)
 }
 
 // extractHost returns the host portion of a URL.
