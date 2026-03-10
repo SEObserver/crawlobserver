@@ -1082,5 +1082,14 @@
   "interlinking.simHistory": "Simulation History",
   "interlinking.import": "Import Links",
   "interlinking.importTitle": "Import Virtual Links",
-  "interlinking.importHint": "Paste one link per line: source_url,target_url (comma or tab separated)"
+  "interlinking.importHint": "Paste one link per line: source_url,target_url (comma or tab separated)",
+  "interlinking.score": "Score",
+  "interlinking.category": "Category",
+  "interlinking.opportunityTab": "Opportunities",
+  "interlinking.cannibalizationTab": "Cannibalization",
+  "interlinking.allTab": "All",
+  "interlinking.cannibalization": "Cannibalization",
+  "interlinking.cannibalizationHint": "These pages are too similar and risk cannibalizing each other in SERPs. Consider merging content or setting up a redirect.",
+  "interlinking.wordsSrc": "Words Src",
+  "interlinking.wordsTgt": "Words Tgt"
 }

@@ -18,11 +18,14 @@
   let loading = $state(false);
   let computing = $state(false);
 
+  // Category sub-tab: 'opportunity' | 'cannibalization' | 'all'
+  let categoryTab = $state('opportunity');
+
   // Opportunities state
   let opportunities = $state([]);
   let oppTotal = $state(0);
   let oppOffset = $state(0);
-  let oppSort = $state('similarity');
+  let oppSort = $state('opportunity_score');
   let oppOrder = $state('desc');
   let oppFilters = $state({});
   let selected = $state(new Set());
@@ -40,11 +43,21 @@
   let showImport = $state(false);
   let importText = $state('');
 
+  function buildOppFilters() {
+    const f = { ...oppFilters };
+    if (categoryTab !== 'all') {
+      f.category = categoryTab;
+    } else {
+      delete f.category;
+    }
+    return f;
+  }
+
   async function loadOpportunities() {
     loading = true;
     try {
       const res = await getInterlinkingOpportunities(
-        sessionId, PAGE_SIZE, oppOffset, oppSort, oppOrder, oppFilters
+        sessionId, PAGE_SIZE, oppOffset, oppSort, oppOrder, buildOppFilters()
       );
       opportunities = res?.opportunities ?? [];
       oppTotal = res?.total ?? 0;
@@ -174,16 +187,27 @@
     }
   }
 
+  function switchCategoryTab(tab) {
+    categoryTab = tab;
+    oppOffset = 0;
+    selected = new Set();
+    loadOpportunities();
+  }
+
   function simBadge(diff) {
     if (diff > 0.01) return 'badge-green';
     if (diff < -0.01) return 'badge-red';
     return 'badge-neutral';
   }
 
-  function simBadgeVal(val) {
-    if (val >= 0.7) return 'badge-green';
-    if (val >= 0.5) return 'badge-yellow';
-    return 'badge-red';
+  function scoreBadge(score) {
+    if (score >= 0.5) return 'badge-green';
+    if (score >= 0.2) return 'badge-yellow';
+    return 'badge-neutral';
+  }
+
+  function categoryBadge(cat) {
+    return cat === 'cannibalization' ? 'badge-orange' : 'badge-blue';
   }
 
   function sortIcon(col, activeSort, activeOrder) {
@@ -217,6 +241,24 @@
   </div>
 
   {#if view === 'opportunities'}
+    <div class="category-tabs">
+      <button class:active={categoryTab === 'opportunity'} onclick={() => switchCategoryTab('opportunity')}>
+        {t('interlinking.opportunityTab')}
+      </button>
+      <button class:active={categoryTab === 'cannibalization'} onclick={() => switchCategoryTab('cannibalization')}>
+        {t('interlinking.cannibalizationTab')}
+      </button>
+      <button class:active={categoryTab === 'all'} onclick={() => switchCategoryTab('all')}>
+        {t('interlinking.allTab')}
+      </button>
+    </div>
+
+    {#if categoryTab === 'cannibalization'}
+      <div class="alert-cannibalization">
+        {t('interlinking.cannibalizationHint')}
+      </div>
+    {/if}
+
     {#if loading}
       <p class="loading-msg">{t('common.loading')}</p>
     {:else if opportunities.length === 0}
@@ -239,17 +281,29 @@
             <th class="col-check"><input type="checkbox" checked={selected.size === opportunities.length} onchange={toggleSelectAll} /></th>
             <th class="sortable" onclick={() => handleOppSort('source_url')}>{t('interlinking.source')}{sortIcon('source_url', oppSort, oppOrder)}</th>
             <th class="sortable" onclick={() => handleOppSort('target_url')}>{t('interlinking.target')}{sortIcon('target_url', oppSort, oppOrder)}</th>
+            <th class="sortable col-num" onclick={() => handleOppSort('opportunity_score')}>{t('interlinking.score')}{sortIcon('opportunity_score', oppSort, oppOrder)}</th>
             <th class="sortable col-num" onclick={() => handleOppSort('similarity')}>{t('interlinking.similarity')}{sortIcon('similarity', oppSort, oppOrder)}</th>
-            <th class="sortable col-num" onclick={() => handleOppSort('source_pagerank')}>PR Source{sortIcon('source_pagerank', oppSort, oppOrder)}</th>
-            <th class="sortable col-num" onclick={() => handleOppSort('target_pagerank')}>PR Target{sortIcon('target_pagerank', oppSort, oppOrder)}</th>
+            {#if categoryTab === 'all'}
+              <th class="sortable col-num" onclick={() => handleOppSort('category')}>{t('interlinking.category')}{sortIcon('category', oppSort, oppOrder)}</th>
+            {/if}
+            <th class="sortable col-num" onclick={() => handleOppSort('source_pagerank')}>PR Src{sortIcon('source_pagerank', oppSort, oppOrder)}</th>
+            <th class="sortable col-num" onclick={() => handleOppSort('target_pagerank')}>PR Tgt{sortIcon('target_pagerank', oppSort, oppOrder)}</th>
+            <th class="sortable col-num" onclick={() => handleOppSort('source_word_count')}>{t('interlinking.wordsSrc')}{sortIcon('source_word_count', oppSort, oppOrder)}</th>
+            <th class="sortable col-num" onclick={() => handleOppSort('target_word_count')}>{t('interlinking.wordsTgt')}{sortIcon('target_word_count', oppSort, oppOrder)}</th>
           </tr>
           <tr class="filter-row">
             <td></td>
             <td><input class="filter-input" placeholder="source_url" onkeydown={(e) => handleOppFilterKey(e, 'source_url')} /></td>
             <td><input class="filter-input" placeholder="target_url" onkeydown={(e) => handleOppFilterKey(e, 'target_url')} /></td>
-            <td><input class="filter-input" placeholder=">=0.5" onkeydown={(e) => handleOppFilterKey(e, 'similarity')} /></td>
+            <td><input class="filter-input" placeholder=">=0.3" onkeydown={(e) => handleOppFilterKey(e, 'opportunity_score')} /></td>
+            <td><input class="filter-input" placeholder=">=0.3" onkeydown={(e) => handleOppFilterKey(e, 'similarity')} /></td>
+            {#if categoryTab === 'all'}
+              <td></td>
+            {/if}
             <td><input class="filter-input" placeholder=">=10" onkeydown={(e) => handleOppFilterKey(e, 'source_pagerank')} /></td>
             <td><input class="filter-input" placeholder=">=10" onkeydown={(e) => handleOppFilterKey(e, 'target_pagerank')} /></td>
+            <td><input class="filter-input" placeholder=">=100" onkeydown={(e) => handleOppFilterKey(e, 'source_word_count')} /></td>
+            <td><input class="filter-input" placeholder=">=100" onkeydown={(e) => handleOppFilterKey(e, 'target_word_count')} /></td>
           </tr>
         </thead>
         <tbody>
@@ -264,9 +318,15 @@
                 <span class="url-text">{opp.target_url}</span>
                 {#if opp.target_title}<br/><span class="cell-title">{opp.target_title}</span>{/if}
               </td>
-              <td class="col-num"><span class="badge {simBadgeVal(opp.similarity)}">{(opp.similarity * 100).toFixed(1)}%</span></td>
+              <td class="col-num"><span class="badge {scoreBadge(opp.opportunity_score)}">{opp.opportunity_score?.toFixed(2) ?? '-'}</span></td>
+              <td class="col-num">{(opp.similarity * 100).toFixed(1)}%</td>
+              {#if categoryTab === 'all'}
+                <td class="col-num"><span class="badge {categoryBadge(opp.category)}">{opp.category}</span></td>
+              {/if}
               <td class="col-num">{opp.source_pagerank?.toFixed(2) ?? '-'}</td>
               <td class="col-num">{opp.target_pagerank?.toFixed(2) ?? '-'}</td>
+              <td class="col-num">{opp.source_word_count ?? '-'}</td>
+              <td class="col-num">{opp.target_word_count ?? '-'}</td>
             </tr>
           {/each}
         </tbody>
@@ -383,6 +443,22 @@
   .interlink-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .count { font-size: 13px; color: var(--text-muted); }
 
+  .category-tabs {
+    display: flex; gap: 4px; margin-bottom: 12px;
+  }
+  .category-tabs button {
+    padding: 4px 12px; border: 1px solid var(--border); background: var(--bg);
+    border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--text);
+  }
+  .category-tabs button.active {
+    background: var(--text); color: var(--bg); border-color: var(--text);
+  }
+
+  .alert-cannibalization {
+    background: #fef3c7; color: #92400e; border: 1px solid #f59e0b;
+    border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px;
+  }
+
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
   th { font-weight: 600; white-space: nowrap; }
@@ -403,6 +479,8 @@
   .badge-yellow { background: #fef3c7; color: #92400e; }
   .badge-red { background: #fecaca; color: #991b1b; }
   .badge-neutral { background: var(--bg-secondary); color: var(--text-muted); }
+  .badge-orange { background: #fed7aa; color: #9a3412; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
 
   .pagination { display: flex; gap: 8px; align-items: center; justify-content: flex-end; padding: 8px 0; }
   .pagination button { padding: 4px 12px; }
