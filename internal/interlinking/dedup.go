@@ -21,6 +21,25 @@ var trackingParams = map[string]bool{
 	"pk_kwd":       true, // Matomo keyword
 	"pk_source":    true, // Matomo source
 	"srsltid":      true, // Google SERP result click ID
+	"gclsrc":       true, // Google Ads click source
+	"dclid":        true, // DoubleClick click ID
+	"wbraid":       true, // Google Ads web-to-app
+	"gbraid":       true, // Google Ads app-to-web
+	"_bg":          true, // Google Ads background
+	"_bk":          true, // Google Ads keyword
+	"_bm":          true, // Google Ads match type
+	"_bn":          true, // Google Ads network
+	"_bt":          true, // Google Ads creative
+	"_dv":          true, // Google Ads device
+	"_loc":         true, // Google Ads location
+	"_placement":   true, // Google Ads placement
+	"_target":      true, // Google Ads target
+	"awsearchcpc":  true, // Google Ads CPC flag
+	"yclid":        true, // Yandex click ID
+	"twclid":       true, // Twitter click ID
+	"ttclid":       true, // TikTok click ID
+	"li_fat_id":    true, // LinkedIn ad tracking
+	"igshid":       true, // Instagram share ID
 	"utm_campaign": true, // Google Analytics
 	"utm_content":  true,
 	"utm_medium":   true,
@@ -41,6 +60,12 @@ func NormalizeURL(rawURL string) string {
 	// Strip trailing slash (keep "/" for root path)
 	if len(u.Path) > 1 && strings.HasSuffix(u.Path, "/") {
 		u.Path = strings.TrimRight(u.Path, "/")
+		changed = true
+	}
+
+	// Normalize empty path to "/" (e.g. https://example.com → https://example.com/)
+	if u.Path == "" {
+		u.Path = "/"
 		changed = true
 	}
 
