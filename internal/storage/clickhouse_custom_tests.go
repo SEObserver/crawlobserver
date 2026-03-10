@@ -134,7 +134,7 @@ func (s *Store) RunCustomTestsSQL(ctx context.Context, sessionID string, rules [
 		allArgs = append(allArgs, expr.args...)
 	}
 
-	query := fmt.Sprintf("SELECT %s FROM crawlobserver.pages WHERE crawl_session_id = {sessionID:String}",
+	query := fmt.Sprintf("SELECT %s FROM crawlobserver.pages WHERE crawl_session_id = {sessionID:String} AND "+notRedirectedFilter,
 		strings.Join(selects, ", "))
 
 	rows, err := s.conn.Query(ctx, query, allArgs...)

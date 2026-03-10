@@ -13,6 +13,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// notRedirectedFilter excludes "followed redirects" — pages where the fetcher
+// followed a redirect transparently (status 200 but final_url differs from url).
+const notRedirectedFilter = "(final_url = '' OR final_url = url)"
+
 // InsertPages batch inserts page rows.
 func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 	if len(pages) == 0 {
@@ -87,7 +91,7 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 // CountPages returns the total number of pages for a session.
 func (s *Store) CountPages(ctx context.Context, sessionID string) (uint64, error) {
 	var count uint64
-	err := s.conn.QueryRow(ctx, `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID).Scan(&count)
+	err := s.conn.QueryRow(ctx, `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID).Scan(&count)
 	return count, err
 }
 
@@ -108,7 +112,7 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 			js_changed_canonical, js_changed_content,
 			js_added_links, js_added_images, js_added_schema
 		FROM crawlobserver.pages
-		WHERE crawl_session_id = ?`
+		WHERE crawl_session_id = ? AND ` + notRedirectedFilter
 	args := []interface{}{sessionID}
 
 	whereExtra, filterArgs, err := BuildWhereClause(filters)
@@ -1292,7 +1296,7 @@ func (s *Store) PageRankDistribution(ctx context.Context, sessionID string, buck
 		SELECT count(), avg(pagerank),
 			quantile(0.5)(pagerank), quantile(0.9)(pagerank), quantile(0.99)(pagerank)
 		FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND pagerank > 0`, sessionID)
+		WHERE crawl_session_id = ? AND pagerank > 0 AND `+notRedirectedFilter, sessionID)
 	if err := row.Scan(&result.TotalWithPR, &result.Avg, &result.Median, &result.P90, &result.P99); err != nil {
 		return nil, fmt.Errorf("querying pagerank stats: %w", err)
 	}
@@ -1313,7 +1317,7 @@ func (s *Store) PageRankDistribution(ctx context.Context, sessionID string, buck
 			count() AS cnt,
 			avg(pagerank) AS avg_pr
 		FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND pagerank > 0
+		WHERE crawl_session_id = ? AND pagerank > 0 AND `+notRedirectedFilter+`
 		GROUP BY bucket_min, bucket_max
 		ORDER BY bucket_min`, width, width, width, width, width)
 	rows, err := s.conn.Query(ctx, distQuery, sessionID)
@@ -1364,7 +1368,7 @@ func (s *Store) PageRankTreemap(ctx context.Context, sessionID string, depth, mi
 			avg(pagerank) AS avg_pr,
 			max(pagerank) AS max_pr
 		FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND pagerank > 0
+		WHERE crawl_session_id = ? AND pagerank > 0 AND `+notRedirectedFilter+`
 		GROUP BY dir_path
 		HAVING page_count >= %d
 		ORDER BY total_pr DESC
@@ -1419,7 +1423,7 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 	result := &PageRankTopResult{}
 
 	// Count query
-	countQuery := `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ? AND pagerank > 0`
+	countQuery := `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ? AND pagerank > 0 AND ` + notRedirectedFilter
 	countArgs := []interface{}{sessionID}
 	if directory != "" {
 		countQuery += ` AND url LIKE ?`
@@ -1433,7 +1437,7 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 	// Data query
 	query := `SELECT url, pagerank, depth, internal_links_out, external_links_out, word_count, status_code, title
 		FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND pagerank > 0`
+		WHERE crawl_session_id = ? AND pagerank > 0 AND ` + notRedirectedFilter
 	args := []interface{}{sessionID}
 	if directory != "" {
 		query += ` AND url LIKE ?`
@@ -1795,6 +1799,7 @@ func (s *Store) PagesWithAuthority(ctx context.Context, sessionID, projectID str
 		SELECT count()
 		FROM crawlobserver.pages FINAL AS p
 		WHERE p.crawl_session_id = ? AND p.status_code >= 200 AND p.status_code < 300
+		  AND `+notRedirectedFilter+`
 	`, sessionID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting authority pages: %w", err)
 	}
@@ -1807,6 +1812,7 @@ func (s *Store) PagesWithAuthority(ctx context.Context, sessionID, projectID str
 		  ON p.url = t.url AND t.project_id = ? AND t.provider = 'seobserver'
 		WHERE p.crawl_session_id = ?
 		  AND p.status_code >= 200 AND p.status_code < 300
+		  AND (p.final_url = '' OR p.final_url = p.url)
 		ORDER BY t.trust_flow DESC NULLS LAST
 		LIMIT ? OFFSET ?
 	`, projectID, sessionID, limit, offset)
@@ -1858,7 +1864,7 @@ func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID st
 	result := &WeightedPageRankResult{}
 
 	// Count pages with PR > 0
-	countQuery := `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ? AND pagerank > 0`
+	countQuery := `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ? AND pagerank > 0 AND ` + notRedirectedFilter
 	countArgs := []interface{}{sessionID}
 	if directory != "" {
 		countQuery += ` AND url LIKE ?`
@@ -1894,7 +1900,7 @@ func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID st
 		FROM (
 			SELECT url, pagerank, depth, internal_links_out, status_code, title
 			FROM crawlobserver.pages FINAL
-			WHERE crawl_session_id = ? AND pagerank > 0
+			WHERE crawl_session_id = ? AND pagerank > 0 AND ` + notRedirectedFilter + `
 		) AS p
 		CROSS JOIN (
 			SELECT

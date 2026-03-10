@@ -494,6 +494,38 @@ func (m *mockStore) RunExtractionsPostCrawl(_ context.Context, _ string, _ []ext
 	return nil, m.err
 }
 
+// Interlinking & simulation stubs
+func (m *mockStore) DeleteInterlinkingOpportunities(_ context.Context, _ string) error {
+	return m.err
+}
+func (m *mockStore) InsertInterlinkingOpportunities(_ context.Context, _ string, _ []storage.InterlinkingOpportunity) error {
+	return m.err
+}
+func (m *mockStore) ListInterlinkingOpportunities(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter, _ *storage.SortParam) ([]storage.InterlinkingOpportunity, int, error) {
+	return nil, 0, m.err
+}
+func (m *mockStore) LoadInternalLinkSet(_ context.Context, _ string) (map[[2]string]struct{}, error) {
+	return nil, m.err
+}
+func (m *mockStore) LoadPageMetadata(_ context.Context, _ string) (map[string]storage.PageMetadata, error) {
+	return nil, m.err
+}
+func (m *mockStore) LoadPageRankGraph(_ context.Context, _ string) (*storage.PageRankGraph, error) {
+	return nil, m.err
+}
+func (m *mockStore) InsertSimulation(_ context.Context, _ string, _ string, _ []storage.VirtualLink, _ []storage.SimulationResultRow, _ storage.SimulationMeta) error {
+	return m.err
+}
+func (m *mockStore) ListSimulations(_ context.Context, _ string) ([]storage.SimulationMeta, error) {
+	return nil, m.err
+}
+func (m *mockStore) GetSimulation(_ context.Context, _, _ string) (*storage.SimulationMeta, error) {
+	return nil, m.err
+}
+func (m *mockStore) ListSimulationResults(_ context.Context, _, _ string, _, _ int, _ []storage.ParsedFilter, _ *storage.SortParam) ([]storage.SimulationResultRow, int, error) {
+	return nil, 0, m.err
+}
+
 // ---------------------------------------------------------------------------
 // mockManager implements CrawlService
 // ---------------------------------------------------------------------------

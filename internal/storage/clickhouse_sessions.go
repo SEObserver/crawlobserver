@@ -198,7 +198,7 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 	// Page stats
 	row := s.conn.QueryRow(ctx, `
 		SELECT count(), avg(fetch_duration_ms), countIf(error != '')
-		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID)
 	if err := row.Scan(&stats.TotalPages, &stats.AvgFetchMs, &stats.ErrorCount); err != nil {
 		return nil, fmt.Errorf("querying page stats: %w", err)
 	}
@@ -246,7 +246,8 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 	// Depth distribution
 	depthRows, err := s.conn.Query(ctx, `
 		SELECT depth, count() FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND content_type LIKE '%html%' GROUP BY depth ORDER BY depth`, sessionID)
+		WHERE crawl_session_id = ? AND content_type LIKE '%html%' AND `+notRedirectedFilter+`
+		GROUP BY depth ORDER BY depth`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("querying depth distribution: %w", err)
 	}
@@ -279,7 +280,8 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 				SELECT count()
 				FROM crawlobserver.pages
 				WHERE crawl_session_id = ?
-				  AND crawled_at >= now() - INTERVAL 60 SECOND`, sessionID)
+				  AND crawled_at >= now() - INTERVAL 60 SECOND
+				  AND `+notRedirectedFilter, sessionID)
 			if err := recentRow.Scan(&recentCount); err == nil && recentCount > 0 {
 				stats.PagesPerSecond = float64(recentCount) / 60.0
 			}
@@ -294,7 +296,7 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 	// Top PageRank
 	prRows, err := s.conn.Query(ctx, `
 		SELECT url, pagerank FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND pagerank > 0
+		WHERE crawl_session_id = ? AND pagerank > 0 AND `+notRedirectedFilter+`
 		ORDER BY pagerank DESC LIMIT 20`, sessionID)
 	if err == nil {
 		defer prRows.Close()
@@ -316,7 +318,7 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 			countIf(js_changed_h1),
 			countIf(js_changed_content),
 			avgIf(js_render_duration_ms, js_rendered)
-		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID)
 	if err := jsRow.Scan(&stats.JSRenderedPages, &stats.JSChangedTitleCount,
 		&stats.JSChangedH1Count, &stats.JSChangedContentCount, &stats.AvgJSRenderMs); err != nil {
 		applog.Warnf("storage", "querying JS render stats: %v", err)
@@ -479,7 +481,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			sum(images_count) AS images_total,
 			sum(images_no_alt) AS images_no_alt_total,
 			countIf(images_no_alt > 0) AS pages_with_images_no_alt
-		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID)
 	if err := row.Scan(
 		&content.Total, &content.HTMLPages,
 		&content.TitleMissing, &content.TitleTooLong, &content.TitleTooShort,
@@ -495,7 +497,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	dupRow := s.conn.QueryRow(ctx, `
 		SELECT sum(cnt - 1) FROM (
 			SELECT title, count() AS cnt FROM crawlobserver.pages
-			WHERE crawl_session_id = ? AND title != ''
+			WHERE crawl_session_id = ? AND title != '' AND `+notRedirectedFilter+`
 			GROUP BY title HAVING cnt > 1
 		)`, sessionID)
 	var titleDups int64
@@ -522,7 +524,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			countIf(fetch_duration_ms >= 500 AND fetch_duration_ms < 1000) AS response_slow,
 			countIf(fetch_duration_ms >= 1000) AS response_very_slow,
 			countIf(error != '') AS error_pages
-		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID)
 	if err := techRow.Scan(
 		&tech.Indexable, &tech.NonIndexable,
 		&tech.CanonicalSelf, &tech.CanonicalOther, &tech.CanonicalMissing,
@@ -536,7 +538,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	// Noindex reasons
 	niRows, err := s.conn.Query(ctx, `
 		SELECT index_reason, count() AS cnt FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND is_indexable = false AND index_reason != ''
+		WHERE crawl_session_id = ? AND is_indexable = false AND index_reason != '' AND `+notRedirectedFilter+`
 		GROUP BY index_reason ORDER BY cnt DESC`, sessionID)
 	if err == nil {
 		defer niRows.Close()
@@ -554,7 +556,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	// Content types
 	ctRows, err := s.conn.Query(ctx, `
 		SELECT content_type, count() AS cnt FROM crawlobserver.pages
-		WHERE crawl_session_id = ?
+		WHERE crawl_session_id = ? AND `+notRedirectedFilter+`
 		GROUP BY content_type ORDER BY cnt DESC LIMIT 20`, sessionID)
 	if err == nil {
 		defer ctRows.Close()
@@ -589,7 +591,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			countIf(internal_links_out = 0) AS pages_no_internal_out,
 			countIf(internal_links_out > 100) AS pages_high_internal_out,
 			countIf(external_links_out = 0) AS pages_no_external
-		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID)
 	if err := pageDistRow.Scan(&links.PagesNoInternalOut, &links.PagesHighInternalOut, &links.PagesNoExternal); err != nil {
 		applog.Warnf("audit", "scan link distribution: %v", err)
 	}
@@ -652,7 +654,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			concat('/', arrayStringConcat(arraySlice(splitByChar('/', pathFull(url)), 2, 1), '/'), '/') AS dir,
 			count() AS cnt
 		FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND content_type LIKE '%html%'
+		WHERE crawl_session_id = ? AND content_type LIKE '%html%' AND `+notRedirectedFilter+`
 		GROUP BY dir ORDER BY cnt DESC LIMIT 50`, sessionID)
 	if err == nil {
 		defer dirRows.Close()
@@ -676,7 +678,8 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			FROM crawlobserver.links
 			WHERE crawl_session_id = ? AND is_internal = true
 		) AS l ON p.url = l.target_url
-		WHERE p.crawl_session_id = ? AND p.content_type LIKE '%html%'`, sessionID, sessionID)
+		WHERE p.crawl_session_id = ? AND p.content_type LIKE '%html%'
+		  AND (p.final_url = '' OR p.final_url = p.url)`, sessionID, sessionID)
 	if err := orphanRow.Scan(&structure.OrphanPages); err != nil {
 		applog.Warnf("audit", "scan orphan pages: %v", err)
 	}
@@ -697,12 +700,12 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			SELECT count() FROM (
 				SELECT DISTINCT loc FROM crawlobserver.sitemap_urls WHERE crawl_session_id = ?
 			) AS sm WHERE sm.loc IN (
-				SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?
+				SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter+`
 			)`, sessionID, sessionID)
 		if ibRow.Scan(&inBoth) == nil {
 			sitemaps.InBoth = inBoth
 			var totalCrawled uint64
-			tcRow := s.conn.QueryRow(ctx, `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+			tcRow := s.conn.QueryRow(ctx, `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID)
 			if err := tcRow.Scan(&totalCrawled); err != nil {
 				applog.Warnf("audit", "scan total crawled for sitemap coverage: %v", err)
 			}
@@ -719,7 +722,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 			countIf(length(hreflang) > 0) AS pages_with_hreflang,
 			countIf(lang != '') AS pages_with_lang,
 			countIf(length(schema_types) > 0) AS pages_with_schema
-		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID)
 	if err := intlRow.Scan(&intl.PagesWithHreflang, &intl.PagesWithLang, &intl.PagesWithSchema); err != nil {
 		applog.Warnf("audit", "scan international stats: %v", err)
 	}
@@ -727,7 +730,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	// Lang distribution
 	langRows, err := s.conn.Query(ctx, `
 		SELECT lang, count() AS cnt FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND lang != ''
+		WHERE crawl_session_id = ? AND lang != '' AND `+notRedirectedFilter+`
 		GROUP BY lang ORDER BY cnt DESC LIMIT 20`, sessionID)
 	if err == nil {
 		defer langRows.Close()
@@ -745,7 +748,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	// Schema distribution
 	schemaRows, err := s.conn.Query(ctx, `
 		SELECT arrayJoin(schema_types) AS st, count() AS cnt FROM crawlobserver.pages
-		WHERE crawl_session_id = ? AND length(schema_types) > 0
+		WHERE crawl_session_id = ? AND length(schema_types) > 0 AND `+notRedirectedFilter+`
 		GROUP BY st ORDER BY cnt DESC LIMIT 20`, sessionID)
 	if err == nil {
 		defer schemaRows.Close()
