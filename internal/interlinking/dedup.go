@@ -28,25 +28,31 @@ var trackingParams = map[string]bool{
 	"utm_term":     true,
 }
 
-// NormalizeURL strips known tracking parameters from a URL.
+// NormalizeURL strips known tracking parameters and normalizes trailing slashes.
 // Returns the cleaned URL string. If parsing fails, returns the original.
 func NormalizeURL(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return rawURL
 	}
-	q := u.Query()
-	if len(q) == 0 {
-		return rawURL
-	}
 
 	changed := false
+
+	// Strip trailing slash (keep "/" for root path)
+	if len(u.Path) > 1 && strings.HasSuffix(u.Path, "/") {
+		u.Path = strings.TrimRight(u.Path, "/")
+		changed = true
+	}
+
+	// Strip tracking parameters
+	q := u.Query()
 	for param := range q {
 		if trackingParams[strings.ToLower(param)] {
 			q.Del(param)
 			changed = true
 		}
 	}
+
 	if !changed {
 		return rawURL
 	}

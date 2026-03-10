@@ -37,6 +37,15 @@ func TestNormalizeURL_StripsTrackingParams(t *testing.T) {
 		{"https://example.com/page?UTM_SOURCE=google", "https://example.com/page"},
 		// Multiple tracking params mixed with legitimate ones
 		{"https://example.com/p?a=1&gclid=x&b=2&fbclid=y&c=3", "https://example.com/p?a=1&b=2&c=3"},
+		// Trailing slash normalization
+		{"https://example.com/page/", "https://example.com/page"},
+		{"https://example.com/a/b/c/", "https://example.com/a/b/c"},
+		// Root path keeps slash
+		{"https://example.com/", "https://example.com/"},
+		// Trailing slash + tracking params combined
+		{"https://example.com/page/?utm_source=google", "https://example.com/page"},
+		// No trailing slash — unchanged
+		{"https://example.com/page", "https://example.com/page"},
 	}
 
 	for _, tc := range tests {
@@ -240,6 +249,34 @@ func TestDeduplicatePages_RealParamsNotStripped(t *testing.T) {
 
 	if len(skip) != 0 {
 		t.Errorf("different real query params should not be deduped, got %d skips", len(skip))
+	}
+}
+
+func TestDeduplicatePages_TrailingSlash(t *testing.T) {
+	meta := map[string]storage.PageMetadata{
+		"https://example.com/polyfill": {
+			PageRank:      26.76,
+			CanonicalSelf: true,
+			Canonical:     "https://example.com/polyfill",
+		},
+		"https://example.com/polyfill/": {
+			PageRank:      26.88,
+			CanonicalSelf: true,
+			Canonical:     "https://example.com/polyfill/",
+		},
+	}
+
+	skip := DeduplicatePages(meta)
+
+	// One of the two should be skipped
+	skipped := 0
+	for _, v := range skip {
+		if v {
+			skipped++
+		}
+	}
+	if skipped != 1 {
+		t.Errorf("expected 1 trailing-slash duplicate skipped, got %d", skipped)
 	}
 }
 
