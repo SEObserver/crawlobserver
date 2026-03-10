@@ -467,6 +467,92 @@ func isValidUUID(s string) bool {
 	return err == nil
 }
 
+// ComputePageRankIterations runs the PageRank power method on an in-memory graph.
+//
+// The algorithm accounts for external and nofollow link dilution:
+//   - outLinks[i] contains only internal dofollow targets (where PR flows)
+//   - totalOutLinks[i] contains the total number of distinct outgoing links
+//     from page i (internal + external, all rel types), used as the divisor
+//
+// Pages with totalOutLinks == 0 are truly dangling (rank redistributed evenly).
+// Pages with totalOutLinks > 0 but no internal dofollow links have their PR
+// leak out of the internal graph — this correctly models the real PageRank
+// behavior where external/nofollow links consume link equity without passing it.
+//
+// Returns normalized scores in 0–100 range.
+func ComputePageRankIterations(n uint32, outLinks [][]uint32, totalOutLinks []uint32) []float64 {
+	const damping = 0.85
+	const iterations = 20
+	const tolerance = 1e-6
+
+	rank := make([]float64, n)
+	newRank := make([]float64, n)
+	initial := 1.0 / float64(n)
+	for i := range rank {
+		rank[i] = initial
+	}
+
+	for iter := 0; iter < iterations; iter++ {
+		base := (1.0 - damping) / float64(n)
+		for i := range newRank {
+			newRank[i] = base
+		}
+
+		// Dangling nodes: no outgoing links at all → redistribute evenly.
+		var danglingSum float64
+		for i := uint32(0); i < n; i++ {
+			if totalOutLinks[i] == 0 {
+				danglingSum += rank[i]
+			}
+		}
+		danglingContrib := damping * danglingSum / float64(n)
+		for i := range newRank {
+			newRank[i] += danglingContrib
+		}
+
+		// Distribute rank through internal dofollow links.
+		// Divide by totalOutLinks (includes external + nofollow) for proper dilution.
+		for src := uint32(0); src < n; src++ {
+			if len(outLinks[src]) == 0 {
+				continue
+			}
+			contrib := damping * rank[src] / float64(totalOutLinks[src])
+			for _, tgt := range outLinks[src] {
+				newRank[tgt] += contrib
+			}
+		}
+
+		var diff float64
+		for i := range rank {
+			d := newRank[i] - rank[i]
+			if d < 0 {
+				d = -d
+			}
+			diff += d
+		}
+
+		rank, newRank = newRank, rank
+
+		if diff < tolerance {
+			break
+		}
+	}
+
+	// Normalize to 0–100 scale.
+	var maxRank float64
+	for _, r := range rank {
+		if r > maxRank {
+			maxRank = r
+		}
+	}
+	if maxRank > 0 {
+		for i := range rank {
+			rank[i] = (rank[i] / maxRank) * 100.0
+		}
+	}
+	return rank
+}
+
 // ComputePageRank computes internal PageRank for all pages in a session.
 // Uses uint32 IDs for memory efficiency and iterative power method.
 // URL→ID mapping is done in ClickHouse via a Join-engine temp table,
@@ -544,14 +630,47 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 	// Free the Go-side map — no longer needed
 	urlToID = nil
 
-	// 3. Load deduplicated internal links as uint32 ID pairs (resolved in ClickHouse)
+	// 3. Load total outlink count per page (internal + external, all rel types).
+	// Used as divisor for PR distribution so that external and nofollow links
+	// properly dilute internal PageRank.
 	t2 := time.Now()
+	totalOutLinks := make([]uint32, n)
+	countRows, err := s.conn.Query(ctx, fmt.Sprintf(`
+		SELECT
+			joinGet('%s', 'id', source_url) AS src_id,
+			toUInt32(uniqExact(target_url)) AS total_outlinks
+		FROM crawlobserver.links
+		WHERE crawl_session_id = ?
+			AND source_url IN (SELECT url FROM %s)
+			AND source_url != target_url
+		GROUP BY src_id`,
+		idTable, idTable), sessionID)
+	if err != nil {
+		return fmt.Errorf("querying total outlink counts: %w", err)
+	}
+	defer countRows.Close()
+
+	for countRows.Next() {
+		var srcID, cnt uint32
+		if err := countRows.Scan(&srcID, &cnt); err != nil {
+			return fmt.Errorf("scanning outlink count: %w", err)
+		}
+		totalOutLinks[srcID] = cnt
+	}
+	if err := countRows.Err(); err != nil {
+		return fmt.Errorf("iterating outlink counts: %w", err)
+	}
+
+	// 4. Load internal dofollow links as edges for PR distribution.
+	// Nofollow, sponsored, and UGC links are excluded — they dilute PR
+	// (counted in totalOutLinks) but do not pass it.
 	linkRows, err := s.conn.Query(ctx, fmt.Sprintf(`
 		SELECT
 			joinGet('%s', 'id', source_url) AS src_id,
 			joinGet('%s', 'id', target_url) AS tgt_id
 		FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND is_internal = true
+			AND NOT hasAny(splitByString(' ', lower(rel)), ['nofollow', 'sponsored', 'ugc'])
 			AND source_url IN (SELECT url FROM %s)
 			AND target_url IN (SELECT url FROM %s)
 		GROUP BY src_id, tgt_id
@@ -576,82 +695,13 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		return fmt.Errorf("iterating link IDs: %w", err)
 	}
 
-	applog.Infof("storage", "PageRank: loaded %d unique edges in %s", edgeCount, time.Since(t2))
+	applog.Infof("storage", "PageRank: loaded outlink counts + %d internal dofollow edges in %s", edgeCount, time.Since(t2))
 
-	// 4. PageRank iteration (power method)
-	const damping = 0.85
-	const iterations = 20
-	const tolerance = 1e-6
+	// 5. PageRank iteration + normalization
+	rank := ComputePageRankIterations(n, outLinks, totalOutLinks)
 
-	rank := make([]float64, n)
-	newRank := make([]float64, n)
-	initial := 1.0 / float64(n)
-	for i := range rank {
-		rank[i] = initial
-	}
 
-	for iter := 0; iter < iterations; iter++ {
-		// Reset newRank with teleportation base
-		base := (1.0 - damping) / float64(n)
-		for i := range newRank {
-			newRank[i] = base
-		}
-
-		// Accumulate dangling node mass (nodes with no outgoing links)
-		var danglingSum float64
-		for i := uint32(0); i < n; i++ {
-			if len(outLinks[i]) == 0 {
-				danglingSum += rank[i]
-			}
-		}
-		danglingContrib := damping * danglingSum / float64(n)
-		for i := range newRank {
-			newRank[i] += danglingContrib
-		}
-
-		// Distribute rank through links
-		for src := uint32(0); src < n; src++ {
-			if len(outLinks[src]) == 0 {
-				continue
-			}
-			contrib := damping * rank[src] / float64(len(outLinks[src]))
-			for _, tgt := range outLinks[src] {
-				newRank[tgt] += contrib
-			}
-		}
-
-		// Check convergence
-		var diff float64
-		for i := range rank {
-			d := newRank[i] - rank[i]
-			if d < 0 {
-				d = -d
-			}
-			diff += d
-		}
-
-		rank, newRank = newRank, rank
-
-		if diff < tolerance {
-			applog.Infof("storage", "PageRank converged after %d iterations (diff=%.2e)", iter+1, diff)
-			break
-		}
-	}
-
-	// 5. Normalize to 0-100 scale
-	var maxRank float64
-	for _, r := range rank {
-		if r > maxRank {
-			maxRank = r
-		}
-	}
-	if maxRank > 0 {
-		for i := range rank {
-			rank[i] = (rank[i] / maxRank) * 100.0
-		}
-	}
-
-	// 6. Write back via temp table + single mutation (avoids 100s of mutations)
+	// 7. Write back via temp table + single mutation (avoids 100s of mutations)
 	if !isValidUUID(sessionID) {
 		return fmt.Errorf("invalid session ID: %s", sessionID)
 	}

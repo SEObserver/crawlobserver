@@ -234,6 +234,25 @@ Under the hood, CrawlObserver uses ClickHouse in managed mode: it downloads a st
 
 </details>
 
+<details>
+<summary><strong>How internal PageRank works</strong></summary>
+
+CrawlObserver computes PageRank in-memory using the iterative power method (damping factor 0.85, up to 20 iterations, 1e-6 convergence threshold). The result is normalized to a 0&ndash;100 scale.
+
+**Key modeling choices:**
+
+1. **External links dilute PR.** When a page has outgoing links to external sites, those links are counted in the total outlink divisor. A page with 3 internal links and 7 external links passes `PR/10` to each internal target &mdash; not `PR/3`. This correctly models the fact that link equity is split across *all* outgoing links, not just internal ones.
+
+2. **Nofollow / sponsored / UGC links dilute but do not pass PR.** Links with `rel="nofollow"`, `rel="sponsored"`, or `rel="ugc"` are counted in the total outlink divisor (they consume link equity) but are excluded from the edge graph (they don't transfer it). This matches the "evaporating" model: nofollow links burn PageRank without redirecting it.
+
+3. **External-only pages are not dangling.** A page that links only to external sites is *not* treated as a dangling node. Its rank leaks out of the internal graph instead of being redistributed. Only pages with zero outgoing links (true dead ends) trigger dangling-node redistribution.
+
+4. **Self-links are excluded.** A page linking to itself does not count as an outgoing link for PageRank purposes.
+
+These choices mean that CrawlObserver's internal PageRank is conservative: pages that link heavily to external sites or use nofollow on internal links will show lower PR flow than a naive internal-only model would suggest. We believe this better reflects how search engines handle link equity.
+
+</details>
+
 ### Tech stack
 
 | Layer | Technology |
