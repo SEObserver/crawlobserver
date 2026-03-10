@@ -161,26 +161,6 @@
 <div class="card">
   <div class="form-grid">
     <div class="form-group">
-      <label for="set-appname">{t('settings.appName')}</label>
-      <input id="set-appname" type="text" bind:value={editTheme.app_name} oninput={previewTheme} />
-    </div>
-    <div class="form-group">
-      <label for="set-logo">{t('settings.logoUrl')}</label>
-      <input
-        id="set-logo"
-        type="text"
-        bind:value={editTheme.logo_url}
-        oninput={previewTheme}
-        placeholder="https://example.com/logo.png"
-      />
-    </div>
-    {#if editTheme.logo_url}
-      <div class="form-group full-width">
-        <span class="field-label">{t('settings.logoPreview')}</span>
-        <img src={editTheme.logo_url} alt={t('settings.logoPreview')} class="logo-preview" />
-      </div>
-    {/if}
-    <div class="form-group">
       <label for="set-accent">{t('settings.accentColor')}</label>
       <div class="color-picker-row">
         <input
@@ -201,6 +181,14 @@
       <div class="flex-center-gap">
         <button
           class="btn btn-sm"
+          class:btn-primary={editTheme.mode === 'auto'}
+          onclick={() => {
+            editTheme.mode = 'auto';
+            previewTheme();
+          }}>{t('settings.auto')}</button
+        >
+        <button
+          class="btn btn-sm"
           class:btn-primary={editTheme.mode === 'light'}
           onclick={() => {
             editTheme.mode = 'light';
@@ -218,17 +206,17 @@
       </div>
     </div>
     <div class="form-group">
-      <label>{t('settings.language')}</label>
-      <div class="flex-center-gap" style="flex-wrap: wrap;">
-        {#each ['en', 'fr', 'es', 'pt', 'nl', 'it', 'de', 'ru', 'zh', 'ja', 'tr', 'id', 'ko', 'pl', 'he', 'ar'] as lang}
-          <button
-            class="btn btn-sm"
-            class:btn-primary={getLocale() === lang}
-            onclick={() => setLocale(lang)}
-            >{t('settings.lang' + lang.charAt(0).toUpperCase() + lang.slice(1))}</button
-          >
+      <label for="set-language">{t('settings.language')}</label>
+      <select id="set-language" class="lang-select" value={getLocale()} onchange={(e) => setLocale(e.target.value)}>
+        {#each [
+          ['en', 'English'], ['fr', 'Français'], ['es', 'Español'], ['pt', 'Português'],
+          ['it', 'Italiano'], ['nl', 'Nederlands'], ['de', 'Deutsch'], ['pl', 'Polski'],
+          ['tr', 'Türkçe'], ['ru', 'Русский'], ['zh', '中文'], ['ja', '日本語'],
+          ['ko', '한국어'], ['id', 'Bahasa Indonesia'], ['he', 'עברית'], ['ar', 'العربية'],
+        ] as [code, name]}
+          <option value={code}>{name}</option>
         {/each}
-      </div>
+      </select>
     </div>
   </div>
   <div class="form-actions">
@@ -357,21 +345,11 @@
   />{/if}
 
 <style>
-  .full-width {
-    grid-column: 1 / -1;
-  }
-
   .field-label {
     font-weight: 500;
     font-size: 0.85rem;
     color: var(--text-secondary);
     display: block;
-  }
-
-  .logo-preview {
-    max-height: 48px;
-    border-radius: 6px;
-    background: var(--bg-card);
   }
 
   .color-picker-row {
@@ -392,6 +370,16 @@
   .color-value {
     font-family: monospace;
     color: var(--text-secondary);
+  }
+
+  .lang-select {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-card);
+    color: var(--text);
+    font-size: 0.9rem;
+    max-width: 220px;
   }
 
   .form-actions {

@@ -316,6 +316,7 @@
   "settings.mode": "Tryb",
   "settings.light": "Jasny",
   "settings.dark": "Ciemny",
+  "settings.auto": "Auto",
   "settings.language": "Jezyk",
   "settings.langEn": "English",
   "settings.langFr": "Français",

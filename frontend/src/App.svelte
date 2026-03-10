@@ -34,7 +34,7 @@
   import { fmtSize } from './lib/utils.js';
   import { pushURL, parseRoute } from './lib/router.js';
   import { createSSEManager } from './lib/sse.js';
-  import { applyTheme, loadThemeFromServer, saveDarkMode } from './lib/theme.js';
+  import { applyTheme, loadThemeFromServer, saveDarkMode, listenColorScheme } from './lib/theme.js';
   import OnboardingWizard from './lib/components/OnboardingWizard.svelte';
   import CrawlForm from './lib/components/CrawlForm.svelte';
   import GlobalStatsPage from './lib/components/GlobalStatsPage.svelte';
@@ -192,7 +192,9 @@
   }
 
   function toggleDarkMode() {
-    darkMode = !darkMode;
+    if (darkMode === 'auto') darkMode = false;
+    else if (darkMode === false) darkMode = true;
+    else darkMode = 'auto';
     saveDarkMode(darkMode);
     applyTheme(theme, darkMode);
   }
@@ -206,15 +208,15 @@
   }
 
   function handleSettingsSave(saved, isPreview) {
+    const newDarkMode = saved.mode === 'auto' ? 'auto' : saved.mode === 'dark';
     if (isPreview) {
       theme.accent_color = saved.accent_color;
-      theme.app_name = saved.app_name;
-      theme.logo_url = saved.logo_url;
-      darkMode = saved.mode === 'dark';
+      darkMode = newDarkMode;
       applyTheme(theme, darkMode);
     } else {
       theme = saved;
-      darkMode = saved.mode === 'dark';
+      darkMode = newDarkMode;
+      saveDarkMode(darkMode);
       applyTheme(theme, darkMode);
       currentView = 'home';
     }
@@ -586,6 +588,7 @@
   // Boot: check setup status first, then load app
   async function boot() {
     await loadTheme();
+    listenColorScheme(() => ({ theme, darkMode }));
     try {
       const setupStatus = await getSetupStatus();
       if (!setupStatus.setup_complete) {

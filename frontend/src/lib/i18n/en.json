@@ -335,6 +335,7 @@
   "settings.mode": "Mode",
   "settings.light": "Light",
   "settings.dark": "Dark",
+  "settings.auto": "Auto",
   "settings.language": "Language",
   "settings.langEn": "English",
   "settings.langFr": "Français",

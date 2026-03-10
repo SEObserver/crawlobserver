@@ -28,6 +28,12 @@
     appVersion,
   } = $props();
 
+  let isDark = $derived(
+    darkMode === 'auto'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : !!darkMode,
+  );
+
   /** @param {HTMLElement} node */
   function focusOnMount(node) {
     node.focus();
@@ -98,7 +104,7 @@
   <div class="sidebar-header">
     {#if theme.logo_url}
       <img class="sidebar-logo" src={theme.logo_url} alt="Logo" />
-    {:else if darkMode}
+    {:else if isDark}
       <svg
         class="sidebar-logo"
         viewBox="0 0 224 213"
@@ -490,9 +496,11 @@
       <button
         class="sidebar-icon-btn"
         onclick={() => ontoggledarkmode?.()}
-        title={darkMode ? t('sidebar.lightMode') : t('sidebar.darkMode')}
+        title={darkMode === 'auto' ? t('settings.auto') : darkMode ? t('sidebar.lightMode') : t('sidebar.darkMode')}
       >
-        {#if darkMode}
+        {#if darkMode === 'auto'}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" /></svg>
+        {:else if darkMode}
           <svg
             viewBox="0 0 24 24"
             width="16"
@@ -552,7 +560,7 @@
       </button>
     </div>
     <a class="sidebar-branding" href="https://www.seobserver.com" target="_blank" rel="noopener">
-      {#if darkMode}
+      {#if isDark}
         <svg viewBox="0 0 224 213" width="16" height="16"
           ><g fill="#fff" fill-rule="evenodd" clip-rule="evenodd"
             ><circle cx="9.2" cy="37.5" r="9.2" /><circle cx="13.2" cy="11.5" r="8.2" /><circle

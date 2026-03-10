@@ -316,6 +316,7 @@
   "settings.mode": "Mod",
   "settings.light": "Açık",
   "settings.dark": "Koyu",
+  "settings.auto": "Auto",
   "settings.language": "Dil",
   "settings.langEn": "English",
   "settings.langFr": "Français",
