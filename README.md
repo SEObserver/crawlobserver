@@ -49,9 +49,8 @@ At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We buil
 
 ## Quick Start
 
-Download the latest binary from the [releases page](https://github.com/SEObserver/crawlobserver/releases/latest), then:
-
 ```bash
+curl -fsSL crawlobserver.com/install.sh | sh
 ./crawlobserver
 ```
 
