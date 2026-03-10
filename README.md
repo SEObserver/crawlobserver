@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <video src="https://github.com/SEObserver/crawlobserver/raw/main/demo.mp4" width="900" autoplay loop muted playsinline></video>
+  <img src="demo.gif" alt="CrawlObserver Web UI" width="900">
 </p>
 
 ---
