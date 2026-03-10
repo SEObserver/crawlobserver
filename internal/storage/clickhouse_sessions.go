@@ -185,6 +185,7 @@ type SessionStats struct {
 	JSChangedH1Count      uint64            `json:"js_changed_h1_count"`
 	JSChangedContentCount uint64            `json:"js_changed_content_count"`
 	AvgJSRenderMs         float64           `json:"avg_js_render_ms"`
+	UniqueExtDomains      uint64            `json:"unique_ext_domains"`
 }
 
 // SessionStats retrieves aggregate statistics for a crawl session.
@@ -211,6 +212,15 @@ func (s *Store) SessionStats(ctx context.Context, sessionID string) (*SessionSta
 		FROM crawlobserver.links WHERE crawl_session_id = ?`, sessionID)
 	if err := row.Scan(&stats.TotalLinks, &stats.InternalLinks, &stats.ExternalLinks); err != nil {
 		return nil, fmt.Errorf("querying link stats: %w", err)
+	}
+
+	// Unique external domains (using PSL-aware function)
+	extRow := s.conn.QueryRow(ctx, `
+		SELECT count(DISTINCT cutToFirstSignificantSubdomain(target_url))
+		FROM crawlobserver.links
+		WHERE crawl_session_id = ? AND is_internal = false`, sessionID)
+	if err := extRow.Scan(&stats.UniqueExtDomains); err != nil {
+		return nil, fmt.Errorf("querying unique ext domains: %w", err)
 	}
 
 	// Status code distribution

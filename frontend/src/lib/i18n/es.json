@@ -776,6 +776,7 @@
   "report.overview.totalPages": "Total de páginas",
   "report.overview.internalLinks": "Enlaces internos",
   "report.overview.externalLinks": "Enlaces externos",
+  "report.overview.uniqueExtDomains": "Ext. Domains",
   "report.overview.errors": "Errores",
   "report.overview.avgResponse": "Respuesta prom.",
   "report.overview.pagesPerSec": "Páginas/seg",

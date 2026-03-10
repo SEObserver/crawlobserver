@@ -776,6 +776,7 @@
   "report.overview.totalPages": "Pagine Totali",
   "report.overview.internalLinks": "Link Interni",
   "report.overview.externalLinks": "Link Esterni",
+  "report.overview.uniqueExtDomains": "Ext. Domains",
   "report.overview.errors": "Errori",
   "report.overview.avgResponse": "Risposta Media",
   "report.overview.pagesPerSec": "Pagine/sec",

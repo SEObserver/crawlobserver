@@ -321,6 +321,16 @@
       </div>
       <div
         class="stat-card stat-card-link"
+        onclick={() => nav('external')}
+        role="button"
+        tabindex="0"
+        onkeydown={a11yKeydown(() => nav('external'))}
+      >
+        <div class="stat-value"><AnimatedNumber value={stats.unique_ext_domains || 0} /></div>
+        <div class="stat-label">{t('report.overview.uniqueExtDomains')}</div>
+      </div>
+      <div
+        class="stat-card stat-card-link"
         onclick={() => nav('response', { status_code: '>=400' })}
         role="button"
         tabindex="0"

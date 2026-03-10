@@ -776,6 +776,7 @@
   "report.overview.totalPages": "סה״כ עמודים",
   "report.overview.internalLinks": "קישורים פנימיים",
   "report.overview.externalLinks": "קישורים חיצוניים",
+  "report.overview.uniqueExtDomains": "Ext. Domains",
   "report.overview.errors": "שגיאות",
   "report.overview.avgResponse": "זמן תגובה ממוצע",
   "report.overview.pagesPerSec": "עמודים/שנייה",

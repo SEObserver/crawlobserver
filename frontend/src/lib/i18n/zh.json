@@ -776,6 +776,7 @@
   "report.overview.totalPages": "总页面数",
   "report.overview.internalLinks": "内部链接",
   "report.overview.externalLinks": "外部链接",
+  "report.overview.uniqueExtDomains": "Ext. Domains",
   "report.overview.errors": "错误",
   "report.overview.avgResponse": "平均响应",
   "report.overview.pagesPerSec": "页面/秒",

@@ -776,6 +776,7 @@
   "report.overview.totalPages": "Laczna liczba stron",
   "report.overview.internalLinks": "Linki wewnetrzne",
   "report.overview.externalLinks": "Linki zewnetrzne",
+  "report.overview.uniqueExtDomains": "Ext. Domains",
   "report.overview.errors": "Bledy",
   "report.overview.avgResponse": "Sr. czas odpowiedzi",
   "report.overview.pagesPerSec": "Stron/s",

@@ -776,6 +776,7 @@
   "report.overview.totalPages": "إجمالي الصفحات",
   "report.overview.internalLinks": "الروابط الداخلية",
   "report.overview.externalLinks": "الروابط الخارجية",
+  "report.overview.uniqueExtDomains": "Ext. Domains",
   "report.overview.errors": "الأخطاء",
   "report.overview.avgResponse": "متوسط الاستجابة",
   "report.overview.pagesPerSec": "صفحة/ثانية",

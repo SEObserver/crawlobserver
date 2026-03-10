@@ -776,6 +776,7 @@
   "report.overview.totalPages": "総ページ数",
   "report.overview.internalLinks": "内部リンク",
   "report.overview.externalLinks": "外部リンク",
+  "report.overview.uniqueExtDomains": "Ext. Domains",
   "report.overview.errors": "エラー",
   "report.overview.avgResponse": "平均応答時間",
   "report.overview.pagesPerSec": "ページ/秒",

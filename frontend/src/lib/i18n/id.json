@@ -776,6 +776,7 @@
   "report.overview.totalPages": "Total Halaman",
   "report.overview.internalLinks": "Tautan Internal",
   "report.overview.externalLinks": "Tautan Eksternal",
+  "report.overview.uniqueExtDomains": "Ext. Domains",
   "report.overview.errors": "Error",
   "report.overview.avgResponse": "Rata-rata Respons",
   "report.overview.pagesPerSec": "Halaman/dtk",

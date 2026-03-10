@@ -776,6 +776,7 @@
   "report.overview.totalPages": "Всего страниц",
   "report.overview.internalLinks": "Внутренние ссылки",
   "report.overview.externalLinks": "Внешние ссылки",
+  "report.overview.uniqueExtDomains": "Ext. Domains",
   "report.overview.errors": "Ошибки",
   "report.overview.avgResponse": "Ср. ответ",
   "report.overview.pagesPerSec": "Страниц/сек",

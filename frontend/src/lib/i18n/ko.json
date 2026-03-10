@@ -776,6 +776,7 @@
   "report.overview.totalPages": "전체 페이지 수",
   "report.overview.internalLinks": "내부 링크",
   "report.overview.externalLinks": "외부 링크",
+  "report.overview.uniqueExtDomains": "Ext. Domains",
   "report.overview.errors": "오류",
   "report.overview.avgResponse": "평균 응답 시간",
   "report.overview.pagesPerSec": "페이지/초",

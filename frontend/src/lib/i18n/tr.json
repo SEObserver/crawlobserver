@@ -776,6 +776,7 @@
   "report.overview.totalPages": "Toplam Sayfa",
   "report.overview.internalLinks": "İç Bağlantılar",
   "report.overview.externalLinks": "Dış Bağlantılar",
+  "report.overview.uniqueExtDomains": "Ext. Domains",
   "report.overview.errors": "Hatalar",
   "report.overview.avgResponse": "Ort Yanıt",
   "report.overview.pagesPerSec": "Sayfa/sn",
