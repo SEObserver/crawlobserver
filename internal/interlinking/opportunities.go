@@ -69,14 +69,19 @@ func ComputeOpportunities(ctx context.Context, store OpportunityStore, opts Comp
 		return err
 	}
 
-	// Wrap channel to filter out DUST URLs
+	// Wrap channel to filter out DUST URLs and non-200 pages (redirects, errors).
+	// pageMeta only contains status_code=200 pages, so this also excludes redirects.
 	filteredCh := make(chan storage.PageHTMLRow, 64)
 	go func() {
 		defer close(filteredCh)
 		for row := range htmlCh {
-			if !skipURLs[row.URL] {
-				filteredCh <- row
+			if skipURLs[row.URL] {
+				continue
 			}
+			if _, ok := pageMeta[row.URL]; !ok {
+				continue // redirect or error page — not in metadata
+			}
+			filteredCh <- row
 		}
 	}()
 

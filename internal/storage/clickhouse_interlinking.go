@@ -139,7 +139,7 @@ func (s *Store) LoadPageMetadata(ctx context.Context, sessionID string) (map[str
 	rows, err := s.conn.Query(ctx,
 		`SELECT url, title, lang, pagerank, word_count, canonical, canonical_is_self
 		FROM crawlobserver.pages
-		WHERE crawl_session_id = ?`, sessionID)
+		WHERE crawl_session_id = ? AND status_code = 200`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("querying page metadata: %w", err)
 	}
