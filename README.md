@@ -49,9 +49,10 @@ At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We buil
 
 ## Quick Start
 
+Download the latest binary from the [releases page](https://github.com/SEObserver/crawlobserver/releases/latest), then:
+
 ```bash
-curl -fsSL crawlobserver.com/install.sh | sh
-crawlobserver
+./crawlobserver
 ```
 
 That's it. Open `http://127.0.0.1:8899` — the setup wizard guides you through the rest. CrawlObserver downloads and manages its own database on first run.
