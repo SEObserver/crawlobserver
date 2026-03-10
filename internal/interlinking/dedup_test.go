@@ -286,3 +286,65 @@ func TestDeduplicatePages_EmptyInput(t *testing.T) {
 		t.Errorf("empty input should return empty skip set, got %d", len(skip))
 	}
 }
+
+func TestNormalizeURL_RootPathNoSlash(t *testing.T) {
+	// https://example.com (no path) should normalize to https://example.com/
+	got := NormalizeURL("https://example.com")
+	want := "https://example.com/"
+	if got != want {
+		t.Errorf("NormalizeURL(%q) = %q, want %q", "https://example.com", got, want)
+	}
+}
+
+func TestNormalizeURL_GoogleAdsParams(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"https://example.com/page?gclsrc=aw.ds", "https://example.com/page"},
+		{"https://example.com/page?awsearchcpc=1", "https://example.com/page"},
+		{"https://example.com/page?_bg=abc&_bk=def", "https://example.com/page"},
+		{"https://example.com/page?dclid=123&wbraid=abc&gbraid=def", "https://example.com/page"},
+		{"https://example.com/page?yclid=abc", "https://example.com/page"},
+		{"https://example.com/page?twclid=abc", "https://example.com/page"},
+		{"https://example.com/page?ttclid=abc", "https://example.com/page"},
+		{"https://example.com/page?li_fat_id=abc", "https://example.com/page"},
+		{"https://example.com/page?igshid=abc", "https://example.com/page"},
+		{"https://example.com/page?_dv=m&_loc=fr&_placement=top&_target=kw", "https://example.com/page"},
+		// Mixed: ads params + real params
+		{"https://example.com/page?id=42&gclsrc=aw.ds&_bt=abc", "https://example.com/page?id=42"},
+	}
+	for _, tc := range tests {
+		got := NormalizeURL(tc.input)
+		if got != tc.want {
+			t.Errorf("NormalizeURL(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestDeduplicatePages_RootSlashNormalization(t *testing.T) {
+	meta := map[string]storage.PageMetadata{
+		"https://example.com": {
+			PageRank:      10,
+			CanonicalSelf: true,
+			Canonical:     "https://example.com",
+		},
+		"https://example.com/": {
+			PageRank:      8,
+			CanonicalSelf: true,
+			Canonical:     "https://example.com/",
+		},
+	}
+
+	skip := DeduplicatePages(meta)
+
+	skipped := 0
+	for _, v := range skip {
+		if v {
+			skipped++
+		}
+	}
+	if skipped != 1 {
+		t.Errorf("expected 1 root-slash duplicate skipped, got %d", skipped)
+	}
+}
