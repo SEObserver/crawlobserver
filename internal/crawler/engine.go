@@ -12,7 +12,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"net/http/cookiejar"
+
 	"github.com/SEObserver/crawlobserver/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/cfsolve"
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/extraction"
 	"github.com/SEObserver/crawlobserver/internal/fetcher"
@@ -77,6 +80,12 @@ type Engine struct {
 	followJSLinks bool
 
 	extractors []extraction.Extractor
+
+	cfSolver      *cfsolve.Solver
+	cfHoldQueue   map[string][]*RetryItem // host → URLs parked during CF solve
+	cfHoldMu      sync.Mutex
+	cookieJar     *cookiejar.Jar
+	pendingCFSolves atomic.Int64
 
 	excludePatterns []string // URL substrings: if URL contains any, skip fetching
 
@@ -286,6 +295,12 @@ func (e *Engine) initCrawl(seeds []string) error {
 		return fmt.Errorf("inserting session: %w", err)
 	}
 
+	// Initialize shared cookie jar so cookies (e.g. cf_clearance) persist across requests
+	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	e.cookieJar = jar
+	e.fetch.SetCookieJar(jar)
+	e.cfHoldQueue = make(map[string][]*RetryItem)
+
 	// Initialize JS rendering pool if enabled
 	e.renderMode = renderer.ParseDetectionMode(e.cfg.Crawler.JSRender.Mode)
 	if e.renderMode != renderer.ModeOff {
@@ -489,6 +504,11 @@ func (e *Engine) startWorkers() (chan *frontier.CrawlURL, func(), func()) {
 			e.flushResourceRefs()
 		}
 
+		// Shutdown CF solver
+		if e.cfSolver != nil {
+			e.cfSolver.Close()
+		}
+
 		// Final buffer flush
 		e.buffer.Close()
 		e.persistRobotsData()
@@ -575,12 +595,12 @@ func (e *Engine) dispatcher(fetchCh chan<- *frontier.CrawlURL) {
 			emptyCount++
 			// If frontier is empty and idle long enough, we're done
 			if e.front.Len() == 0 && emptyCount > 50 {
-				if e.pendingRetries.Load() == 0 {
+				if e.pendingRetries.Load() == 0 && e.pendingCFSolves.Load() == 0 {
 					return
 				}
-				// Force exit if no progress for 30 seconds
+				// Force exit if no progress for 30 seconds (but not while CF solves are in flight)
 				lastProgress := e.lastProgressAt.Load()
-				if lastProgress > 0 && time.Now().Unix()-lastProgress > 30 {
+				if lastProgress > 0 && time.Now().Unix()-lastProgress > 30 && e.pendingCFSolves.Load() == 0 {
 					applog.Infof("crawler", "%s No progress for 30s with empty frontier, finishing (pending retries: %d)", e.logTag(), e.pendingRetries.Load())
 					return
 				}
@@ -654,8 +674,21 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 		default:
 		}
 
-		// Host health tracking BEFORE retry — 403/429 must be recorded even when retried
 		host := extractHost(result.URL)
+
+		// Cloudflare challenge detection — intercept before health tracking
+		isCF := e.cfg.Crawler.Cloudflare.Enabled &&
+			cfsolve.IsCFChallenge(result.StatusCode, result.Headers, result.Body)
+
+		if isCF {
+			applog.Infof("crawler", "%s Cloudflare challenge detected for %s", e.logTag(), host)
+			e.lastProgressAt.Store(time.Now().Unix())
+			e.holdForCFSolve(result)
+			go e.solveCFChallenge(host, result.URL)
+			continue // skip health tracking, retry, and storage
+		}
+
+		// Host health tracking BEFORE retry — 403/429 must be recorded even when retried
 		switch {
 		case result.StatusCode == 403 || result.StatusCode == 429:
 			e.hostHealth.RecordRateLimit(host)
@@ -1005,6 +1038,96 @@ func (e *Engine) enqueueRetry(result *fetcher.FetchResult) {
 		LastCode: result.StatusCode,
 		LastErr:  result.Error,
 	})
+}
+
+// holdForCFSolve parks a URL in the CF hold queue while the challenge is being solved.
+func (e *Engine) holdForCFSolve(result *fetcher.FetchResult) {
+	host := extractHost(result.URL)
+	e.cfHoldMu.Lock()
+	defer e.cfHoldMu.Unlock()
+
+	held := e.cfHoldQueue[host]
+	maxHold := e.cfg.Crawler.Cloudflare.MaxHoldURLs
+	if maxHold <= 0 {
+		maxHold = 1000
+	}
+	if len(held) >= maxHold {
+		applog.Warnf("crawler", "%s CF hold queue overflow for %s (%d URLs), dropping", e.logTag(), host, len(held))
+		return
+	}
+	e.cfHoldQueue[host] = append(held, &RetryItem{
+		URL:     result.URL,
+		Host:    host,
+		Depth:   result.Depth,
+		FoundOn: result.FoundOn,
+	})
+}
+
+// solveCFChallenge resolves the Cloudflare challenge for a host and releases held URLs.
+func (e *Engine) solveCFChallenge(host, challengeURL string) {
+	e.pendingCFSolves.Add(1)
+	defer e.pendingCFSolves.Add(-1)
+	defer func() {
+		if r := recover(); r != nil {
+			applog.Errorf("crawler", "%s panic in CF solve for %s: %v", e.logTag(), host, r)
+			e.releaseCFHold(host, false)
+		}
+	}()
+
+	solver := e.ensureCFSolver()
+	result := solver.Solve(e.ctx, challengeURL)
+
+	if result.Solved {
+		applog.Infof("crawler", "%s CF challenge solved for %s, got %d cookies", e.logTag(), host, len(result.Cookies))
+		e.releaseCFHold(host, true)
+	} else {
+		applog.Warnf("crawler", "%s CF challenge failed for %s: %v", e.logTag(), host, result.Err)
+		e.releaseCFHold(host, false)
+	}
+}
+
+// ensureCFSolver lazily creates the shared CF Solver instance.
+func (e *Engine) ensureCFSolver() *cfsolve.Solver {
+	e.cfHoldMu.Lock()
+	defer e.cfHoldMu.Unlock()
+	if e.cfSolver == nil {
+		e.cfSolver = cfsolve.New(
+			e.fetch.UserAgent(),
+			e.cookieJar,
+			e.cfg.Crawler.Cloudflare.SolveTimeout,
+		)
+	}
+	return e.cfSolver
+}
+
+// releaseCFHold re-enqueues URLs held during CF challenge resolution.
+// If solved=true, URLs are retried with attempt=0 (fresh start with cookies).
+// If solved=false, URLs are retried with attempt=1 (normal retry path).
+func (e *Engine) releaseCFHold(host string, solved bool) {
+	e.cfHoldMu.Lock()
+	items := e.cfHoldQueue[host]
+	delete(e.cfHoldQueue, host)
+	e.cfHoldMu.Unlock()
+
+	if len(items) == 0 {
+		return
+	}
+
+	attempt := 1
+	if solved {
+		attempt = 0
+	}
+	for _, item := range items {
+		e.retryQueue.Push(&RetryItem{
+			URL:     item.URL,
+			Host:    item.Host,
+			Depth:   item.Depth,
+			FoundOn: item.FoundOn,
+			Attempt: attempt,
+			ReadyAt: time.Now(), // immediate
+		})
+	}
+	applog.Infof("crawler", "%s Released %d CF-held URLs for %s (solved=%v)", e.logTag(), len(items), host, solved)
 }
 
 // extractHost returns the host portion of a URL.

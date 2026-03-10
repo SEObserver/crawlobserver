@@ -865,8 +865,36 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 	}
 }
 
-// internalError logs the real error server-side and returns a generic message to the client.
+// internalError logs the real error server-side and returns a user-friendly message.
 func internalError(w http.ResponseWriter, r *http.Request, err error) {
 	applog.Errorf("server", "%s %s: %v", r.Method, r.URL.Path, err)
-	writeError(w, http.StatusInternalServerError, "internal server error")
+	writeError(w, http.StatusInternalServerError, classifyInternalError(err))
+}
+
+// classifyInternalError returns a user-friendly message based on the error type.
+func classifyInternalError(err error) string {
+	if err == nil {
+		return "internal server error"
+	}
+	msg := err.Error()
+
+	// ClickHouse connection errors
+	switch {
+	case strings.Contains(msg, "connection refused"):
+		return "ClickHouse is not reachable (connection refused). Is the database running?"
+	case strings.Contains(msg, "connect: connection reset"):
+		return "ClickHouse connection was reset. The database may be restarting."
+	case strings.Contains(msg, "i/o timeout") || strings.Contains(msg, "dial tcp"):
+		return "ClickHouse connection timed out. Is the database running?"
+	case strings.Contains(msg, "EOF") && strings.Contains(msg, "clickhouse"):
+		return "ClickHouse connection closed unexpectedly. The database may have crashed."
+	case strings.Contains(msg, "broken pipe"):
+		return "ClickHouse connection lost (broken pipe). The database may have restarted."
+	case strings.Contains(msg, "database disk image is malformed"):
+		return "SQLite database is corrupted. Try restarting the application."
+	case strings.Contains(msg, "disk full") || strings.Contains(msg, "no space left"):
+		return "Disk is full. Free up space and try again."
+	default:
+		return "internal server error"
+	}
 }

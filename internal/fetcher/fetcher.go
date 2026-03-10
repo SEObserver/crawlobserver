@@ -90,6 +90,17 @@ func (f *Fetcher) Client() *http.Client {
 	return f.client
 }
 
+// SetCookieJar sets the cookie jar on the underlying HTTP client.
+// This allows cookies (e.g. cf_clearance) to persist across requests.
+func (f *Fetcher) SetCookieJar(jar http.CookieJar) {
+	f.client.Jar = jar
+}
+
+// UserAgent returns the User-Agent string used by this Fetcher.
+func (f *Fetcher) UserAgent() string {
+	return f.userAgent
+}
+
 // Fetch retrieves a URL and returns the result with redirect chain.
 func (f *Fetcher) Fetch(targetURL string, depth int, foundOn string) *FetchResult {
 	return f.FetchWithContext(context.Background(), targetURL, depth, foundOn)

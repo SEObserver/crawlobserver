@@ -52,8 +52,9 @@ type CrawlerConfig struct {
 	MaxFrontierSize       int            `mapstructure:"max_frontier_size"`       // 0 = 5_000_000
 	MaxWorkers            int            `mapstructure:"max_workers"`             // 0 = 100
 	ExcludePatterns       []string       `mapstructure:"exclude_patterns"`       // URL substrings to exclude from crawl (links still recorded)
-	Retry                 RetryConfig    `mapstructure:"retry"`
-	JSRender              JSRenderConfig `mapstructure:"js_render"`
+	Retry                 RetryConfig      `mapstructure:"retry"`
+	JSRender              JSRenderConfig   `mapstructure:"js_render"`
+	Cloudflare            CloudflareConfig `mapstructure:"cloudflare"`
 }
 
 type JSRenderConfig struct {
@@ -61,6 +62,12 @@ type JSRenderConfig struct {
 	MaxPages       int           `mapstructure:"max_pages"`       // concurrent Chrome pages (default: 4)
 	PageTimeout    time.Duration `mapstructure:"page_timeout"`    // per-page timeout (default: 15s)
 	BlockResources bool          `mapstructure:"block_resources"` // block images/fonts (default: true)
+}
+
+type CloudflareConfig struct {
+	Enabled      bool          `mapstructure:"enabled"`
+	SolveTimeout time.Duration `mapstructure:"solve_timeout"`
+	MaxHoldURLs  int           `mapstructure:"max_hold_urls"`
 }
 
 type RetryConfig struct {
@@ -157,6 +164,9 @@ func SetDefaults() {
 	viper.SetDefault("crawler.js_render.max_pages", 4)
 	viper.SetDefault("crawler.js_render.page_timeout", "15s")
 	viper.SetDefault("crawler.js_render.block_resources", true)
+	viper.SetDefault("crawler.cloudflare.enabled", true)
+	viper.SetDefault("crawler.cloudflare.solve_timeout", "30s")
+	viper.SetDefault("crawler.cloudflare.max_hold_urls", 1000)
 
 	viper.SetDefault("clickhouse.host", "localhost")
 	viper.SetDefault("clickhouse.port", 19000)
