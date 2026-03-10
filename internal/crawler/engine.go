@@ -82,10 +82,11 @@ type Engine struct {
 
 	extractors []extraction.Extractor
 
-	cfSolver      *cfsolve.Solver
-	cfHoldQueue   map[string][]*RetryItem // host → URLs parked during CF solve
-	cfHoldMu      sync.Mutex
-	cookieJar     *cookiejar.Jar
+	cfSolver       *cfsolve.Solver
+	cfHoldQueue    map[string][]*RetryItem // host → URLs parked during CF solve
+	cfSolvingHosts map[string]bool         // hosts currently being CF-solved
+	cfHoldMu       sync.Mutex
+	cookieJar      *cookiejar.Jar
 	pendingCFSolves atomic.Int64
 
 	excludePatterns []string // URL substrings: if URL contains any, skip fetching
@@ -637,6 +638,13 @@ func (e *Engine) fetchWorker(id int, in <-chan *frontier.CrawlURL, out chan<- *f
 		default:
 		}
 
+		// If this host is being CF-solved, park the URL directly without fetching.
+		host := extractHost(crawlURL.URL)
+		if e.isHostCFSolving(host) {
+			e.holdURLForCF(host, crawlURL)
+			continue
+		}
+
 		// Always fetch robots.txt for storage; only block if configured
 		allowed := e.robots.IsAllowed(crawlURL.URL)
 		if e.cfg.Crawler.RespectRobots && !allowed {
@@ -682,10 +690,12 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 			cfsolve.IsCFChallenge(result.StatusCode, result.Headers, result.Body)
 
 		if isCF {
-			applog.Infof("crawler", "%s Cloudflare challenge detected for %s", e.logTag(), host)
 			e.lastProgressAt.Store(time.Now().Unix())
-			e.holdForCFSolve(result)
-			go e.solveCFChallenge(host, result.URL)
+			firstForHost := e.holdForCFSolve(result)
+			if firstForHost {
+				applog.Infof("crawler", "%s Cloudflare challenge detected for %s, solving…", e.logTag(), host)
+				go e.solveCFChallenge(host, result.URL)
+			}
 			continue // skip health tracking, retry, and storage
 		}
 
@@ -1042,8 +1052,47 @@ func (e *Engine) enqueueRetry(result *fetcher.FetchResult) {
 }
 
 // holdForCFSolve parks a URL in the CF hold queue while the challenge is being solved.
-func (e *Engine) holdForCFSolve(result *fetcher.FetchResult) {
+// Returns true if this is the first URL held for this host (caller should launch solver).
+func (e *Engine) holdForCFSolve(result *fetcher.FetchResult) bool {
 	host := extractHost(result.URL)
+	e.cfHoldMu.Lock()
+	defer e.cfHoldMu.Unlock()
+
+	firstForHost := !e.cfSolvingHosts[host]
+	if firstForHost {
+		if e.cfSolvingHosts == nil {
+			e.cfSolvingHosts = make(map[string]bool)
+		}
+		e.cfSolvingHosts[host] = true
+	}
+
+	held := e.cfHoldQueue[host]
+	maxHold := e.cfg.Crawler.Cloudflare.MaxHoldURLs
+	if maxHold <= 0 {
+		maxHold = 1000
+	}
+	if len(held) >= maxHold {
+		// Only warn once per overflow batch (every 100 drops)
+		return firstForHost
+	}
+	e.cfHoldQueue[host] = append(held, &RetryItem{
+		URL:     result.URL,
+		Host:    host,
+		Depth:   result.Depth,
+		FoundOn: result.FoundOn,
+	})
+	return firstForHost
+}
+
+// isHostCFSolving returns true if a CF challenge is being solved for this host.
+func (e *Engine) isHostCFSolving(host string) bool {
+	e.cfHoldMu.Lock()
+	defer e.cfHoldMu.Unlock()
+	return e.cfSolvingHosts[host]
+}
+
+// holdURLForCF parks a CrawlURL in the CF hold queue without fetching it.
+func (e *Engine) holdURLForCF(host string, cu *frontier.CrawlURL) {
 	e.cfHoldMu.Lock()
 	defer e.cfHoldMu.Unlock()
 
@@ -1053,14 +1102,13 @@ func (e *Engine) holdForCFSolve(result *fetcher.FetchResult) {
 		maxHold = 1000
 	}
 	if len(held) >= maxHold {
-		applog.Warnf("crawler", "%s CF hold queue overflow for %s (%d URLs), dropping", e.logTag(), host, len(held))
 		return
 	}
 	e.cfHoldQueue[host] = append(held, &RetryItem{
-		URL:     result.URL,
+		URL:     cu.URL,
 		Host:    host,
-		Depth:   result.Depth,
-		FoundOn: result.FoundOn,
+		Depth:   cu.Depth,
+		FoundOn: cu.FoundOn,
 	})
 }
 
@@ -1108,6 +1156,7 @@ func (e *Engine) releaseCFHold(host string, solved bool) {
 	e.cfHoldMu.Lock()
 	items := e.cfHoldQueue[host]
 	delete(e.cfHoldQueue, host)
+	delete(e.cfSolvingHosts, host)
 	e.cfHoldMu.Unlock()
 
 	if len(items) == 0 {
