@@ -655,11 +655,11 @@ func TestPageRank_RedirectPenaltyMonotone(t *testing.T) {
 
 	weights := [][]float64{
 		{
-			math.Pow(0.9, 0), // 1.0
-			math.Pow(0.9, 1), // 0.9
-			math.Pow(0.9, 2), // 0.81
-			math.Pow(0.9, 3), // 0.729
-			math.Pow(0.9, 4), // 0.6561
+			1.0,    // 0.9^0
+			0.9,    // 0.9^1
+			0.81,   // 0.9^2
+			0.729,  // 0.9^3
+			0.6561, // 0.9^4
 		},
 		nil, nil, nil, nil, nil,
 	}

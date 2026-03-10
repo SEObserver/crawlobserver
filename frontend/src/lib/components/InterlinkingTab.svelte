@@ -57,7 +57,12 @@
     loading = true;
     try {
       const res = await getInterlinkingOpportunities(
-        sessionId, PAGE_SIZE, oppOffset, oppSort, oppOrder, buildOppFilters()
+        sessionId,
+        PAGE_SIZE,
+        oppOffset,
+        oppSort,
+        oppOrder,
+        buildOppFilters(),
       );
       opportunities = res?.opportunities ?? [];
       oppTotal = res?.total ?? 0;
@@ -99,10 +104,12 @@
 
   async function handleImport() {
     const lines = importText.trim().split('\n').filter(Boolean);
-    const links = lines.map((line) => {
-      const [source, target] = line.split(/[\t,]/).map((s) => s.trim());
-      return { source, target };
-    }).filter((l) => l.source && l.target);
+    const links = lines
+      .map((line) => {
+        const [source, target] = line.split(/[\t,]/).map((s) => s.trim());
+        return { source, target };
+      })
+      .filter((l) => l.source && l.target);
     if (links.length === 0) return;
     try {
       await importVirtualLinks(sessionId, links);
@@ -130,7 +137,12 @@
   async function loadSimResult(simId) {
     try {
       const res = await getInterlinkingSimulation(
-        sessionId, simId, PAGE_SIZE, simOffset, simSort, simOrder
+        sessionId,
+        simId,
+        PAGE_SIZE,
+        simOffset,
+        simSort,
+        simOrder,
       );
       currentSim = res?.simulation ?? null;
       simResults = res?.results ?? [];
@@ -162,7 +174,9 @@
       oppSort = col;
       oppOrder = 'desc';
     }
-    if (!oppOrder) { oppSort = ''; }
+    if (!oppOrder) {
+      oppSort = '';
+    }
     oppOffset = 0;
     loadOpportunities();
   }
@@ -174,7 +188,9 @@
       simSort = col;
       simOrder = 'desc';
     }
-    if (!simOrder) { simSort = ''; }
+    if (!simOrder) {
+      simSort = '';
+    }
     simOffset = 0;
     if (currentSim) loadSimResult(currentSim.id);
   }
@@ -223,15 +239,27 @@
 <div class="interlink-tab">
   <div class="interlink-header">
     <div class="interlink-views">
-      <button class:active={view === 'opportunities'} onclick={() => { view = 'opportunities'; loadOpportunities(); }}>
+      <button
+        class:active={view === 'opportunities'}
+        onclick={() => {
+          view = 'opportunities';
+          loadOpportunities();
+        }}
+      >
         {t('interlinking.opportunities')}
       </button>
-      <button class:active={view === 'simulation'} onclick={() => { view = 'simulation'; loadSimulations(); }}>
+      <button
+        class:active={view === 'simulation'}
+        onclick={() => {
+          view = 'simulation';
+          loadSimulations();
+        }}
+      >
         {t('interlinking.simulations')}
       </button>
     </div>
     <div class="interlink-actions">
-      <button class="btn-secondary" onclick={() => showImport = true}>
+      <button class="btn-secondary" onclick={() => (showImport = true)}>
         {t('interlinking.import')}
       </button>
       <button class="btn-primary" onclick={handleCompute} disabled={computing}>
@@ -242,10 +270,16 @@
 
   {#if view === 'opportunities'}
     <div class="category-tabs">
-      <button class:active={categoryTab === 'opportunity'} onclick={() => switchCategoryTab('opportunity')}>
+      <button
+        class:active={categoryTab === 'opportunity'}
+        onclick={() => switchCategoryTab('opportunity')}
+      >
         {t('interlinking.opportunityTab')}
       </button>
-      <button class:active={categoryTab === 'cannibalization'} onclick={() => switchCategoryTab('cannibalization')}>
+      <button
+        class:active={categoryTab === 'cannibalization'}
+        onclick={() => switchCategoryTab('cannibalization')}
+      >
         {t('interlinking.cannibalizationTab')}
       </button>
       <button class:active={categoryTab === 'all'} onclick={() => switchCategoryTab('all')}>
@@ -268,7 +302,10 @@
       </div>
     {:else}
       <div class="interlink-toolbar">
-        <span class="count">{t('common.showing')} {oppOffset + 1}-{Math.min(oppOffset + PAGE_SIZE, oppTotal)} / {oppTotal}</span>
+        <span class="count"
+          >{t('common.showing')}
+          {oppOffset + 1}-{Math.min(oppOffset + PAGE_SIZE, oppTotal)} / {oppTotal}</span
+        >
         {#if selected.size > 0}
           <button class="btn-primary" onclick={handleSimulate}>
             {t('interlinking.simulate')} ({selected.size})
@@ -278,50 +315,134 @@
       <table>
         <thead>
           <tr>
-            <th class="col-check"><input type="checkbox" checked={selected.size === opportunities.length} onchange={toggleSelectAll} /></th>
-            <th class="sortable" onclick={() => handleOppSort('source_url')}>{t('interlinking.source')}{sortIcon('source_url', oppSort, oppOrder)}</th>
-            <th class="sortable" onclick={() => handleOppSort('target_url')}>{t('interlinking.target')}{sortIcon('target_url', oppSort, oppOrder)}</th>
-            <th class="sortable col-num" onclick={() => handleOppSort('opportunity_score')}>{t('interlinking.score')}{sortIcon('opportunity_score', oppSort, oppOrder)}</th>
-            <th class="sortable col-num" onclick={() => handleOppSort('similarity')}>{t('interlinking.similarity')}{sortIcon('similarity', oppSort, oppOrder)}</th>
+            <th class="col-check"
+              ><input
+                type="checkbox"
+                checked={selected.size === opportunities.length}
+                onchange={toggleSelectAll}
+              /></th
+            >
+            <th class="sortable" onclick={() => handleOppSort('source_url')}
+              >{t('interlinking.source')}{sortIcon('source_url', oppSort, oppOrder)}</th
+            >
+            <th class="sortable" onclick={() => handleOppSort('target_url')}
+              >{t('interlinking.target')}{sortIcon('target_url', oppSort, oppOrder)}</th
+            >
+            <th class="sortable col-num" onclick={() => handleOppSort('opportunity_score')}
+              >{t('interlinking.score')}{sortIcon('opportunity_score', oppSort, oppOrder)}</th
+            >
+            <th class="sortable col-num" onclick={() => handleOppSort('similarity')}
+              >{t('interlinking.similarity')}{sortIcon('similarity', oppSort, oppOrder)}</th
+            >
             {#if categoryTab === 'all'}
-              <th class="sortable col-num" onclick={() => handleOppSort('category')}>{t('interlinking.category')}{sortIcon('category', oppSort, oppOrder)}</th>
+              <th class="sortable col-num" onclick={() => handleOppSort('category')}
+                >{t('interlinking.category')}{sortIcon('category', oppSort, oppOrder)}</th
+              >
             {/if}
-            <th class="sortable col-num" onclick={() => handleOppSort('source_pagerank')}>PR Src{sortIcon('source_pagerank', oppSort, oppOrder)}</th>
-            <th class="sortable col-num" onclick={() => handleOppSort('target_pagerank')}>PR Tgt{sortIcon('target_pagerank', oppSort, oppOrder)}</th>
-            <th class="sortable col-num" onclick={() => handleOppSort('source_word_count')}>{t('interlinking.wordsSrc')}{sortIcon('source_word_count', oppSort, oppOrder)}</th>
-            <th class="sortable col-num" onclick={() => handleOppSort('target_word_count')}>{t('interlinking.wordsTgt')}{sortIcon('target_word_count', oppSort, oppOrder)}</th>
+            <th class="sortable col-num" onclick={() => handleOppSort('source_pagerank')}
+              >PR Src{sortIcon('source_pagerank', oppSort, oppOrder)}</th
+            >
+            <th class="sortable col-num" onclick={() => handleOppSort('target_pagerank')}
+              >PR Tgt{sortIcon('target_pagerank', oppSort, oppOrder)}</th
+            >
+            <th class="sortable col-num" onclick={() => handleOppSort('source_word_count')}
+              >{t('interlinking.wordsSrc')}{sortIcon('source_word_count', oppSort, oppOrder)}</th
+            >
+            <th class="sortable col-num" onclick={() => handleOppSort('target_word_count')}
+              >{t('interlinking.wordsTgt')}{sortIcon('target_word_count', oppSort, oppOrder)}</th
+            >
           </tr>
           <tr class="filter-row">
             <td></td>
-            <td><input class="filter-input" placeholder="source_url" onkeydown={(e) => handleOppFilterKey(e, 'source_url')} /></td>
-            <td><input class="filter-input" placeholder="target_url" onkeydown={(e) => handleOppFilterKey(e, 'target_url')} /></td>
-            <td><input class="filter-input" placeholder=">=0.3" onkeydown={(e) => handleOppFilterKey(e, 'opportunity_score')} /></td>
-            <td><input class="filter-input" placeholder=">=0.3" onkeydown={(e) => handleOppFilterKey(e, 'similarity')} /></td>
+            <td
+              ><input
+                class="filter-input"
+                placeholder="source_url"
+                onkeydown={(e) => handleOppFilterKey(e, 'source_url')}
+              /></td
+            >
+            <td
+              ><input
+                class="filter-input"
+                placeholder="target_url"
+                onkeydown={(e) => handleOppFilterKey(e, 'target_url')}
+              /></td
+            >
+            <td
+              ><input
+                class="filter-input"
+                placeholder=">=0.3"
+                onkeydown={(e) => handleOppFilterKey(e, 'opportunity_score')}
+              /></td
+            >
+            <td
+              ><input
+                class="filter-input"
+                placeholder=">=0.3"
+                onkeydown={(e) => handleOppFilterKey(e, 'similarity')}
+              /></td
+            >
             {#if categoryTab === 'all'}
               <td></td>
             {/if}
-            <td><input class="filter-input" placeholder=">=10" onkeydown={(e) => handleOppFilterKey(e, 'source_pagerank')} /></td>
-            <td><input class="filter-input" placeholder=">=10" onkeydown={(e) => handleOppFilterKey(e, 'target_pagerank')} /></td>
-            <td><input class="filter-input" placeholder=">=100" onkeydown={(e) => handleOppFilterKey(e, 'source_word_count')} /></td>
-            <td><input class="filter-input" placeholder=">=100" onkeydown={(e) => handleOppFilterKey(e, 'target_word_count')} /></td>
+            <td
+              ><input
+                class="filter-input"
+                placeholder=">=10"
+                onkeydown={(e) => handleOppFilterKey(e, 'source_pagerank')}
+              /></td
+            >
+            <td
+              ><input
+                class="filter-input"
+                placeholder=">=10"
+                onkeydown={(e) => handleOppFilterKey(e, 'target_pagerank')}
+              /></td
+            >
+            <td
+              ><input
+                class="filter-input"
+                placeholder=">=100"
+                onkeydown={(e) => handleOppFilterKey(e, 'source_word_count')}
+              /></td
+            >
+            <td
+              ><input
+                class="filter-input"
+                placeholder=">=100"
+                onkeydown={(e) => handleOppFilterKey(e, 'target_word_count')}
+              /></td
+            >
           </tr>
         </thead>
         <tbody>
           {#each opportunities as opp, idx}
             <tr>
-              <td class="col-check"><input type="checkbox" checked={selected.has(idx)} onchange={() => toggleSelect(idx)} /></td>
+              <td class="col-check"
+                ><input
+                  type="checkbox"
+                  checked={selected.has(idx)}
+                  onchange={() => toggleSelect(idx)}
+                /></td
+              >
               <td class="cell-url" title={opp.source_url}>
                 <span class="url-text">{opp.source_url}</span>
-                {#if opp.source_title}<br/><span class="cell-title">{opp.source_title}</span>{/if}
+                {#if opp.source_title}<br /><span class="cell-title">{opp.source_title}</span>{/if}
               </td>
               <td class="cell-url" title={opp.target_url}>
                 <span class="url-text">{opp.target_url}</span>
-                {#if opp.target_title}<br/><span class="cell-title">{opp.target_title}</span>{/if}
+                {#if opp.target_title}<br /><span class="cell-title">{opp.target_title}</span>{/if}
               </td>
-              <td class="col-num"><span class="badge {scoreBadge(opp.opportunity_score)}">{opp.opportunity_score?.toFixed(2) ?? '-'}</span></td>
+              <td class="col-num"
+                ><span class="badge {scoreBadge(opp.opportunity_score)}"
+                  >{opp.opportunity_score?.toFixed(2) ?? '-'}</span
+                ></td
+              >
               <td class="col-num">{(opp.similarity * 100).toFixed(1)}%</td>
               {#if categoryTab === 'all'}
-                <td class="col-num"><span class="badge {categoryBadge(opp.category)}">{opp.category}</span></td>
+                <td class="col-num"
+                  ><span class="badge {categoryBadge(opp.category)}">{opp.category}</span></td
+                >
               {/if}
               <td class="col-num">{opp.source_pagerank?.toFixed(2) ?? '-'}</td>
               <td class="col-num">{opp.target_pagerank?.toFixed(2) ?? '-'}</td>
@@ -332,11 +453,22 @@
         </tbody>
       </table>
       <div class="pagination">
-        <button disabled={oppOffset === 0} onclick={() => { oppOffset = Math.max(0, oppOffset - PAGE_SIZE); loadOpportunities(); }}>{t('common.previous')}</button>
-        <button disabled={oppOffset + PAGE_SIZE >= oppTotal} onclick={() => { oppOffset += PAGE_SIZE; loadOpportunities(); }}>{t('common.next')}</button>
+        <button
+          disabled={oppOffset === 0}
+          onclick={() => {
+            oppOffset = Math.max(0, oppOffset - PAGE_SIZE);
+            loadOpportunities();
+          }}>{t('common.previous')}</button
+        >
+        <button
+          disabled={oppOffset + PAGE_SIZE >= oppTotal}
+          onclick={() => {
+            oppOffset += PAGE_SIZE;
+            loadOpportunities();
+          }}>{t('common.next')}</button
+        >
       </div>
     {/if}
-
   {:else}
     <!-- Simulation view -->
     {#if simulations.length === 0 && !currentSim}
@@ -384,10 +516,18 @@
         <table>
           <thead>
             <tr>
-              <th class="sortable" onclick={() => handleSimSort('url')}>URL{sortIcon('url', simSort, simOrder)}</th>
-              <th class="sortable col-num" onclick={() => handleSimSort('pagerank_before')}>PR {t('interlinking.before')}{sortIcon('pagerank_before', simSort, simOrder)}</th>
-              <th class="sortable col-num" onclick={() => handleSimSort('pagerank_after')}>PR {t('interlinking.after')}{sortIcon('pagerank_after', simSort, simOrder)}</th>
-              <th class="sortable col-num" onclick={() => handleSimSort('pagerank_diff')}>Diff{sortIcon('pagerank_diff', simSort, simOrder)}</th>
+              <th class="sortable" onclick={() => handleSimSort('url')}
+                >URL{sortIcon('url', simSort, simOrder)}</th
+              >
+              <th class="sortable col-num" onclick={() => handleSimSort('pagerank_before')}
+                >PR {t('interlinking.before')}{sortIcon('pagerank_before', simSort, simOrder)}</th
+              >
+              <th class="sortable col-num" onclick={() => handleSimSort('pagerank_after')}
+                >PR {t('interlinking.after')}{sortIcon('pagerank_after', simSort, simOrder)}</th
+              >
+              <th class="sortable col-num" onclick={() => handleSimSort('pagerank_diff')}
+                >Diff{sortIcon('pagerank_diff', simSort, simOrder)}</th
+              >
             </tr>
           </thead>
           <tbody>
@@ -396,30 +536,55 @@
                 <td class="cell-url" title={row.url}>{row.url}</td>
                 <td class="col-num">{row.pagerank_before?.toFixed(2)}</td>
                 <td class="col-num">{row.pagerank_after?.toFixed(2)}</td>
-                <td class="col-num"><span class="badge {simBadge(row.pagerank_diff)}">{row.pagerank_diff > 0 ? '+' : ''}{row.pagerank_diff?.toFixed(4)}</span></td>
+                <td class="col-num"
+                  ><span class="badge {simBadge(row.pagerank_diff)}"
+                    >{row.pagerank_diff > 0 ? '+' : ''}{row.pagerank_diff?.toFixed(4)}</span
+                  ></td
+                >
               </tr>
             {/each}
           </tbody>
         </table>
         <div class="pagination">
-          <span>{t('common.showing')} {simOffset + 1}-{Math.min(simOffset + PAGE_SIZE, simTotal)} / {simTotal}</span>
-          <button disabled={simOffset === 0} onclick={() => { simOffset = Math.max(0, simOffset - PAGE_SIZE); loadSimResult(currentSim.id); }}>{t('common.previous')}</button>
-          <button disabled={simOffset + PAGE_SIZE >= simTotal} onclick={() => { simOffset += PAGE_SIZE; loadSimResult(currentSim.id); }}>{t('common.next')}</button>
+          <span
+            >{t('common.showing')}
+            {simOffset + 1}-{Math.min(simOffset + PAGE_SIZE, simTotal)} / {simTotal}</span
+          >
+          <button
+            disabled={simOffset === 0}
+            onclick={() => {
+              simOffset = Math.max(0, simOffset - PAGE_SIZE);
+              loadSimResult(currentSim.id);
+            }}>{t('common.previous')}</button
+          >
+          <button
+            disabled={simOffset + PAGE_SIZE >= simTotal}
+            onclick={() => {
+              simOffset += PAGE_SIZE;
+              loadSimResult(currentSim.id);
+            }}>{t('common.next')}</button
+          >
         </div>
       {/if}
     {/if}
   {/if}
 
   {#if showImport}
-    <div class="modal-overlay" onclick={() => showImport = false}>
+    <div class="modal-overlay" onclick={() => (showImport = false)}>
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="modal-content" onclick={(e) => e.stopPropagation()}>
         <h3>{t('interlinking.importTitle')}</h3>
         <p class="muted">{t('interlinking.importHint')}</p>
-        <textarea bind:value={importText} rows="10" placeholder="https://example.com/page1,https://example.com/page2"></textarea>
+        <textarea
+          bind:value={importText}
+          rows="10"
+          placeholder="https://example.com/page1,https://example.com/page2"
+        ></textarea>
         <div class="modal-actions">
-          <button class="btn-secondary" onclick={() => showImport = false}>{t('common.cancel')}</button>
+          <button class="btn-secondary" onclick={() => (showImport = false)}
+            >{t('common.cancel')}</button
+          >
           <button class="btn-primary" onclick={handleImport}>{t('interlinking.simulate')}</button>
         </div>
       </div>
@@ -428,101 +593,290 @@
 </div>
 
 <style>
-  .interlink-tab { padding: 0; }
+  .interlink-tab {
+    padding: 0;
+  }
   .interlink-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
   }
-  .interlink-views { display: flex; gap: 4px; }
+  .interlink-views {
+    display: flex;
+    gap: 4px;
+  }
   .interlink-views button {
-    padding: 6px 14px; border: 1px solid var(--border); background: var(--bg);
-    border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text);
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
   }
-  .interlink-views button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .interlink-actions { display: flex; gap: 8px; }
-  .interlink-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .count { font-size: 13px; color: var(--text-muted); }
+  .interlink-views button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .interlink-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .interlink-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .count {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
 
   .category-tabs {
-    display: flex; gap: 4px; margin-bottom: 12px;
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
   }
   .category-tabs button {
-    padding: 4px 12px; border: 1px solid var(--border); background: var(--bg);
-    border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--text);
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text);
   }
   .category-tabs button.active {
-    background: var(--text); color: var(--bg); border-color: var(--text);
+    background: var(--text);
+    color: var(--bg);
+    border-color: var(--text);
   }
 
   .alert-cannibalization {
-    background: #fef3c7; color: #92400e; border: 1px solid #f59e0b;
-    border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 13px;
   }
 
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
-  th { font-weight: 600; white-space: nowrap; }
-  th.sortable { cursor: pointer; user-select: none; }
-  th.sortable:hover { color: var(--accent); }
-  tbody tr:nth-child(even) { background: var(--bg-secondary); }
-  .col-check { width: 32px; text-align: center; }
-  .col-num { text-align: right; white-space: nowrap; }
-  .cell-url { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .cell-title { font-size: 11px; color: var(--text-muted); }
-  .url-text { font-family: monospace; font-size: 12px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th,
+  td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  th.sortable {
+    cursor: pointer;
+    user-select: none;
+  }
+  th.sortable:hover {
+    color: var(--accent);
+  }
+  tbody tr:nth-child(even) {
+    background: var(--bg-secondary);
+  }
+  .col-check {
+    width: 32px;
+    text-align: center;
+  }
+  .col-num {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .cell-url {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cell-title {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .url-text {
+    font-family: monospace;
+    font-size: 12px;
+  }
 
-  .filter-row td { padding: 2px 4px; }
-  .filter-input { width: 100%; padding: 3px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; background: var(--bg); color: var(--text); }
+  .filter-row td {
+    padding: 2px 4px;
+  }
+  .filter-input {
+    width: 100%;
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    background: var(--bg);
+    color: var(--text);
+  }
 
-  .badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: 500; }
-  .badge-green { background: #dcfce7; color: #166534; }
-  .badge-yellow { background: #fef3c7; color: #92400e; }
-  .badge-red { background: #fecaca; color: #991b1b; }
-  .badge-neutral { background: var(--bg-secondary); color: var(--text-muted); }
-  .badge-orange { background: #fed7aa; color: #9a3412; }
-  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .badge-green {
+    background: #dcfce7;
+    color: #166534;
+  }
+  .badge-yellow {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  .badge-red {
+    background: #fecaca;
+    color: #991b1b;
+  }
+  .badge-neutral {
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+  }
+  .badge-orange {
+    background: #fed7aa;
+    color: #9a3412;
+  }
+  .badge-blue {
+    background: #dbeafe;
+    color: #1e40af;
+  }
 
-  .pagination { display: flex; gap: 8px; align-items: center; justify-content: flex-end; padding: 8px 0; }
-  .pagination button { padding: 4px 12px; }
+  .pagination {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 8px 0;
+  }
+  .pagination button {
+    padding: 4px 12px;
+  }
 
-  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
-  .loading-msg { text-align: center; padding: 20px; color: var(--text-muted); }
-  .muted { color: var(--text-muted); font-size: 13px; }
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+  }
+  .loading-msg {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-muted);
+  }
+  .muted {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
 
   .sim-summary {
-    display: flex; gap: 16px; flex-wrap: wrap;
-    padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
   }
-  .sim-stat { display: flex; flex-direction: column; gap: 2px; }
-  .sim-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
-  .sim-value { font-size: 18px; font-weight: 600; }
-  .sim-selector { margin-bottom: 12px; }
-  .sim-selector label { font-size: 13px; margin-right: 8px; }
-  .sim-selector select { padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); }
+  .sim-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .sim-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+  .sim-value {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .sim-selector {
+    margin-bottom: 12px;
+  }
+  .sim-selector label {
+    font-size: 13px;
+    margin-right: 8px;
+  }
+  .sim-selector select {
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
 
   .btn-primary {
-    padding: 6px 14px; background: var(--accent); color: #fff;
-    border: none; border-radius: 6px; cursor: pointer; font-size: 13px;
+    padding: 6px 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
   }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
   .btn-secondary {
-    padding: 6px 14px; background: var(--bg); color: var(--text);
-    border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 13px;
+    padding: 6px 14px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
   }
 
   .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-    display: flex; align-items: center; justify-content: center; z-index: 100;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
   }
   .modal-content {
-    background: var(--bg); border-radius: 12px; padding: 24px;
-    max-width: 600px; width: 90%;
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 600px;
+    width: 90%;
   }
-  .modal-content h3 { margin: 0 0 8px; }
+  .modal-content h3 {
+    margin: 0 0 8px;
+  }
   .modal-content textarea {
-    width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px;
-    font-family: monospace; font-size: 12px; margin: 12px 0; resize: vertical;
-    background: var(--bg); color: var(--text);
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 12px;
+    margin: 12px 0;
+    resize: vertical;
+    background: var(--bg);
+    color: var(--text);
   }
-  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
 </style>

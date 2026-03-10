@@ -182,14 +182,14 @@ func ComputeOpportunities(ctx context.Context, store OpportunityStore, opts Comp
 	})
 
 	// Merge and cap at MaxOpportunities
-	all := append(opportunities, cannibalization...)
-	if len(all) > opts.MaxOpportunities {
-		all = all[:opts.MaxOpportunities]
+	opportunities = append(opportunities, cannibalization...)
+	if len(opportunities) > opts.MaxOpportunities {
+		opportunities = opportunities[:opts.MaxOpportunities]
 	}
 
 	// Build storage rows
-	opps := make([]storage.InterlinkingOpportunity, len(all))
-	for i, sp := range all {
+	opps := make([]storage.InterlinkingOpportunity, len(opportunities))
+	for i, sp := range opportunities {
 		src := corpus.Docs[sp.pair.SourceIdx]
 		tgt := corpus.Docs[sp.pair.TargetIdx]
 		opps[i] = storage.InterlinkingOpportunity{

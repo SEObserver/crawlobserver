@@ -261,10 +261,7 @@
         onerror={(msg) => onerror?.(msg)}
       />
     {:else if tab === 'interlinking'}
-      <InterlinkingTab
-        sessionId={session.ID}
-        onerror={(msg) => onerror?.(msg)}
-      />
+      <InterlinkingTab sessionId={session.ID} onerror={(msg) => onerror?.(msg)} />
     {/if}
   </div>
 {/if}

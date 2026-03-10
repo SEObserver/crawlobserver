@@ -1165,7 +1165,8 @@ export async function getInterlinkingOpportunities(
   if (sort) url += `&sort=${encodeURIComponent(sort)}`;
   if (order) url += `&order=${encodeURIComponent(order)}`;
   for (const [key, value] of Object.entries(filters)) {
-    if (value !== '' && value != null) url += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    if (value !== '' && value != null)
+      url += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
   }
   return fetchJSON(url);
 }
