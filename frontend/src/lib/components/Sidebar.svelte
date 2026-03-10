@@ -29,9 +29,7 @@
   } = $props();
 
   let isDark = $derived(
-    darkMode === 'auto'
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches
-      : !!darkMode,
+    darkMode === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : !!darkMode,
   );
 
   /** @param {HTMLElement} node */
@@ -496,10 +494,25 @@
       <button
         class="sidebar-icon-btn"
         onclick={() => ontoggledarkmode?.()}
-        title={darkMode === 'auto' ? t('settings.auto') : darkMode ? t('sidebar.lightMode') : t('sidebar.darkMode')}
+        title={darkMode === 'auto'
+          ? t('settings.auto')
+          : darkMode
+            ? t('sidebar.lightMode')
+            : t('sidebar.darkMode')}
       >
         {#if darkMode === 'auto'}
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" /></svg>
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            ><circle cx="12" cy="12" r="9" /><path
+              d="M12 3a9 9 0 0 1 0 18z"
+              fill="currentColor"
+            /></svg
+          >
         {:else if darkMode}
           <svg
             viewBox="0 0 24 24"

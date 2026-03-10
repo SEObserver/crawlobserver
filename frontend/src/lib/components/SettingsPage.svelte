@@ -207,13 +207,13 @@
     </div>
     <div class="form-group">
       <label for="set-language">{t('settings.language')}</label>
-      <select id="set-language" class="lang-select" value={getLocale()} onchange={(e) => setLocale(e.target.value)}>
-        {#each [
-          ['en', 'English'], ['fr', 'Français'], ['es', 'Español'], ['pt', 'Português'],
-          ['it', 'Italiano'], ['nl', 'Nederlands'], ['de', 'Deutsch'], ['pl', 'Polski'],
-          ['tr', 'Türkçe'], ['ru', 'Русский'], ['zh', '中文'], ['ja', '日本語'],
-          ['ko', '한국어'], ['id', 'Bahasa Indonesia'], ['he', 'עברית'], ['ar', 'العربية'],
-        ] as [code, name]}
+      <select
+        id="set-language"
+        class="lang-select"
+        value={getLocale()}
+        onchange={(e) => setLocale(e.target.value)}
+      >
+        {#each [['en', 'English'], ['fr', 'Français'], ['es', 'Español'], ['pt', 'Português'], ['it', 'Italiano'], ['nl', 'Nederlands'], ['de', 'Deutsch'], ['pl', 'Polski'], ['tr', 'Türkçe'], ['ru', 'Русский'], ['zh', '中文'], ['ja', '日本語'], ['ko', '한국어'], ['id', 'Bahasa Indonesia'], ['he', 'עברית'], ['ar', 'العربية']] as [code, name]}
           <option value={code}>{name}</option>
         {/each}
       </select>
