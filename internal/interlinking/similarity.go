@@ -79,5 +79,9 @@ func cosineSimilarity(a, b *Document) float64 {
 		}
 	}
 
-	return dot / (a.Norm * b.Norm)
+	sim := dot / (a.Norm * b.Norm)
+	if sim > 1.0 {
+		sim = 1.0
+	}
+	return sim
 }

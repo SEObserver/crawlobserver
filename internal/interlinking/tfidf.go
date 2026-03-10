@@ -57,11 +57,14 @@ func BuildCorpus(pages <-chan storage.PageHTMLRow, pageInfo map[string]storage.P
 			for page := range pages {
 				u, _ := url.Parse(page.URL)
 				text := parser.ExtractMainContent([]byte(page.HTML), u)
-				if len(text) < 50 {
+				if len(text) < 200 {
 					continue
 				}
 
 				meta := pageInfo[page.URL]
+				if meta.WordCount > 0 && meta.WordCount < 100 {
+					continue
+				}
 				tokens := tokenizeFiltered(text, meta.Lang)
 				if len(tokens) == 0 {
 					continue
