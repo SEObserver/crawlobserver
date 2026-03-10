@@ -382,7 +382,10 @@
           <td class="num">{d.client_errors}</td>
           <td class="num">{d.server_errors}</td>
           <td class="num">{d.unreachable}</td>
-          <td class="num">{#if d.ns_dead > 0}<span class="badge badge-ns-dead">{d.ns_dead}</span>{:else}-{/if}</td>
+          <td class="num"
+            >{#if d.ns_dead > 0}<span class="badge badge-ns-dead">{d.ns_dead}</span
+              >{:else}-{/if}</td
+          >
           <td class="num">{d.avg_response_ms}</td>
         </tr>
       {/snippet}
@@ -426,8 +429,9 @@
         <tr>
           <td class="cell-url"
             ><span class="cell-url-inner"
-              ><a href={c.url} target="_blank" rel="noopener">{c.url}</a
-              ><UrlActions url={c.url} /></span
+              ><a href={c.url} target="_blank" rel="noopener">{c.url}</a><UrlActions
+                url={c.url}
+              /></span
             ></td
           >
           <td
@@ -437,11 +441,20 @@
           >
           <td>{c.content_type || '-'}</td>
           <td class="cell-url">{c.redirect_url || '-'}</td>
-          <td class="cell-error" title={c.error}>{c.error ? c.error.substring(0, 60) : '-'}{#if c.error === 'dns_not_found' && c.ns_exists === false}<span class="badge badge-ns-dead" title={c.ns_error}>NS missing</span>{/if}</td>
+          <td class="cell-error" title={c.error}
+            >{c.error
+              ? c.error.substring(0, 60)
+              : '-'}{#if c.error === 'dns_not_found' && c.ns_exists === false}<span
+                class="badge badge-ns-dead"
+                title={c.ns_error}>NS missing</span
+              >{/if}</td
+          >
           <td class="num">{c.response_time_ms}</td>
           <td class="cell-url"
             >{#if c.source_url}<span class="cell-url-inner"
-                ><a href={urlDetailHref(c.source_url)} onclick={(e) => goToUrlDetail(e, c.source_url)}>{c.source_url}</a
+                ><a
+                  href={urlDetailHref(c.source_url)}
+                  onclick={(e) => goToUrlDetail(e, c.source_url)}>{c.source_url}</a
                 ><UrlActions url={c.source_url} /></span
               >{:else}-{/if}</td
           >

@@ -372,25 +372,31 @@ func TestBuildWhereClause_FilterUint_Range(t *testing.T) {
 	}
 }
 
-func TestBuildWhereClause_FilterUint_EqualsPrefixNotRecognized(t *testing.T) {
-	// "=100" is not stripped by parseUintOp (no "=" prefix handling),
-	// so the value "=100" is passed to ParseUint which fails.
+func TestBuildWhereClause_FilterUint_EqualsPrefixSkipped(t *testing.T) {
+	// "=100" → parseUintOp returns ("=", "=100"), ParseUint fails → silently skipped.
 	filters := []ParsedFilter{
 		{Def: FilterDef{Column: "depth", Type: FilterUint}, Value: "=100"},
 	}
-	_, _, err := BuildWhereClause(filters)
-	if err == nil {
-		t.Fatal("expected error for =100 (= prefix not recognized by parseUintOp), got nil")
+	clause, _, err := BuildWhereClause(filters)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if clause != "" {
+		t.Errorf("expected empty clause for =100 prefix, got %q", clause)
 	}
 }
 
 func TestBuildWhereClause_FilterUint_InvalidNumber(t *testing.T) {
+	// Invalid numeric values are silently skipped (user input).
 	filters := []ParsedFilter{
 		{Def: FilterDef{Column: "status_code", Type: FilterUint}, Value: "abc"},
 	}
-	_, _, err := BuildWhereClause(filters)
-	if err == nil {
-		t.Fatal("expected error for invalid numeric value, got nil")
+	clause, _, err := BuildWhereClause(filters)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if clause != "" {
+		t.Errorf("expected empty clause for invalid value, got %q", clause)
 	}
 }
 
@@ -431,12 +437,16 @@ func TestBuildWhereClause_FilterBool(t *testing.T) {
 }
 
 func TestBuildWhereClause_FilterBool_Invalid(t *testing.T) {
+	// Invalid bool values are silently skipped (user input).
 	filters := []ParsedFilter{
 		{Def: FilterDef{Column: "is_indexable", Type: FilterBool}, Value: "maybe"},
 	}
-	_, _, err := BuildWhereClause(filters)
-	if err == nil {
-		t.Fatal("expected error for invalid bool value, got nil")
+	clause, _, err := BuildWhereClause(filters)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if clause != "" {
+		t.Errorf("expected empty clause for invalid value, got %q", clause)
 	}
 }
 

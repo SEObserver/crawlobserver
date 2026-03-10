@@ -2089,8 +2089,8 @@ func TestIntegration_StorageErrorStats(t *testing.T) {
 
 	var body map[string]string
 	decodeJSON(t, rec, &body)
-	if body["error"] != "internal server error" {
-		t.Errorf("expected generic error, got %q", body["error"])
+	if body["error"] != "Disk is full. Free up space and try again." {
+		t.Errorf("expected disk full error, got %q", body["error"])
 	}
 }
 

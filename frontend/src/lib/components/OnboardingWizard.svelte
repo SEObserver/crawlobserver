@@ -178,7 +178,13 @@
         <div class="prereq-item" class:prereq-ok={clickhouseReady}>
           <span class="prereq-icon">
             {#if clickhouseReady}
-              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              <svg viewBox="0 0 20 20" fill="currentColor"
+                ><path
+                  fill-rule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clip-rule="evenodd"
+                /></svg
+              >
             {:else}
               <span class="spinner-sm"></span>
             {/if}
@@ -200,8 +206,16 @@
             class:win-method-active={winMethod === 'docker'}
             onclick={() => (winMethod = 'docker')}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="win-tab-icon">
-              <path d="M2 20h20V4H2v16zm2-2V6h16v12H4z" /><path d="M7 14c1-2 3-3 5-3s4 1 5 3" /><circle cx="9" cy="9" r="1" /><circle cx="15" cy="9" r="1" />
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              class="win-tab-icon"
+            >
+              <path d="M2 20h20V4H2v16zm2-2V6h16v12H4z" /><path
+                d="M7 14c1-2 3-3 5-3s4 1 5 3"
+              /><circle cx="9" cy="9" r="1" /><circle cx="15" cy="9" r="1" />
             </svg>
             Docker Desktop
           </button>
@@ -210,8 +224,16 @@
             class:win-method-active={winMethod === 'wsl'}
             onclick={() => (winMethod = 'wsl')}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="win-tab-icon">
-              <rect x="2" y="3" width="20" height="16" rx="2" /><path d="M6 9h12M6 13h8" /><path d="M8 19l-2 2m10-2l2 2" />
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              class="win-tab-icon"
+            >
+              <rect x="2" y="3" width="20" height="16" rx="2" /><path d="M6 9h12M6 13h8" /><path
+                d="M8 19l-2 2m10-2l2 2"
+              />
             </svg>
             WSL
           </button>
@@ -223,7 +245,12 @@
               <span class="win-step-num">1</span>
               <div class="win-step-content">
                 <p class="win-step-text">{t('onboarding.winDockerStep1')}</p>
-                <a class="win-step-link" href="https://www.docker.com/products/docker-desktop/" target="_blank" rel="noopener">
+                <a
+                  class="win-step-link"
+                  href="https://www.docker.com/products/docker-desktop/"
+                  target="_blank"
+                  rel="noopener"
+                >
                   {t('onboarding.windowsDockerLink')} &#x2197;
                 </a>
               </div>
@@ -239,12 +266,31 @@
               <div class="win-step-content">
                 <p class="win-step-text">{t('onboarding.winDockerStep3')}</p>
                 <div class="win-cmd-block">
-                  <code>docker run -d --name clickhouse -p 9000:9000 clickhouse/clickhouse-server</code>
-                  <button class="win-copy-btn" onclick={() => copyCommand('docker run -d --name clickhouse -p 9000:9000 clickhouse/clickhouse-server')} title={t('common.copy')}>
+                  <code
+                    >docker run -d --name clickhouse -p 9000:9000 clickhouse/clickhouse-server</code
+                  >
+                  <button
+                    class="win-copy-btn"
+                    onclick={() =>
+                      copyCommand(
+                        'docker run -d --name clickhouse -p 9000:9000 clickhouse/clickhouse-server',
+                      )}
+                    title={t('common.copy')}
+                  >
                     {#if copiedCmd === 'docker'}
-                      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                      <svg viewBox="0 0 20 20" fill="currentColor"
+                        ><path
+                          fill-rule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clip-rule="evenodd"
+                        /></svg
+                      >
                     {:else}
-                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="6" width="10" height="10" rx="1.5"/><path d="M4 14V4.5A.5.5 0 014.5 4H14"/></svg>
+                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"
+                        ><rect x="6" y="6" width="10" height="10" rx="1.5" /><path
+                          d="M4 14V4.5A.5.5 0 014.5 4H14"
+                        /></svg
+                      >
                     {/if}
                   </button>
                 </div>
@@ -259,11 +305,25 @@
                 <p class="win-step-text">{t('onboarding.winWslStep1')}</p>
                 <div class="win-cmd-block">
                   <code>wsl --install</code>
-                  <button class="win-copy-btn" onclick={() => copyCommand('wsl --install')} title={t('common.copy')}>
+                  <button
+                    class="win-copy-btn"
+                    onclick={() => copyCommand('wsl --install')}
+                    title={t('common.copy')}
+                  >
                     {#if copiedCmd === 'wsl1'}
-                      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                      <svg viewBox="0 0 20 20" fill="currentColor"
+                        ><path
+                          fill-rule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clip-rule="evenodd"
+                        /></svg
+                      >
                     {:else}
-                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="6" width="10" height="10" rx="1.5"/><path d="M4 14V4.5A.5.5 0 014.5 4H14"/></svg>
+                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"
+                        ><rect x="6" y="6" width="10" height="10" rx="1.5" /><path
+                          d="M4 14V4.5A.5.5 0 014.5 4H14"
+                        /></svg
+                      >
                     {/if}
                   </button>
                 </div>
@@ -281,11 +341,26 @@
                 <p class="win-step-text">{t('onboarding.winWslStep3')}</p>
                 <div class="win-cmd-block">
                   <code>curl https://clickhouse.com/ | sh && ./clickhouse server</code>
-                  <button class="win-copy-btn" onclick={() => copyCommand('curl https://clickhouse.com/ | sh && ./clickhouse server')} title={t('common.copy')}>
+                  <button
+                    class="win-copy-btn"
+                    onclick={() =>
+                      copyCommand('curl https://clickhouse.com/ | sh && ./clickhouse server')}
+                    title={t('common.copy')}
+                  >
                     {#if copiedCmd === 'wsl3'}
-                      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                      <svg viewBox="0 0 20 20" fill="currentColor"
+                        ><path
+                          fill-rule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clip-rule="evenodd"
+                        /></svg
+                      >
                     {:else}
-                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="6" width="10" height="10" rx="1.5"/><path d="M4 14V4.5A.5.5 0 014.5 4H14"/></svg>
+                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"
+                        ><rect x="6" y="6" width="10" height="10" rx="1.5" /><path
+                          d="M4 14V4.5A.5.5 0 014.5 4H14"
+                        /></svg
+                      >
                     {/if}
                   </button>
                 </div>
@@ -295,8 +370,16 @@
         {/if}
       {:else}
         <div class="win-success-box">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="win-success-icon">
-            <path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="win-success-icon"
+          >
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline
+              points="22 4 12 14.01 9 11.01"
+            />
           </svg>
           <div>
             <p class="win-success-title">{t('onboarding.windowsDetected')}</p>
