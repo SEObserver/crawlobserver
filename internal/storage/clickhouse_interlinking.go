@@ -33,7 +33,7 @@ func (s *Store) InsertInterlinkingOpportunities(ctx context.Context, sessionID s
 			`INSERT INTO crawlobserver.interlinking_opportunities (
 				crawl_session_id, source_url, target_url, similarity, method,
 				source_title, target_title, source_pagerank, target_pagerank,
-				source_word_count, target_word_count, computed_at)`)
+				source_word_count, target_word_count, opportunity_score, category, computed_at)`)
 		if err != nil {
 			return fmt.Errorf("preparing interlinking batch: %w", err)
 		}
@@ -41,7 +41,7 @@ func (s *Store) InsertInterlinkingOpportunities(ctx context.Context, sessionID s
 			if err := batch.Append(
 				sessionID, o.SourceURL, o.TargetURL, o.Similarity, o.Method,
 				o.SourceTitle, o.TargetTitle, o.SourcePageRank, o.TargetPageRank,
-				o.SourceWordCount, o.TargetWordCount, now,
+				o.SourceWordCount, o.TargetWordCount, o.OpportunityScore, o.Category, now,
 			); err != nil {
 				return fmt.Errorf("appending interlinking row: %w", err)
 			}
@@ -77,7 +77,7 @@ func (s *Store) ListInterlinkingOpportunities(ctx context.Context, sessionID str
 		return nil, 0, fmt.Errorf("counting interlinking opportunities: %w", err)
 	}
 
-	orderBy := BuildOrderByClause(sort, "similarity DESC")
+	orderBy := BuildOrderByClause(sort, "opportunity_score DESC")
 	queryArgs := make([]interface{}, len(baseArgs))
 	copy(queryArgs, baseArgs)
 	queryArgs = append(queryArgs, limit, offset)
@@ -85,7 +85,7 @@ func (s *Store) ListInterlinkingOpportunities(ctx context.Context, sessionID str
 	rows, err := s.conn.Query(ctx,
 		`SELECT source_url, target_url, similarity, method,
 			source_title, target_title, source_pagerank, target_pagerank,
-			source_word_count, target_word_count
+			source_word_count, target_word_count, opportunity_score, category
 		FROM crawlobserver.interlinking_opportunities
 		WHERE `+where+orderBy+` LIMIT ? OFFSET ?`,
 		queryArgs...)
@@ -101,7 +101,7 @@ func (s *Store) ListInterlinkingOpportunities(ctx context.Context, sessionID str
 		if err := rows.Scan(
 			&o.SourceURL, &o.TargetURL, &o.Similarity, &o.Method,
 			&o.SourceTitle, &o.TargetTitle, &o.SourcePageRank, &o.TargetPageRank,
-			&o.SourceWordCount, &o.TargetWordCount,
+			&o.SourceWordCount, &o.TargetWordCount, &o.OpportunityScore, &o.Category,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scanning interlinking opportunity: %w", err)
 		}

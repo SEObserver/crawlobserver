@@ -384,24 +384,28 @@ func parseUintOp(val string) (string, string) {
 
 // InterlinkingFilters defines the allowed filter columns for interlinking_opportunities.
 var InterlinkingFilters = map[string]FilterDef{
-	"source_url":       {Column: "source_url", Type: FilterLike},
-	"target_url":       {Column: "target_url", Type: FilterLike},
-	"similarity":       {Column: "similarity", Type: FilterFloat},
-	"source_pagerank":  {Column: "source_pagerank", Type: FilterFloat},
-	"target_pagerank":  {Column: "target_pagerank", Type: FilterFloat},
+	"source_url":        {Column: "source_url", Type: FilterLike},
+	"target_url":        {Column: "target_url", Type: FilterLike},
+	"similarity":        {Column: "similarity", Type: FilterFloat},
+	"source_pagerank":   {Column: "source_pagerank", Type: FilterFloat},
+	"target_pagerank":   {Column: "target_pagerank", Type: FilterFloat},
 	"source_word_count": {Column: "source_word_count", Type: FilterUint},
 	"target_word_count": {Column: "target_word_count", Type: FilterUint},
+	"opportunity_score": {Column: "opportunity_score", Type: FilterFloat},
+	"category":          {Column: "category", Type: FilterLike},
 }
 
 // InterlinkingSortColumns maps query param names to DB column names for interlinking_opportunities.
 var InterlinkingSortColumns = map[string]string{
-	"similarity":       "similarity",
-	"source_url":       "source_url",
-	"target_url":       "target_url",
-	"source_pagerank":  "source_pagerank",
-	"target_pagerank":  "target_pagerank",
+	"similarity":        "similarity",
+	"source_url":        "source_url",
+	"target_url":        "target_url",
+	"source_pagerank":   "source_pagerank",
+	"target_pagerank":   "target_pagerank",
 	"source_word_count": "source_word_count",
 	"target_word_count": "target_word_count",
+	"opportunity_score": "opportunity_score",
+	"category":          "category",
 }
 
 // SimulationResultFilters defines the allowed filter columns for interlinking_simulation_results.
