@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -73,7 +72,6 @@ type Server struct {
 	keyStore        *apikeys.Store
 	manager         CrawlService
 	server          *http.Server
-	NoBrowserOpen   bool // skip auto-opening browser (e.g. in desktop GUI mode)
 	IsDesktop       bool // true when running as .app desktop bundle
 	UpdateStatus    *updater.UpdateStatus
 	BackupOpts      *backup.BackupOptions
@@ -441,31 +439,9 @@ func (s *Server) Start() error {
 
 	s.writeAPIDiscoveryFile()
 
-	if !s.NoBrowserOpen {
-		go func() {
-			time.Sleep(500 * time.Millisecond)
-			openBrowser(url)
-		}()
-	}
-
 	return s.server.ListenAndServe()
 }
 
-// openBrowser opens the given URL in the default browser.
-func openBrowser(url string) {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		cmd = exec.Command("xdg-open", url)
-	}
-	if err := cmd.Start(); err != nil {
-		applog.Warnf("server", "Could not open browser: %v", err)
-	}
-}
 
 // Stop gracefully shuts down the server.
 func (s *Server) Stop(ctx context.Context) error {

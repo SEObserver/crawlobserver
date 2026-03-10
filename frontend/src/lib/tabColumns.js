@@ -37,7 +37,6 @@ export const TAB_FILTERS = {
   ],
   redirects: ['url', 'status_code', 'final_url'],
   internal: ['source_url', 'target_url', 'anchor_text', 'tag'],
-  external: ['source_url', 'target_url', 'anchor_text', 'rel'],
 };
 
 // SVG path data for each tab icon (24x24 viewBox, stroke-based)
@@ -82,7 +81,7 @@ export function getTabs() {
 export const TAB_SUB_VIEWS = {
   reports: ['overview', 'content', 'technical', 'links', 'structure', 'sitemaps', 'international'],
   pages: ['all', 'titles', 'meta', 'headings', 'images', 'indexability', 'response', 'redirects'],
-  links: ['internal', 'external', 'checks', 'backlinks'],
+  links: ['internal', 'external', 'backlinks'],
   resources: ['summary', 'urls'],
   pagerank: ['top', 'directory', 'distribution', 'table'],
   directives: ['robots', 'sitemaps', 'sitemap_only', 'in_both'],
@@ -116,7 +115,8 @@ export const OLD_TAB_REDIRECT = {
   response: { tab: 'pages', subView: 'response' },
   internal: { tab: 'links', subView: 'internal' },
   external: { tab: 'links', subView: 'external' },
-  'ext-checks': { tab: 'links', subView: 'checks' },
+  'ext-checks': { tab: 'links', subView: 'external' },
+  checks: { tab: 'links', subView: 'external' },
   robots: { tab: 'directives', subView: 'robots' },
   sitemaps: { tab: 'directives', subView: 'sitemaps' },
 };

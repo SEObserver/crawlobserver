@@ -53,7 +53,7 @@ type CrawlStore interface {
 	CompareLinks(ctx context.Context, sessionA, sessionB, diffType string, limit, offset int) (*storage.LinkDiffResult, error)
 	GetExternalLinkChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.ExternalLinkCheckWithSource, error)
 	GetExternalLinkCheckDomains(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter, havingFilters []storage.ParsedFilter, sort *storage.SortParam) ([]storage.ExternalDomainCheck, error)
-	GetExpiredDomains(ctx context.Context, sessionID string, limit, offset int) (*storage.ExpiredDomainsResult, error)
+	GetExpiredDomains(ctx context.Context, sessionID string, limit, offset int, nsOnly bool) (*storage.ExpiredDomainsResult, error)
 	GetPageResourceChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.PageResourceCheck, error)
 	GetPageResourceTypeSummary(ctx context.Context, sessionID string) ([]storage.ResourceTypeSummary, error)
 	GetPageBodies(ctx context.Context, sessionID string, limit, offset int) ([]storage.PageBody, error)

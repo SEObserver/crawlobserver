@@ -670,6 +670,12 @@ PARTITION BY crawl_session_id
 ORDER BY (crawl_session_id, attempted_at)
 `
 
+const AlterExternalLinkChecksNS = `
+ALTER TABLE crawlobserver.external_link_checks
+    ADD COLUMN IF NOT EXISTS ns_exists Bool DEFAULT true,
+    ADD COLUMN IF NOT EXISTS ns_error String DEFAULT ''
+`
+
 // Migrations is the ordered list of migrations.
 var Migrations = []Migration{
 	{Name: "create database", DDL: CreateDatabase},
@@ -704,4 +710,5 @@ var Migrations = []Migration{
 	{Name: "alter provider_backlinks add ttf_topic", DDL: `ALTER TABLE crawlobserver.provider_backlinks ADD COLUMN IF NOT EXISTS source_ttf_topic String DEFAULT ''`},
 	{Name: "create retry_attempts", DDL: CreateRetryAttempts},
 	{Name: "create near_duplicate_pairs", DDL: CreateNearDuplicatePairs},
+	{Name: "alter external_link_checks add ns columns", DDL: AlterExternalLinkChecksNS},
 }

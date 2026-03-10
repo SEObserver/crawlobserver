@@ -122,6 +122,7 @@ var ExternalDomainCheckFilters = map[string]FilterDef{
 // ExternalDomainCheckHavingFilters defines aggregate-level filters applied via HAVING.
 var ExternalDomainCheckHavingFilters = map[string]FilterDef{
 	"unreachable": {Column: "unreachable", Type: FilterUint},
+	"ns_dead":     {Column: "ns_dead", Type: FilterUint},
 }
 
 // ExternalDomainCheckSortColumns maps query param names to DB column names for domain-level external checks.
@@ -133,6 +134,7 @@ var ExternalDomainCheckSortColumns = map[string]string{
 	"client_errors":   "client_errors",
 	"server_errors":   "server_errors",
 	"unreachable":     "unreachable",
+	"ns_dead":         "ns_dead",
 	"avg_response_ms": "avg_response_ms",
 }
 
@@ -285,7 +287,8 @@ func BuildWhereClause(filters []ParsedFilter) (string, []interface{}, error) {
 			op, numStr := parseUintOp(val)
 			n, err := strconv.ParseUint(numStr, 10, 64)
 			if err != nil {
-				return "", nil, fmt.Errorf("invalid numeric value for %s: %s", f.Def.Column, val)
+				// Skip invalid numeric values silently (user input)
+				continue
 			}
 			clauses = append(clauses, fmt.Sprintf("%s %s ?", f.Def.Column, op))
 			args = append(args, n)
@@ -293,7 +296,8 @@ func BuildWhereClause(filters []ParsedFilter) (string, []interface{}, error) {
 		case FilterBool:
 			lower := strings.ToLower(val)
 			if lower != "true" && lower != "false" && lower != "1" && lower != "0" {
-				return "", nil, fmt.Errorf("invalid bool value for %s: %s", f.Def.Column, val)
+				// Skip invalid bool values silently (user input)
+				continue
 			}
 			b := lower == "true" || lower == "1"
 			clauses = append(clauses, fmt.Sprintf("%s = ?", f.Def.Column))

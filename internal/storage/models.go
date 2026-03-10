@@ -213,6 +213,8 @@ type ExternalLinkCheck struct {
 	RedirectURL    string    `json:"redirect_url"`
 	ResponseTimeMs uint32    `json:"response_time_ms"`
 	CheckedAt      time.Time `json:"checked_at"`
+	NSExists       bool      `json:"ns_exists"`
+	NSError        string    `json:"ns_error"`
 }
 
 // ExternalLinkCheckWithSource extends ExternalLinkCheck with the internal source page info.
@@ -232,6 +234,7 @@ type ExternalDomainCheck struct {
 	ClientErrors  uint64 `json:"client_errors"`
 	ServerErrors  uint64 `json:"server_errors"`
 	Unreachable   uint64 `json:"unreachable"`
+	NSDead        uint64 `json:"ns_dead"`
 	AvgResponseMs uint32 `json:"avg_response_ms"`
 }
 

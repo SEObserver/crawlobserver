@@ -93,7 +93,6 @@ func runGUI(cmd *cobra.Command, args []string) error {
 
 	// 1. Create the HTTP server in setup mode IMMEDIATELY (serves frontend + setup endpoints)
 	httpSrv := server.NewSetupServer(cfg)
-	httpSrv.NoBrowserOpen = true
 	httpSrv.IsDesktop = true
 	httpSrv.UpdateStatus = updater.NewUpdateStatus()
 

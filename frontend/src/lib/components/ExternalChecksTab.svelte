@@ -1,9 +1,12 @@
 <script>
-  import { getExternalLinkChecks, getExternalLinkCheckDomains } from '../api.js';
+  import { onMount } from 'svelte';
+  import { getExternalLinkChecks, getExternalLinkCheckDomains, buildApiPath } from '../api.js';
   import { fetchAll, downloadCSV } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
   import SearchSelect from './SearchSelect.svelte';
   import DataTable from './DataTable.svelte';
+  import UrlActions from './UrlActions.svelte';
+  import ExportDropdown from './ExportDropdown.svelte';
 
   let {
     sessionId,
@@ -14,6 +17,16 @@
     onnavigate,
     onerror,
   } = $props();
+
+  function urlDetailHref(url) {
+    return `/sessions/${sessionId}/url/${encodeURIComponent(url)}`;
+  }
+
+  function goToUrlDetail(e, url) {
+    e.preventDefault();
+    e.stopPropagation();
+    onnavigate?.(urlDetailHref(url));
+  }
 
   let view = $state(initialSubView); // 'domains' | 'urls'
   let domains = $state([]);
@@ -112,10 +125,6 @@
     view = 'domains';
     pushFilters();
     loadDomains();
-  }
-
-  function viewSources(extUrl) {
-    onnavigate?.('external', { target_url: extUrl });
   }
 
   function statusClass(code) {
@@ -253,11 +262,27 @@
     }
   }
 
-  $effect(() => {
-    if (sessionId) {
-      if (view === 'domains') loadDomains();
-      else loadChecks();
+  let apiPath = $derived.by(() => {
+    if (view === 'domains') {
+      return buildApiPath(`/sessions/${sessionId}/external-checks/domains`, {
+        limit: PAGE_SIZE,
+        offset: 0,
+        ...domainFilters,
+        sort: sortColumn,
+        order: sortOrder,
+      });
     }
+    return buildApiPath(`/sessions/${sessionId}/external-checks`, {
+      limit: PAGE_SIZE,
+      offset: 0,
+      ...urlFilters,
+      sort: sortColumn,
+      order: sortOrder,
+    });
+  });
+
+  onMount(() => {
+    loadData();
   });
 </script>
 
@@ -271,38 +296,9 @@
         >{t('extChecks.urls')}</button
       >
     </div>
-    <button class="btn btn-sm ext-export" onclick={handleExportCSV} disabled={exporting}>
-      {#if exporting}
-        <svg
-          class="csv-spinner"
-          viewBox="0 0 24 24"
-          width="14"
-          height="14"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          ><path
-            d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"
-          /></svg
-        >
-        {t('common.exportingCsv')}
-      {:else}
-        <svg
-          viewBox="0 0 24 24"
-          width="14"
-          height="14"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-            points="7 10 12 15 17 10"
-          /><line x1="12" y1="15" x2="12" y2="3" /></svg
-        >
-        {t('common.exportCsv')}
-      {/if}
-    </button>
+    <div class="ext-export">
+      <ExportDropdown onexportcsv={handleExportCSV} {exporting} {apiPath} />
+    </div>
   </div>
 
   {#if loading}
@@ -318,9 +314,10 @@
         { label: '4xx', sortKey: 'client_errors', class: 'num' },
         { label: '5xx', sortKey: 'server_errors', class: 'num' },
         { label: 'Dead', sortKey: 'unreachable', class: 'num' },
+        { label: 'NS Dead', sortKey: 'ns_dead', class: 'num' },
         { label: t('extChecks.avgMs'), sortKey: 'avg_response_ms', class: 'num' },
       ]}
-      filterKeys={['domain', null, null, null, null, null, null, 'unreachable', null]}
+      filterKeys={['domain', null, null, null, null, null, null, 'unreachable', 'ns_dead', null]}
       filters={domainFilters}
       data={domains}
       offset={domainsOffset}
@@ -344,8 +341,11 @@
     >
       {#snippet row(d)}
         <tr>
-          <td
-            ><button class="link-btn" onclick={() => switchToUrls(d.domain)}>{d.domain}</button></td
+          <td class="cell-url"
+            ><span class="cell-url-inner"
+              ><button class="link-btn" onclick={() => switchToUrls(d.domain)}>{d.domain}</button
+              ><UrlActions url={`https://${d.domain}`} /></span
+            ></td
           >
           <td>{d.total_urls}</td>
           <td class="cell-bar">
@@ -382,6 +382,7 @@
           <td class="num">{d.client_errors}</td>
           <td class="num">{d.server_errors}</td>
           <td class="num">{d.unreachable}</td>
+          <td class="num">{#if d.ns_dead > 0}<span class="badge badge-ns-dead">{d.ns_dead}</span>{:else}-{/if}</td>
           <td class="num">{d.avg_response_ms}</td>
         </tr>
       {/snippet}
@@ -422,10 +423,11 @@
       onsort={handleSort}
     >
       {#snippet row(c)}
-        <tr class="clickable-row" onclick={() => viewSources(c.url)}>
+        <tr>
           <td class="cell-url"
-            ><a href={c.url} target="_blank" rel="noopener" onclick={(e) => e.stopPropagation()}
-              >{c.url}</a
+            ><span class="cell-url-inner"
+              ><a href={c.url} target="_blank" rel="noopener">{c.url}</a
+              ><UrlActions url={c.url} /></span
             ></td
           >
           <td
@@ -435,12 +437,12 @@
           >
           <td>{c.content_type || '-'}</td>
           <td class="cell-url">{c.redirect_url || '-'}</td>
-          <td class="cell-error" title={c.error}>{c.error ? c.error.substring(0, 60) : '-'}</td>
+          <td class="cell-error" title={c.error}>{c.error ? c.error.substring(0, 60) : '-'}{#if c.error === 'dns_not_found' && c.ns_exists === false}<span class="badge badge-ns-dead" title={c.ns_error}>NS missing</span>{/if}</td>
           <td class="num">{c.response_time_ms}</td>
           <td class="cell-url"
-            >{#if c.source_url}<a
-                href={`/sessions/${sessionId}/url/${encodeURIComponent(c.source_url)}`}
-                onclick={(e) => e.stopPropagation()}>{c.source_url}</a
+            >{#if c.source_url}<span class="cell-url-inner"
+                ><a href={urlDetailHref(c.source_url)} onclick={(e) => goToUrlDetail(e, c.source_url)}>{c.source_url}</a
+                ><UrlActions url={c.source_url} /></span
               >{:else}-{/if}</td
           >
           <td class="num text-accent font-medium"
@@ -585,6 +587,16 @@
   }
   .bar-dead {
     background: #9ca3af;
+  }
+  .badge-ns-dead {
+    background: #1f2937;
+    color: #f3f4f6;
+    margin-left: 6px;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 600;
+    white-space: nowrap;
   }
   .ext-loading {
     text-align: center;

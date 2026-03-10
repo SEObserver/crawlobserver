@@ -1163,8 +1163,9 @@ func (s *Server) handleExpiredDomains(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))
+	nsOnly := r.URL.Query().Get("ns_only") != "false" // default true
 
-	result, err := s.store.GetExpiredDomains(r.Context(), sessionID, limit, offset)
+	result, err := s.store.GetExpiredDomains(r.Context(), sessionID, limit, offset, nsOnly)
 	if err != nil {
 		internalError(w, r, err)
 		return

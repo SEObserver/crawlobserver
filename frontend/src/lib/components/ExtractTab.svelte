@@ -7,11 +7,13 @@
     deleteExtractorSet,
     getExtractions,
     runExtractions,
+    buildApiPath,
   } from '../api.js';
   import ConfirmModal from './ConfirmModal.svelte';
   import UrlActions from './UrlActions.svelte';
   import { t } from '../i18n/index.svelte.js';
   import SearchSelect from './SearchSelect.svelte';
+  import ExportDropdown from './ExportDropdown.svelte';
 
   let { sessionId, sessionConfig = '', onerror } = $props();
 
@@ -281,6 +283,10 @@
   );
   let hasResults = $derived(totalPages > 0);
 
+  let extractApiPath = $derived(
+    buildApiPath(`/sessions/${sessionId}/extractions`, { limit: 100, offset: 0 }),
+  );
+
   // Load sets and check for existing results on mount
   async function init() {
     loading = true;
@@ -512,22 +518,7 @@
         <span class="text-sm text-muted">{t('extract.pagesExtracted', { count: totalPages })}</span>
       </div>
       <div class="flex-center-gap">
-        <button class="btn btn-sm" onclick={exportCsv} title={t('common.exportCsv')}>
-          <svg
-            viewBox="0 0 24 24"
-            width="14"
-            height="14"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-              points="7 10 12 15 17 10"
-            /><line x1="12" y1="15" x2="12" y2="3" /></svg
-          >
-          {t('common.exportCsv')}
-        </button>
+        <ExportDropdown onexportcsv={exportCsv} apiPath={extractApiPath} />
         <button
           class="btn btn-sm"
           onclick={() => {

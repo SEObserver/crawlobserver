@@ -3,6 +3,7 @@ package crawler
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -1180,6 +1181,7 @@ func (e *Engine) externalCheckWorker() {
 			CrawlSessionID: e.session.ID,
 			URL:            rawURL,
 			CheckedAt:      time.Now(),
+			NSExists:       true,
 		}
 		req, err := http.NewRequestWithContext(e.ctx, "GET", rawURL, nil)
 		if err != nil {
@@ -1201,6 +1203,18 @@ func (e *Engine) externalCheckWorker() {
 				check.RedirectURL = resp.Request.URL.String()
 			}
 		}
+
+		// NS check for DNS failures: verify if nameservers exist (expired domain detection)
+		if check.Error == "dns_not_found" {
+			host := extractHost(rawURL)
+			if domain, err := publicsuffix.EffectiveTLDPlusOne(host); err == nil {
+				if _, nsErr := net.LookupNS(domain); nsErr != nil {
+					check.NSExists = false
+					check.NSError = nsErr.Error()
+				}
+			}
+		}
+
 		e.bufferExternalCheck(check)
 	}
 }

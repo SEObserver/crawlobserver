@@ -14,7 +14,7 @@ func (s *Store) InsertExternalLinkChecks(ctx context.Context, checks []ExternalL
 	batch, err := s.conn.PrepareBatch(ctx, `
 		INSERT INTO crawlobserver.external_link_checks (
 			crawl_session_id, url, status_code, error, content_type,
-			redirect_url, response_time_ms, checked_at
+			redirect_url, response_time_ms, checked_at, ns_exists, ns_error
 		)`)
 	if err != nil {
 		return fmt.Errorf("preparing external_link_checks batch: %w", err)
@@ -23,7 +23,7 @@ func (s *Store) InsertExternalLinkChecks(ctx context.Context, checks []ExternalL
 	for _, c := range checks {
 		if err := batch.Append(
 			c.CrawlSessionID, c.URL, c.StatusCode, c.Error, c.ContentType,
-			c.RedirectURL, c.ResponseTimeMs, c.CheckedAt,
+			c.RedirectURL, c.ResponseTimeMs, c.CheckedAt, c.NSExists, c.NSError,
 		); err != nil {
 			return fmt.Errorf("appending external_link_check row: %w", err)
 		}
@@ -41,7 +41,7 @@ func (s *Store) GetExternalLinkChecks(ctx context.Context, sessionID string, lim
 	}
 
 	query := `SELECT ec.crawl_session_id, ec.url, ec.status_code, ec.error, ec.content_type,
-		ec.redirect_url, ec.response_time_ms, ec.checked_at,
+		ec.redirect_url, ec.response_time_ms, ec.checked_at, ec.ns_exists, ec.ns_error,
 		l.source_url, p.pagerank, p.depth
 		FROM crawlobserver.external_link_checks AS ec
 		INNER JOIN crawlobserver.links AS l
@@ -73,6 +73,7 @@ func (s *Store) GetExternalLinkChecks(ctx context.Context, sessionID string, lim
 		var c ExternalLinkCheckWithSource
 		if err := rows.Scan(&c.CrawlSessionID, &c.URL, &c.StatusCode, &c.Error,
 			&c.ContentType, &c.RedirectURL, &c.ResponseTimeMs, &c.CheckedAt,
+			&c.NSExists, &c.NSError,
 			&c.SourceURL, &c.SourcePageRank, &c.SourceDepth); err != nil {
 			return nil, err
 		}
@@ -99,6 +100,7 @@ func (s *Store) GetExternalLinkCheckDomains(ctx context.Context, sessionID strin
 		countIf(status_code >= 400 AND status_code < 500) AS client_errors,
 		countIf(status_code >= 500) AS server_errors,
 		countIf(status_code = 0) AS unreachable,
+		countIf(ns_exists = false) AS ns_dead,
 		toUInt32(avg(response_time_ms)) AS avg_response_ms
 		FROM crawlobserver.external_link_checks
 		WHERE crawl_session_id = ?`
@@ -128,7 +130,7 @@ func (s *Store) GetExternalLinkCheckDomains(ctx context.Context, sessionID strin
 	for rows.Next() {
 		var d ExternalDomainCheck
 		if err := rows.Scan(&d.Domain, &d.TotalURLs, &d.OK, &d.Redirects,
-			&d.ClientErrors, &d.ServerErrors, &d.Unreachable, &d.AvgResponseMs); err != nil {
+			&d.ClientErrors, &d.ServerErrors, &d.Unreachable, &d.NSDead, &d.AvgResponseMs); err != nil {
 			return nil, err
 		}
 		results = append(results, d)
@@ -137,15 +139,21 @@ func (s *Store) GetExternalLinkCheckDomains(ctx context.Context, sessionID strin
 }
 
 // GetExpiredDomains returns registrable domains where all external checks failed with DNS errors.
-func (s *Store) GetExpiredDomains(ctx context.Context, sessionID string, limit, offset int) (*ExpiredDomainsResult, error) {
+// When nsOnly is true, only domains confirmed as having no nameservers (ns_exists = false) are returned.
+func (s *Store) GetExpiredDomains(ctx context.Context, sessionID string, limit, offset int, nsOnly bool) (*ExpiredDomainsResult, error) {
+	nsFilter := ""
+	if nsOnly {
+		nsFilter = " AND ns_exists = false"
+	}
+
 	// Step 1: Count total expired domains
-	countQuery := `SELECT count() FROM (
+	countQuery := fmt.Sprintf(`SELECT count() FROM (
 		SELECT cutToFirstSignificantSubdomain(url) AS reg_domain
 		FROM crawlobserver.external_link_checks
-		WHERE crawl_session_id = ?
+		WHERE crawl_session_id = ?%s
 		GROUP BY reg_domain
-		HAVING countIf(NOT (error = 'dns_not_found' OR error ILIKE '%no such host%')) = 0
-	)`
+		HAVING countIf(NOT (error = 'dns_not_found' OR error ILIKE '%%no such host%%')) = 0
+	)`, nsFilter)
 	var total uint64
 	if err := s.conn.QueryRow(ctx, countQuery, sessionID).Scan(&total); err != nil {
 		return nil, fmt.Errorf("counting expired domains: %w", err)
@@ -156,14 +164,14 @@ func (s *Store) GetExpiredDomains(ctx context.Context, sessionID string, limit, 
 	}
 
 	// Step 2: Get paginated expired domains
-	domainsQuery := `SELECT cutToFirstSignificantSubdomain(url) AS reg_domain,
+	domainsQuery := fmt.Sprintf(`SELECT cutToFirstSignificantSubdomain(url) AS reg_domain,
 		count() AS dead_urls
 		FROM crawlobserver.external_link_checks
-		WHERE crawl_session_id = ?
+		WHERE crawl_session_id = ?%s
 		GROUP BY reg_domain
-		HAVING countIf(NOT (error = 'dns_not_found' OR error ILIKE '%no such host%')) = 0
+		HAVING countIf(NOT (error = 'dns_not_found' OR error ILIKE '%%no such host%%')) = 0
 		ORDER BY dead_urls DESC
-		LIMIT ? OFFSET ?`
+		LIMIT ? OFFSET ?`, nsFilter)
 
 	rows, err := s.conn.Query(ctx, domainsQuery, sessionID, limit, offset)
 	if err != nil {

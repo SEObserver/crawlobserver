@@ -362,7 +362,7 @@ func (m *mockStore) GetExternalLinkChecks(_ context.Context, _ string, _, _ int,
 func (m *mockStore) GetExternalLinkCheckDomains(_ context.Context, _ string, _, _ int, _ []storage.ParsedFilter, _ []storage.ParsedFilter, _ *storage.SortParam) ([]storage.ExternalDomainCheck, error) {
 	return []storage.ExternalDomainCheck{}, m.err
 }
-func (m *mockStore) GetExpiredDomains(_ context.Context, _ string, _, _ int) (*storage.ExpiredDomainsResult, error) {
+func (m *mockStore) GetExpiredDomains(_ context.Context, _ string, _, _ int, _ bool) (*storage.ExpiredDomainsResult, error) {
 	if m.expiredDomainsResult != nil {
 		return m.expiredDomainsResult, m.err
 	}

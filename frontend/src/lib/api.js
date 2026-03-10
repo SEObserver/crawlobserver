@@ -90,6 +90,14 @@
 
 const BASE = '/api';
 
+export function buildApiPath(path, params = {}) {
+  const qs = Object.entries(params)
+    .filter(([, v]) => v !== '' && v != null)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .join('&');
+  return qs ? `${path}?${qs}` : path;
+}
+
 const DEFAULT_LIMIT = 100;
 const PAGERANK_LIMIT = 50;
 const PAGERANK_BUCKETS = 20;
