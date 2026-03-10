@@ -31,7 +31,7 @@
 
 ## Why CrawlObserver?
 
-At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We built CrawlObserver because every SEO deserves a proper crawler — not a spreadsheet with 10,000 rows, not a SaaS with monthly limits. A real tool that runs on your machine, stores data in a columnar database, and lets you query millions of pages in milliseconds.
+At [SEObserver](https://www.seobserver.com), we crawl billions of pages. We built CrawlObserver because every SEO deserves a proper crawler — one that stores data in a columnar database and lets you query millions of pages in milliseconds, even while the crawl is ongoing.
 
 **We're giving it to the community for free.** Use it, break it, improve it.
 
