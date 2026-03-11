@@ -50,6 +50,7 @@
   "common.unknown": "Unknown",
   "common.clearFilters": "Clear filters",
   "common.noResults": "No results found",
+  "common.noData": "No data available.",
   "common.download": "Download",
   "common.connect": "Connect",
   "common.disconnect": "Disconnect",

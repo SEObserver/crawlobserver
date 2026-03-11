@@ -16,13 +16,21 @@ export function applyTheme(theme, darkMode) {
   const isDark = resolveDark(darkMode);
   document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   if (theme.accent_color) {
-    document.documentElement.style.setProperty('--accent', theme.accent_color);
+    const root = document.documentElement;
+    root.style.setProperty('--accent', theme.accent_color);
     const hex = theme.accent_color.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
     const alpha = isDark ? 0.15 : 0.08;
-    document.documentElement.style.setProperty('--accent-light', `rgba(${r},${g},${b},${alpha})`);
+    root.style.setProperty('--accent-light', `rgba(${r},${g},${b},${alpha})`);
+    // Derive hover (darken 15%) and text (white or black based on luminance)
+    const hoverR = Math.max(0, Math.round(r * 0.85));
+    const hoverG = Math.max(0, Math.round(g * 0.85));
+    const hoverB = Math.max(0, Math.round(b * 0.85));
+    root.style.setProperty('--accent-hover', `rgb(${hoverR},${hoverG},${hoverB})`);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    root.style.setProperty('--accent-text', luminance > 0.5 ? '#0f172a' : '#ffffff');
   }
 }
 

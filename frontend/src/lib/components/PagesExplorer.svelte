@@ -695,13 +695,15 @@
       onnavigate={(url) => onnavigate?.(url)}
     />
   {:else if DELEGATED_VIEWS.has(subView) && subView !== 'duplicates'}
-    <URLPatternsTab
-      {sessionId}
-      initialSubView={subView}
-      onpushurl={(u) => onpushurl?.(u)}
-      onerror={(msg) => onerror?.(msg)}
-      embedded={true}
-    />
+    {#key subView}
+      <URLPatternsTab
+        {sessionId}
+        initialSubView={subView}
+        onpushurl={(u) => onpushurl?.(u)}
+        onerror={(msg) => onerror?.(msg)}
+        embedded={true}
+      />
+    {/key}
   {/if}
 </div>
 
