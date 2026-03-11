@@ -342,10 +342,10 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	switch {
 	case s.keyStore != nil && s.cfg.Server.Username != "" && s.cfg.Server.Password != "":
 		handler = apikeys.Authenticate(s.keyStore, s.cfg.Server.Username, s.cfg.Server.Password)(mux)
-		applog.Info("server", "Authentication enabled (API keys + basic auth)")
+		applog.Infof("server", "Authentication enabled (API keys + basic auth) — user: %s, password in config.yaml", s.cfg.Server.Username)
 	case s.cfg.Server.Username != "" && s.cfg.Server.Password != "":
 		handler = basicAuth(mux, s.cfg.Server.Username, s.cfg.Server.Password)
-		applog.Info("server", "Basic authentication enabled")
+		applog.Infof("server", "Basic authentication enabled — user: %s, password in config.yaml", s.cfg.Server.Username)
 	default:
 		if s.cfg.Server.Host == "0.0.0.0" || (s.cfg.Server.Host != "127.0.0.1" && s.cfg.Server.Host != "localhost") {
 			applog.Errorf("server", "WARNING: No authentication configured and server is listening on %s. The API is publicly accessible! Set server.username and server.password in config.", s.cfg.Server.Host)
@@ -407,7 +407,7 @@ func (s *Server) Start() error {
 	fmt.Print(banner)
 
 	if s.cfg.Server.PasswordGenerated {
-		fmt.Fprintf(os.Stderr, "\n  *** Generated random password: %s ***\n  *** Saved to config.yaml — this message will not appear again. ***\n\n", s.cfg.Server.Password)
+		applog.Info("server", "Generated random password, saved to config.yaml (server.password)")
 	}
 	if s.cfg.Server.WeakPassword {
 		fmt.Fprintf(os.Stderr, "\n  *** WARNING: server is listening on 0.0.0.0 with a weak password! ***\n  *** Set a strong password (>= 8 chars) in server.password before exposing to the internet. ***\n\n")
@@ -444,6 +444,11 @@ func (s *Server) Start() error {
 
 	url := fmt.Sprintf("http://%s", addr)
 	applog.Infof("server", "Web UI available at %s", url)
+	if s.cfg.Server.Host == "127.0.0.1" || s.cfg.Server.Host == "localhost" {
+		applog.Infof("server", "Listening on %s (localhost only). Set server.host to 0.0.0.0 in config.yaml to allow external access.", s.cfg.Server.Host)
+	} else if s.cfg.Server.Host == "0.0.0.0" {
+		applog.Info("server", "Listening on 0.0.0.0 (all interfaces, accessible from the network)")
+	}
 
 	s.writeAPIDiscoveryFile()
 
