@@ -526,6 +526,22 @@ func (m *mockStore) ListSimulationResults(_ context.Context, _, _ string, _, _ i
 	return nil, 0, m.err
 }
 
+func (m *mockStore) UpdateSessionLabel(_ context.Context, _, _ string) error {
+	return m.err
+}
+func (m *mockStore) URLPatterns(_ context.Context, _ string, _ int) ([]storage.URLPattern, error) {
+	return nil, m.err
+}
+func (m *mockStore) URLParams(_ context.Context, _ string, _ int) ([]storage.URLParam, error) {
+	return nil, m.err
+}
+func (m *mockStore) URLDirectories(_ context.Context, _ string, _, _ int) ([]storage.URLDirectory, error) {
+	return nil, m.err
+}
+func (m *mockStore) URLHosts(_ context.Context, _ string) ([]storage.URLHost, error) {
+	return nil, m.err
+}
+
 // ---------------------------------------------------------------------------
 // mockManager implements CrawlService
 // ---------------------------------------------------------------------------
