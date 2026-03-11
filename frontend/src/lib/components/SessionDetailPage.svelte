@@ -144,6 +144,7 @@
     {session}
     {stats}
     {liveProgress}
+    {projects}
     onerror={(msg) => onerror?.(msg)}
     onstop={(id) => onstop?.(id)}
     onresume={(id) => onresume?.(id)}

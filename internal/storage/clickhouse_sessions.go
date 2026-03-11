@@ -13,18 +13,18 @@ import (
 func (s *Store) InsertSession(ctx context.Context, session *CrawlSession) error {
 	return s.conn.Exec(ctx, `
 		INSERT INTO crawlobserver.crawl_sessions
-		(id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		(id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id, label)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		session.ID, session.StartedAt, session.FinishedAt, session.Status,
 		session.SeedURLs, session.Config, session.PagesCrawled, session.UserAgent,
-		session.ProjectID,
+		session.ProjectID, session.Label,
 	)
 }
 
 // ListSessions retrieves crawl sessions, optionally filtered by project ID.
 func (s *Store) ListSessions(ctx context.Context, projectID ...string) ([]CrawlSession, error) {
 	query := `
-		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id
+		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id, label
 		FROM crawlobserver.crawl_sessions FINAL`
 	var args []interface{}
 	if len(projectID) > 0 && projectID[0] != "" {
@@ -45,7 +45,7 @@ func (s *Store) ListSessions(ctx context.Context, projectID ...string) ([]CrawlS
 		if err := rows.Scan(
 			&sess.ID, &sess.StartedAt, &sess.FinishedAt,
 			&sess.Status, &sess.SeedURLs, &sess.Config,
-			&sess.PagesCrawled, &sess.UserAgent, &sess.ProjectID,
+			&sess.PagesCrawled, &sess.UserAgent, &sess.ProjectID, &sess.Label,
 		); err != nil {
 			return nil, fmt.Errorf("scanning session: %w", err)
 		}
@@ -81,7 +81,7 @@ func (s *Store) ListSessionsPaginated(ctx context.Context, limit, offset int, pr
 	}
 
 	// Fetch page
-	query := `SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id
+	query := `SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id, label
 		FROM crawlobserver.crawl_sessions FINAL` + where + ` ORDER BY started_at DESC LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 
@@ -97,7 +97,7 @@ func (s *Store) ListSessionsPaginated(ctx context.Context, limit, offset int, pr
 		if err := rows.Scan(
 			&sess.ID, &sess.StartedAt, &sess.FinishedAt,
 			&sess.Status, &sess.SeedURLs, &sess.Config,
-			&sess.PagesCrawled, &sess.UserAgent, &sess.ProjectID,
+			&sess.PagesCrawled, &sess.UserAgent, &sess.ProjectID, &sess.Label,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scanning session: %w", err)
 		}
@@ -115,7 +115,7 @@ func (s *Store) ListSessionsPaginated(ctx context.Context, limit, offset int, pr
 // GetSession retrieves a single crawl session by ID.
 func (s *Store) GetSession(ctx context.Context, sessionID string) (*CrawlSession, error) {
 	row := s.conn.QueryRow(ctx, `
-		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id
+		SELECT id, started_at, finished_at, status, seed_urls, config, pages_crawled, user_agent, project_id, label
 		FROM crawlobserver.crawl_sessions FINAL
 		WHERE id = ?
 	`, sessionID)
@@ -124,7 +124,7 @@ func (s *Store) GetSession(ctx context.Context, sessionID string) (*CrawlSession
 	if err := row.Scan(
 		&sess.ID, &sess.StartedAt, &sess.FinishedAt,
 		&sess.Status, &sess.SeedURLs, &sess.Config,
-		&sess.PagesCrawled, &sess.UserAgent, &sess.ProjectID,
+		&sess.PagesCrawled, &sess.UserAgent, &sess.ProjectID, &sess.Label,
 	); err != nil {
 		return nil, fmt.Errorf("querying session %s: %w", sessionID, err)
 	}
@@ -138,6 +138,16 @@ func (s *Store) UpdateSessionProject(ctx context.Context, sessionID string, proj
 		return err
 	}
 	sess.ProjectID = projectID
+	return s.InsertSession(ctx, sess)
+}
+
+// UpdateSessionLabel re-inserts a session with a new label (ReplacingMergeTree pattern).
+func (s *Store) UpdateSessionLabel(ctx context.Context, sessionID, label string) error {
+	sess, err := s.GetSession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	sess.Label = label
 	return s.InsertSession(ctx, sess)
 }
 

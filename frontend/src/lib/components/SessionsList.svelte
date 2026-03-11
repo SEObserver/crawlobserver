@@ -1,7 +1,7 @@
 <script>
   import { t } from '../i18n/index.svelte.js';
   import { fmtN, fmtSize, timeAgo } from '../utils.js';
-  import { importSession, importCSVSession } from '../api.js';
+  import { importSession, importCSVSession, batchAssignSessions } from '../api.js';
 
   let {
     sessions,
@@ -19,6 +19,36 @@
 
   let importing = $state(false);
   let importError = $state('');
+  let selectedIds = $state(new Set());
+  let showBulkAssignMenu = $state(false);
+
+  function toggleSelect(id, e) {
+    e.stopPropagation();
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    selectedIds = next;
+  }
+
+  function toggleSelectAll(e) {
+    e.stopPropagation();
+    if (selectedIds.size === sessions.length) {
+      selectedIds = new Set();
+    } else {
+      selectedIds = new Set(sessions.map((s) => s.ID));
+    }
+  }
+
+  async function handleBulkAssign(projectId) {
+    showBulkAssignMenu = false;
+    try {
+      await batchAssignSessions(projectId, [...selectedIds]);
+      selectedIds = new Set();
+      onrefresh?.();
+    } catch (err) {
+      importError = err.message;
+    }
+  }
 
   async function handleImport(e) {
     const file = e.target.files?.[0];
@@ -97,6 +127,27 @@
     >
   </div>
 {:else}
+  <!-- Bulk action bar -->
+  {#if selectedIds.size > 0}
+    <div class="bulk-bar">
+      <span class="bulk-count">{t('session.bulkSelected', { count: selectedIds.size })}</span>
+      <div class="bulk-assign-wrapper">
+        <button class="btn btn-sm btn-primary" onclick={() => (showBulkAssignMenu = !showBulkAssignMenu)}>
+          {t('session.bulkAssign')}
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+        </button>
+        {#if showBulkAssignMenu}
+          <div class="bulk-assign-menu">
+            {#each projects as p}
+              <button class="dropdown-item" onclick={() => handleBulkAssign(p.id)}>{p.name}</button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+      <button class="btn btn-sm" onclick={() => (selectedIds = new Set())}>{t('common.cancel')}</button>
+    </div>
+  {/if}
+
   <div class="card card-flush">
     {#each sessions as s}
       {@const live = liveProgress[s.ID]}
@@ -105,8 +156,16 @@
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="session-row" onclick={() => onselectsession?.(s)}>
+        <label class="session-checkbox" onclick={(e) => e.stopPropagation()}>
+          <input type="checkbox" checked={selectedIds.has(s.ID)} onchange={(e) => toggleSelect(s.ID, e)} />
+        </label>
         <div class="session-info">
-          <div class="session-seed">{s.SeedURLs?.[0] || 'Unknown'}</div>
+          <div class="session-seed">
+            {s.SeedURLs?.[0] || 'Unknown'}
+            {#if s.Label}
+              <span class="session-label">{s.Label}</span>
+            {/if}
+          </div>
           <div class="session-meta">
             {#if isQueued}
               <span class="badge badge-queued">{t('session.queued')}</span>
@@ -147,6 +206,8 @@
               <span class="badge badge-project"
                 >{projects.find((p) => p.id === s.ProjectID)?.name || 'Project'}</span
               >
+            {:else}
+              <span class="badge badge-orphan">{t('session.noProject')}</span>
             {/if}
             <span>{t('sessions.pagesCount', { count: fmtN(s.PagesCrawled) })}</span>
             {#if sessionStorageMap[s.ID]}<span>{fmtSize(sessionStorageMap[s.ID])}</span>{/if}
@@ -190,6 +251,78 @@
 {/if}
 
 <style>
+  /* Bulk bar */
+  .bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--accent-light, #eff6ff);
+    border: 1px solid var(--accent, #3b82f6);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+  }
+  .bulk-count {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .bulk-assign-wrapper {
+    position: relative;
+  }
+  .bulk-assign-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 100;
+    min-width: 180px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    padding: 4px 0;
+  }
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 12px;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .dropdown-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .session-checkbox {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .session-checkbox input {
+    cursor: pointer;
+  }
+  .session-label {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-left: 8px;
+    padding: 1px 6px;
+    background: var(--bg-hover);
+    border-radius: var(--radius-sm);
+  }
+  .badge-orphan {
+    background: #fff7ed;
+    color: #c2410c;
+  }
+
   .session-row {
     display: flex;
     align-items: center;

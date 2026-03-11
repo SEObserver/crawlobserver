@@ -776,7 +776,13 @@ var Migrations = []Migration{
 	{Name: "create interlinking_simulation_results", DDL: CreateInterlinkingSimulationResults},
 	{Name: "create page_embeddings", DDL: CreatePageEmbeddings},
 	{Name: "alter interlinking_opportunities v2", DDL: AlterInterlinkingOpportunitiesV2},
+	{Name: "alter sessions v3 add label", DDL: AlterSessionsV3},
 }
+
+const AlterSessionsV3 = `
+ALTER TABLE crawlobserver.crawl_sessions
+    ADD COLUMN IF NOT EXISTS label String DEFAULT ''
+`
 
 const AlterInterlinkingOpportunitiesV2 = `
 ALTER TABLE crawlobserver.interlinking_opportunities

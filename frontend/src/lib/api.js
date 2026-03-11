@@ -607,6 +607,32 @@ export async function disassociateSession(projectId, sessionId) {
   return fetchJSON(`/projects/${projectId}/sessions/${sessionId}`, { method: 'DELETE' });
 }
 
+/**
+ * @param {string} sessionId
+ * @param {string} label
+ * @returns {Promise<Object>}
+ */
+export async function renameSession(sessionId, label) {
+  return fetchJSON(`/sessions/${sessionId}/label`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ label }),
+  });
+}
+
+/**
+ * @param {string} projectId
+ * @param {string[]} sessionIds
+ * @returns {Promise<Object>}
+ */
+export async function batchAssignSessions(projectId, sessionIds) {
+  return fetchJSON(`/projects/${projectId}/sessions/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_ids: sessionIds }),
+  });
+}
+
 // --- API Keys ---
 
 /** @returns {Promise<Object[]>} */

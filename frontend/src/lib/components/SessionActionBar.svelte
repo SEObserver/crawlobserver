@@ -1,5 +1,5 @@
 <script>
-  import { recomputeDepths, exportSession } from '../api.js';
+  import { recomputeDepths, exportSession, renameSession, associateSession, disassociateSession } from '../api.js';
   import { fmtN, a11yKeydown } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
 
@@ -7,6 +7,7 @@
     session,
     stats,
     liveProgress,
+    projects = [],
     onerror,
     onstop,
     onresume,
@@ -20,6 +21,9 @@
   let exportIncludeHTML = $state(false);
   let showConfigModal = $state(false);
   let showActionsMenu = $state(false);
+  let editingLabel = $state(false);
+  let labelValue = $state('');
+  let showReassignMenu = $state(false);
 
   function parsedConfig() {
     if (!session?.Config) return null;
@@ -87,10 +91,53 @@
     return new Date(d).toLocaleString();
   }
 
+  function startEditLabel() {
+    editingLabel = true;
+    labelValue = session.Label || '';
+  }
+
+  async function confirmLabel() {
+    editingLabel = false;
+    const newLabel = labelValue.trim();
+    if (newLabel !== (session.Label || '')) {
+      try {
+        await renameSession(session.ID, newLabel);
+        session.Label = newLabel;
+        onrefresh?.();
+      } catch (e) {
+        onerror?.(e.message);
+      }
+    }
+  }
+
+  function cancelLabel() {
+    editingLabel = false;
+  }
+
+  async function handleReassign(projectId) {
+    showReassignMenu = false;
+    showActionsMenu = false;
+    try {
+      // If already assigned, disassociate first
+      if (session.ProjectID) {
+        await disassociateSession(session.ProjectID, session.ID);
+      }
+      if (projectId) {
+        await associateSession(projectId, session.ID);
+      }
+      // Update locally for instant breadcrumb reactivity
+      session.ProjectID = projectId;
+      onrefresh?.();
+    } catch (e) {
+      onerror?.(e.message);
+    }
+  }
+
   function closeMenu(e) {
     // Close dropdown when clicking outside
     if (showActionsMenu) {
       showActionsMenu = false;
+      showReassignMenu = false;
     }
   }
 </script>
@@ -98,6 +145,26 @@
 <svelte:window onclick={closeMenu} />
 
 <div class="action-bar">
+  <!-- Inline label -->
+  {#if editingLabel}
+    <input
+      class="label-input"
+      type="text"
+      bind:value={labelValue}
+      placeholder={t('session.labelPlaceholder')}
+      onkeydown={(e) => {
+        if (e.key === 'Enter') confirmLabel();
+        if (e.key === 'Escape') cancelLabel();
+      }}
+      onblur={confirmLabel}
+      autofocus
+    />
+  {:else if session.Label}
+    <button class="label-badge" ondblclick={startEditLabel} title={t('session.rename')}>
+      {session.Label}
+    </button>
+  {/if}
+
   {#if session.Status === 'stopping'}
     <span class="badge badge-warning">{t('actionBar.stopping')}</span>
   {:else if session.is_running}
@@ -185,6 +252,49 @@
             >
             {t('sessions.resume')}
           </button>
+          <button
+            class="dropdown-item"
+            onclick={() => {
+              showActionsMenu = false;
+              startEditLabel();
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            {t('session.rename')}
+          </button>
+          {#if projects.length > 0}
+            <div class="dropdown-submenu-wrapper">
+              <button
+                class="dropdown-item"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  showReassignMenu = !showReassignMenu;
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+                {t('session.reassign')}
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:auto"><polyline points="9 18 15 12 9 6" /></svg>
+              </button>
+              {#if showReassignMenu}
+                <div class="dropdown-submenu" onclick={(e) => e.stopPropagation()}>
+                  {#each projects as p}
+                    <button
+                      class="dropdown-item"
+                      class:dropdown-item-active={session.ProjectID === p.id}
+                      onclick={() => handleReassign(p.id)}
+                    >{p.name}</button>
+                  {/each}
+                  {#if session.ProjectID}
+                    <div class="dropdown-divider"></div>
+                    <button class="dropdown-item dropdown-item-danger" onclick={() => handleReassign(null)}>
+                      {t('session.disassociate')}
+                    </button>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+          {/if}
+          <div class="dropdown-divider"></div>
           <button class="dropdown-item" onclick={handleRecomputeDepths} disabled={recomputing}>
             <svg
               viewBox="0 0 24 24"
@@ -688,6 +798,51 @@
   .config-ua {
     word-break: break-all;
     font-size: 12px;
+  }
+  /* Label */
+  .label-input {
+    font-size: 13px;
+    padding: 2px 8px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text);
+    outline: none;
+    max-width: 180px;
+  }
+  .label-badge {
+    font-size: 12px;
+    padding: 2px 8px;
+    background: var(--bg-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .label-badge:hover {
+    border-color: var(--accent);
+  }
+
+  /* Submenu */
+  .dropdown-submenu-wrapper {
+    position: relative;
+  }
+  .dropdown-submenu {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    min-width: 180px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    padding: 4px 0;
+    z-index: 101;
+  }
+  .dropdown-item-active {
+    font-weight: 600;
+    color: var(--accent);
   }
   .config-patterns {
     white-space: pre-wrap;

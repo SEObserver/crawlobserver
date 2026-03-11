@@ -615,6 +615,52 @@ func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "deleted"})
 }
 
+// --- Session label & batch handlers ---
+
+func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	sid := r.PathValue("sid")
+	var req struct {
+		Label string `json:"label"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := s.store.UpdateSessionLabel(r.Context(), sid, req.Label); err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, map[string]string{"status": "renamed"})
+}
+
+func (s *Server) handleBatchAssignSessions(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	pid := r.PathValue("pid")
+	var req struct {
+		SessionIDs []string `json:"session_ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.SessionIDs) == 0 {
+		writeError(w, http.StatusBadRequest, "session_ids required")
+		return
+	}
+	if _, err := s.keyStore.GetProject(pid); err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	for _, sid := range req.SessionIDs {
+		if err := s.store.UpdateSessionProject(r.Context(), sid, &pid); err != nil {
+			internalError(w, r, err)
+			return
+		}
+	}
+	writeJSON(w, map[string]string{"status": "assigned", "count": strconv.Itoa(len(req.SessionIDs))})
+}
+
 // --- Logs handlers ---
 
 func (s *Server) handleListLogs(w http.ResponseWriter, r *http.Request) {

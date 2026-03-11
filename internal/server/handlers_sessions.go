@@ -104,6 +104,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 			"PagesCrawled": pagesCrawled,
 			"UserAgent":    sess.UserAgent,
 			"ProjectID":    sess.ProjectID,
+			"Label":        sess.Label,
 			"is_running":   s.manager.IsRunning(sess.ID),
 			"is_queued":    s.manager.IsQueued(sess.ID),
 		})

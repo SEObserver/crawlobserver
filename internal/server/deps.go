@@ -19,6 +19,7 @@ type SessionStore interface {
 	GetSession(ctx context.Context, sessionID string) (*storage.CrawlSession, error)
 	DeleteSession(ctx context.Context, sessionID string) error
 	UpdateSessionProject(ctx context.Context, sessionID string, projectID *string) error
+	UpdateSessionLabel(ctx context.Context, sessionID, label string) error
 	StorageStats(ctx context.Context) (*storage.StorageStatsResult, error)
 	SessionStorageStats(ctx context.Context) (map[string]uint64, error)
 	GlobalStats(ctx context.Context) ([]storage.GlobalSessionStats, *storage.StorageStatsResult, error)

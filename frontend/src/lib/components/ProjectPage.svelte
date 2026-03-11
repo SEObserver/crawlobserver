@@ -6,6 +6,7 @@
     deleteProject,
     deleteProjectWithSessions,
     getProviderConnections,
+    disassociateSession,
   } from '../api.js';
   import { fmtN, timeAgo } from '../utils.js';
   import { pushURL } from '../router.js';
@@ -257,6 +258,7 @@
             <th>{t('common.status')}</th>
             <th>{t('common.pages')}</th>
             <th>{t('actionBar.started')}</th>
+            <th style="width:1%"></th>
           </tr>
         </thead>
         <tbody>
@@ -276,6 +278,24 @@
               </td>
               <td>{fmtN(s.PagesCrawled || 0)}</td>
               <td class="nowrap text-muted text-sm">{s.StartedAt ? timeAgo(s.StartedAt) : '-'}</td>
+              <td onclick={(e) => e.stopPropagation()}>
+                <button
+                  class="btn-ghost btn-unlink"
+                  title={t('session.disassociate')}
+                  onclick={() =>
+                    showConfirm(t('session.disassociateConfirm'), async () => {
+                      try {
+                        await disassociateSession(project.id, s.ID);
+                        loadProjectSessions();
+                      } catch (e) {
+                        onerror?.(e.message);
+                      }
+                    })
+                  }
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                </button>
+              </td>
             </tr>
           {/each}
         </tbody>
@@ -470,6 +490,14 @@
   }
   .danger-zone-text strong {
     font-size: 13px;
+  }
+  .btn-unlink {
+    padding: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .btn-unlink:hover {
+    color: #dc2626;
   }
   .btn-danger {
     background: var(--bg-card);
