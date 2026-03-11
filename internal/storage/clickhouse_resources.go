@@ -152,7 +152,7 @@ type PageBody struct {
 func (s *Store) GetPageBodies(ctx context.Context, sessionID string, limit, offset int) ([]PageBody, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT url, body_html
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ?
 			AND status_code >= 200 AND status_code < 300
 			AND length(body_html) > 0

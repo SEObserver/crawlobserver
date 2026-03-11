@@ -163,7 +163,7 @@ func (s *Store) HasStoredHTML(ctx context.Context, sessionID string) (bool, erro
 	var count uint64
 	err := s.conn.QueryRow(ctx, `
 		SELECT count()
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND body_html != ''
 		LIMIT 1`, sessionID).Scan(&count)
 	if err != nil {

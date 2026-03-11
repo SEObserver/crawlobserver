@@ -7,6 +7,8 @@
   import DataTable from './DataTable.svelte';
   import UrlActions from './UrlActions.svelte';
   import ExportDropdown from './ExportDropdown.svelte';
+  import NearDuplicatesTab from './NearDuplicatesTab.svelte';
+  import URLPatternsTab from './URLPatternsTab.svelte';
 
   let {
     sessionId,
@@ -28,7 +30,14 @@
     { id: 'indexability', label: () => t('pages.indexability') },
     { id: 'response', label: () => t('pages.response') },
     { id: 'redirects', label: () => t('pages.redirects') },
+    { id: 'duplicates', label: () => t('tabs.nearDuplicates'), sep: true },
+    { id: 'patterns', label: () => t('urlPatterns.patterns') },
+    { id: 'parameters', label: () => t('urlPatterns.parameters') },
+    { id: 'directories', label: () => t('urlPatterns.directories') },
+    { id: 'hosts', label: () => t('urlPatterns.hosts') },
   ];
+
+  const DELEGATED_VIEWS = new Set(['duplicates', 'patterns', 'parameters', 'directories', 'hosts']);
 
   // Map sub-view id to TAB_FILTERS key
   function filterKey(sv) {
@@ -105,7 +114,9 @@
     sortColumn = '';
     sortOrder = '';
     pushFilters(sv, {}, 0);
-    loadData();
+    if (!DELEGATED_VIEWS.has(sv)) {
+      loadData();
+    }
   }
 
   function handleSort(col, ord) {
@@ -298,6 +309,7 @@
   <div class="explorer-toolbar">
     <div class="pr-subview-bar">
       {#each SUB_VIEWS as sv}
+        {#if sv.sep}<span class="pr-subview-sep"></span>{/if}
         <button
           class="pr-subview-btn"
           class:pr-subview-active={subView === sv.id}
@@ -305,7 +317,9 @@
         >
       {/each}
     </div>
-    <ExportDropdown onexportcsv={handleExportCSV} {exporting} {apiPath} />
+    {#if !DELEGATED_VIEWS.has(subView)}
+      <ExportDropdown onexportcsv={handleExportCSV} {exporting} {apiPath} />
+    {/if}
   </div>
 
   {#if subView === 'all'}
@@ -674,11 +688,31 @@
         </tr>
       {/snippet}
     </DataTable>
+  {:else if subView === 'duplicates'}
+    <NearDuplicatesTab
+      {sessionId}
+      onerror={(msg) => onerror?.(msg)}
+      onnavigate={(url) => onnavigate?.(url)}
+    />
+  {:else if DELEGATED_VIEWS.has(subView) && subView !== 'duplicates'}
+    <URLPatternsTab
+      {sessionId}
+      initialSubView={subView}
+      onpushurl={(u) => onpushurl?.(u)}
+      onerror={(msg) => onerror?.(msg)}
+      embedded={true}
+    />
   {/if}
 </div>
 
 <style>
   .pages-explorer {
     padding: 24px;
+  }
+  .pr-subview-sep {
+    width: 1px;
+    background: var(--border);
+    align-self: stretch;
+    margin: 4px 4px;
   }
 </style>

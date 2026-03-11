@@ -79,6 +79,14 @@ type ContentAnalysisStore interface {
 	GetPageResourceTypeSummary(ctx context.Context, sessionID string) ([]storage.ResourceTypeSummary, error)
 }
 
+// URLPatternStore handles URL pattern analysis (grouping, params, directories, hosts).
+type URLPatternStore interface {
+	URLPatterns(ctx context.Context, sessionID string, depth int) ([]storage.URLPattern, error)
+	URLParams(ctx context.Context, sessionID string, limit int) ([]storage.URLParam, error)
+	URLDirectories(ctx context.Context, sessionID string, depth, minPages int) ([]storage.URLDirectory, error)
+	URLHosts(ctx context.Context, sessionID string) ([]storage.URLHost, error)
+}
+
 // CompareStore handles side-by-side session comparison.
 type CompareStore interface {
 	CompareStats(ctx context.Context, sessionA, sessionB string) (*storage.CompareStatsResult, error)
@@ -125,6 +133,7 @@ type CrawlStore interface {
 	PageRankStore
 	SitemapRobotsStore
 	ContentAnalysisStore
+	URLPatternStore
 	CompareStore
 	ImportExportStore
 	ExtractionStore

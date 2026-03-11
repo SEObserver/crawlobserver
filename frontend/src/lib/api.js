@@ -1564,3 +1564,43 @@ export function subscribeProgress(sessionId, onMessage, onDone, onStatsReady) {
     },
   };
 }
+
+// --- URL Patterns ---
+
+/**
+ * @param {string} sessionId
+ * @param {number} depth
+ * @returns {Promise<Object[]>}
+ */
+export async function getURLPatterns(sessionId, depth = 2) {
+  return fetchJSON(`/sessions/${sessionId}/url-patterns?depth=${depth}`);
+}
+
+/**
+ * @param {string} sessionId
+ * @param {number} limit
+ * @returns {Promise<Object[]>}
+ */
+export async function getURLParams(sessionId, limit = 100) {
+  return fetchJSON(`/sessions/${sessionId}/url-params?limit=${limit}`);
+}
+
+/**
+ * @param {string} sessionId
+ * @param {number} depth
+ * @param {number} minPages
+ * @returns {Promise<Object[]>}
+ */
+export async function getURLDirectories(sessionId, depth = 2, minPages = 1) {
+  return fetchJSON(
+    `/sessions/${sessionId}/url-directories?depth=${depth}&min_pages=${minPages}`,
+  );
+}
+
+/**
+ * @param {string} sessionId
+ * @returns {Promise<Object[]>}
+ */
+export async function getURLHosts(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/url-hosts`);
+}

@@ -70,7 +70,7 @@ func (s *Store) GetRobotsContent(ctx context.Context, sessionID, host string) (*
 func (s *Store) GetURLsByHost(ctx context.Context, sessionID, host string) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
 		SELECT DISTINCT url
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND url LIKE ?
 		ORDER BY url`, sessionID, host+"/%")
 	if err != nil {
@@ -192,14 +192,14 @@ func (s *Store) GetSitemapCoverageURLs(ctx context.Context, sessionID, filter st
 			SELECT DISTINCT '' AS crawl_session_id, '' AS sitemap_url, su.loc, su.lastmod, su.changefreq, su.priority
 			FROM crawlobserver.sitemap_urls su
 			WHERE su.crawl_session_id = ?
-			  AND su.loc NOT IN (SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ? AND ` + notRedirectedFilter + `)
+			  AND su.loc NOT IN (SELECT url FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND ` + notRedirectedFilter + `)
 			ORDER BY su.loc LIMIT ? OFFSET ?`
 	case "in_both":
 		query = `
 			SELECT DISTINCT '' AS crawl_session_id, '' AS sitemap_url, su.loc, su.lastmod, su.changefreq, su.priority
 			FROM crawlobserver.sitemap_urls su
 			WHERE su.crawl_session_id = ?
-			  AND su.loc IN (SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ? AND ` + notRedirectedFilter + `)
+			  AND su.loc IN (SELECT url FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND ` + notRedirectedFilter + `)
 			ORDER BY su.loc LIMIT ? OFFSET ?`
 	default:
 		return nil, fmt.Errorf("invalid coverage filter: %s", filter)

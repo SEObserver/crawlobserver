@@ -138,7 +138,7 @@ func (s *Store) LoadInternalLinkSet(ctx context.Context, sessionID string) (map[
 func (s *Store) LoadPageMetadata(ctx context.Context, sessionID string) (map[string]PageMetadata, error) {
 	rows, err := s.conn.Query(ctx,
 		`SELECT url, title, lang, pagerank, word_count, canonical, canonical_is_self
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND status_code = 200
 		  AND (final_url = '' OR final_url = url)`, sessionID)
 	if err != nil {
@@ -175,7 +175,7 @@ func (s *Store) LoadPageRankGraph(ctx context.Context, sessionID string) (*PageR
 
 	// 1. Load all URLs and assign IDs
 	urlRows, err := s.conn.Query(ctx,
-		`SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+		`SELECT url FROM crawlobserver.pages FINAL WHERE crawl_session_id = ?`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("querying URLs: %w", err)
 	}

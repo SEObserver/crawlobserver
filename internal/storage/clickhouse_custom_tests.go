@@ -134,7 +134,7 @@ func (s *Store) RunCustomTestsSQL(ctx context.Context, sessionID string, rules [
 		allArgs = append(allArgs, expr.args...)
 	}
 
-	query := fmt.Sprintf("SELECT %s FROM crawlobserver.pages WHERE crawl_session_id = {sessionID:String} AND "+notRedirectedFilter,
+	query := fmt.Sprintf("SELECT %s FROM crawlobserver.pages FINAL WHERE crawl_session_id = {sessionID:String} AND "+notRedirectedFilter,
 		strings.Join(selects, ", "))
 
 	rows, err := s.conn.Query(ctx, query, allArgs...)
@@ -172,7 +172,7 @@ func (s *Store) RunCustomTestsSQL(ctx context.Context, sessionID string, rules [
 // StreamPagesHTML streams url+body_html pairs for a session.
 func (s *Store) StreamPagesHTML(ctx context.Context, sessionID string) (<-chan PageHTMLRow, error) {
 	rows, err := s.conn.Query(ctx, `
-		SELECT url, body_html FROM crawlobserver.pages
+		SELECT url, body_html FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = {sessionID:String} AND body_html != ''`,
 		clickhouse.Named("sessionID", sessionID))
 	if err != nil {

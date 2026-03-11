@@ -7,15 +7,12 @@
   import UrlDetailView from './UrlDetailView.svelte';
   import PageRankTab from './PageRankTab.svelte';
   import ReportsHub from './ReportsHub.svelte';
-  import CustomTestsTab from './CustomTestsTab.svelte';
-  import ExtractTab from './ExtractTab.svelte';
   import ResourceChecksTab from './ResourceChecksTab.svelte';
   import PagesExplorer from './PagesExplorer.svelte';
   import LinksExplorer from './LinksExplorer.svelte';
   import DirectivesTab from './DirectivesTab.svelte';
   import AuthorityTab from './AuthorityTab.svelte';
-  import NearDuplicatesTab from './NearDuplicatesTab.svelte';
-  import InterlinkingTab from './InterlinkingTab.svelte';
+  import ToolsTab from './ToolsTab.svelte';
 
   let {
     session,
@@ -237,12 +234,6 @@
         onpushurl={(u) => pushURL(u)}
         onerror={(msg) => onerror?.(msg)}
       />
-    {:else if tab === 'duplicates'}
-      <NearDuplicatesTab
-        sessionId={session.ID}
-        onerror={(msg) => onerror?.(msg)}
-        onnavigate={(url) => onnavigate?.(url)}
-      />
     {:else if tab === 'authority'}
       <AuthorityTab
         sessionId={session.ID}
@@ -254,16 +245,14 @@
           }
         }}
       />
-    {:else if tab === 'tests'}
-      <CustomTestsTab sessionId={session.ID} onerror={(msg) => onerror?.(msg)} />
-    {:else if tab === 'extract'}
-      <ExtractTab
+    {:else if tab === 'tools'}
+      <ToolsTab
         sessionId={session.ID}
         sessionConfig={session.Config}
+        initialSubView={subView || 'tests'}
+        onpushurl={(u) => pushURL(u)}
         onerror={(msg) => onerror?.(msg)}
       />
-    {:else if tab === 'interlinking'}
-      <InterlinkingTab sessionId={session.ID} onerror={(msg) => onerror?.(msg)} />
     {/if}
   </div>
 {/if}

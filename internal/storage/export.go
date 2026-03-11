@@ -201,7 +201,7 @@ func (s *Store) exportPages(ctx context.Context, enc *json.Encoder, sessionID st
 			headers, redirect_chain, body_size, fetch_duration_ms,
 			content_encoding, x_robots_tag,
 			error, depth, found_on, pagerank, %s, body_truncated, crawled_at
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ?
 		ORDER BY url
 		LIMIT ? OFFSET ?`, htmlCol)

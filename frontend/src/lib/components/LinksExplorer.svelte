@@ -7,6 +7,7 @@
   import DataTable from './DataTable.svelte';
   import ExternalChecksTab from './ExternalChecksTab.svelte';
   import BacklinksView from './BacklinksView.svelte';
+  import InterlinkingTab from './InterlinkingTab.svelte';
   import UrlActions from './UrlActions.svelte';
   import ExportDropdown from './ExportDropdown.svelte';
 
@@ -25,6 +26,7 @@
     { id: 'internal', label: () => t('links.internal') },
     { id: 'external', label: () => t('links.external') },
     { id: 'backlinks', label: () => t('links.backlinks'), premium: true },
+    { id: 'interlinking', label: () => t('tabs.interlinking') },
   ];
 
   let subView = $state(initialSubView);
@@ -103,8 +105,8 @@
       blFilters = {};
       pushFilters(sv, {}, 0);
       loadData();
-    } else if (sv === 'external') {
-      // ExternalChecksTab manages its own data loading
+    } else if (sv === 'external' || sv === 'interlinking') {
+      // These sub-views manage their own data loading
       pushFilters(sv, {}, 0);
     } else {
       pushFilters(sv, {}, 0);
@@ -217,7 +219,7 @@
         >
       {/each}
     </div>
-    {#if subView !== 'external' && subView !== 'backlinks'}
+    {#if subView !== 'external' && subView !== 'backlinks' && subView !== 'interlinking'}
       <ExportDropdown onexportcsv={handleExportCSV} {exporting} {apiPath} />
     {/if}
   </div>
@@ -319,6 +321,8 @@
         }}
       />
     {/if}
+  {:else if subView === 'interlinking'}
+    <InterlinkingTab sessionId={sessionId} onerror={(msg) => onerror?.(msg)} />
   {/if}
 </div>
 

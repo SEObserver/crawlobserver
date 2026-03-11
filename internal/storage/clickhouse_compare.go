@@ -45,11 +45,11 @@ func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType s
 			)) AS changed
 		FROM (
 			SELECT url, status_code, title, canonical, is_indexable, meta_description, h1, depth, word_count, pagerank
-			FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter+`
+			FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND `+notRedirectedFilter+`
 		) a
 		FULL OUTER JOIN (
 			SELECT url, status_code, title, canonical, is_indexable, meta_description, h1, depth, word_count, pagerank
-			FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter+`
+			FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND `+notRedirectedFilter+`
 		) b USING (url)`, sessionA, sessionB)
 	if err := countRow.Scan(&result.TotalAdded, &result.TotalRemoved, &result.TotalChanged); err != nil {
 		return nil, fmt.Errorf("counting page diffs: %w", err)
@@ -63,8 +63,8 @@ func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType s
 			SELECT b.url,
 				0, '', '', false, 0, 0, 0, '', '',
 				b.status_code, b.title, b.canonical, b.is_indexable, b.word_count, b.depth, b.pagerank, b.meta_description, b.h1[1]
-			FROM crawlobserver.pages b
-			LEFT JOIN crawlobserver.pages a ON a.url = b.url AND a.crawl_session_id = ? AND (a.final_url = '' OR a.final_url = a.url)
+			FROM crawlobserver.pages FINAL b
+			LEFT JOIN crawlobserver.pages FINAL a ON a.url = b.url AND a.crawl_session_id = ? AND (a.final_url = '' OR a.final_url = a.url)
 			WHERE b.crawl_session_id = ? AND a.url = '' AND (b.final_url = '' OR b.final_url = b.url)
 			ORDER BY b.url
 			LIMIT ? OFFSET ?`
@@ -91,8 +91,8 @@ func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType s
 			SELECT a.url,
 				a.status_code, a.title, a.canonical, a.is_indexable, a.word_count, a.depth, a.pagerank, a.meta_description, a.h1[1],
 				0, '', '', false, 0, 0, 0, '', ''
-			FROM crawlobserver.pages a
-			LEFT JOIN crawlobserver.pages b ON a.url = b.url AND b.crawl_session_id = ? AND (b.final_url = '' OR b.final_url = b.url)
+			FROM crawlobserver.pages FINAL a
+			LEFT JOIN crawlobserver.pages FINAL b ON a.url = b.url AND b.crawl_session_id = ? AND (b.final_url = '' OR b.final_url = b.url)
 			WHERE a.crawl_session_id = ? AND b.url = '' AND (a.final_url = '' OR a.final_url = a.url)
 			ORDER BY a.url
 			LIMIT ? OFFSET ?`
@@ -119,8 +119,8 @@ func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType s
 			SELECT a.url,
 				a.status_code, a.title, a.canonical, a.is_indexable, a.word_count, a.depth, a.pagerank, a.meta_description, a.h1[1],
 				b.status_code, b.title, b.canonical, b.is_indexable, b.word_count, b.depth, b.pagerank, b.meta_description, b.h1[1]
-			FROM crawlobserver.pages a
-			INNER JOIN crawlobserver.pages b ON a.url = b.url AND b.crawl_session_id = ? AND (b.final_url = '' OR b.final_url = b.url)
+			FROM crawlobserver.pages FINAL a
+			INNER JOIN crawlobserver.pages FINAL b ON a.url = b.url AND b.crawl_session_id = ? AND (b.final_url = '' OR b.final_url = b.url)
 			WHERE a.crawl_session_id = ? AND (a.final_url = '' OR a.final_url = a.url) AND (
 				a.status_code != b.status_code OR
 				a.title != b.title OR

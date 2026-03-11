@@ -1441,3 +1441,61 @@ func (s *Server) handleReparseResources(w http.ResponseWriter, r *http.Request) 
 		"resources_checked": len(checks),
 	})
 }
+
+// --- URL Patterns handlers ---
+
+func (s *Server) handleURLPatterns(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	depth := queryInt(r, "depth", 2)
+	result, err := s.store.URLPatterns(r.Context(), sessionID, depth)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
+func (s *Server) handleURLParams(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	limit := queryInt(r, "limit", 100)
+	result, err := s.store.URLParams(r.Context(), sessionID, limit)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
+func (s *Server) handleURLDirectories(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	depth := queryInt(r, "depth", 2)
+	minPages := queryInt(r, "min_pages", 1)
+	result, err := s.store.URLDirectories(r.Context(), sessionID, depth, minPages)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
+func (s *Server) handleURLHosts(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	result, err := s.store.URLHosts(r.Context(), sessionID)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
+}

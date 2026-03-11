@@ -91,7 +91,7 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 // CountPages returns the total number of pages for a session.
 func (s *Store) CountPages(ctx context.Context, sessionID string) (uint64, error) {
 	var count uint64
-	err := s.conn.QueryRow(ctx, `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID).Scan(&count)
+	err := s.conn.QueryRow(ctx, `SELECT count() FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID).Scan(&count)
 	return count, err
 }
 
@@ -111,7 +111,7 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 			js_changed_title, js_changed_description, js_changed_h1,
 			js_changed_canonical, js_changed_content,
 			js_added_links, js_added_images, js_added_schema
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND ` + notRedirectedFilter
 	args := []interface{}{sessionID}
 
@@ -185,7 +185,7 @@ func (s *Store) GetPage(ctx context.Context, sessionID, url string) (*PageRow, e
 			js_changed_title, js_changed_description, js_changed_h1,
 			js_changed_canonical, js_changed_content,
 			js_added_links, js_added_images, js_added_schema
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND url = ?
 		LIMIT 1`, sessionID, url)
 
@@ -239,7 +239,7 @@ func (s *Store) GetPage(ctx context.Context, sessionID, url string) (*PageRow, e
 func (s *Store) GetPageHTML(ctx context.Context, sessionID, url string) (string, error) {
 	var html string
 	row := s.conn.QueryRow(ctx, `
-		SELECT body_html FROM crawlobserver.pages
+		SELECT body_html FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND url = ? LIMIT 1`, sessionID, url)
 	if err := row.Scan(&html); err != nil {
 		return "", fmt.Errorf("querying page HTML: %w", err)
@@ -325,7 +325,7 @@ func (s *Store) UncrawledURLs(ctx context.Context, sessionID string) ([]string, 
 		FROM crawlobserver.links
 		WHERE crawl_session_id = ? AND is_internal = true
 		  AND target_url NOT IN (
-		    SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?
+		    SELECT url FROM crawlobserver.pages FINAL WHERE crawl_session_id = ?
 		  )
 	`, sessionID, sessionID)
 	if err != nil {
@@ -352,7 +352,7 @@ func (s *Store) UncrawledURLs(ctx context.Context, sessionID string) ([]string, 
 // cause OOM on large sites with 1M+ pages). Returns the number of URLs streamed.
 func (s *Store) StreamCrawledURLs(ctx context.Context, sessionID string, fn func(string)) (int, error) {
 	rows, err := s.conn.Query(ctx, `
-		SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?
+		SELECT url FROM crawlobserver.pages FINAL WHERE crawl_session_id = ?
 	`, sessionID)
 	if err != nil {
 		return 0, fmt.Errorf("querying crawled URLs: %w", err)
@@ -377,7 +377,7 @@ func (s *Store) StreamCrawledURLs(ctx context.Context, sessionID string, fn func
 // FailedURLs returns URLs with status_code = 0 (fetch errors) for a session.
 func (s *Store) FailedURLs(ctx context.Context, sessionID string) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
-		SELECT url FROM crawlobserver.pages
+		SELECT url FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND status_code = 0`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("querying failed URLs: %w", err)
@@ -401,7 +401,7 @@ func (s *Store) FailedURLs(ctx context.Context, sessionID string) ([]string, err
 // URLsByStatus returns URLs with a specific status code for a session.
 func (s *Store) URLsByStatus(ctx context.Context, sessionID string, statusCode int) ([]string, error) {
 	rows, err := s.conn.Query(ctx, `
-		SELECT url FROM crawlobserver.pages
+		SELECT url FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND status_code = ?`, sessionID, statusCode)
 	if err != nil {
 		return nil, err
@@ -426,7 +426,7 @@ func (s *Store) DeleteFailedPages(ctx context.Context, sessionID string) (int, e
 	// Count first
 	var cnt uint64
 	row := s.conn.QueryRow(ctx, `
-		SELECT count() FROM crawlobserver.pages
+		SELECT count() FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND status_code = 0`, sessionID)
 	if err := row.Scan(&cnt); err != nil {
 		return 0, fmt.Errorf("counting failed pages: %w", err)
@@ -450,7 +450,7 @@ func (s *Store) DeleteFailedPages(ctx context.Context, sessionID string) (int, e
 func (s *Store) DeletePagesByStatus(ctx context.Context, sessionID string, statusCode int) (int, error) {
 	var cnt uint64
 	row := s.conn.QueryRow(ctx, `
-		SELECT count() FROM crawlobserver.pages
+		SELECT count() FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND status_code = ?`, sessionID, statusCode)
 	if err := row.Scan(&cnt); err != nil {
 		return 0, fmt.Errorf("counting pages with status %d: %w", statusCode, err)
@@ -585,7 +585,7 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 	urlRows, err := s.conn.Query(ctx, `
 		SELECT url, final_url, status_code, canonical, canonical_is_self,
 			length(redirect_chain) AS redirect_hops
-		FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+		FROM crawlobserver.pages FINAL WHERE crawl_session_id = ?`, sessionID)
 	if err != nil {
 		return fmt.Errorf("querying URLs: %w", err)
 	}
@@ -757,7 +757,7 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		FROM crawlobserver.links
 		WHERE crawl_session_id = ?
 			AND source_url IN (
-				SELECT url FROM crawlobserver.pages
+				SELECT url FROM crawlobserver.pages FINAL
 				WHERE crawl_session_id = ?
 				  AND status_code < 300
 				  AND (canonical_is_self OR canonical = '' OR canonical = url)
@@ -839,7 +839,7 @@ func (s *Store) ComputePageRank(ctx context.Context, sessionID string) error {
 		WHERE crawl_session_id = ? AND is_internal = true
 			AND NOT hasAny(splitByString(' ', lower(rel)), ['nofollow', 'sponsored', 'ugc'])
 			AND source_url IN (
-				SELECT url FROM crawlobserver.pages
+				SELECT url FROM crawlobserver.pages FINAL
 				WHERE crawl_session_id = ?
 				  AND status_code < 300
 				  AND (canonical_is_self OR canonical = '' OR canonical = url)
@@ -1104,7 +1104,7 @@ func ComputeBFSDepths(seedURLs []string, crawledSet map[string]bool, adj map[str
 func (s *Store) RecomputeDepths(ctx context.Context, sessionID string, seedURLs []string) error {
 	// 1. Get all crawled URLs
 	crawledRows, err := s.conn.Query(ctx, `
-		SELECT url FROM crawlobserver.pages WHERE crawl_session_id = ?`, sessionID)
+		SELECT url FROM crawlobserver.pages FINAL WHERE crawl_session_id = ?`, sessionID)
 	if err != nil {
 		return fmt.Errorf("querying crawled URLs: %w", err)
 	}
@@ -1223,7 +1223,7 @@ func (s *Store) ListRedirectPages(ctx context.Context, sessionID string, limit, 
 	query := `
 		SELECT p.url, p.status_code, p.final_url,
 			count(DISTINCT l.source_url) AS inbound_internal_links
-		FROM crawlobserver.pages AS p
+		FROM crawlobserver.pages AS p FINAL
 		LEFT JOIN crawlobserver.links AS l
 			ON l.crawl_session_id = p.crawl_session_id
 			AND l.target_url = p.url
@@ -1295,7 +1295,7 @@ func (s *Store) PageRankDistribution(ctx context.Context, sessionID string, buck
 	row := s.conn.QueryRow(ctx, `
 		SELECT count(), avg(pagerank),
 			quantile(0.5)(pagerank), quantile(0.9)(pagerank), quantile(0.99)(pagerank)
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND pagerank > 0 AND `+notRedirectedFilter, sessionID)
 	if err := row.Scan(&result.TotalWithPR, &result.Avg, &result.Median, &result.P90, &result.P99); err != nil {
 		return nil, fmt.Errorf("querying pagerank stats: %w", err)
@@ -1316,7 +1316,7 @@ func (s *Store) PageRankDistribution(ctx context.Context, sessionID string, buck
 			floor(pagerank / %f) * %f + %f AS bucket_max,
 			count() AS cnt,
 			avg(pagerank) AS avg_pr
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND pagerank > 0 AND `+notRedirectedFilter+`
 		GROUP BY bucket_min, bucket_max
 		ORDER BY bucket_min`, width, width, width, width, width)
@@ -1367,7 +1367,7 @@ func (s *Store) PageRankTreemap(ctx context.Context, sessionID string, depth, mi
 			sum(pagerank) AS total_pr,
 			avg(pagerank) AS avg_pr,
 			max(pagerank) AS max_pr
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND pagerank > 0 AND `+notRedirectedFilter+`
 		GROUP BY dir_path
 		HAVING page_count >= %d
@@ -1423,7 +1423,7 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 	result := &PageRankTopResult{}
 
 	// Count query
-	countQuery := `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ? AND pagerank > 0 AND ` + notRedirectedFilter
+	countQuery := `SELECT count() FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND pagerank > 0 AND ` + notRedirectedFilter
 	countArgs := []interface{}{sessionID}
 	if directory != "" {
 		countQuery += ` AND url LIKE ?`
@@ -1436,7 +1436,7 @@ func (s *Store) PageRankTop(ctx context.Context, sessionID string, limit, offset
 
 	// Data query
 	query := `SELECT url, pagerank, depth, internal_links_out, external_links_out, word_count, status_code, title
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND pagerank > 0 AND ` + notRedirectedFilter
 	args := []interface{}{sessionID}
 	if directory != "" {
@@ -1797,7 +1797,7 @@ func (s *Store) PagesWithAuthority(ctx context.Context, sessionID, projectID str
 	var total uint64
 	if err := s.conn.QueryRow(ctx, `
 		SELECT count()
-		FROM crawlobserver.pages FINAL AS p
+		FROM crawlobserver.pages AS p FINAL
 		WHERE p.crawl_session_id = ? AND p.status_code >= 200 AND p.status_code < 300
 		  AND `+notRedirectedFilter+`
 	`, sessionID).Scan(&total); err != nil {
@@ -1807,8 +1807,8 @@ func (s *Store) PagesWithAuthority(ctx context.Context, sessionID, projectID str
 	rows, err := s.conn.Query(ctx, `
 		SELECT p.url, p.title, p.pagerank, p.word_count, p.status_code, p.depth,
 		       t.trust_flow, t.citation_flow, t.ext_backlinks, t.ref_domains
-		FROM crawlobserver.pages FINAL AS p
-		LEFT JOIN crawlobserver.provider_top_pages FINAL AS t
+		FROM crawlobserver.pages AS p FINAL
+		LEFT JOIN crawlobserver.provider_top_pages AS t FINAL
 		  ON p.url = t.url AND t.project_id = ? AND t.provider = 'seobserver'
 		WHERE p.crawl_session_id = ?
 		  AND p.status_code >= 200 AND p.status_code < 300
@@ -1864,7 +1864,7 @@ func (s *Store) WeightedPageRankTop(ctx context.Context, sessionID, projectID st
 	result := &WeightedPageRankResult{}
 
 	// Count pages with PR > 0
-	countQuery := `SELECT count() FROM crawlobserver.pages WHERE crawl_session_id = ? AND pagerank > 0 AND ` + notRedirectedFilter
+	countQuery := `SELECT count() FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND pagerank > 0 AND ` + notRedirectedFilter
 	countArgs := []interface{}{sessionID}
 	if directory != "" {
 		countQuery += ` AND url LIKE ?`
@@ -1995,7 +1995,7 @@ func (s *Store) StatusTimeline(ctx context.Context, sessionID string) ([]StatusT
 	// Determine crawl duration to auto-size the interval
 	var minTS, maxTS time.Time
 	err := s.conn.QueryRow(ctx, `
-		SELECT min(crawled_at), max(crawled_at) FROM crawlobserver.pages
+		SELECT min(crawled_at), max(crawled_at) FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ?`, sessionID).Scan(&minTS, &maxTS)
 	if err != nil {
 		return nil, fmt.Errorf("querying time range: %w", err)
@@ -2022,7 +2022,7 @@ func (s *Store) StatusTimeline(ctx context.Context, sessionID string) ([]StatusT
 			countIf(status_code >= 500) AS server_err,
 			countIf(status_code = 0) AS fetch_err,
 			count() AS total
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ?
 		GROUP BY ts
 		ORDER BY ts`, intervalSec), sessionID)
@@ -2058,7 +2058,7 @@ func (s *Store) StatusTimeline(ctx context.Context, sessionID string) ([]StatusT
 func (s *Store) StatusTimelineRecent(ctx context.Context, sessionID string) ([]StatusTimelineBucket, error) {
 	var maxTS time.Time
 	err := s.conn.QueryRow(ctx, `
-		SELECT max(crawled_at) FROM crawlobserver.pages
+		SELECT max(crawled_at) FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ?`, sessionID).Scan(&maxTS)
 	if err != nil {
 		return nil, fmt.Errorf("querying max time: %w", err)
@@ -2080,7 +2080,7 @@ func (s *Store) StatusTimelineRecent(ctx context.Context, sessionID string) ([]S
 			countIf(status_code >= 500) AS server_err,
 			countIf(status_code = 0) AS fetch_err,
 			count() AS total
-		FROM crawlobserver.pages
+		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND crawled_at >= '%s'
 		GROUP BY ts
 		ORDER BY ts`, boundary.Format("2006-01-02 15:04:05")), sessionID)
