@@ -6,7 +6,7 @@ BUNDLE="build/${APP_NAME}.app"
 
 echo "==> Building frontend..."
 cd frontend && npm run build --silent && cd ..
-rm -rf internal/server/frontend/dist
+rm -rf internal/server/frontend/dist internal/server/dist
 cp -r frontend/dist internal/server/frontend/dist
 
 echo "==> Building binary..."

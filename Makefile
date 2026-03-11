@@ -6,7 +6,7 @@ BINARY = crawlobserver
 
 frontend:
 	cd frontend && npm install && npm run build
-	rm -rf internal/server/frontend/dist
+	rm -rf internal/server/frontend/dist internal/server/dist
 	mkdir -p internal/server/frontend
 	cp -r frontend/dist internal/server/frontend/
 
@@ -28,7 +28,7 @@ test-cover:
 
 clean:
 	rm -f $(BINARY) coverage.out coverage.html
-	rm -rf internal/server/frontend/dist
+	rm -rf internal/server/frontend/dist internal/server/dist
 
 migrate: build-go
 	./$(BINARY) migrate
