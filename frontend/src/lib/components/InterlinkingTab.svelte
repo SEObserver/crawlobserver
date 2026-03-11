@@ -152,10 +152,23 @@
     }
   }
 
-  function toggleSelect(idx) {
+  let lastClickedIdx = -1;
+
+  function toggleSelect(idx, e) {
     const next = new Set(selected);
-    if (next.has(idx)) next.delete(idx);
-    else next.add(idx);
+
+    if (e?.shiftKey && lastClickedIdx >= 0 && lastClickedIdx !== idx) {
+      const lo = Math.min(lastClickedIdx, idx);
+      const hi = Math.max(lastClickedIdx, idx);
+      for (let i = lo; i <= hi; i++) {
+        next.add(i);
+      }
+    } else {
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+    }
+
+    lastClickedIdx = idx;
     selected = next;
   }
 
@@ -422,7 +435,7 @@
                 ><input
                   type="checkbox"
                   checked={selected.has(idx)}
-                  onchange={() => toggleSelect(idx)}
+                  onclick={(e) => toggleSelect(idx, e)}
                 /></td
               >
               <td class="cell-url" title={opp.source_url}>

@@ -21,12 +21,25 @@
   let importError = $state('');
   let selectedIds = $state(new Set());
   let showBulkAssignMenu = $state(false);
+  let lastClickedIdx = $state(-1);
 
   function toggleSelect(id, e) {
     e.stopPropagation();
+    const idx = sessions.findIndex((s) => s.ID === id);
     const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
+
+    if (e.shiftKey && lastClickedIdx >= 0 && lastClickedIdx !== idx) {
+      const lo = Math.min(lastClickedIdx, idx);
+      const hi = Math.max(lastClickedIdx, idx);
+      for (let i = lo; i <= hi; i++) {
+        next.add(sessions[i].ID);
+      }
+    } else {
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+    }
+
+    lastClickedIdx = idx;
     selectedIds = next;
   }
 
@@ -157,7 +170,7 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="session-row" onclick={() => onselectsession?.(s)}>
         <label class="session-checkbox" onclick={(e) => e.stopPropagation()}>
-          <input type="checkbox" checked={selectedIds.has(s.ID)} onchange={(e) => toggleSelect(s.ID, e)} />
+          <input type="checkbox" checked={selectedIds.has(s.ID)} onclick={(e) => toggleSelect(s.ID, e)} />
         </label>
         <div class="session-info">
           <div class="session-seed">
