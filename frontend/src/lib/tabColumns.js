@@ -73,11 +73,11 @@ export function getTabs() {
     { id: 'duplicates', label: t('tabs.nearDuplicates'), icon: TAB_ICONS.duplicates },
     { id: 'resources', label: t('tabs.resources'), icon: TAB_ICONS.resources },
     { id: 'links', label: t('tabs.links'), icon: TAB_ICONS.links },
+    { id: 'interlinking', label: t('tabs.interlinking'), icon: TAB_ICONS.interlinking },
     { id: 'pagerank', label: t('tabs.pagerank'), icon: TAB_ICONS.pagerank },
     { id: 'authority', label: t('tabs.authority'), icon: TAB_ICONS.authority, premium: true },
     { id: 'tests', label: t('tabs.tests'), icon: TAB_ICONS.tests },
     { id: 'extract', label: t('tabs.extract'), icon: TAB_ICONS.extract },
-    { id: 'interlinking', label: t('tabs.interlinking'), icon: TAB_ICONS.interlinking },
   ];
 }
 
