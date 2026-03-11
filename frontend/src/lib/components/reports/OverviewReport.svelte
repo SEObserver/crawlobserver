@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { fmtN, fmt, a11yKeydown } from '../../utils.js';
   import { t } from '../../i18n/index.svelte.js';
   import { getStatusTimeline, getStatusTimelineRecent } from '../../api.js';
@@ -41,7 +41,7 @@
   // Refresh when the server signals new data via SSE
   $effect(() => {
     if (statsVersion > 0 && isRunning && sessionId) {
-      fetchTimeline();
+      untrack(() => fetchTimeline());
     }
   });
 
