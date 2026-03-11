@@ -11,13 +11,14 @@ export function createSSEManager() {
    * @param {string} sessionId
    * @param {(data: object) => void} onProgress — called on each progress event
    * @param {(sessionId: string) => void} onComplete — called when stream ends
+   * @param {() => void} [onStatsReady] — called when server signals new stats available
    */
-  function connect(sessionId, onProgress, onComplete) {
+  function connect(sessionId, onProgress, onComplete, onStatsReady) {
     if (connections[sessionId]) return;
     connections[sessionId] = subscribeProgress(sessionId, onProgress, () => {
       delete connections[sessionId];
       onComplete(sessionId);
-    });
+    }, onStatsReady);
   }
 
   /** Close a single SSE connection. */

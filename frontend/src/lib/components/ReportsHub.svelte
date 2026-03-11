@@ -13,6 +13,7 @@
     sessionId,
     stats,
     isRunning = false,
+    statsVersion = 0,
     initialSubView = 'overview',
     onnavigate,
     onpushurl,
@@ -85,7 +86,7 @@
   </div>
 
   {#if subView === 'overview'}
-    <OverviewReport {stats} {sessionId} {isRunning} {onnavigate} />
+    <OverviewReport {stats} {sessionId} {isRunning} {onnavigate} {statsVersion} />
   {:else if auditLoading}
     <p class="reports-msg-muted">{t('reports.loadingAudit')}</p>
   {:else if auditError && !auditData}
@@ -95,7 +96,7 @@
   {:else if subView === 'content'}
     <ContentReport {stats} audit={auditData} {sessionId} {onnavigate} />
   {:else if subView === 'technical'}
-    <TechnicalReport {stats} audit={auditData} {sessionId} {isRunning} {onnavigate} />
+    <TechnicalReport {stats} audit={auditData} {sessionId} {isRunning} {onnavigate} {statsVersion} />
   {:else if subView === 'links'}
     <LinksReport {stats} audit={auditData} {sessionId} {onnavigate} />
   {:else if subView === 'structure'}

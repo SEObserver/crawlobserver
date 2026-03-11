@@ -1505,7 +1505,7 @@ export async function getSessionAuthority(sessionId, projectId, limit = 100, off
  * @param {() => void} onDone
  * @returns {SSEHandle}
  */
-export function subscribeProgress(sessionId, onMessage, onDone) {
+export function subscribeProgress(sessionId, onMessage, onDone, onStatsReady) {
   let retryDelay = SSE_RETRY_INIT_MS;
   let retries = 0;
   let closed = false;
@@ -1534,6 +1534,10 @@ export function subscribeProgress(sessionId, onMessage, onDone) {
       closed = true;
       source.close();
       if (onDone) onDone();
+    });
+
+    source.addEventListener('stats_ready', () => {
+      if (onStatsReady) onStatsReady();
     });
 
     source.onerror = () => {

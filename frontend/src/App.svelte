@@ -50,7 +50,7 @@
   import ProjectPage from './lib/components/ProjectPage.svelte';
 
   // --- Named constants ---
-  const STATS_REFRESH_MS = 5000;
+  // STATS_REFRESH_MS removed — stats refresh is now SSE signal-driven
   const UPDATE_POLL_MAX = 6;
   const UPDATE_POLL_MS = 10000;
   const RELOAD_DELAY_MS = 500;
@@ -119,7 +119,7 @@
   // --- Live progress ---
   let liveProgress = $state({});
   const sse = createSSEManager();
-  let statsRefreshTimer = null;
+  let statsVersion = $state(0);
   let updatePollTimer = null;
   let systemStatsInterval = null;
 
@@ -378,7 +378,6 @@
             (data) => {
               liveProgress[s.ID] = data;
               liveProgress = { ...liveProgress };
-              if (data.is_running) scheduleStatsRefresh(s.ID);
             },
             (id) => {
               if (selectedSession?.ID === id) {
@@ -388,6 +387,14 @@
               }
               loadSessions();
             },
+            () => {
+              if (selectedSession?.ID === s.ID) {
+                statsVersion++;
+                getStats(s.ID)
+                  .then((st) => (stats = st))
+                  .catch(() => {});
+              }
+            },
           );
         }
       }
@@ -396,21 +403,6 @@
     } finally {
       loading = false;
     }
-  }
-
-  // --- Live stats refresh (throttled) ---
-  function scheduleStatsRefresh(sessionId) {
-    if (statsRefreshTimer) return;
-    statsRefreshTimer = setTimeout(async () => {
-      statsRefreshTimer = null;
-      if (selectedSession?.ID === sessionId) {
-        try {
-          stats = await getStats(sessionId);
-        } catch (e) {
-          console.warn('Stats refresh failed:', e);
-        }
-      }
-    }, STATS_REFRESH_MS);
   }
 
   // --- Update check polling ---
@@ -809,6 +801,7 @@
               {stats}
               {liveProgress}
               {projects}
+              {statsVersion}
               initialTab={routeTab}
               initialFilters={routeFilters}
               initialOffset={routeOffset}

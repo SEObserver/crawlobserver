@@ -10003,6 +10003,57 @@ func TestSSE_WithLastError(t *testing.T) {
 	}
 }
 
+func TestSSE_StatsReady_EmittedWhenRunning(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+	ms := srv.store.(*mockStore)
+	ms.sessions = []storage.CrawlSession{{ID: "sess-sse-sr", Status: "running"}}
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-sse-sr": {ID: "sess-sse-sr", Status: "running"},
+	}
+
+	mm := srv.manager.(*mockManager)
+	mm.running["sess-sse-sr"] = true
+	// Set pages > 50 so the stats_ready threshold is met on first tick
+	mm.progress["sess-sse-sr"] = [2]int64{100, 5}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-sse-sr/events", nil))
+	ctx, cancel := context.WithTimeout(req.Context(), 800*time.Millisecond)
+	defer cancel()
+	req = req.WithContext(ctx)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "event: stats_ready") {
+		t.Errorf("expected stats_ready event when crawl is running with pages>50, got:\n%s", body)
+	}
+	if !strings.Contains(body, `"is_running":true`) {
+		t.Errorf("expected is_running:true in SSE data, got:\n%s", body)
+	}
+}
+
+func TestSSE_StatsReady_NotEmittedWhenNotRunning(t *testing.T) {
+	srv, handler, _ := newTestServer(t)
+	ms := srv.store.(*mockStore)
+	ms.sessions = []storage.CrawlSession{{ID: "sess-sse-nr", Status: "completed"}}
+	ms.getSessionByID = map[string]*storage.CrawlSession{
+		"sess-sse-nr": {ID: "sess-sse-nr", Status: "completed"},
+	}
+
+	req := authRequest(httptest.NewRequest("GET", "/api/sessions/sess-sse-nr/events", nil))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	body := rec.Body.String()
+	if strings.Contains(body, "event: stats_ready") {
+		t.Errorf("stats_ready should NOT be emitted for non-running session, got:\n%s", body)
+	}
+	if !strings.Contains(body, "event: done") {
+		t.Errorf("expected done event for completed session, got:\n%s", body)
+	}
+}
+
 // ---------- handleReparseResources ----------
 
 func TestReparseResources_NoBodies(t *testing.T) {

@@ -211,7 +211,10 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	var lastPhase string
 	first := true
 
-	ticker := time.NewTicker(100 * time.Millisecond)
+	var lastStatsSignalTime time.Time
+	var lastStatsSignalPages int64
+
+	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
@@ -250,6 +253,18 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 		data += "}"
 		fmt.Fprintf(w, "data: %s\n\n", data)
 		flusher.Flush()
+
+		// Signal frontend to refresh stats when enough new data is available
+		if running {
+			pageDelta := pages - lastStatsSignalPages
+			elapsed := time.Since(lastStatsSignalTime)
+			if lastStatsSignalTime.IsZero() || pageDelta >= 50 || elapsed >= 10*time.Second {
+				fmt.Fprintf(w, "event: stats_ready\ndata: {}\n\n")
+				flusher.Flush()
+				lastStatsSignalTime = time.Now()
+				lastStatsSignalPages = pages
+			}
+		}
 
 		// Don't close if session is queued — wait for it to start
 		if queued {

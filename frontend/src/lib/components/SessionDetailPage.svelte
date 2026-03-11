@@ -22,6 +22,7 @@
     stats,
     liveProgress,
     projects = [],
+    statsVersion = 0,
     initialTab = 'reports',
     initialFilters = {},
     initialOffset = 0,
@@ -183,6 +184,7 @@
         sessionId={session.ID}
         {stats}
         isRunning={session.is_running}
+        {statsVersion}
         initialSubView={subView || 'overview'}
         onnavigate={(url, f) => onnavigate?.(url, f)}
         onpushurl={(u) => pushURL(u)}

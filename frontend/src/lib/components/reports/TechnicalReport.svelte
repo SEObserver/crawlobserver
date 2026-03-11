@@ -8,7 +8,7 @@
   import AreaChart from '../charts/AreaChart.svelte';
   import AnimatedNumber from '../AnimatedNumber.svelte';
 
-  let { stats, audit, sessionId, isRunning = false, onnavigate } = $props();
+  let { stats, audit, sessionId, isRunning = false, onnavigate, statsVersion = 0 } = $props();
 
   // Status timeline charts
   let timeline = $state(null);
@@ -38,15 +38,21 @@
     fetchTimeline();
   });
 
-  // Poll while running — also fetch immediately when isRunning transitions to true
+  // Refresh when the server signals new data via SSE
+  $effect(() => {
+    if (statsVersion > 0 && isRunning && sessionId) {
+      fetchTimeline();
+    }
+  });
+
+  // Slow fallback poll (30s instead of 5s)
   $effect(() => {
     if (pollTimer) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
     if (isRunning && sessionId) {
-      fetchTimeline();
-      pollTimer = setInterval(fetchTimeline, 5_000);
+      pollTimer = setInterval(fetchTimeline, 30_000);
     }
     return () => {
       if (pollTimer) {
