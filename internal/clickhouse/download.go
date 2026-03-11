@@ -14,22 +14,22 @@ import (
 
 // downloadURL returns the ClickHouse binary download URL for the current platform.
 func downloadURL() (string, error) {
-	const base = "https://github.com/ClickHouse/ClickHouse/releases/latest/download"
+	const base = "https://builds.clickhouse.com/master"
 
 	switch runtime.GOOS {
-	case "darwin":
-		switch runtime.GOARCH {
-		case "arm64":
-			return base + "/clickhouse-macos-aarch64", nil
-		case "amd64":
-			return base + "/clickhouse-macos-x86_64", nil
-		}
 	case "linux":
 		switch runtime.GOARCH {
 		case "amd64":
-			return base + "/clickhouse-linux-x86_64", nil
+			return base + "/amd64/clickhouse", nil
 		case "arm64":
-			return base + "/clickhouse-linux-aarch64", nil
+			return base + "/aarch64/clickhouse", nil
+		}
+	case "darwin":
+		switch runtime.GOARCH {
+		case "arm64":
+			return base + "/macos-aarch64/clickhouse", nil
+		case "amd64":
+			return base + "/macos/clickhouse", nil
 		}
 	}
 	if runtime.GOOS == "windows" {
