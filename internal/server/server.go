@@ -450,9 +450,10 @@ func (s *Server) Start() error {
 
 	url := fmt.Sprintf("http://%s", addr)
 	applog.Infof("server", "Web UI available at %s", url)
-	if s.cfg.Server.Host == "127.0.0.1" || s.cfg.Server.Host == "localhost" {
+	switch s.cfg.Server.Host {
+	case "127.0.0.1", "localhost":
 		applog.Infof("server", "Listening on %s (localhost only). Set server.host to 0.0.0.0 in config.yaml to allow external access.", s.cfg.Server.Host)
-	} else if s.cfg.Server.Host == "0.0.0.0" {
+	case "0.0.0.0":
 		applog.Info("server", "Listening on 0.0.0.0 (all interfaces, accessible from the network)")
 	}
 
