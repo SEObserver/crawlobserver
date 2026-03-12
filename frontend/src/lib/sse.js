@@ -15,10 +15,15 @@ export function createSSEManager() {
    */
   function connect(sessionId, onProgress, onComplete, onStatsReady) {
     if (connections[sessionId]) return;
-    connections[sessionId] = subscribeProgress(sessionId, onProgress, () => {
-      delete connections[sessionId];
-      onComplete(sessionId);
-    }, onStatsReady);
+    connections[sessionId] = subscribeProgress(
+      sessionId,
+      onProgress,
+      () => {
+        delete connections[sessionId];
+        onComplete(sessionId);
+      },
+      onStatsReady,
+    );
   }
 
   /** Close a single SSE connection. */

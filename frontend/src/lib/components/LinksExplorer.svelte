@@ -322,7 +322,7 @@
       />
     {/if}
   {:else if subView === 'interlinking'}
-    <InterlinkingTab sessionId={sessionId} onerror={(msg) => onerror?.(msg)} />
+    <InterlinkingTab {sessionId} onerror={(msg) => onerror?.(msg)} />
   {/if}
 </div>
 

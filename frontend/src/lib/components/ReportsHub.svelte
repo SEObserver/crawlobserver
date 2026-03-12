@@ -96,7 +96,14 @@
   {:else if subView === 'content'}
     <ContentReport {stats} audit={auditData} {sessionId} {onnavigate} />
   {:else if subView === 'technical'}
-    <TechnicalReport {stats} audit={auditData} {sessionId} {isRunning} {onnavigate} {statsVersion} />
+    <TechnicalReport
+      {stats}
+      audit={auditData}
+      {sessionId}
+      {isRunning}
+      {onnavigate}
+      {statsVersion}
+    />
   {:else if subView === 'links'}
     <LinksReport {stats} audit={auditData} {sessionId} {onnavigate} />
   {:else if subView === 'structure'}

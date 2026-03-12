@@ -1,5 +1,11 @@
 <script>
-  import { recomputeDepths, exportSession, renameSession, associateSession, disassociateSession } from '../api.js';
+  import {
+    recomputeDepths,
+    exportSession,
+    renameSession,
+    associateSession,
+    disassociateSession,
+  } from '../api.js';
   import { fmtN, a11yKeydown } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
 
@@ -259,7 +265,19 @@
               startEditLabel();
             }}
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path
+                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+              /></svg
+            >
             {t('session.rename')}
           </button>
           {#if projects.length > 0}
@@ -271,9 +289,29 @@
                   showReassignMenu = !showReassignMenu;
                 }}
               >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  ><path d="M16 3h5v5" /><path d="M4 20L21 3" /><path d="M21 16v5h-5" /><path
+                    d="M15 15l6 6"
+                  /><path d="M4 4l5 5" /></svg
+                >
                 {t('session.reassign')}
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:auto"><polyline points="9 18 15 12 9 6" /></svg>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="12"
+                  height="12"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  style="margin-left:auto"><polyline points="9 18 15 12 9 6" /></svg
+                >
               </button>
               {#if showReassignMenu}
                 <div class="dropdown-submenu" onclick={(e) => e.stopPropagation()}>
@@ -281,12 +319,15 @@
                     <button
                       class="dropdown-item"
                       class:dropdown-item-active={session.ProjectID === p.id}
-                      onclick={() => handleReassign(p.id)}
-                    >{p.name}</button>
+                      onclick={() => handleReassign(p.id)}>{p.name}</button
+                    >
                   {/each}
                   {#if session.ProjectID}
                     <div class="dropdown-divider"></div>
-                    <button class="dropdown-item dropdown-item-danger" onclick={() => handleReassign(null)}>
+                    <button
+                      class="dropdown-item dropdown-item-danger"
+                      onclick={() => handleReassign(null)}
+                    >
                       {t('session.disassociate')}
                     </button>
                   {/if}

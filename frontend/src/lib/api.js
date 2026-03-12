@@ -1618,9 +1618,7 @@ export async function getURLParams(sessionId, limit = 100) {
  * @returns {Promise<Object[]>}
  */
 export async function getURLDirectories(sessionId, depth = 2, minPages = 1) {
-  return fetchJSON(
-    `/sessions/${sessionId}/url-directories?depth=${depth}&min_pages=${minPages}`,
-  );
+  return fetchJSON(`/sessions/${sessionId}/url-directories?depth=${depth}&min_pages=${minPages}`);
 }
 
 /**

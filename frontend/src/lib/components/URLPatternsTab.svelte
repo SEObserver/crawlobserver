@@ -2,13 +2,7 @@
   import { t } from '../i18n/index.svelte.js';
   import { getURLPatterns, getURLParams, getURLDirectories, getURLHosts } from '../api.js';
 
-  let {
-    sessionId,
-    initialSubView = 'patterns',
-    onpushurl,
-    onerror,
-    embedded = false,
-  } = $props();
+  let { sessionId, initialSubView = 'patterns', onpushurl, onerror, embedded = false } = $props();
 
   let subView = $state(initialSubView);
   let loading = $state(false);
@@ -111,7 +105,6 @@
     <p class="reports-msg-muted">{t('common.loading')}</p>
   {:else if error}
     <p class="reports-msg-error">{error}</p>
-
   {:else if subView === 'patterns'}
     <div class="urlp-controls">
       <label class="urlp-label">
@@ -149,16 +142,32 @@
                 <td>
                   <div class="urlp-status-bar">
                     {#if row.status_200}
-                      <div class="urlp-bar-seg urlp-bar-200" style="width:{pct(row.status_200, row.total)}%" title="2xx: {row.status_200}"></div>
+                      <div
+                        class="urlp-bar-seg urlp-bar-200"
+                        style="width:{pct(row.status_200, row.total)}%"
+                        title="2xx: {row.status_200}"
+                      ></div>
                     {/if}
                     {#if row.status_3xx}
-                      <div class="urlp-bar-seg urlp-bar-3xx" style="width:{pct(row.status_3xx, row.total)}%" title="3xx: {row.status_3xx}"></div>
+                      <div
+                        class="urlp-bar-seg urlp-bar-3xx"
+                        style="width:{pct(row.status_3xx, row.total)}%"
+                        title="3xx: {row.status_3xx}"
+                      ></div>
                     {/if}
                     {#if row.status_4xx}
-                      <div class="urlp-bar-seg urlp-bar-4xx" style="width:{pct(row.status_4xx, row.total)}%" title="4xx: {row.status_4xx}"></div>
+                      <div
+                        class="urlp-bar-seg urlp-bar-4xx"
+                        style="width:{pct(row.status_4xx, row.total)}%"
+                        title="4xx: {row.status_4xx}"
+                      ></div>
                     {/if}
                     {#if row.status_other}
-                      <div class="urlp-bar-seg urlp-bar-other" style="width:{pct(row.status_other, row.total)}%" title="Other: {row.status_other}"></div>
+                      <div
+                        class="urlp-bar-seg urlp-bar-other"
+                        style="width:{pct(row.status_other, row.total)}%"
+                        title="Other: {row.status_other}"
+                      ></div>
                     {/if}
                   </div>
                 </td>
@@ -170,7 +179,6 @@
     {:else}
       <p class="reports-msg-muted">{t('common.noData')}</p>
     {/if}
-
   {:else if subView === 'parameters'}
     {#if params && params.length > 0}
       <div class="table-wrap">
@@ -196,10 +204,18 @@
                 <td>
                   <div class="urlp-status-bar">
                     {#if row.indexable}
-                      <div class="urlp-bar-seg urlp-bar-200" style="width:{pct(row.indexable, row.indexable + row.non_indexable)}%" title="Indexable: {row.indexable}"></div>
+                      <div
+                        class="urlp-bar-seg urlp-bar-200"
+                        style="width:{pct(row.indexable, row.indexable + row.non_indexable)}%"
+                        title="Indexable: {row.indexable}"
+                      ></div>
                     {/if}
                     {#if row.non_indexable}
-                      <div class="urlp-bar-seg urlp-bar-4xx" style="width:{pct(row.non_indexable, row.indexable + row.non_indexable)}%" title="Non-indexable: {row.non_indexable}"></div>
+                      <div
+                        class="urlp-bar-seg urlp-bar-4xx"
+                        style="width:{pct(row.non_indexable, row.indexable + row.non_indexable)}%"
+                        title="Non-indexable: {row.non_indexable}"
+                      ></div>
                     {/if}
                   </div>
                 </td>
@@ -211,7 +227,6 @@
     {:else}
       <p class="reports-msg-muted">{t('common.noData')}</p>
     {/if}
-
   {:else if subView === 'directories'}
     <div class="urlp-controls">
       <label class="urlp-label">
@@ -261,7 +276,6 @@
     {:else}
       <p class="reports-msg-muted">{t('common.noData')}</p>
     {/if}
-
   {:else if subView === 'hosts'}
     {#if hosts && hosts.length > 0}
       <div class="table-wrap">
@@ -330,10 +344,18 @@
     height: 100%;
     min-width: 2px;
   }
-  .urlp-bar-200 { background: #22c55e; }
-  .urlp-bar-3xx { background: #3b82f6; }
-  .urlp-bar-4xx { background: #ef4444; }
-  .urlp-bar-other { background: #a3a3a3; }
+  .urlp-bar-200 {
+    background: #22c55e;
+  }
+  .urlp-bar-3xx {
+    background: #3b82f6;
+  }
+  .urlp-bar-4xx {
+    background: #ef4444;
+  }
+  .urlp-bar-other {
+    background: #a3a3a3;
+  }
   .num {
     text-align: right;
     font-variant-numeric: tabular-nums;

@@ -3,13 +3,7 @@
   import CustomTestsTab from './CustomTestsTab.svelte';
   import ExtractTab from './ExtractTab.svelte';
 
-  let {
-    sessionId,
-    sessionConfig = null,
-    initialSubView = 'tests',
-    onpushurl,
-    onerror,
-  } = $props();
+  let { sessionId, sessionConfig = null, initialSubView = 'tests', onpushurl, onerror } = $props();
 
   let subView = $state(initialSubView);
 
@@ -41,10 +35,6 @@
   {#if subView === 'tests'}
     <CustomTestsTab {sessionId} onerror={(msg) => onerror?.(msg)} />
   {:else if subView === 'extractions'}
-    <ExtractTab
-      {sessionId}
-      {sessionConfig}
-      onerror={(msg) => onerror?.(msg)}
-    />
+    <ExtractTab {sessionId} {sessionConfig} onerror={(msg) => onerror?.(msg)} />
   {/if}
 </div>

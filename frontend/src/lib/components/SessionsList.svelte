@@ -145,9 +145,19 @@
     <div class="bulk-bar">
       <span class="bulk-count">{t('session.bulkSelected', { count: selectedIds.size })}</span>
       <div class="bulk-assign-wrapper">
-        <button class="btn btn-sm btn-primary" onclick={() => (showBulkAssignMenu = !showBulkAssignMenu)}>
+        <button
+          class="btn btn-sm btn-primary"
+          onclick={() => (showBulkAssignMenu = !showBulkAssignMenu)}
+        >
           {t('session.bulkAssign')}
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+          <svg
+            viewBox="0 0 24 24"
+            width="12"
+            height="12"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg
+          >
         </button>
         {#if showBulkAssignMenu}
           <div class="bulk-assign-menu">
@@ -157,7 +167,9 @@
           </div>
         {/if}
       </div>
-      <button class="btn btn-sm" onclick={() => (selectedIds = new Set())}>{t('common.cancel')}</button>
+      <button class="btn btn-sm" onclick={() => (selectedIds = new Set())}
+        >{t('common.cancel')}</button
+      >
     </div>
   {/if}
 
@@ -170,7 +182,11 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="session-row" onclick={() => onselectsession?.(s)}>
         <label class="session-checkbox" onclick={(e) => e.stopPropagation()}>
-          <input type="checkbox" checked={selectedIds.has(s.ID)} onclick={(e) => toggleSelect(s.ID, e)} />
+          <input
+            type="checkbox"
+            checked={selectedIds.has(s.ID)}
+            onclick={(e) => toggleSelect(s.ID, e)}
+          />
         </label>
         <div class="session-info">
           <div class="session-seed">
