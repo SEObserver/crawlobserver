@@ -107,6 +107,7 @@ type CrawlRequest struct {
 	ExtractorSetID      string   `json:"extractor_set_id"`
 	IgnoreRobots        bool     `json:"ignore_robots"`
 	ExcludePatterns     []string `json:"exclude_patterns"`
+	MeasureCWV          bool     `json:"measure_cwv"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
@@ -218,6 +219,7 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 
 	// JS rendering
 	engine.followJSLinks = req.FollowJSLinks
+	engine.measureCWV = req.MeasureCWV
 
 	// Load extractors if requested
 	if req.ExtractorSetID != "" && m.extractorLoader != nil {
@@ -437,6 +439,7 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 			engine.externalWorkers = defaultExternalWorkers
 		}
 		engine.followJSLinks = overrides.FollowJSLinks
+		engine.measureCWV = overrides.MeasureCWV
 		if overrides.ExtractorSetID != "" && m.extractorLoader != nil {
 			if es, err := m.extractorLoader.GetExtractorSet(overrides.ExtractorSetID); err == nil {
 				engine.extractors = es.Extractors
@@ -586,6 +589,7 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 			engine.externalWorkers = defaultExternalWorkers
 		}
 		engine.followJSLinks = overrides.FollowJSLinks
+		engine.measureCWV = overrides.MeasureCWV
 		if overrides.ExtractorSetID != "" && m.extractorLoader != nil {
 			if es, err := m.extractorLoader.GetExtractorSet(overrides.ExtractorSetID); err == nil {
 				engine.extractors = es.Extractors

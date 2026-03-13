@@ -19,6 +19,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/crawler"
 	"github.com/SEObserver/crawlobserver/internal/fetcher"
 	"github.com/SEObserver/crawlobserver/internal/parser"
+	"github.com/SEObserver/crawlobserver/internal/schema"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 	"github.com/temoto/robotstxt"
 )
@@ -1282,6 +1283,42 @@ func (s *Server) handleNearDuplicates(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+func (s *Server) handleComputeHreflangValidation(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	sessionID := r.PathValue("id")
+
+	go func() {
+		if err := s.store.ComputeHreflangValidation(context.Background(), sessionID); err != nil {
+			applog.Errorf("server", "ComputeHreflangValidation %s: %v", sessionID, err)
+		}
+	}()
+
+	writeJSON(w, map[string]string{
+		"status":  "ok",
+		"message": fmt.Sprintf("Hreflang validation started for session %s", sessionID),
+	})
+}
+
+func (s *Server) handleHreflangValidation(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	limit, offset := clampPagination(queryInt(r, "limit", 50), queryInt(r, "offset", 0))
+	issueType := r.URL.Query().Get("issue_type")
+	pageURL := r.URL.Query().Get("page_url")
+	filters := parseFilters(r, storage.HreflangIssueFilters)
+	sort := parseSort(r, storage.HreflangIssueSortColumns)
+	result, err := s.store.HreflangValidation(r.Context(), sessionID, issueType, pageURL, limit, offset, filters, sort)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
 func (s *Server) handleRedirectPages(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.PathValue("id")
 	if !s.requireSessionAccess(w, r, sessionID) {
@@ -1300,6 +1337,27 @@ func (s *Server) handleRedirectPages(w http.ResponseWriter, r *http.Request) {
 		pages = []storage.RedirectPageRow{}
 	}
 	writeJSON(w, pages)
+}
+
+func (s *Server) handleStructuredData(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	if !s.requireSessionAccess(w, r, sessionID) {
+		return
+	}
+	urlParam := r.URL.Query().Get("url")
+	if urlParam == "" {
+		http.Error(w, "url parameter required", http.StatusBadRequest)
+		return
+	}
+	items, err := s.store.GetStructuredData(r.Context(), sessionID, urlParam)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	if items == nil {
+		items = []schema.StructuredDataItem{}
+	}
+	writeJSON(w, items)
 }
 
 // handleReparseResources re-extracts page resources from stored body_html

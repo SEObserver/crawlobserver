@@ -93,6 +93,17 @@ type PageRow struct {
 	JSAddedLinks         int32 // delta links
 	JSAddedImages        int32 // delta images
 	JSAddedSchema        bool  // new schema types appeared
+
+	// Structured data validation summary
+	SchemaValidCount   uint16
+	SchemaErrorCount   uint16
+	SchemaWarningCount uint16
+
+	// Core Web Vitals
+	CWVMeasured bool
+	CWVLCP      float64 // Largest Contentful Paint (ms)
+	CWVCLS      float64 // Cumulative Layout Shift
+	CWVTTFB     float64 // Time to First Byte (ms)
 }
 
 // RedirectHopRow represents a redirect hop for storage.
@@ -522,6 +533,23 @@ type PageRankGraph struct {
 type VirtualLink struct {
 	SourceURL string `json:"source"`
 	TargetURL string `json:"target"`
+}
+
+// HreflangIssue represents a single hreflang validation issue.
+type HreflangIssue struct {
+	IssueType  string `json:"issue_type"`
+	SourceURL  string `json:"source_url"`
+	SourceLang string `json:"source_lang"`
+	TargetURL  string `json:"target_url"`
+	TargetLang string `json:"target_lang"`
+	Detail     string `json:"detail"`
+}
+
+// HreflangValidationResult wraps paginated hreflang validation results.
+type HreflangValidationResult struct {
+	Issues  []HreflangIssue    `json:"issues"`
+	Total   uint64             `json:"total"`
+	Summary map[string]uint64  `json:"summary"`
 }
 
 // ResourceTypeSummary holds aggregated stats for one resource type.

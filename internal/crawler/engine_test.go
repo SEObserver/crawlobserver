@@ -13,6 +13,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/extraction"
 	"github.com/SEObserver/crawlobserver/internal/fetcher"
+	"github.com/SEObserver/crawlobserver/internal/schema"
 	"github.com/SEObserver/crawlobserver/internal/frontier"
 	"github.com/SEObserver/crawlobserver/internal/normalizer"
 	"github.com/SEObserver/crawlobserver/internal/parser"
@@ -137,6 +138,9 @@ func (d *diskFullInserter) InsertLinks(_ context.Context, _ []storage.LinkRow) e
 
 func (d *diskFullInserter) InsertExtractions(_ context.Context, _ []extraction.ExtractionRow) error {
 	return fmt.Errorf("code: 243, Cannot reserve 1073741824 bytes in file")
+}
+func (d *diskFullInserter) InsertStructuredData(_ context.Context, _ []schema.StructuredDataItem) error {
+	return nil
 }
 
 // TestDiskFullAutoStop verifies the full disk-full scenario:
@@ -445,6 +449,9 @@ func (s *successInserter) InsertLinks(_ context.Context, _ []storage.LinkRow) er
 func (s *successInserter) InsertExtractions(_ context.Context, _ []extraction.ExtractionRow) error {
 	return nil
 }
+func (s *successInserter) InsertStructuredData(_ context.Context, _ []schema.StructuredDataItem) error {
+	return nil
+}
 
 // --- E2E crawl scope tests ---
 
@@ -470,6 +477,9 @@ func (i *e2eInserter) InsertLinks(_ context.Context, links []storage.LinkRow) er
 }
 
 func (i *e2eInserter) InsertExtractions(_ context.Context, _ []extraction.ExtractionRow) error {
+	return nil
+}
+func (i *e2eInserter) InsertStructuredData(_ context.Context, _ []schema.StructuredDataItem) error {
 	return nil
 }
 

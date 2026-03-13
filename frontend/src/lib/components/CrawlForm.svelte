@@ -81,6 +81,7 @@
   let jsRenderMode = $state(isNew ? 'off' : crawlerCfg.JSRender?.Mode || 'off');
   let jsRenderMaxPages = $state(isNew ? 4 : crawlerCfg.JSRender?.MaxPages || 4);
   let followJSLinks = $state(false);
+  let measureCWV = $state(false);
   let sourceIP = $state(isNew ? '' : crawlerCfg.SourceIP || '');
   let forceIPv4 = $state(isNew ? false : crawlerCfg.ForceIPv4 || false);
   let ignoreRobots = $state(isNew ? false : false);
@@ -165,6 +166,7 @@
       js_render_mode: jsRenderMode !== 'off' ? jsRenderMode : undefined,
       js_render_max_pages: jsRenderMode !== 'off' ? jsRenderMaxPages : undefined,
       follow_js_links: jsRenderMode !== 'off' ? followJSLinks : undefined,
+      measure_cwv: jsRenderMode !== 'off' ? measureCWV : undefined,
       extractor_set_id: extractorSetId || undefined,
       ignore_robots: ignoreRobots || undefined,
       exclude_patterns: excludePatternsInput.trim()
@@ -441,6 +443,10 @@
           <label class="inline-checkbox inline-checkbox-align">
             <input type="checkbox" bind:checked={followJSLinks} />
             {t('newCrawl.followJSLinks')}
+          </label>
+          <label class="inline-checkbox inline-checkbox-align">
+            <input type="checkbox" bind:checked={measureCWV} />
+            {t('newCrawl.measureCWV')}
           </label>
         {/if}
         {#if extractorSets.length > 0}

@@ -783,6 +783,10 @@ func TestParseWorkerRedirectChain(t *testing.T) {
 	}
 
 	page := pages[0]
+	// Redirects store the first hop's status code, not the final 200
+	if page.StatusCode != 301 {
+		t.Errorf("StatusCode = %d, want 301 (first redirect hop)", page.StatusCode)
+	}
 	if page.ContentEncoding != "gzip" {
 		t.Errorf("ContentEncoding = %q, want gzip", page.ContentEncoding)
 	}
@@ -792,12 +796,9 @@ func TestParseWorkerRedirectChain(t *testing.T) {
 	if len(page.RedirectChain) != 1 {
 		t.Errorf("RedirectChain len = %d, want 1", len(page.RedirectChain))
 	}
-	// X-Robots-Tag noindex should make it non-indexable
-	if page.IsIndexable {
-		t.Error("expected page to be non-indexable due to X-Robots-Tag noindex")
-	}
-	if page.IndexReason != "x_robots_noindex" {
-		t.Errorf("IndexReason = %q, want x_robots_noindex", page.IndexReason)
+	// Redirects skip content parsing — title/hreflang/etc belong to the final URL
+	if page.Title != "" {
+		t.Errorf("Title = %q, want empty (redirect should not parse body)", page.Title)
 	}
 }
 

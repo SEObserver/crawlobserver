@@ -8,6 +8,7 @@
   import UrlActions from './UrlActions.svelte';
   import ExportDropdown from './ExportDropdown.svelte';
   import NearDuplicatesTab from './NearDuplicatesTab.svelte';
+  import HreflangValidationTab from './HreflangValidationTab.svelte';
   import URLPatternsTab from './URLPatternsTab.svelte';
 
   let {
@@ -31,13 +32,21 @@
     { id: 'response', label: () => t('pages.response') },
     { id: 'redirects', label: () => t('pages.redirects') },
     { id: 'duplicates', label: () => t('tabs.nearDuplicates'), sep: true },
+    { id: 'hreflang', label: () => t('tabs.hreflang') },
     { id: 'patterns', label: () => t('urlPatterns.patterns') },
     { id: 'parameters', label: () => t('urlPatterns.parameters') },
     { id: 'directories', label: () => t('urlPatterns.directories') },
     { id: 'hosts', label: () => t('urlPatterns.hosts') },
   ];
 
-  const DELEGATED_VIEWS = new Set(['duplicates', 'patterns', 'parameters', 'directories', 'hosts']);
+  const DELEGATED_VIEWS = new Set([
+    'duplicates',
+    'hreflang',
+    'patterns',
+    'parameters',
+    'directories',
+    'hosts',
+  ]);
 
   // Map sub-view id to TAB_FILTERS key
   function filterKey(sv) {
@@ -694,7 +703,13 @@
       onerror={(msg) => onerror?.(msg)}
       onnavigate={(url) => onnavigate?.(url)}
     />
-  {:else if DELEGATED_VIEWS.has(subView) && subView !== 'duplicates'}
+  {:else if subView === 'hreflang'}
+    <HreflangValidationTab
+      {sessionId}
+      onerror={(msg) => onerror?.(msg)}
+      onnavigate={(url) => onnavigate?.(url)}
+    />
+  {:else if DELEGATED_VIEWS.has(subView) && subView !== 'duplicates' && subView !== 'hreflang'}
     {#key subView}
       <URLPatternsTab
         {sessionId}

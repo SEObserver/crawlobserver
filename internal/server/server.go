@@ -178,6 +178,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("POST /api/sessions/{id}/reparse-resources", s.handleReparseResources)
 	mux.HandleFunc("GET /api/sessions/{id}/near-duplicates", s.handleNearDuplicates)
 	mux.HandleFunc("GET /api/sessions/{id}/redirect-pages", s.handleRedirectPages)
+	mux.HandleFunc("GET /api/sessions/{id}/structured-data", s.handleStructuredData)
 	mux.HandleFunc("GET /api/sessions/{id}/url-patterns", s.handleURLPatterns)
 	mux.HandleFunc("GET /api/sessions/{id}/url-params", s.handleURLParams)
 	mux.HandleFunc("GET /api/sessions/{id}/url-directories", s.handleURLDirectories)
@@ -202,6 +203,8 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("POST /api/sessions/{id}/recompute-depths", s.handleRecomputeDepths)
 	mux.HandleFunc("POST /api/sessions/{id}/compute-pagerank", s.handleComputePageRank)
 	mux.HandleFunc("POST /api/sessions/{id}/compute-near-duplicates", s.handleComputeNearDuplicates)
+	mux.HandleFunc("GET /api/sessions/{id}/hreflang-validation", s.handleHreflangValidation)
+	mux.HandleFunc("POST /api/sessions/{id}/compute-hreflang-validation", s.handleComputeHreflangValidation)
 
 	// Interlinking
 	mux.HandleFunc("POST /api/sessions/{id}/compute-interlinking", s.handleComputeInterlinking)

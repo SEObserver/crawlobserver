@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/SEObserver/crawlobserver/internal/extraction"
+	"github.com/SEObserver/crawlobserver/internal/schema"
 )
 
 // mockInserter implements PageLinkInserter with configurable failure behavior.
@@ -38,6 +39,9 @@ func (m *mockInserter) InsertPages(ctx context.Context, pages []PageRow) error {
 }
 
 func (m *mockInserter) InsertExtractions(ctx context.Context, rows []extraction.ExtractionRow) error {
+	return nil
+}
+func (m *mockInserter) InsertStructuredData(ctx context.Context, items []schema.StructuredDataItem) error {
 	return nil
 }
 

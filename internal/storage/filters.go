@@ -234,6 +234,25 @@ var LinkSortColumns = map[string]string{
 	"crawled_at":  "crawled_at",
 }
 
+// HreflangIssueFilters defines the allowed filter columns for hreflang_issues.
+var HreflangIssueFilters = map[string]FilterDef{
+	"source_url": {Column: "source_url", Type: FilterLike},
+	"target_url": {Column: "target_url", Type: FilterLike},
+	"issue_type": {Column: "issue_type", Type: FilterLike},
+	"source_lang": {Column: "source_lang", Type: FilterLike},
+	"target_lang": {Column: "target_lang", Type: FilterLike},
+	"detail":     {Column: "detail", Type: FilterLike},
+}
+
+// HreflangIssueSortColumns maps query param names to DB column names for hreflang_issues.
+var HreflangIssueSortColumns = map[string]string{
+	"issue_type":  "issue_type",
+	"source_url":  "source_url",
+	"source_lang": "source_lang",
+	"target_url":  "target_url",
+	"target_lang": "target_lang",
+}
+
 // ParseSort validates sort/order params against a whitelist and returns a SortParam or nil.
 func ParseSort(sortKey, orderStr string, whitelist map[string]string) *SortParam {
 	if sortKey == "" {

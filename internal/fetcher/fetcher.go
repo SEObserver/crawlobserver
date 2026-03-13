@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -72,7 +73,7 @@ func New(userAgent string, timeout time.Duration, maxBodySize int64, dialOpts Di
 				if req.Response != nil {
 					tracker.mu.Lock()
 					tracker.chain = append(tracker.chain, RedirectHop{
-						URL:        prev.URL.String(),
+						URL:        stripDefaultPort(prev.URL.String()),
 						StatusCode: req.Response.StatusCode,
 					})
 					tracker.mu.Unlock()
@@ -139,7 +140,7 @@ func (f *Fetcher) FetchWithContext(ctx context.Context, targetURL string, depth 
 	defer resp.Body.Close()
 
 	result.StatusCode = resp.StatusCode
-	result.FinalURL = resp.Request.URL.String()
+	result.FinalURL = stripDefaultPort(resp.Request.URL.String())
 	result.RedirectChain = tracker.chain
 	result.ContentType = resp.Header.Get("Content-Type")
 
@@ -236,4 +237,18 @@ func CategorizeError(err error) string {
 	}
 
 	return fmt.Sprintf("fetch_error: %s", err)
+}
+
+// stripDefaultPort removes :443 from HTTPS URLs and :80 from HTTP URLs.
+func stripDefaultPort(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	port := parsed.Port()
+	if (parsed.Scheme == "https" && port == "443") || (parsed.Scheme == "http" && port == "80") {
+		parsed.Host = parsed.Hostname()
+		return parsed.String()
+	}
+	return rawURL
 }

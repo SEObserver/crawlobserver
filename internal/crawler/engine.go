@@ -24,6 +24,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/normalizer"
 	"github.com/SEObserver/crawlobserver/internal/parser"
 	"github.com/SEObserver/crawlobserver/internal/renderer"
+	"github.com/SEObserver/crawlobserver/internal/schema"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 	"golang.org/x/net/publicsuffix"
 )
@@ -79,6 +80,7 @@ type Engine struct {
 	renderWorkers int
 	renderCh      chan *renderItem
 	followJSLinks bool
+	measureCWV    bool
 
 	extractors []extraction.Extractor
 
@@ -788,6 +790,11 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 
 		now := time.Now()
 
+		// Detect redirects: if the URL changed, we followed a redirect.
+		// Store the original redirect status code instead of the final 200,
+		// and skip content parsing (the body belongs to the final URL).
+		isRedirect := len(result.RedirectChain) > 0 && result.URL != result.FinalURL
+
 		// Build page row
 		pageRow := storage.PageRow{
 			CrawlSessionID:  e.session.ID,
@@ -803,6 +810,13 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 			FoundOn:         result.FoundOn,
 			CrawledAt:       now,
 			Headers:         result.Headers,
+		}
+
+		// For redirects, store the first hop's status code (e.g. 301)
+		// instead of the final response code (e.g. 200).
+		if isRedirect {
+			pageRow.StatusCode = uint16(result.RedirectChain[0].StatusCode)
+			pageRow.BodySize = 0
 		}
 
 		// Extract response headers info
@@ -821,6 +835,36 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 			})
 		}
 
+		// For redirects: store the redirect row immediately, then create
+		// a second page row for the final URL that gets the parsed content.
+		if isRedirect {
+			ensureNonNilArrays(&pageRow)
+			e.buffer.AddPage(pageRow)
+
+			// Create a new page row for the final URL with the actual content
+			pageRow = storage.PageRow{
+				CrawlSessionID:  e.session.ID,
+				URL:             result.FinalURL,
+				FinalURL:        result.FinalURL,
+				StatusCode:      uint16(result.StatusCode),
+				ContentType:     result.ContentType,
+				BodySize:        uint64(result.BodySize),
+				BodyTruncated:   result.BodyTruncated,
+				FetchDurationMs: uint64(result.Duration.Milliseconds()),
+				Error:           result.Error,
+				Depth:           uint16(result.Depth),
+				FoundOn:         result.URL,
+				CrawledAt:       now,
+				Headers:         result.Headers,
+			}
+			if enc, ok := result.Headers["Content-Encoding"]; ok {
+				pageRow.ContentEncoding = enc
+			}
+			if xrt, ok := result.Headers["X-Robots-Tag"]; ok {
+				pageRow.XRobotsTag = xrt
+			}
+		}
+
 		// Store raw HTML if enabled
 		if e.cfg.Crawler.StoreHTML && result.IsHTML() && len(result.Body) > 0 {
 			pageRow.BodyHTML = string(result.Body)
@@ -828,7 +872,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 
 		// Run extractors if configured
 		if len(e.extractors) > 0 && result.IsHTML() && len(result.Body) > 0 {
-			rows := extraction.RunExtractors(result.Body, result.URL, e.session.ID, e.extractors, now)
+			rows := extraction.RunExtractors(result.Body, pageRow.URL, e.session.ID, e.extractors, now)
 			if len(rows) > 0 {
 				e.bufferMu.RLock()
 				buf := e.buffer
@@ -866,6 +910,23 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 				pageRow.OGImage = pageData.OGImage
 				pageRow.SchemaTypes = pageData.SchemaTypes
 
+				// Structured data validation
+				if len(pageData.JSONLDBlocks) > 0 {
+					sdItems := schema.ValidateAllBlocks(pageData.JSONLDBlocks, e.session.ID, pageRow.URL, now, "static")
+					if len(sdItems) > 0 {
+						e.bufferMu.RLock()
+						buf := e.buffer
+						e.bufferMu.RUnlock()
+						if buf != nil {
+							buf.AddStructuredData(sdItems)
+						}
+						v, errs, warns := schema.CountSummary(sdItems)
+						pageRow.SchemaValidCount = v
+						pageRow.SchemaErrorCount = errs
+						pageRow.SchemaWarningCount = warns
+					}
+				}
+
 				// Images
 				pageRow.ImagesCount = uint16(len(pageData.Images))
 				noAlt := 0
@@ -886,13 +947,13 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 
 				// Canonical self-referencing check
 				if pageData.Canonical != "" {
-					pageRow.CanonicalIsSelf = (pageData.Canonical == result.FinalURL || pageData.Canonical == result.URL)
+					pageRow.CanonicalIsSelf = (pageData.Canonical == pageRow.URL)
 				}
 
 				// Indexability
 				pageRow.IsIndexable, pageRow.IndexReason = computeIndexability(
-					uint16(result.StatusCode), pageData.MetaRobots, pageRow.XRobotsTag,
-					pageData.Canonical, result.FinalURL, result.URL,
+					pageRow.StatusCode, pageData.MetaRobots, pageRow.XRobotsTag,
+					pageData.Canonical, pageRow.URL, pageRow.URL,
 				)
 
 				// Process links
@@ -901,7 +962,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 				for _, link := range pageData.Links {
 					linkRows = append(linkRows, storage.LinkRow{
 						CrawlSessionID: e.session.ID,
-						SourceURL:      result.URL,
+						SourceURL:      pageRow.URL,
 						TargetURL:      link.TargetURL,
 						AnchorText:     link.AnchorText,
 						Rel:            link.Rel,
@@ -954,7 +1015,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 						// Always record the ref (page -> resource)
 						e.bufferResourceRef(storage.PageResourceRef{
 							CrawlSessionID: e.session.ID,
-							PageURL:        result.URL,
+							PageURL:        pageRow.URL,
 							ResourceURL:    res.URL,
 							ResourceType:   res.ResourceType,
 							IsInternal:     res.IsInternal,
@@ -1641,11 +1702,24 @@ func (e *Engine) renderWorker(id int, in <-chan *renderItem) {
 
 		// Create a timeout context for rendering
 		renderCtx, renderCancel := context.WithTimeout(e.ctx, e.cfg.Crawler.JSRender.PageTimeout)
-		renderResult := e.renderPool.Render(renderCtx, finalURL)
+		var renderResult *renderer.RenderResult
+		if e.measureCWV {
+			renderResult = e.renderPool.RenderWithCWV(renderCtx, finalURL)
+		} else {
+			renderResult = e.renderPool.Render(renderCtx, finalURL)
+		}
 		renderCancel()
 
 		item.pageRow.JSRendered = true
 		item.pageRow.JSRenderDurationMs = uint64(renderResult.RenderDuration.Milliseconds())
+
+		// Copy CWV data if measured
+		if renderResult.CWVMeasured {
+			item.pageRow.CWVMeasured = true
+			item.pageRow.CWVLCP = renderResult.CWVLCP
+			item.pageRow.CWVCLS = renderResult.CWVCLS
+			item.pageRow.CWVTTFB = renderResult.CWVTTFB
+		}
 
 		if renderResult.Error != nil {
 			item.pageRow.JSRenderError = renderResult.Error.Error()
@@ -1672,6 +1746,31 @@ func (e *Engine) renderWorker(id int, in <-chan *renderItem) {
 				// Store rendered HTML if store_html is enabled
 				if e.cfg.Crawler.StoreHTML {
 					item.pageRow.RenderedBodyHTML = renderResult.RenderedHTML
+				}
+
+				// Validate rendered structured data
+				if len(renderedData.JSONLDBlocks) > 0 {
+					sdItems := schema.ValidateAllBlocks(renderedData.JSONLDBlocks, e.session.ID, item.result.URL, time.Now(), "rendered")
+					if len(sdItems) > 0 {
+						e.bufferMu.RLock()
+						buf := e.buffer
+						e.bufferMu.RUnlock()
+						if buf != nil {
+							buf.AddStructuredData(sdItems)
+						}
+						// Update summary counters: merge rendered into static
+						// (take the totals from rendered if it found more items)
+						v, errs, warns := schema.CountSummary(sdItems)
+						if v > item.pageRow.SchemaValidCount {
+							item.pageRow.SchemaValidCount = v
+						}
+						if errs > item.pageRow.SchemaErrorCount {
+							item.pageRow.SchemaErrorCount = errs
+						}
+						if warns > item.pageRow.SchemaWarningCount {
+							item.pageRow.SchemaWarningCount = warns
+						}
+					}
 				}
 
 				// Compute diffs

@@ -777,6 +777,10 @@ var Migrations = []Migration{
 	{Name: "create page_embeddings", DDL: CreatePageEmbeddings},
 	{Name: "alter interlinking_opportunities v2", DDL: AlterInterlinkingOpportunitiesV2},
 	{Name: "alter sessions v3 add label", DDL: AlterSessionsV3},
+	{Name: "create structured_data_items", DDL: CreateStructuredDataItems},
+	{Name: "alter pages v7 structured data", DDL: AlterPagesV7StructuredData},
+	{Name: "alter pages v8 cwv", DDL: AlterPagesV8CWV},
+	{Name: "create hreflang_issues", DDL: CreateHreflangIssues},
 }
 
 const AlterSessionsV3 = `
@@ -788,4 +792,50 @@ const AlterInterlinkingOpportunitiesV2 = `
 ALTER TABLE crawlobserver.interlinking_opportunities
     ADD COLUMN IF NOT EXISTS opportunity_score Float64 DEFAULT 0,
     ADD COLUMN IF NOT EXISTS category LowCardinality(String) DEFAULT 'opportunity'
+`
+
+const CreateStructuredDataItems = `
+CREATE TABLE IF NOT EXISTS crawlobserver.structured_data_items (
+    crawl_session_id UUID,
+    url String,
+    schema_type LowCardinality(String),
+    json_ld String CODEC(ZSTD(3)),
+    errors Array(String),
+    warnings Array(String),
+    is_valid Bool,
+    source LowCardinality(String),
+    crawled_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(crawled_at)
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, url, schema_type, source)
+`
+
+const AlterPagesV7StructuredData = `
+ALTER TABLE crawlobserver.pages
+    ADD COLUMN IF NOT EXISTS schema_valid_count UInt16 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS schema_error_count UInt16 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS schema_warning_count UInt16 DEFAULT 0
+`
+
+const AlterPagesV8CWV = `
+ALTER TABLE crawlobserver.pages
+    ADD COLUMN IF NOT EXISTS cwv_lcp_ms Float64 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS cwv_cls Float64 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS cwv_ttfb_ms Float64 DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS cwv_measured Bool DEFAULT false
+`
+
+const CreateHreflangIssues = `
+CREATE TABLE IF NOT EXISTS crawlobserver.hreflang_issues (
+    crawl_session_id UUID,
+    issue_type LowCardinality(String),
+    source_url String,
+    source_lang String,
+    target_url String,
+    target_lang String,
+    detail String,
+    computed_at DateTime64(3)
+) ENGINE = ReplacingMergeTree(computed_at)
+PARTITION BY crawl_session_id
+ORDER BY (crawl_session_id, issue_type, source_url, target_url)
 `

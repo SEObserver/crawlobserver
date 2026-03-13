@@ -31,6 +31,7 @@ type PageData struct {
 	OGDescription   string
 	OGImage         string
 	SchemaTypes     []string
+	JSONLDBlocks    []string // raw JSON-LD block contents
 	WordCount       int
 	ContentHash     uint64 // SimHash fingerprint of visible body text
 	Resources       []PageResource
@@ -82,6 +83,7 @@ func Parse(body []byte, pageURL string) (*PageData, error) {
 	data.OGDescription = extractMetaProperty(doc, "og:description")
 	data.OGImage = extractMetaProperty(doc, "og:image")
 	data.SchemaTypes = extractSchemaTypes(doc)
+	data.JSONLDBlocks = extractJSONLDBlocks(doc)
 	data.WordCount = countWords(doc)
 	data.ContentHash = SimHash(ExtractMainContent(body, baseURL))
 	data.Resources = ExtractResources(doc, baseURL)
@@ -168,6 +170,18 @@ func extractMetaProperty(doc *goquery.Document, property string) string {
 		}
 	})
 	return strings.TrimSpace(content)
+}
+
+// extractJSONLDBlocks extracts the raw text content of each <script type="application/ld+json"> block.
+func extractJSONLDBlocks(doc *goquery.Document) []string {
+	var blocks []string
+	doc.Find("script[type='application/ld+json']").Each(func(_ int, s *goquery.Selection) {
+		text := strings.TrimSpace(s.Text())
+		if text != "" {
+			blocks = append(blocks, text)
+		}
+	})
+	return blocks
 }
 
 // extractSchemaTypes extracts schema.org types from JSON-LD.

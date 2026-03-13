@@ -1,5 +1,11 @@
 <script>
-  import { getPageDetail, getBacklinksTop } from '../api.js';
+  import {
+    getPageDetail,
+    getBacklinksTop,
+    getStructuredData,
+    getHreflangValidation,
+    computeHreflangValidation,
+  } from '../api.js';
   import { statusBadge, fmt, fmtSize, fmtN } from '../utils.js';
   import { t } from '../i18n/index.svelte.js';
   import BacklinksView from './BacklinksView.svelte';
@@ -11,6 +17,101 @@
   let outLinksPage = $state(0);
   let inLinksPage = $state(0);
   const LINKS_PER_PAGE = 100;
+
+  // Structured data
+  let sdItems = $state(null);
+  let sdLoading = $state(false);
+  let sdExpanded = $state(false);
+
+  async function loadStructuredData() {
+    if (sdLoading || sdItems) return;
+    sdLoading = true;
+    try {
+      sdItems = await getStructuredData(sessionId, url);
+    } catch (e) {
+      sdItems = [];
+    }
+    sdLoading = false;
+    sdExpanded = true;
+  }
+
+  // Hreflang issues for this URL
+  let hlIssues = $state([]);
+  let hlLoaded = $state(false);
+  let hlComputed = $state(false); // true if validation has been computed for this session
+  let hlComputing = $state(false);
+
+  async function loadHreflangIssues() {
+    if (hlLoaded) return;
+    hlLoaded = true;
+    try {
+      const result = await getHreflangValidation(sessionId, 100, 0, '', {}, '', '', url);
+      hlIssues = result?.issues || [];
+      // If summary has any key, validation was computed for this session
+      hlComputed = result?.summary && Object.keys(result.summary).length > 0;
+      // Also mark computed if we got issues for this specific URL
+      if (hlIssues.length > 0) hlComputed = true;
+    } catch {
+      hlIssues = [];
+      hlComputed = false;
+    }
+  }
+
+  async function handleHlCompute() {
+    hlComputing = true;
+    try {
+      await computeHreflangValidation(sessionId);
+      // Wait for async computation
+      setTimeout(() => {
+        hlLoaded = false;
+        hlComputing = false;
+        loadHreflangIssues();
+      }, 3000);
+    } catch (e) {
+      onerror?.(e.message);
+      hlComputing = false;
+    }
+  }
+
+  function hlIssueClass(type) {
+    switch (type) {
+      case 'missing_reciprocal':
+      case 'xdefault_is_lang_page':
+        return 'badge-error';
+      case 'missing_self_ref':
+      case 'inconsistent_cluster':
+        return 'badge-warning';
+      case 'target_not_crawled':
+        return 'badge-info';
+      default:
+        return '';
+    }
+  }
+
+  function hlIssueLabel(type) {
+    switch (type) {
+      case 'missing_reciprocal':
+        return t('hreflang.missingReciprocal');
+      case 'missing_self_ref':
+        return t('hreflang.missingSelfRef');
+      case 'xdefault_is_lang_page':
+        return t('hreflang.xdefaultIsLang');
+      case 'target_not_crawled':
+        return t('hreflang.targetNotCrawled');
+      case 'inconsistent_cluster':
+        return t('hreflang.inconsistentCluster');
+      default:
+        return type;
+    }
+  }
+
+  function cwvRating(value, good, mid) {
+    return value <= good ? 'good' : value <= mid ? 'needs-improvement' : 'poor';
+  }
+  function cwvRatingLabel(rating) {
+    const map = { good: 'cwvGood', 'needs-improvement': 'cwvNeedsImprovement', poor: 'cwvPoor' };
+    return t('urlDetail.' + map[rating]);
+  }
 
   // Bottom tabs
   let linksTab = $state('outbound');
@@ -364,17 +465,181 @@
           {/each}
         </tbody>
       </table>
+      {#if !hlLoaded}
+        <button class="btn btn-sm hl-check-btn" onclick={loadHreflangIssues}
+          >{t('hreflang.checkIssues')}</button
+        >
+      {:else if hlIssues.length > 0}
+        <div class="hl-issues">
+          <h4 class="hl-issues-title">{t('hreflang.issuesFound', { count: hlIssues.length })}</h4>
+          <table class="hl-issues-table">
+            <thead>
+              <tr>
+                <th>{t('hreflang.colType')}</th>
+                <th>{t('hreflang.colTargetUrl')}</th>
+                <th>{t('hreflang.colTargetLang')}</th>
+                <th>{t('hreflang.colDetail')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each hlIssues as issue}
+                <tr>
+                  <td
+                    ><span class="badge {hlIssueClass(issue.issue_type)}"
+                      >{hlIssueLabel(issue.issue_type)}</span
+                    ></td
+                  >
+                  <td class="cell-url">
+                    {#if issue.target_url}
+                      <a
+                        href={`/sessions/${sessionId}/url/${encodeURIComponent(issue.target_url)}`}
+                        onclick={(e) => {
+                          e.preventDefault();
+                          onnavigate?.(
+                            `/sessions/${sessionId}/url/${encodeURIComponent(issue.target_url)}`,
+                          );
+                        }}>{issue.target_url}</a
+                      >
+                    {:else}
+                      -
+                    {/if}
+                  </td>
+                  <td>{issue.target_lang}</td>
+                  <td class="hl-detail">{issue.detail}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {:else if !hlComputed}
+        <div class="hl-not-computed">
+          <span>{t('hreflang.notComputed')}</span>
+          <button class="btn btn-sm" onclick={handleHlCompute} disabled={hlComputing}>
+            {hlComputing ? t('common.loading') : t('hreflang.compute')}
+          </button>
+        </div>
+      {:else}
+        <div class="hl-ok">{t('hreflang.noIssuesForPage')}</div>
+      {/if}
     </div>
   {/if}
 
-  <!-- Schema.org -->
+  <!-- Structured Data -->
   {#if pg.SchemaTypes?.length}
     <div class="card card-section">
-      <h3 class="section-title">{t('urlDetail.schemaOrg')}</h3>
+      <h3 class="section-title">{t('urlDetail.structuredData')}</h3>
       <div class="schema-badges">
         {#each pg.SchemaTypes as st}
           <span class="badge badge-info">{st}</span>
         {/each}
+      </div>
+      {#if pg.SchemaErrorCount > 0 || pg.SchemaWarningCount > 0 || pg.SchemaValidCount > 0}
+        <div class="sd-summary">
+          {#if pg.SchemaValidCount > 0}
+            <span class="badge badge-success">{pg.SchemaValidCount} {t('urlDetail.sdValid')}</span>
+          {/if}
+          {#if pg.SchemaErrorCount > 0}
+            <span class="badge badge-danger">{pg.SchemaErrorCount} {t('urlDetail.sdErrors')}</span>
+          {/if}
+          {#if pg.SchemaWarningCount > 0}
+            <span class="badge badge-warning"
+              >{pg.SchemaWarningCount} {t('urlDetail.sdWarnings')}</span
+            >
+          {/if}
+        </div>
+      {/if}
+      {#if !sdExpanded}
+        <button class="btn btn-sm btn-outline" onclick={loadStructuredData} disabled={sdLoading}>
+          {sdLoading ? '...' : t('urlDetail.sdShowDetails')}
+        </button>
+      {/if}
+      {#if sdExpanded && sdItems?.length}
+        <div class="sd-details">
+          {#each sdItems as item}
+            <div
+              class="sd-item"
+              class:sd-item-valid={item.IsValid}
+              class:sd-item-invalid={!item.IsValid}
+            >
+              <div class="sd-item-header">
+                <span
+                  class="badge"
+                  class:badge-success={item.IsValid}
+                  class:badge-danger={!item.IsValid}
+                >
+                  {item.SchemaType}
+                </span>
+                <span class="sd-source">{item.Source}</span>
+              </div>
+              {#if item.Errors?.length}
+                <ul class="sd-issues">
+                  {#each item.Errors as err}
+                    <li class="sd-issue-error">{err}</li>
+                  {/each}
+                </ul>
+              {/if}
+              {#if item.Warnings?.length}
+                <ul class="sd-issues">
+                  {#each item.Warnings as warn}
+                    <li class="sd-issue-warning">{warn}</li>
+                  {/each}
+                </ul>
+              {/if}
+              {#if item.IsValid && !item.Errors?.length && !item.Warnings?.length}
+                <div class="sd-all-valid">{t('urlDetail.sdAllValid')}</div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {/if}
+
+  <!-- Core Web Vitals -->
+  {#if pg.CWVMeasured}
+    <div class="card card-section">
+      <h3 class="section-title">
+        {t('urlDetail.coreWebVitals')}
+        <span class="cwv-lab-badge">{t('urlDetail.cwvLabData')}</span>
+      </h3>
+      <div class="cwv-gauges">
+        <div class="cwv-gauge">
+          <div class="cwv-value cwv-{cwvRating(pg.CWVLCP, 2500, 4000)}">
+            {Math.round(pg.CWVLCP)}ms
+          </div>
+          <div class="cwv-bar">
+            <div
+              class="cwv-fill cwv-{cwvRating(pg.CWVLCP, 2500, 4000)}"
+              style="width:{Math.min(100, pg.CWVLCP / 60)}%"
+            ></div>
+          </div>
+          <div class="cwv-label">LCP</div>
+          <div class="cwv-rating">{cwvRatingLabel(cwvRating(pg.CWVLCP, 2500, 4000))}</div>
+        </div>
+        <div class="cwv-gauge">
+          <div class="cwv-value cwv-{cwvRating(pg.CWVCLS, 0.1, 0.25)}">{pg.CWVCLS.toFixed(3)}</div>
+          <div class="cwv-bar">
+            <div
+              class="cwv-fill cwv-{cwvRating(pg.CWVCLS, 0.1, 0.25)}"
+              style="width:{Math.min(100, pg.CWVCLS / 0.005)}%"
+            ></div>
+          </div>
+          <div class="cwv-label">CLS</div>
+          <div class="cwv-rating">{cwvRatingLabel(cwvRating(pg.CWVCLS, 0.1, 0.25))}</div>
+        </div>
+        <div class="cwv-gauge">
+          <div class="cwv-value cwv-{cwvRating(pg.CWVTTFB, 800, 1800)}">
+            {Math.round(pg.CWVTTFB)}ms
+          </div>
+          <div class="cwv-bar">
+            <div
+              class="cwv-fill cwv-{cwvRating(pg.CWVTTFB, 800, 1800)}"
+              style="width:{Math.min(100, pg.CWVTTFB / 30)}%"
+            ></div>
+          </div>
+          <div class="cwv-label">TTFB</div>
+          <div class="cwv-rating">{cwvRatingLabel(cwvRating(pg.CWVTTFB, 800, 1800))}</div>
+        </div>
       </div>
     </div>
   {/if}
@@ -717,6 +982,70 @@
 {/if}
 
 <style>
+  .hl-check-btn {
+    margin-top: 8px;
+  }
+  .hl-issues {
+    margin-top: 12px;
+    border-top: 1px solid var(--border, #eee);
+    padding-top: 10px;
+  }
+  .hl-issues-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-secondary, #666);
+  }
+  .hl-issues-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .hl-issues-table th {
+    text-align: left;
+    padding: 4px 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-secondary, #888);
+    border-bottom: 1px solid var(--border, #ddd);
+  }
+  .hl-issues-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border, #eee);
+    vertical-align: top;
+  }
+  .hl-issues-table tbody tr:nth-child(even) {
+    background: var(--row-even, #f9f9f9);
+  }
+  .hl-detail {
+    color: var(--text-secondary, #888);
+    font-size: 11px;
+  }
+  .badge-error {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .badge-warning {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  .badge-info {
+    background: #fef9c3;
+    color: #854d0e;
+  }
+  .hl-not-computed {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-secondary, #888);
+  }
+  .hl-ok {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #16a34a;
+  }
   .detail-header-wrap {
     gap: 12px;
     flex-wrap: wrap;
@@ -776,6 +1105,119 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+  }
+  .sd-summary {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .sd-details {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sd-item {
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .sd-item-valid {
+    border-left: 3px solid var(--success);
+  }
+  .sd-item-invalid {
+    border-left: 3px solid var(--danger);
+  }
+  .sd-item-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sd-source {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .sd-issues {
+    margin: 4px 0 0 18px;
+    padding: 0;
+    list-style: none;
+    font-size: 0.85rem;
+  }
+  .sd-issue-error::before {
+    content: '\2716 ';
+    color: var(--danger);
+  }
+  .sd-issue-warning::before {
+    content: '\26A0 ';
+    color: var(--warning);
+  }
+  .sd-all-valid {
+    font-size: 0.85rem;
+    color: var(--success);
+    margin-top: 4px;
+  }
+
+  /* Core Web Vitals gauges */
+  .cwv-gauges {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .cwv-gauge {
+    text-align: center;
+  }
+  .cwv-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+  .cwv-good {
+    color: var(--success);
+  }
+  .cwv-needs-improvement {
+    color: var(--warning);
+  }
+  .cwv-poor {
+    color: var(--danger);
+  }
+  .cwv-bar {
+    height: 6px;
+    background: var(--bg-alt);
+    border-radius: 3px;
+    margin: 6px 0;
+    overflow: hidden;
+  }
+  .cwv-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+  .cwv-fill.cwv-good {
+    background: var(--success);
+  }
+  .cwv-fill.cwv-needs-improvement {
+    background: var(--warning);
+  }
+  .cwv-fill.cwv-poor {
+    background: var(--danger);
+  }
+  .cwv-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .cwv-rating {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .cwv-lab-badge {
+    font-size: 0.65rem;
+    font-weight: 500;
+    background: var(--bg-alt);
+    color: var(--text-muted);
+    padding: 2px 6px;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-left: 6px;
   }
   .links-pagination {
     display: flex;

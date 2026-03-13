@@ -1169,6 +1169,12 @@ export async function runExtractions(sessionId, extractorSetId) {
   });
 }
 
+// --- Structured Data ---
+
+export async function getStructuredData(sessionId, url) {
+  return fetchJSON(`/sessions/${sessionId}/structured-data?url=${encodeURIComponent(url)}`);
+}
+
 // --- Interlinking ---
 
 export async function computeInterlinking(sessionId, options = {}) {
@@ -1447,6 +1453,50 @@ export async function getNearDuplicates(
   return fetchJSON(
     `/sessions/${sessionId}/near-duplicates?limit=${limit}&offset=${offset}&threshold=${threshold}`,
   );
+}
+
+/**
+ * @param {string} sessionId
+ * @returns {Promise<{status: string, message: string}>}
+ */
+export async function computeHreflangValidation(sessionId) {
+  return fetchJSON(`/sessions/${sessionId}/compute-hreflang-validation`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * @param {string} sessionId
+ * @param {number} limit
+ * @param {number} offset
+ * @param {string} issueType
+ * @param {Object<string, string>} filters
+ * @param {string} sort
+ * @param {string} order
+ * @returns {Promise<{issues: Array, total: number, summary: Object}>}
+ */
+export async function getHreflangValidation(
+  sessionId,
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  issueType = '',
+  filters = {},
+  sort = '',
+  order = '',
+  pageURL = '',
+) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  if (issueType) params.set('issue_type', issueType);
+  if (sort) params.set('sort', sort);
+  if (order) params.set('order', order);
+  if (pageURL) params.set('page_url', pageURL);
+  for (const [k, v] of Object.entries(filters)) {
+    if (v) params.set(k, v);
+  }
+  return fetchJSON(`/sessions/${sessionId}/hreflang-validation?${params}`);
 }
 
 /**

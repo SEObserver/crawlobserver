@@ -42,7 +42,9 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			rendered_body_html,
 			js_changed_title, js_changed_description, js_changed_h1,
 			js_changed_canonical, js_changed_content,
-			js_added_links, js_added_images, js_added_schema
+			js_added_links, js_added_images, js_added_schema,
+			schema_valid_count, schema_error_count, schema_warning_count,
+			cwv_lcp_ms, cwv_cls, cwv_ttfb_ms, cwv_measured
 		)`)
 	if err != nil {
 		return fmt.Errorf("preparing pages batch: %w", err)
@@ -80,6 +82,8 @@ func (s *Store) InsertPages(ctx context.Context, pages []PageRow) error {
 			p.JSChangedTitle, p.JSChangedDescription, p.JSChangedH1,
 			p.JSChangedCanonical, p.JSChangedContent,
 			p.JSAddedLinks, p.JSAddedImages, p.JSAddedSchema,
+			p.SchemaValidCount, p.SchemaErrorCount, p.SchemaWarningCount,
+			p.CWVLCP, p.CWVCLS, p.CWVTTFB, p.CWVMeasured,
 		); err != nil {
 			return fmt.Errorf("appending page row: %w", err)
 		}
@@ -110,7 +114,9 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 			js_rendered, js_render_duration_ms, js_render_error,
 			js_changed_title, js_changed_description, js_changed_h1,
 			js_changed_canonical, js_changed_content,
-			js_added_links, js_added_images, js_added_schema
+			js_added_links, js_added_images, js_added_schema,
+			schema_valid_count, schema_error_count, schema_warning_count,
+			cwv_lcp_ms, cwv_cls, cwv_ttfb_ms, cwv_measured
 		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND ` + notRedirectedFilter
 	args := []interface{}{sessionID}
@@ -150,6 +156,8 @@ func (s *Store) ListPages(ctx context.Context, sessionID string, limit, offset i
 			&p.JSChangedTitle, &p.JSChangedDescription, &p.JSChangedH1,
 			&p.JSChangedCanonical, &p.JSChangedContent,
 			&p.JSAddedLinks, &p.JSAddedImages, &p.JSAddedSchema,
+			&p.SchemaValidCount, &p.SchemaErrorCount, &p.SchemaWarningCount,
+			&p.CWVLCP, &p.CWVCLS, &p.CWVTTFB, &p.CWVMeasured,
 		); err != nil {
 			return nil, fmt.Errorf("scanning page: %w", err)
 		}
@@ -184,7 +192,9 @@ func (s *Store) GetPage(ctx context.Context, sessionID, url string) (*PageRow, e
 			rendered_canonical, rendered_meta_robots, rendered_schema_types,
 			js_changed_title, js_changed_description, js_changed_h1,
 			js_changed_canonical, js_changed_content,
-			js_added_links, js_added_images, js_added_schema
+			js_added_links, js_added_images, js_added_schema,
+			schema_valid_count, schema_error_count, schema_warning_count,
+			cwv_lcp_ms, cwv_cls, cwv_ttfb_ms, cwv_measured
 		FROM crawlobserver.pages FINAL
 		WHERE crawl_session_id = ? AND url = ?
 		LIMIT 1`, sessionID, url)
@@ -207,6 +217,8 @@ func (s *Store) GetPage(ctx context.Context, sessionID, url string) (*PageRow, e
 		&p.JSChangedTitle, &p.JSChangedDescription, &p.JSChangedH1,
 		&p.JSChangedCanonical, &p.JSChangedContent,
 		&p.JSAddedLinks, &p.JSAddedImages, &p.JSAddedSchema,
+		&p.SchemaValidCount, &p.SchemaErrorCount, &p.SchemaWarningCount,
+		&p.CWVLCP, &p.CWVCLS, &p.CWVTTFB, &p.CWVMeasured,
 	); err != nil {
 		return nil, fmt.Errorf("querying page detail: %w", err)
 	}
@@ -1786,6 +1798,406 @@ func (s *Store) ComputeNearDuplicates(ctx context.Context, sessionID string) err
 
 	applog.Infof("storage", "NearDuplicates: inserted %d pairs in %s", len(pairs), time.Since(start))
 	return nil
+}
+
+// ComputeHreflangValidation validates hreflang annotations across all pages of a session.
+// It loads all pages with hreflang data plus the set of all crawled URLs, then applies
+// 5 validation rules in a single pass and stores issues in the hreflang_issues table.
+func (s *Store) ComputeHreflangValidation(ctx context.Context, sessionID string) error {
+	start := time.Now()
+	if !isValidUUID(sessionID) {
+		return fmt.Errorf("invalid session ID: %s", sessionID)
+	}
+
+	// Load all pages with hreflang annotations
+	type hreflangEntry struct {
+		Lang string
+		URL  string
+	}
+	type pageHreflang struct {
+		URL      string
+		Hreflang []hreflangEntry
+	}
+
+	rows, err := s.conn.Query(ctx, `
+		SELECT url, hreflang
+		FROM crawlobserver.pages FINAL
+		WHERE crawl_session_id = ?
+		  AND status_code >= 200 AND status_code < 300
+		  AND length(hreflang) > 0
+		  AND (final_url = '' OR final_url = url)`,
+		sessionID)
+	if err != nil {
+		return fmt.Errorf("loading pages with hreflang: %w", err)
+	}
+	defer rows.Close()
+
+	var pages []pageHreflang
+	for rows.Next() {
+		var p pageHreflang
+		var hreflangRaw []map[string]interface{}
+		if err := rows.Scan(&p.URL, &hreflangRaw); err != nil {
+			return fmt.Errorf("scanning hreflang page: %w", err)
+		}
+		for _, m := range hreflangRaw {
+			lang, _ := m["lang"].(string)
+			url, _ := m["url"].(string)
+			if lang != "" && url != "" {
+				p.Hreflang = append(p.Hreflang, hreflangEntry{Lang: lang, URL: url})
+			}
+		}
+		pages = append(pages, p)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterating hreflang pages: %w", err)
+	}
+
+	if len(pages) == 0 {
+		applog.Infof("storage", "HreflangValidation: no pages with hreflang for session %s", sessionID)
+		return nil
+	}
+
+	// Load set of all crawled URLs
+	crawledURLs := make(map[string]bool)
+	urlRows, err := s.conn.Query(ctx, `
+		SELECT url
+		FROM crawlobserver.pages FINAL
+		WHERE crawl_session_id = ?`,
+		sessionID)
+	if err != nil {
+		return fmt.Errorf("loading crawled URLs: %w", err)
+	}
+	defer urlRows.Close()
+	for urlRows.Next() {
+		var u string
+		if err := urlRows.Scan(&u); err != nil {
+			return fmt.Errorf("scanning crawled URL: %w", err)
+		}
+		crawledURLs[u] = true
+	}
+	if err := urlRows.Err(); err != nil {
+		return fmt.Errorf("iterating crawled URLs: %w", err)
+	}
+
+	applog.Infof("storage", "HreflangValidation: loaded %d pages with hreflang, %d total crawled URLs in %s",
+		len(pages), len(crawledURLs), time.Since(start))
+
+	// Build map[url] -> []hreflangEntry for O(1) lookups
+	hreflangByURL := make(map[string][]hreflangEntry, len(pages))
+	for _, p := range pages {
+		hreflangByURL[p.URL] = p.Hreflang
+	}
+
+	// Union-Find for cluster detection (rule 5)
+	parent := make(map[string]string)
+	var find func(string) string
+	find = func(x string) string {
+		p, ok := parent[x]
+		if !ok {
+			parent[x] = x
+			return x
+		}
+		if p != x {
+			parent[x] = find(p)
+		}
+		return parent[x]
+	}
+	union := func(a, b string) {
+		ra, rb := find(a), find(b)
+		if ra != rb {
+			parent[ra] = rb
+		}
+	}
+
+	var issues []HreflangIssue
+
+	// Single pass over all pages with hreflang
+	for _, p := range pages {
+		sourceURL := p.URL
+
+		// Build set of declared alternates for this page
+		declaredLangs := make(map[string]string) // lang -> url
+		hasSelfRef := false
+		var xDefaultURL string
+
+		for _, h := range p.Hreflang {
+			declaredLangs[h.Lang] = h.URL
+
+			// Union-Find: link source to each target
+			union(sourceURL, h.URL)
+
+			if h.URL == sourceURL {
+				hasSelfRef = true
+			}
+			if h.Lang == "x-default" {
+				xDefaultURL = h.URL
+			}
+		}
+
+		// Rule 2: missing self-reference
+		if !hasSelfRef {
+			issues = append(issues, HreflangIssue{
+				IssueType: "missing_self_ref",
+				SourceURL: sourceURL,
+				Detail:    "Page absent de son propre set hreflang",
+			})
+		}
+
+		// Rule 3: x-default points to a URL also declared as a specific language
+		if xDefaultURL != "" {
+			for lang, url := range declaredLangs {
+				if lang != "x-default" && url == xDefaultURL {
+					issues = append(issues, HreflangIssue{
+						IssueType:  "xdefault_is_lang_page",
+						SourceURL:  sourceURL,
+						TargetURL:  xDefaultURL,
+						TargetLang: lang,
+						Detail:     fmt.Sprintf("x-default pointe vers %s aussi declaree comme %s", xDefaultURL, lang),
+					})
+					break
+				}
+			}
+		}
+
+		for _, h := range p.Hreflang {
+			if h.URL == sourceURL {
+				continue
+			}
+
+			// Rule 4: target not crawled
+			if !crawledURLs[h.URL] {
+				issues = append(issues, HreflangIssue{
+					IssueType:  "target_not_crawled",
+					SourceURL:  sourceURL,
+					TargetURL:  h.URL,
+					TargetLang: h.Lang,
+					Detail:     "URL cible hreflang absente du crawl",
+				})
+				continue
+			}
+
+			// Rule 1: missing reciprocal
+			targetHreflang, hasTarget := hreflangByURL[h.URL]
+			if !hasTarget {
+				// Target was crawled but has no hreflang at all
+				issues = append(issues, HreflangIssue{
+					IssueType:  "missing_reciprocal",
+					SourceURL:  sourceURL,
+					TargetURL:  h.URL,
+					TargetLang: h.Lang,
+					Detail:     "Cible n'a aucune annotation hreflang",
+				})
+				continue
+			}
+			// Check if target points back to source
+			pointsBack := false
+			for _, th := range targetHreflang {
+				if th.URL == sourceURL {
+					pointsBack = true
+					break
+				}
+			}
+			if !pointsBack {
+				issues = append(issues, HreflangIssue{
+					IssueType:  "missing_reciprocal",
+					SourceURL:  sourceURL,
+					TargetURL:  h.URL,
+					TargetLang: h.Lang,
+					Detail:     fmt.Sprintf("Cible ne pointe pas en retour vers %s", sourceURL),
+				})
+			}
+		}
+	}
+
+	// Rule 5: inconsistent cluster — pages in the same cluster don't declare the same set of alternates
+	// Build clusters from Union-Find
+	clusters := make(map[string][]string) // root -> []urls
+	for _, p := range pages {
+		root := find(p.URL)
+		clusters[root] = append(clusters[root], p.URL)
+	}
+	for _, members := range clusters {
+		if len(members) < 2 {
+			continue
+		}
+		// Build canonical set: union of all URLs in cluster
+		canonicalSet := make(map[string]bool)
+		for _, url := range members {
+			canonicalSet[url] = true
+			for _, h := range hreflangByURL[url] {
+				canonicalSet[h.URL] = true
+			}
+		}
+		// Check each member declares all URLs in canonical set
+		for _, url := range members {
+			declared := make(map[string]bool)
+			declared[url] = true // self
+			for _, h := range hreflangByURL[url] {
+				declared[h.URL] = true
+			}
+			missing := 0
+			for target := range canonicalSet {
+				if !declared[target] {
+					missing++
+				}
+			}
+			if missing > 0 {
+				issues = append(issues, HreflangIssue{
+					IssueType: "inconsistent_cluster",
+					SourceURL: url,
+					Detail:    fmt.Sprintf("Declare %d/%d alternates du cluster", len(declared), len(canonicalSet)),
+				})
+			}
+		}
+	}
+
+	applog.Infof("storage", "HreflangValidation: found %d issues in %s", len(issues), time.Since(start))
+
+	// Delete old data and insert new
+	sessUUID, err := uuid.Parse(sessionID)
+	if err != nil {
+		return fmt.Errorf("parsing session UUID: %w", err)
+	}
+	partitionID := fmt.Sprintf("%x-%x-%x-%x-%x", sessUUID[0:4], sessUUID[4:6], sessUUID[6:8], sessUUID[8:10], sessUUID[10:16])
+	if err := s.conn.Exec(ctx, fmt.Sprintf(
+		"ALTER TABLE crawlobserver.hreflang_issues DROP PARTITION ID '%s'", partitionID)); err != nil {
+		applog.Warnf("storage", "HreflangValidation: drop partition: %v", err)
+	}
+
+	if len(issues) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	const insertChunk = 10000
+	for i := 0; i < len(issues); i += insertChunk {
+		end := i + insertChunk
+		if end > len(issues) {
+			end = len(issues)
+		}
+
+		batch, err := s.conn.PrepareBatch(ctx, `
+			INSERT INTO crawlobserver.hreflang_issues (
+				crawl_session_id, issue_type, source_url, source_lang,
+				target_url, target_lang, detail, computed_at
+			)`)
+		if err != nil {
+			return fmt.Errorf("preparing hreflang batch: %w", err)
+		}
+
+		for _, issue := range issues[i:end] {
+			if err := batch.Append(
+				sessUUID, issue.IssueType, issue.SourceURL, issue.SourceLang,
+				issue.TargetURL, issue.TargetLang, issue.Detail, now,
+			); err != nil {
+				return fmt.Errorf("appending hreflang issue: %w", err)
+			}
+		}
+
+		if err := batch.Send(); err != nil {
+			return fmt.Errorf("sending hreflang batch: %w", err)
+		}
+	}
+
+	applog.Infof("storage", "HreflangValidation: inserted %d issues in %s", len(issues), time.Since(start))
+	return nil
+}
+
+// HreflangValidation retrieves pre-computed hreflang validation issues with summary, filters and pagination.
+func (s *Store) HreflangValidation(ctx context.Context, sessionID string, issueType string, pageURL string, limit, offset int, filters []ParsedFilter, sort *SortParam) (*HreflangValidationResult, error) {
+	// Summary query
+	summaryRows, err := s.conn.Query(ctx, `
+		SELECT issue_type, count() AS cnt
+		FROM crawlobserver.hreflang_issues
+		WHERE crawl_session_id = ?
+		GROUP BY issue_type`,
+		sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying hreflang summary: %w", err)
+	}
+	defer summaryRows.Close()
+
+	summary := make(map[string]uint64)
+	for summaryRows.Next() {
+		var t string
+		var c uint64
+		if err := summaryRows.Scan(&t, &c); err != nil {
+			return nil, fmt.Errorf("scanning hreflang summary: %w", err)
+		}
+		summary[t] = c
+	}
+	if err := summaryRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating hreflang summary: %w", err)
+	}
+
+	// Build WHERE clause
+	baseWhere := "crawl_session_id = ?"
+	baseArgs := []interface{}{sessionID}
+
+	if issueType != "" {
+		baseWhere += " AND issue_type = ?"
+		baseArgs = append(baseArgs, issueType)
+	}
+
+	if pageURL != "" {
+		baseWhere += " AND (source_url = ? OR target_url = ?)"
+		baseArgs = append(baseArgs, pageURL, pageURL)
+	}
+
+	filterClause, filterArgs, err := BuildWhereClause(filters)
+	if err != nil {
+		return nil, fmt.Errorf("building hreflang filter clause: %w", err)
+	}
+	if filterClause != "" {
+		baseWhere += " AND " + filterClause
+		baseArgs = append(baseArgs, filterArgs...)
+	}
+
+	// Count
+	var total uint64
+	countQuery := fmt.Sprintf("SELECT count() FROM crawlobserver.hreflang_issues WHERE %s", baseWhere)
+	if err := s.conn.QueryRow(ctx, countQuery, baseArgs...).Scan(&total); err != nil {
+		return nil, fmt.Errorf("counting hreflang issues: %w", err)
+	}
+
+	// Paginated results
+	orderClause := "issue_type, source_url"
+	if sort != nil {
+		orderClause = fmt.Sprintf("%s %s", sort.Column, sort.Order)
+	}
+
+	dataQuery := fmt.Sprintf(`
+		SELECT issue_type, source_url, source_lang, target_url, target_lang, detail
+		FROM crawlobserver.hreflang_issues
+		WHERE %s
+		ORDER BY %s
+		LIMIT ? OFFSET ?`, baseWhere, orderClause)
+
+	dataArgs := append(baseArgs, limit, offset)
+	dataRows, err := s.conn.Query(ctx, dataQuery, dataArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("querying hreflang issues: %w", err)
+	}
+	defer dataRows.Close()
+
+	result := &HreflangValidationResult{
+		Issues:  []HreflangIssue{},
+		Total:   total,
+		Summary: summary,
+	}
+	for dataRows.Next() {
+		var issue HreflangIssue
+		if err := dataRows.Scan(&issue.IssueType, &issue.SourceURL, &issue.SourceLang,
+			&issue.TargetURL, &issue.TargetLang, &issue.Detail); err != nil {
+			return nil, fmt.Errorf("scanning hreflang issue: %w", err)
+		}
+		result.Issues = append(result.Issues, issue)
+	}
+	if err := dataRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating hreflang issues: %w", err)
+	}
+
+	return result, nil
 }
 
 // PagesWithAuthority joins crawled pages with provider top_pages (Majestic authority data).

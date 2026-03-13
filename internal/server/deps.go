@@ -9,6 +9,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/crawler"
 	"github.com/SEObserver/crawlobserver/internal/customtests"
 	"github.com/SEObserver/crawlobserver/internal/extraction"
+	"github.com/SEObserver/crawlobserver/internal/schema"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 )
 
@@ -78,6 +79,10 @@ type ContentAnalysisStore interface {
 	GetPageBodies(ctx context.Context, sessionID string, limit, offset int) ([]storage.PageBody, error)
 	GetPageResourceChecks(ctx context.Context, sessionID string, limit, offset int, filters []storage.ParsedFilter) ([]storage.PageResourceCheck, error)
 	GetPageResourceTypeSummary(ctx context.Context, sessionID string) ([]storage.ResourceTypeSummary, error)
+	InsertStructuredData(ctx context.Context, items []schema.StructuredDataItem) error
+	GetStructuredData(ctx context.Context, sessionID, url string) ([]schema.StructuredDataItem, error)
+	ComputeHreflangValidation(ctx context.Context, sessionID string) error
+	HreflangValidation(ctx context.Context, sessionID string, issueType string, pageURL string, limit, offset int, filters []storage.ParsedFilter, sort *storage.SortParam) (*storage.HreflangValidationResult, error)
 }
 
 // URLPatternStore handles URL pattern analysis (grouping, params, directories, hosts).

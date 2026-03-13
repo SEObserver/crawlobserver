@@ -22,6 +22,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/crawler"
 	"github.com/SEObserver/crawlobserver/internal/customtests"
 	"github.com/SEObserver/crawlobserver/internal/extraction"
+	"github.com/SEObserver/crawlobserver/internal/schema"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 	"github.com/SEObserver/crawlobserver/internal/updater"
 )
@@ -380,6 +381,13 @@ func (m *mockStore) NearDuplicates(_ context.Context, _ string, _ int, _, _ int)
 	return &storage.NearDuplicatesResult{Pairs: []storage.NearDuplicatePair{}, Total: 0}, m.err
 }
 
+func (m *mockStore) ComputeHreflangValidation(_ context.Context, _ string) error {
+	return m.err
+}
+func (m *mockStore) HreflangValidation(_ context.Context, _ string, _ string, _ string, _, _ int, _ []storage.ParsedFilter, _ *storage.SortParam) (*storage.HreflangValidationResult, error) {
+	return &storage.HreflangValidationResult{Issues: []storage.HreflangIssue{}, Total: 0, Summary: map[string]uint64{}}, m.err
+}
+
 // Application Logs mock methods
 func (m *mockStore) InsertLogs(_ context.Context, _ []applog.LogRow) error {
 	return m.err
@@ -539,6 +547,12 @@ func (m *mockStore) URLDirectories(_ context.Context, _ string, _, _ int) ([]sto
 	return nil, m.err
 }
 func (m *mockStore) URLHosts(_ context.Context, _ string) ([]storage.URLHost, error) {
+	return nil, m.err
+}
+func (m *mockStore) InsertStructuredData(_ context.Context, _ []schema.StructuredDataItem) error {
+	return m.err
+}
+func (m *mockStore) GetStructuredData(_ context.Context, _, _ string) ([]schema.StructuredDataItem, error) {
 	return nil, m.err
 }
 
