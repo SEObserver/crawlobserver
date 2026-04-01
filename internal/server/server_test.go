@@ -555,6 +555,9 @@ func (m *mockStore) InsertStructuredData(_ context.Context, _ []schema.Structure
 func (m *mockStore) GetStructuredData(_ context.Context, _, _ string) ([]schema.StructuredDataItem, error) {
 	return nil, m.err
 }
+func (m *mockStore) ExportCriticalTables(_ context.Context, _ string, _ int) error {
+	return m.err
+}
 
 // ---------------------------------------------------------------------------
 // mockManager implements CrawlService

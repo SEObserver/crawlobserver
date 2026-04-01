@@ -105,6 +105,7 @@ type ImportExportStore interface {
 	ExportSession(ctx context.Context, sessionID string, w io.Writer, includeHTML bool) error
 	ImportSession(ctx context.Context, r io.Reader) (*storage.CrawlSession, error)
 	ImportCSVSession(ctx context.Context, r io.Reader, projectID string) (*storage.CSVImportResult, error)
+	ExportCriticalTables(ctx context.Context, dir string, retain int) error
 }
 
 // ExtractionStore handles custom extractions and SQL-based tests.

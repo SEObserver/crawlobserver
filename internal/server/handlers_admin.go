@@ -486,11 +486,12 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request) {
-	if s.BackupOpts == nil {
+	backupDir := s.backupDir()
+	if backupDir == "" {
 		writeJSON(w, []backup.BackupInfo{})
 		return
 	}
-	backups, err := backup.ListBackups(s.BackupOpts.BackupDir)
+	backups, err := backup.ListBackups(backupDir)
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -501,16 +502,44 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, backups)
 }
 
+// backupDir returns the configured backup directory from either SQLBackupOpts or BackupOpts.
+func (s *Server) backupDir() string {
+	if s.SQLBackupOpts != nil {
+		return s.SQLBackupOpts.BackupDir
+	}
+	if s.BackupOpts != nil {
+		return s.BackupOpts.BackupDir
+	}
+	return ""
+}
+
 func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 	if !requireFullAccess(w, r) {
 		return
 	}
+
+	// SQL backup for external ClickHouse (no restart needed)
+	if s.SQLBackupOpts != nil {
+		applog.Info("server", "Creating SQL backup (live, no ClickHouse restart)...")
+		info, err := backup.CreateSQLBackup(r.Context(), *s.SQLBackupOpts, updater.Version)
+		if err != nil {
+			internalError(w, r, err)
+			return
+		}
+		if pruned, _ := backup.PruneBackups(s.SQLBackupOpts.BackupDir, 5); pruned > 0 {
+			applog.Infof("server", "Pruned %d old backup(s)", pruned)
+		}
+		w.WriteHeader(http.StatusCreated)
+		writeJSON(w, info)
+		return
+	}
+
+	// Filesystem backup for managed ClickHouse (requires restart)
 	if s.BackupOpts == nil {
 		writeError(w, http.StatusBadRequest, "backup not configured")
 		return
 	}
 
-	// Stop ClickHouse for consistency
 	if s.StopClickHouse != nil {
 		applog.Info("server", "Stopping ClickHouse for backup...")
 		s.StopClickHouse()
@@ -518,7 +547,6 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 
 	info, err := backup.Create(*s.BackupOpts, updater.Version)
 
-	// Restart ClickHouse regardless of backup result
 	if s.StartClickHouse != nil {
 		applog.Info("server", "Restarting ClickHouse after backup...")
 		if startErr := s.StartClickHouse(); startErr != nil {
@@ -531,7 +559,6 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Keep only the 5 most recent backups
 	if pruned, _ := backup.PruneBackups(s.BackupOpts.BackupDir, 5); pruned > 0 {
 		applog.Infof("server", "Pruned %d old backup(s)", pruned)
 	}
@@ -544,7 +571,9 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 	if !requireFullAccess(w, r) {
 		return
 	}
-	if s.BackupOpts == nil {
+
+	dir := s.backupDir()
+	if dir == "" {
 		writeError(w, http.StatusBadRequest, "backup not configured")
 		return
 	}
@@ -557,20 +586,30 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sanitize filename: extract base name to prevent path traversal
 	cleanName := filepath.Base(req.Filename)
 	if cleanName == "." || cleanName == "/" || cleanName == "\\" {
 		writeError(w, http.StatusBadRequest, "invalid filename")
 		return
 	}
 
-	archivePath := filepath.Join(s.BackupOpts.BackupDir, cleanName)
+	archivePath := filepath.Join(dir, cleanName)
 	if _, err := os.Stat(archivePath); err != nil {
 		writeError(w, http.StatusNotFound, "backup not found")
 		return
 	}
 
-	// Stop ClickHouse for restore
+	// SQL restore for external ClickHouse
+	if s.SQLBackupOpts != nil {
+		applog.Info("server", "Restoring SQL backup (live)...")
+		if err := backup.RestoreSQLBackup(r.Context(), archivePath, *s.SQLBackupOpts); err != nil {
+			internalError(w, r, err)
+			return
+		}
+		writeJSON(w, map[string]string{"status": "restored", "message": "Data restored successfully."})
+		return
+	}
+
+	// Filesystem restore for managed ClickHouse
 	if s.StopClickHouse != nil {
 		applog.Info("server", "Stopping ClickHouse for restore...")
 		s.StopClickHouse()
@@ -578,7 +617,6 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 
 	err := backup.Restore(archivePath, *s.BackupOpts)
 
-	// Restart ClickHouse regardless of restore result
 	if s.StartClickHouse != nil {
 		applog.Info("server", "Restarting ClickHouse after restore...")
 		if startErr := s.StartClickHouse(); startErr != nil {
@@ -598,7 +636,8 @@ func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
 	if !requireFullAccess(w, r) {
 		return
 	}
-	if s.BackupOpts == nil {
+	dir := s.backupDir()
+	if dir == "" {
 		writeError(w, http.StatusBadRequest, "backup not configured")
 		return
 	}
@@ -607,12 +646,33 @@ func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid filename")
 		return
 	}
-	archivePath := filepath.Join(s.BackupOpts.BackupDir, name)
+	archivePath := filepath.Join(dir, name)
 	if err := backup.DeleteBackup(archivePath); err != nil {
 		internalError(w, r, err)
 		return
 	}
 	writeJSON(w, map[string]string{"status": "deleted"})
+}
+
+func (s *Server) handleExportCritical(w http.ResponseWriter, r *http.Request) {
+	if !requireFullAccess(w, r) {
+		return
+	}
+	if s.ExportDir == "" {
+		writeError(w, http.StatusBadRequest, "export not configured")
+		return
+	}
+	applog.Info("server", "Starting critical table export...")
+	retain := s.ExportRetain
+	if retain < 1 {
+		retain = 5
+	}
+	if err := s.store.ExportCriticalTables(r.Context(), s.ExportDir, retain); err != nil {
+		internalError(w, r, err)
+		return
+	}
+	applog.Info("server", "Critical table export complete")
+	writeJSON(w, map[string]string{"status": "exported", "dir": s.ExportDir})
 }
 
 // --- Session label & batch handlers ---

@@ -23,6 +23,7 @@ type Config struct {
 	Theme         ThemeConfig      `mapstructure:"theme"`
 	GSC           GSCConfig           `mapstructure:"gsc"`
 	Interlinking  InterlinkingConfig  `mapstructure:"interlinking"`
+	Backup        BackupConfig        `mapstructure:"backup"`
 	Telemetry     TelemetryConfig     `mapstructure:"telemetry"`
 	SetupComplete bool                `mapstructure:"setup_complete"`
 }
@@ -85,12 +86,23 @@ type RetryConfig struct {
 type ClickHouseConfig struct {
 	Host       string `mapstructure:"host"`
 	Port       int    `mapstructure:"port"`
+	HTTPPort   int    `mapstructure:"http_port"`   // HTTP interface port for backups, 0 = port - 1000
 	Database   string `mapstructure:"database"`
 	Username   string `mapstructure:"username"`
 	Password   string `mapstructure:"password"`
 	Mode       string `mapstructure:"mode"`        // "managed" | "external" | "" (auto-detect)
 	BinaryPath string `mapstructure:"binary_path"` // path to clickhouse binary, "" = auto-detect
 	DataDir    string `mapstructure:"data_dir"`    // data directory, "" = platform default
+}
+
+// EffectiveHTTPPort returns the HTTP port, deriving it from the native port if not set.
+// Convention: native 9000 → HTTP 8123, native 19000 → HTTP 18123.
+// The offset between native and HTTP is always 877 (9000 - 8123).
+func (c ClickHouseConfig) EffectiveHTTPPort() int {
+	if c.HTTPPort > 0 {
+		return c.HTTPPort
+	}
+	return c.Port - 877 // 9000→8123, 19000→18123
 }
 
 // DSN returns a redacted connection string safe for logging.
@@ -157,6 +169,13 @@ type GSCConfig struct {
 	RedirectURI  string `mapstructure:"redirect_uri"`
 }
 
+type BackupConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Interval string `mapstructure:"interval"` // duration string: "6h", "12h", "24h"
+	Dir      string `mapstructure:"dir"`      // backup directory, "" = <dataDir>/backups
+	Retain   int    `mapstructure:"retain"`   // number of backups to keep
+}
+
 func SetDefaults() {
 	viper.SetDefault("crawler.workers", 10)
 	viper.SetDefault("crawler.delay", "1s")
@@ -193,6 +212,7 @@ func SetDefaults() {
 	viper.SetDefault("clickhouse.database", "crawlobserver")
 	viper.SetDefault("clickhouse.username", "default")
 	viper.SetDefault("clickhouse.password", "")
+	viper.SetDefault("clickhouse.http_port", 0)
 	viper.SetDefault("clickhouse.mode", "")
 	viper.SetDefault("clickhouse.binary_path", "")
 	viper.SetDefault("clickhouse.data_dir", "")
@@ -228,6 +248,11 @@ func SetDefaults() {
 	viper.SetDefault("gsc.client_id", "")
 	viper.SetDefault("gsc.client_secret", "")
 	viper.SetDefault("gsc.redirect_uri", "http://127.0.0.1:8899/api/gsc/callback")
+
+	viper.SetDefault("backup.enabled", true)
+	viper.SetDefault("backup.interval", "6h")
+	viper.SetDefault("backup.dir", "")
+	viper.SetDefault("backup.retain", 5)
 
 	viper.SetDefault("telemetry.enabled", false)
 	viper.SetDefault("telemetry.instance_id", "")

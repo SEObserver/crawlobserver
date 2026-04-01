@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"syscall"
@@ -12,11 +13,14 @@ import (
 
 	"github.com/SEObserver/crawlobserver/internal/apikeys"
 	"github.com/SEObserver/crawlobserver/internal/applog"
+	"github.com/SEObserver/crawlobserver/internal/backup"
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/server"
+	"github.com/SEObserver/crawlobserver/internal/storage"
 	"github.com/SEObserver/crawlobserver/internal/telemetry"
 	"github.com/SEObserver/crawlobserver/internal/updater"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var serveCmd = &cobra.Command{
@@ -66,6 +70,21 @@ func runServe(cmd *cobra.Command, args []string) error {
 	srv := server.New(cfg, store, keyStore)
 	srv.UpdateStatus = updater.NewUpdateStatus()
 
+	// Configure SQL backup for external ClickHouse
+	backupDir := resolveBackupDir(cfg)
+	sqlBackupOpts := &backup.SQLBackupOptions{
+		CHURL:      fmt.Sprintf("http://%s:%d", cfg.ClickHouse.Host, cfg.ClickHouse.EffectiveHTTPPort()),
+		Database:   cfg.ClickHouse.Database,
+		Username:   cfg.ClickHouse.Username,
+		Password:   cfg.ClickHouse.Password,
+		SQLitePath: cfg.Server.SQLitePath,
+		ConfigPath: viper.ConfigFileUsed(),
+		BackupDir:  backupDir,
+	}
+	srv.SQLBackupOpts = sqlBackupOpts
+	srv.ExportDir = filepath.Join(backupDir, "exports")
+	srv.ExportRetain = cfg.Backup.Retain
+
 	// Background update check
 	go func() {
 		time.Sleep(3 * time.Second)
@@ -78,18 +97,99 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	defer telemetry.Close()
 
+	// Shutdown context for background goroutines
+	ctx, cancelCtx := context.WithCancel(context.Background())
+
+	// Auto-backup scheduler
+	if cfg.Backup.Enabled {
+		go runBackupScheduler(ctx, cfg, sqlBackupOpts, store)
+	}
+
 	// Graceful shutdown
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
 		applog.Info("cli", "Shutting down web server...")
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		cancelCtx()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		srv.Stop(ctx)
+		srv.Stop(shutdownCtx)
 	}()
 
 	return srv.Start()
+}
+
+// runBackupScheduler runs periodic SQL backups and critical table exports.
+func runBackupScheduler(ctx context.Context, cfg *config.Config, opts *backup.SQLBackupOptions, store *storage.Store) {
+	interval, err := time.ParseDuration(cfg.Backup.Interval)
+	if err != nil || interval < 1*time.Hour {
+		interval = 6 * time.Hour
+	}
+
+	retain := cfg.Backup.Retain
+	if retain < 1 {
+		retain = 5
+	}
+
+	exportDir := filepath.Join(opts.BackupDir, "exports")
+
+	applog.Infof("cli", "Auto-backup enabled: every %s, retaining %d backups in %s", interval, retain, opts.BackupDir)
+
+	// Run first backup shortly after startup
+	select {
+	case <-time.After(30 * time.Second):
+	case <-ctx.Done():
+		return
+	}
+	performBackup(ctx, opts, retain, store, exportDir)
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			performBackup(ctx, opts, retain, store, exportDir)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func performBackup(ctx context.Context, opts *backup.SQLBackupOptions, retain int, store *storage.Store, exportDir string) {
+	if ctx.Err() != nil {
+		return
+	}
+	applog.Info("cli", "Starting scheduled backup...")
+	info, err := backup.CreateSQLBackup(ctx, *opts, updater.Version)
+	if err != nil {
+		applog.Errorf("cli", "Scheduled backup failed: %v", err)
+	} else {
+		applog.Infof("cli", "Backup created: %s (%.1f MB)", info.Filename, float64(info.Size)/(1024*1024))
+		if pruned, _ := backup.PruneBackups(opts.BackupDir, retain); pruned > 0 {
+			applog.Infof("cli", "Pruned %d old backup(s)", pruned)
+		}
+	}
+
+	// Export critical non-regenerable tables
+	applog.Info("cli", "Exporting critical tables...")
+	if err := store.ExportCriticalTables(ctx, exportDir, retain); err != nil {
+		applog.Errorf("cli", "Critical table export failed: %v", err)
+	} else {
+		applog.Info("cli", "Critical table export complete")
+	}
+}
+
+// resolveBackupDir returns the backup directory from config or a default.
+func resolveBackupDir(cfg *config.Config) string {
+	if cfg.Backup.Dir != "" {
+		return cfg.Backup.Dir
+	}
+	dataDir, err := config.DefaultDataDir()
+	if err != nil {
+		return filepath.Join(".", "backups")
+	}
+	return filepath.Join(dataDir, "backups")
 }
 
 // runServeSetupMode starts the server in setup mode on Windows when no ClickHouse is available.

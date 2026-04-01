@@ -75,8 +75,11 @@ type Server struct {
 	IsDesktop       bool // true when running as .app desktop bundle
 	UpdateStatus    *updater.UpdateStatus
 	BackupOpts      *backup.BackupOptions
-	StopClickHouse  func()       // stops managed CH (nil if external)
-	StartClickHouse func() error // restarts managed CH (nil if external)
+	SQLBackupOpts   *backup.SQLBackupOptions // for live SQL backup (external CH)
+	ExportDir       string                   // directory for critical table exports
+	ExportRetain    int                      // number of critical exports to keep
+	StopClickHouse  func()                   // stops managed CH (nil if external)
+	StartClickHouse func() error             // restarts managed CH (nil if external)
 
 	rateLimiter *rateLimitMiddleware
 
@@ -230,6 +233,7 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("POST /api/backups", s.handleCreateBackup)
 	mux.HandleFunc("POST /api/backups/restore", s.handleRestoreBackup)
 	mux.HandleFunc("DELETE /api/backups/{name}", s.handleDeleteBackup)
+	mux.HandleFunc("POST /api/admin/export-critical", s.handleExportCritical)
 
 	// Projects & API keys routes
 	mux.HandleFunc("GET /api/projects", s.handleListProjects)

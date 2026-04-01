@@ -14,6 +14,11 @@ type Store struct {
 	conn driver.Conn
 }
 
+// Conn returns the underlying ClickHouse connection.
+func (s *Store) Conn() driver.Conn {
+	return s.conn
+}
+
 // NewStore creates a new ClickHouse store.
 func NewStore(host string, port int, database, username, password string) (*Store, error) {
 	conn, err := clickhouse.Open(&clickhouse.Options{
