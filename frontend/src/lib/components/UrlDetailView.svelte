@@ -35,6 +35,9 @@
     sdExpanded = true;
   }
 
+  // Final URL status for redirect chain display
+  let finalUrlStatus = $state(null);
+
   // Hreflang issues for this URL
   let hlIssues = $state([]);
   let hlLoaded = $state(false);
@@ -139,6 +142,17 @@
       );
       outLinksPage = Math.floor(outOffset / LINKS_PER_PAGE);
       inLinksPage = Math.floor(inOffset / LINKS_PER_PAGE);
+      // Fetch final URL status for redirect chain display
+      const pg = pageDetail?.page;
+      if (pg?.RedirectChain?.length && pg.FinalURL && pg.FinalURL !== pg.URL) {
+        getPageDetail(sessionId, pg.FinalURL, 0, 0, 0, 0)
+          .then((d) => {
+            finalUrlStatus = d?.page?.StatusCode ?? null;
+          })
+          .catch(() => {
+            finalUrlStatus = null;
+          });
+      }
     } catch (e) {
       onerror?.(e.message);
     } finally {
@@ -439,14 +453,28 @@
           {#each pg.RedirectChain as hop, i}
             <tr>
               <td>{i + 1}</td>
-              <td class="cell-url">{hop.URL}</td>
+              <td class="cell-url">
+                <a href={urlDetailHref(hop.URL)} onclick={(e) => goToUrlDetail(e, hop.URL)}
+                  >{hop.URL}</a
+                >
+              </td>
               <td><span class="badge {statusBadge(hop.StatusCode)}">{hop.StatusCode}</span></td>
             </tr>
           {/each}
           <tr>
             <td>{pg.RedirectChain.length + 1}</td>
-            <td class="cell-url font-medium">{pg.FinalURL || pg.URL}</td>
-            <td><span class="badge {statusBadge(pg.StatusCode)}">{pg.StatusCode}</span></td>
+            <td class="cell-url font-medium">
+              <a href={urlDetailHref(pg.FinalURL)} onclick={(e) => goToUrlDetail(e, pg.FinalURL)}
+                >{pg.FinalURL}</a
+              >
+            </td>
+            <td>
+              {#if finalUrlStatus}
+                <span class="badge {statusBadge(finalUrlStatus)}">{finalUrlStatus}</span>
+              {:else}
+                <span class="badge" style="opacity:0.5">…</span>
+              {/if}
+            </td>
           </tr>
         </tbody>
       </table>
