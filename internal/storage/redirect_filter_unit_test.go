@@ -106,9 +106,10 @@ func TestNotRedirectedFilter_SQLSyntax(t *testing.T) {
 	}
 	opens := 0
 	for _, c := range notRedirectedFilter {
-		if c == '(' {
+		switch c {
+		case '(':
 			opens++
-		} else if c == ')' {
+		case ')':
 			opens--
 		}
 		if opens < 0 {

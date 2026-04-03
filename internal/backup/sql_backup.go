@@ -313,9 +313,7 @@ func restoreTableFromTar(ctx context.Context, opts SQLBackupOptions, table strin
 
 	// Truncate table for idempotent restore
 	truncateQuery := fmt.Sprintf("TRUNCATE TABLE IF EXISTS %s.%s", opts.Database, table)
-	if err := chExec(ctx, opts, truncateQuery); err != nil {
-		// Non-fatal: table might not exist yet, DDL should have created it
-	}
+	_ = chExec(ctx, opts, truncateQuery) // Non-fatal: table might not exist yet, DDL should have created it
 
 	// Seek back and stream insert
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {

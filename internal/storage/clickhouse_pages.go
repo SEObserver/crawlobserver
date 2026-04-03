@@ -2173,7 +2173,9 @@ func (s *Store) HreflangValidation(ctx context.Context, sessionID string, issueT
 		ORDER BY %s
 		LIMIT ? OFFSET ?`, baseWhere, orderClause)
 
-	dataArgs := append(baseArgs, limit, offset)
+	dataArgs := make([]any, len(baseArgs), len(baseArgs)+2)
+	copy(dataArgs, baseArgs)
+	dataArgs = append(dataArgs, limit, offset)
 	dataRows, err := s.conn.Query(ctx, dataQuery, dataArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("querying hreflang issues: %w", err)
