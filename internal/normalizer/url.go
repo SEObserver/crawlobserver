@@ -57,6 +57,18 @@ func Normalize(rawURL string) (string, error) {
 	}
 
 	normalized = removeTrackingParams(normalized)
+
+	// Ensure root URLs have a trailing slash so that "https://example.com"
+	// and "https://example.com/" are treated as the same page (they are,
+	// per RFC 3986 — the empty path at the root is equivalent to "/").
+	// Without this, a bare-host seed and any relative link resolved by
+	// url.ResolveReference (which produces "host/") create two separate
+	// dedup entries for what is a single page.
+	if u, perr := url.Parse(normalized); perr == nil && u.Host != "" && u.Path == "" {
+		u.Path = "/"
+		normalized = u.String()
+	}
+
 	return normalized, nil
 }
 
