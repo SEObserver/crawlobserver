@@ -61,10 +61,10 @@ func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType s
 	case "added":
 		query = `
 			SELECT b.url,
-				0, '', '', false, 0, 0, 0, '', '',
+				toUInt16(0), '', '', false, toUInt32(0), toUInt16(0), toFloat64(0), '', '',
 				b.status_code, b.title, b.canonical, b.is_indexable, b.word_count, b.depth, b.pagerank, b.meta_description, b.h1[1]
-			FROM crawlobserver.pages FINAL b
-			LEFT JOIN crawlobserver.pages FINAL a ON a.url = b.url AND a.crawl_session_id = ? AND (a.final_url = '' OR a.final_url = a.url)
+			FROM crawlobserver.pages AS b FINAL
+			LEFT JOIN crawlobserver.pages AS a FINAL ON a.url = b.url AND a.crawl_session_id = ? AND (a.final_url = '' OR a.final_url = a.url)
 			WHERE b.crawl_session_id = ? AND a.url = '' AND (b.final_url = '' OR b.final_url = b.url)
 			ORDER BY b.url
 			LIMIT ? OFFSET ?`
@@ -90,9 +90,9 @@ func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType s
 		query = `
 			SELECT a.url,
 				a.status_code, a.title, a.canonical, a.is_indexable, a.word_count, a.depth, a.pagerank, a.meta_description, a.h1[1],
-				0, '', '', false, 0, 0, 0, '', ''
-			FROM crawlobserver.pages FINAL a
-			LEFT JOIN crawlobserver.pages FINAL b ON a.url = b.url AND b.crawl_session_id = ? AND (b.final_url = '' OR b.final_url = b.url)
+				toUInt16(0), '', '', false, toUInt32(0), toUInt16(0), toFloat64(0), '', ''
+			FROM crawlobserver.pages AS a FINAL
+			LEFT JOIN crawlobserver.pages AS b FINAL ON a.url = b.url AND b.crawl_session_id = ? AND (b.final_url = '' OR b.final_url = b.url)
 			WHERE a.crawl_session_id = ? AND b.url = '' AND (a.final_url = '' OR a.final_url = a.url)
 			ORDER BY a.url
 			LIMIT ? OFFSET ?`
@@ -119,8 +119,8 @@ func (s *Store) ComparePages(ctx context.Context, sessionA, sessionB, diffType s
 			SELECT a.url,
 				a.status_code, a.title, a.canonical, a.is_indexable, a.word_count, a.depth, a.pagerank, a.meta_description, a.h1[1],
 				b.status_code, b.title, b.canonical, b.is_indexable, b.word_count, b.depth, b.pagerank, b.meta_description, b.h1[1]
-			FROM crawlobserver.pages FINAL a
-			INNER JOIN crawlobserver.pages FINAL b ON a.url = b.url AND b.crawl_session_id = ? AND (b.final_url = '' OR b.final_url = b.url)
+			FROM crawlobserver.pages AS a FINAL
+			INNER JOIN crawlobserver.pages AS b FINAL ON a.url = b.url AND b.crawl_session_id = ? AND (b.final_url = '' OR b.final_url = b.url)
 			WHERE a.crawl_session_id = ? AND (a.final_url = '' OR a.final_url = a.url) AND (
 				a.status_code != b.status_code OR
 				a.title != b.title OR
