@@ -38,7 +38,11 @@
   }
 
   const title = $derived(
-    filter === 'sitemap_only' ? t('directives.sitemapOnly') : t('directives.inBoth'),
+    filter === 'sitemap_only'
+      ? t('directives.sitemapOnly')
+      : filter === 'crawl_only'
+        ? t('directives.crawlOnly')
+        : t('directives.inBoth'),
   );
 
   let exporting = $state(false);
