@@ -475,22 +475,26 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 
 	// --- Content audit ---
 	content := &AuditContent{}
+	// All content-quality counts (title, meta, h1, thin content) are restricted to
+	// HTML pages with status 2xx — images, PDFs, JS, CSS etc. have no <title>
+	// by design and must not inflate "missing" buckets. The `total` here is the
+	// count of auditable HTML pages; raw page totals are reported elsewhere.
 	row := s.conn.QueryRow(ctx, `
 		SELECT count() AS total,
-			countIf(content_type LIKE '%html%') AS html_pages,
-			countIf(title = '') AS title_missing,
-			countIf(title_length > 60) AS title_too_long,
-			countIf(title_length > 0 AND title_length < 30) AS title_too_short,
-			countIf(meta_description = '') AS meta_desc_missing,
-			countIf(meta_desc_length > 160) AS meta_desc_too_long,
-			countIf(meta_desc_length > 0 AND meta_desc_length < 70) AS meta_desc_too_short,
-			countIf(length(h1) = 0) AS h1_missing,
-			countIf(length(h1) > 1) AS h1_multiple,
-			countIf(word_count < 100) AS thin_under_100,
-			countIf(word_count >= 100 AND word_count < 300) AS thin_100_300,
-			sum(images_count) AS images_total,
-			sum(images_no_alt) AS images_no_alt_total,
-			countIf(images_no_alt > 0) AS pages_with_images_no_alt
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300) AS html_pages,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND title = '') AS title_missing,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND title_length > 60) AS title_too_long,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND title_length > 0 AND title_length < 30) AS title_too_short,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND meta_description = '') AS meta_desc_missing,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND meta_desc_length > 160) AS meta_desc_too_long,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND meta_desc_length > 0 AND meta_desc_length < 70) AS meta_desc_too_short,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND length(h1) = 0) AS h1_missing,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND length(h1) > 1) AS h1_multiple,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND word_count < 100) AS thin_under_100,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND word_count >= 100 AND word_count < 300) AS thin_100_300,
+			sumIf(images_count, content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300) AS images_total,
+			sumIf(images_no_alt, content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300) AS images_no_alt_total,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND images_no_alt > 0) AS pages_with_images_no_alt
 		FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID)
 	if err := row.Scan(
 		&content.Total, &content.HTMLPages,
@@ -519,14 +523,18 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	result.Content = content
 
 	// --- Technical audit ---
+	// Indexability and canonical metrics only make sense on HTML 2xx pages —
+	// images, PDFs, CSS/JS don't carry <meta robots> or <link rel=canonical>.
+	// Redirects, response times and errors are meaningful for any resource type
+	// and are counted across the full crawl.
 	tech := &AuditTechnical{}
 	techRow := s.conn.QueryRow(ctx, `
 		SELECT
-			countIf(is_indexable = true) AS indexable,
-			countIf(is_indexable = false) AS non_indexable,
-			countIf(canonical_is_self = true) AS canonical_self,
-			countIf(canonical != '' AND canonical_is_self = false) AS canonical_other,
-			countIf(canonical = '') AS canonical_missing,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND is_indexable = true) AS indexable,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND is_indexable = false) AS non_indexable,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND canonical_is_self = true) AS canonical_self,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND canonical != '' AND canonical_is_self = false) AS canonical_other,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND canonical = '') AS canonical_missing,
 			countIf(length(redirect_chain) > 0) AS has_redirect,
 			countIf(length(redirect_chain) > 2) AS redirect_chains_over_2,
 			countIf(fetch_duration_ms < 200) AS response_fast,
@@ -545,10 +553,13 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 		return nil, fmt.Errorf("audit technical: %w", err)
 	}
 
-	// Noindex reasons
+	// Noindex reasons — restricted to HTML 2xx so non-HTML resources don't
+	// show up as "noindex because non-HTML" and inflate the top reasons.
 	niRows, err := s.conn.Query(ctx, `
 		SELECT index_reason, count() AS cnt FROM crawlobserver.pages FINAL
-		WHERE crawl_session_id = ? AND is_indexable = false AND index_reason != '' AND `+notRedirectedFilter+`
+		WHERE crawl_session_id = ? AND content_type LIKE '%html%'
+			AND status_code >= 200 AND status_code < 300
+			AND is_indexable = false AND index_reason != '' AND `+notRedirectedFilter+`
 		GROUP BY index_reason ORDER BY cnt DESC`, sessionID)
 	if err == nil {
 		defer niRows.Close()
@@ -595,12 +606,14 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 		return nil, fmt.Errorf("audit links: %w", err)
 	}
 
-	// Pages link distribution
+	// Pages link distribution — restricted to HTML 2xx pages. Non-HTML
+	// resources (images, PDFs, JS, CSS...) never contain anchor tags, so
+	// reporting them as "pages with no outgoing links" is misleading.
 	pageDistRow := s.conn.QueryRow(ctx, `
 		SELECT
-			countIf(internal_links_out = 0) AS pages_no_internal_out,
-			countIf(internal_links_out > 100) AS pages_high_internal_out,
-			countIf(external_links_out = 0) AS pages_no_external
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND internal_links_out = 0) AS pages_no_internal_out,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND internal_links_out > 100) AS pages_high_internal_out,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND external_links_out = 0) AS pages_no_external
 		FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID)
 	if err := pageDistRow.Scan(&links.PagesNoInternalOut, &links.PagesHighInternalOut, &links.PagesNoExternal); err != nil {
 		applog.Warnf("audit", "scan link distribution: %v", err)
@@ -705,17 +718,30 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	}
 
 	if sitemaps.TotalSitemapURLs > 0 {
+		// Sitemap coverage is meaningful only for HTML 2xx pages — sitemaps
+		// list indexable content, not resources (images, JS, CSS, PDFs).
+		// Counting raw crawled URLs in "Crawl only" would lump every image
+		// into the bucket and break the coverage signal.
 		var inBoth uint64
 		ibRow := s.conn.QueryRow(ctx, `
 			SELECT count() FROM (
 				SELECT DISTINCT loc FROM crawlobserver.sitemap_urls WHERE crawl_session_id = ?
 			) AS sm WHERE sm.loc IN (
-				SELECT url FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND `+notRedirectedFilter+`
+				SELECT url FROM crawlobserver.pages FINAL
+				WHERE crawl_session_id = ?
+					AND content_type LIKE '%html%'
+					AND status_code >= 200 AND status_code < 300
+					AND `+notRedirectedFilter+`
 			)`, sessionID, sessionID)
 		if ibRow.Scan(&inBoth) == nil {
 			sitemaps.InBoth = inBoth
 			var totalCrawled uint64
-			tcRow := s.conn.QueryRow(ctx, `SELECT count() FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID)
+			tcRow := s.conn.QueryRow(ctx, `
+				SELECT count() FROM crawlobserver.pages FINAL
+				WHERE crawl_session_id = ?
+					AND content_type LIKE '%html%'
+					AND status_code >= 200 AND status_code < 300
+					AND `+notRedirectedFilter, sessionID)
 			if err := tcRow.Scan(&totalCrawled); err != nil {
 				applog.Warnf("audit", "scan total crawled for sitemap coverage: %v", err)
 			}
@@ -726,12 +752,14 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	result.Sitemaps = sitemaps
 
 	// --- International audit ---
+	// hreflang, lang and schema markup only live on HTML pages; count on
+	// HTML 2xx only so resources don't dilute the denominator.
 	intl := &AuditInternational{}
 	intlRow := s.conn.QueryRow(ctx, `
 		SELECT
-			countIf(length(hreflang) > 0) AS pages_with_hreflang,
-			countIf(lang != '') AS pages_with_lang,
-			countIf(length(schema_types) > 0) AS pages_with_schema
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND length(hreflang) > 0) AS pages_with_hreflang,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND lang != '') AS pages_with_lang,
+			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND length(schema_types) > 0) AS pages_with_schema
 		FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND `+notRedirectedFilter, sessionID)
 	if err := intlRow.Scan(&intl.PagesWithHreflang, &intl.PagesWithLang, &intl.PagesWithSchema); err != nil {
 		applog.Warnf("audit", "scan international stats: %v", err)
