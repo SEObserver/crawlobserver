@@ -95,7 +95,8 @@ type Server struct {
 	downloadProgress atomic.Value // *SetupProgress
 	readyCh          chan struct{}
 
-	// Announcements
+	// Announcements — protected by announcerMu
+	announcerMu     sync.RWMutex
 	announcer       *announcements.Fetcher
 	announcerCancel context.CancelFunc
 }
@@ -483,9 +484,13 @@ func (s *Server) Start() error {
 
 // Stop gracefully shuts down the server.
 func (s *Server) Stop(ctx context.Context) error {
+	s.announcerMu.Lock()
 	if s.announcerCancel != nil {
 		s.announcerCancel()
+		s.announcerCancel = nil
 	}
+	s.announcerMu.Unlock()
+
 	if s.manager != nil {
 		s.manager.Shutdown(30 * time.Second)
 	}
@@ -501,15 +506,43 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 // startAnnouncer launches the background fetcher if enabled in config.
+// Safe to call from any goroutine; no-op if already running.
 func (s *Server) startAnnouncer() {
 	if !s.cfg.Announcements.Enabled || s.cfg.Announcements.FeedURL == "" {
 		return
 	}
+	s.announcerMu.Lock()
+	if s.announcer != nil {
+		s.announcerMu.Unlock()
+		return
+	}
 	ctx, cancel := context.WithCancel(context.Background())
-	s.announcer = announcements.New(s.cfg.Announcements.FeedURL, s.cfg.Announcements.PollInterval)
+	fetcher := announcements.New(s.cfg.Announcements.FeedURL, s.cfg.Announcements.PollInterval)
+	s.announcer = fetcher
 	s.announcerCancel = cancel
-	go s.announcer.Run(ctx)
+	s.announcerMu.Unlock()
+
+	go fetcher.Run(ctx)
 	applog.Infof("server", "Announcements fetcher started (%s, every %s)", s.cfg.Announcements.FeedURL, s.cfg.Announcements.PollInterval)
+}
+
+// stopAnnouncer cancels the background fetcher if running.
+func (s *Server) stopAnnouncer() {
+	s.announcerMu.Lock()
+	defer s.announcerMu.Unlock()
+	if s.announcerCancel != nil {
+		s.announcerCancel()
+		s.announcerCancel = nil
+	}
+	s.announcer = nil
+}
+
+// announcerSnapshot returns the current fetcher (or nil) under the lock,
+// so callers can safely read without racing with start/stop.
+func (s *Server) announcerSnapshot() *announcements.Fetcher {
+	s.announcerMu.RLock()
+	defer s.announcerMu.RUnlock()
+	return s.announcer
 }
 
 const apiDiscoveryFileName = ".crawlobserver-api.json"
@@ -803,11 +836,13 @@ func (s *Server) requireReady(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.SetupMode {
 			path := r.URL.Path
-			// Allow setup, telemetry, health, theme, and static frontend routes
+			// Allow setup, telemetry, health, theme, announcements (GET only),
+			// and static frontend routes.
 			if strings.HasPrefix(path, "/api/setup/") ||
 				strings.HasPrefix(path, "/api/telemetry") ||
 				path == "/api/health" ||
 				path == "/api/theme" ||
+				(path == "/api/announcements" && r.Method == http.MethodGet) ||
 				!strings.HasPrefix(path, "/api/") {
 				next.ServeHTTP(w, r)
 				return

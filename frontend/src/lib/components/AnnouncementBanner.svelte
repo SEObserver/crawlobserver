@@ -1,8 +1,11 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { getAnnouncements, updateAnnouncementsSettings } from '../api.js';
+  import { getLocale, t } from '../i18n/index.svelte.js';
 
   const POLL_MS = 10 * 60 * 1000;
+  const FAST_RETRY_MS = 30 * 1000;
+  const MAX_FAST_RETRIES = 3;
   const DISMISSED_KEY = 'dismissed_announcements';
   const INSTALL_TS_KEY = 'announcements_install_ts';
   // Keys whose presence indicates the user has used the app before the
@@ -14,6 +17,8 @@
   let dismissedIds = $state(loadDismissed());
   let installTs = $state(loadOrStampInstallTs());
   let pollTimer = null;
+  let retryTimer = null;
+  let fastRetryCount = 0;
 
   function loadDismissed() {
     try {
@@ -43,7 +48,8 @@
       const existing = localStorage.getItem(INSTALL_TS_KEY);
       if (existing && !Number.isNaN(Date.parse(existing))) return existing;
 
-      const hasHint = EXISTING_USER_HINT_KEYS.some((k) => localStorage.getItem(k) !== null) ||
+      const hasHint =
+        EXISTING_USER_HINT_KEYS.some((k) => localStorage.getItem(k) !== null) ||
         localStorage.getItem(DISMISSED_KEY) !== null;
       const ts = hasHint ? EPOCH_ISO : new Date().toISOString();
       localStorage.setItem(INSTALL_TS_KEY, ts);
@@ -56,13 +62,25 @@
   async function fetchAnnouncement() {
     try {
       const data = await getAnnouncements();
+      fastRetryCount = 0;
       if (!data || !data.enabled) {
         message = null;
         return;
       }
       message = data.message || null;
     } catch {
-      // Backend unreachable — silent fail
+      // Backend unreachable (network, 503 during setup mode, etc.). Retry
+      // a few times quickly before falling back to the normal poll cadence,
+      // so the banner appears shortly after the backend becomes ready
+      // instead of waiting a full poll interval.
+      if (fastRetryCount < MAX_FAST_RETRIES) {
+        fastRetryCount++;
+        if (retryTimer) clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          fetchAnnouncement();
+        }, FAST_RETRY_MS);
+      }
     }
   }
 
@@ -106,15 +124,39 @@
     return typeof url === 'string' && url.startsWith('https://');
   }
 
+  // Pick the translation matching the user's locale, with fallback to
+  // the message's default_locale, then to any available translation.
+  // Returns null if no usable translation exists.
+  function resolveTranslation(msg, locale) {
+    if (!msg || !msg.translations) return null;
+    const entries = Object.entries(msg.translations);
+    if (entries.length === 0) return null;
+
+    const byLocale = msg.translations[locale];
+    const byDefault = msg.default_locale ? msg.translations[msg.default_locale] : null;
+    const first = entries.find(([, v]) => v && v.title)?.[1] ?? null;
+
+    const chosen =
+      byLocale && byLocale.title ? byLocale : byDefault && byDefault.title ? byDefault : first;
+    if (!chosen || !chosen.title) return null;
+
+    return {
+      title: chosen.title,
+      body: chosen.body || '',
+      cta_label: chosen.cta_label || '',
+      cta_url: chosen.cta_url || msg.cta_url || '',
+    };
+  }
+
   // Visibility rules (all must pass):
-  //   - message exists and has an id
+  //   - message exists, has an id, and yields a usable translation
   //   - not already dismissed
   //   - published_at is a valid ISO date
   //   - published_at <= now (timed release)
   //   - published_at > installTs (hide pre-install messages for fresh installs)
   //   - show_until, if present and valid, is in the future
-  function computeVisible(msg, dismissed, install) {
-    if (!msg || !msg.id) return false;
+  function computeVisible(msg, dismissed, install, translation) {
+    if (!msg || !msg.id || !translation) return false;
     if (dismissed.has(msg.id)) return false;
 
     const now = Date.now();
@@ -138,40 +180,42 @@
 
   onDestroy(() => {
     if (pollTimer) clearInterval(pollTimer);
+    if (retryTimer) clearTimeout(retryTimer);
   });
 
-  let visible = $derived(computeVisible(message, dismissedIds, installTs));
+  let translation = $derived(resolveTranslation(message, getLocale()));
+  let visible = $derived(computeVisible(message, dismissedIds, installTs, translation));
 </script>
 
 {#if visible}
   <div class="alert alert-info announcement">
     <div class="announcement-content">
-      <div class="announcement-title">{message.title}</div>
-      {#if message.body}
+      <div class="announcement-title">{translation.title}</div>
+      {#if translation.body}
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-        <div class="announcement-body">{@html renderBody(message.body)}</div>
+        <div class="announcement-body">{@html renderBody(translation.body)}</div>
       {/if}
     </div>
     <div class="announcement-actions">
-      {#if isSafeCTA(message.cta_url)}
+      {#if isSafeCTA(translation.cta_url)}
         <a
           class="btn btn-sm btn-primary"
-          href={message.cta_url}
+          href={translation.cta_url}
           target="_blank"
           rel="noopener noreferrer"
         >
-          {message.cta_label || 'En savoir plus'}
+          {translation.cta_label || t('announcements.learnMore')}
         </a>
       {/if}
-      <button class="btn btn-sm btn-ghost" onclick={dismiss} title="Masquer ce message">
+      <button class="btn btn-sm btn-ghost" onclick={dismiss} title={t('announcements.hideThis')}>
         ×
       </button>
       <button
         class="btn btn-sm btn-ghost announcement-optout"
         onclick={optOut}
-        title="Ne plus afficher d'annonces"
+        title={t('announcements.optOutTitle')}
       >
-        Ne plus afficher
+        {t('announcements.optOut')}
       </button>
     </div>
   </div>

@@ -12,13 +12,18 @@ import (
 // along with the user's enabled/disabled preference. If the feature is
 // disabled or no message is cached yet, message is null.
 func (s *Server) handleAnnouncements(w http.ResponseWriter, r *http.Request) {
+	s.announcerMu.RLock()
+	enabled := s.cfg.Announcements.Enabled
+	fetcher := s.announcer
+	s.announcerMu.RUnlock()
+
 	payload := map[string]interface{}{
-		"enabled": s.cfg.Announcements.Enabled,
+		"enabled": enabled,
 		"message": nil,
 	}
 
-	if s.cfg.Announcements.Enabled && s.announcer != nil {
-		if msg, _ := s.announcer.Snapshot(); msg != nil {
+	if enabled && fetcher != nil {
+		if msg, _ := fetcher.Snapshot(); msg != nil {
 			payload["message"] = msg
 		}
 	}
@@ -41,24 +46,24 @@ func (s *Server) handleUpdateAnnouncementsSettings(w http.ResponseWriter, r *htt
 		return
 	}
 
+	s.announcerMu.Lock()
 	s.cfg.Announcements.Enabled = req.Enabled
+	s.announcerMu.Unlock()
+
 	viper.Set("announcements.enabled", req.Enabled)
 	if err := viperWriteConfig(); err != nil {
 		internalError(w, r, err)
 		return
 	}
 
-	switch {
-	case req.Enabled && s.announcer == nil:
+	if req.Enabled {
 		s.startAnnouncer()
-	case !req.Enabled && s.announcerCancel != nil:
-		s.announcerCancel()
-		s.announcerCancel = nil
-		s.announcer = nil
+	} else {
+		s.stopAnnouncer()
 		applog.Info("server", "Announcements fetcher stopped (disabled by user)")
 	}
 
 	writeJSON(w, map[string]interface{}{
-		"enabled": s.cfg.Announcements.Enabled,
+		"enabled": req.Enabled,
 	})
 }
