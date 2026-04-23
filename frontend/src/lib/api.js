@@ -922,6 +922,27 @@ export async function updateSessionRecording(enabled) {
   });
 }
 
+// --- Announcements ---
+
+/**
+ * @returns {Promise<{enabled: boolean, message: {id:string, published_at:string, title:string, body:string, cta_label:string, cta_url:string}|null}>}
+ */
+export async function getAnnouncements() {
+  return fetchJSON('/announcements');
+}
+
+/**
+ * @param {boolean} enabled
+ * @returns {Promise<{enabled: boolean}>}
+ */
+export async function updateAnnouncementsSettings(enabled) {
+  return fetchJSON('/announcements/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+}
+
 // --- External Link Checks ---
 
 /**

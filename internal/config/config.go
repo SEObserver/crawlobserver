@@ -25,7 +25,17 @@ type Config struct {
 	Interlinking  InterlinkingConfig  `mapstructure:"interlinking"`
 	Backup        BackupConfig        `mapstructure:"backup"`
 	Telemetry     TelemetryConfig     `mapstructure:"telemetry"`
+	Announcements AnnouncementsConfig `mapstructure:"announcements"`
 	SetupComplete bool                `mapstructure:"setup_complete"`
+}
+
+// AnnouncementsConfig controls the optional in-app announcement banner.
+// When enabled, the backend periodically fetches a JSON feed from FeedURL and
+// exposes the latest message to the frontend. A user can opt out at any time.
+type AnnouncementsConfig struct {
+	Enabled      bool          `mapstructure:"enabled"`
+	FeedURL      string        `mapstructure:"feed_url"`
+	PollInterval time.Duration `mapstructure:"poll_interval"`
 }
 
 type TelemetryConfig struct {
@@ -258,6 +268,11 @@ func SetDefaults() {
 	viper.SetDefault("telemetry.instance_id", "")
 	viper.SetDefault("telemetry.asked_at", "")
 	viper.SetDefault("telemetry.session_recording", false)
+
+	viper.SetDefault("announcements.enabled", true)
+	viper.SetDefault("announcements.feed_url", "https://crawlobserver.com/announcements/feed.json")
+	viper.SetDefault("announcements.poll_interval", "10m")
+
 	viper.SetDefault("setup_complete", false)
 }
 
