@@ -17,6 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/SEObserver/crawlobserver/internal/announcements"
 	"github.com/SEObserver/crawlobserver/internal/apikeys"
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/backup"
@@ -93,6 +94,10 @@ type Server struct {
 	SetupMode        bool
 	downloadProgress atomic.Value // *SetupProgress
 	readyCh          chan struct{}
+
+	// Announcements
+	announcer       *announcements.Fetcher
+	announcerCancel context.CancelFunc
 }
 
 // New creates a new Server.
@@ -297,6 +302,10 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/logs", s.handleListLogs)
 	mux.HandleFunc("GET /api/logs/export", s.handleExportLogs)
 
+	// Announcements (in-app banner)
+	mux.HandleFunc("GET /api/announcements", s.handleAnnouncements)
+	mux.HandleFunc("PUT /api/announcements/settings", s.handleUpdateAnnouncementsSettings)
+
 	// Custom Tests / Rulesets routes
 	mux.HandleFunc("GET /api/rulesets", s.handleListRulesets)
 	mux.HandleFunc("POST /api/rulesets", s.handleCreateRuleset)
@@ -441,6 +450,8 @@ func (s *Server) Start() error {
 		s.manager.RecoverOrphanedSessions(context.Background())
 	}
 
+	s.startAnnouncer()
+
 	handler, err := s.buildHandler()
 	if err != nil {
 		return err
@@ -472,6 +483,9 @@ func (s *Server) Start() error {
 
 // Stop gracefully shuts down the server.
 func (s *Server) Stop(ctx context.Context) error {
+	if s.announcerCancel != nil {
+		s.announcerCancel()
+	}
 	if s.manager != nil {
 		s.manager.Shutdown(30 * time.Second)
 	}
@@ -484,6 +498,18 @@ func (s *Server) Stop(ctx context.Context) error {
 		return s.server.Shutdown(ctx)
 	}
 	return nil
+}
+
+// startAnnouncer launches the background fetcher if enabled in config.
+func (s *Server) startAnnouncer() {
+	if !s.cfg.Announcements.Enabled || s.cfg.Announcements.FeedURL == "" {
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.announcer = announcements.New(s.cfg.Announcements.FeedURL, s.cfg.Announcements.PollInterval)
+	s.announcerCancel = cancel
+	go s.announcer.Run(ctx)
+	applog.Infof("server", "Announcements fetcher started (%s, every %s)", s.cfg.Announcements.FeedURL, s.cfg.Announcements.PollInterval)
 }
 
 const apiDiscoveryFileName = ".crawlobserver-api.json"

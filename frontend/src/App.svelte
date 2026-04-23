@@ -48,6 +48,7 @@
   import ConfirmModal from './lib/components/ConfirmModal.svelte';
   import SessionDetailPage from './lib/components/SessionDetailPage.svelte';
   import ProjectPage from './lib/components/ProjectPage.svelte';
+  import AnnouncementBanner from './lib/components/AnnouncementBanner.svelte';
 
   // --- Named constants ---
   // STATS_REFRESH_MS removed — stats refresh is now SSE signal-driven
@@ -708,6 +709,8 @@
             </div>
           </div>
         {/if}
+
+        <AnnouncementBanner />
 
         {#if sessionRecordingActive}
           <div class="alert alert-session-recording">
