@@ -27,7 +27,10 @@ func TestNormalize(t *testing.T) {
 		{"remove gclid", "https://example.com/?gclid=xyz&q=test", "https://example.com/?q=test", false},
 		{"remove all tracking params", "https://example.com/?utm_source=x&utm_medium=y&utm_campaign=z&utm_term=a&utm_content=b&fbclid=c&gclid=d", "https://example.com/", false},
 		{"empty string", "", "", false},
-		{"whitespace", "  https://example.com  ", "https://example.com", false},
+		{"whitespace", "  https://example.com  ", "https://example.com/", false},
+		{"bare host gets trailing slash", "https://example.com", "https://example.com/", false},
+		{"bare host with port gets trailing slash", "https://example.com:8080", "https://example.com:8080/", false},
+		{"non-root path is unchanged", "https://example.com/page", "https://example.com/page", false},
 	}
 
 	for _, tt := range tests {

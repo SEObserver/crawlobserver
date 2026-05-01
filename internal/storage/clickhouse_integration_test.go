@@ -60,7 +60,7 @@ func TestGetExpiredDomains_NoData(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	result, err := s.GetExpiredDomains(ctx, "00000000-0000-0000-0000-000000000000", 100, 0)
+	result, err := s.GetExpiredDomains(ctx, "00000000-0000-0000-0000-000000000000", 100, 0, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestGetExpiredDomains_FullScenario(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Test: get all expired domains
-	result, err := s.GetExpiredDomains(ctx, sessionID, 100, 0)
+	result, err := s.GetExpiredDomains(ctx, sessionID, 100, 0, false)
 	if err != nil {
 		t.Fatalf("GetExpiredDomains: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestGetExpiredDomains_Pagination(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Page 1: limit=2, offset=0 → should get domain-a.com (3) and domain-b.com (2)
-	page1, err := s.GetExpiredDomains(ctx, sessionID, 2, 0)
+	page1, err := s.GetExpiredDomains(ctx, sessionID, 2, 0, false)
 	if err != nil {
 		t.Fatalf("page 1: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestGetExpiredDomains_Pagination(t *testing.T) {
 	}
 
 	// Page 2: limit=2, offset=2 → should get domain-c.com (1)
-	page2, err := s.GetExpiredDomains(ctx, sessionID, 2, 2)
+	page2, err := s.GetExpiredDomains(ctx, sessionID, 2, 2, false)
 	if err != nil {
 		t.Fatalf("page 2: %v", err)
 	}

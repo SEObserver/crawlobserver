@@ -183,7 +183,10 @@ func (s *Store) GetSitemapURLs(ctx context.Context, sessionID, sitemapURL string
 }
 
 // GetSitemapCoverageURLs returns paginated sitemap URLs filtered by coverage type.
-// filter must be "sitemap_only" (in sitemap but not crawled) or "in_both" (in sitemap and crawled).
+// filter must be "sitemap_only" (in sitemap but not crawled), "in_both" (in sitemap and
+// crawled), or "crawl_only" (crawled HTML 2xx pages absent from the sitemap).
+// Crawl-side comparisons are restricted to HTML 2xx pages so that images, PDFs, JS
+// and CSS don't appear as "missing from sitemap" — sitemaps list indexable content only.
 func (s *Store) GetSitemapCoverageURLs(ctx context.Context, sessionID, filter string, limit, offset int) ([]SitemapURLRow, error) {
 	var query string
 	switch filter {
@@ -192,15 +195,36 @@ func (s *Store) GetSitemapCoverageURLs(ctx context.Context, sessionID, filter st
 			SELECT DISTINCT '' AS crawl_session_id, '' AS sitemap_url, su.loc, su.lastmod, su.changefreq, su.priority
 			FROM crawlobserver.sitemap_urls su
 			WHERE su.crawl_session_id = ?
-			  AND su.loc NOT IN (SELECT url FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND ` + notRedirectedFilter + `)
+			  AND su.loc NOT IN (
+				SELECT url FROM crawlobserver.pages FINAL
+				WHERE crawl_session_id = ?
+					AND content_type LIKE '%html%'
+					AND status_code >= 200 AND status_code < 300
+					AND ` + notRedirectedFilter + `)
 			ORDER BY su.loc LIMIT ? OFFSET ?`
 	case "in_both":
 		query = `
 			SELECT DISTINCT '' AS crawl_session_id, '' AS sitemap_url, su.loc, su.lastmod, su.changefreq, su.priority
 			FROM crawlobserver.sitemap_urls su
 			WHERE su.crawl_session_id = ?
-			  AND su.loc IN (SELECT url FROM crawlobserver.pages FINAL WHERE crawl_session_id = ? AND ` + notRedirectedFilter + `)
+			  AND su.loc IN (
+				SELECT url FROM crawlobserver.pages FINAL
+				WHERE crawl_session_id = ?
+					AND content_type LIKE '%html%'
+					AND status_code >= 200 AND status_code < 300
+					AND ` + notRedirectedFilter + `)
 			ORDER BY su.loc LIMIT ? OFFSET ?`
+	case "crawl_only":
+		query = `
+			SELECT DISTINCT '' AS crawl_session_id, '' AS sitemap_url, p.url AS loc, '' AS lastmod, '' AS changefreq, '' AS priority
+			FROM crawlobserver.pages AS p FINAL
+			WHERE p.crawl_session_id = ?
+			  AND p.content_type LIKE '%html%'
+			  AND p.status_code >= 200 AND p.status_code < 300
+			  AND (p.final_url = '' OR p.final_url = p.url)
+			  AND p.url NOT IN (
+				SELECT DISTINCT loc FROM crawlobserver.sitemap_urls WHERE crawl_session_id = ?)
+			ORDER BY p.url LIMIT ? OFFSET ?`
 	default:
 		return nil, fmt.Errorf("invalid coverage filter: %s", filter)
 	}

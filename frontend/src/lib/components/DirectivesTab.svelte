@@ -12,6 +12,7 @@
     { id: 'sitemaps', label: () => t('directives.sitemaps') },
     { id: 'sitemap_only', label: () => t('directives.sitemapOnly') },
     { id: 'in_both', label: () => t('directives.inBoth') },
+    { id: 'crawl_only', label: () => t('directives.crawlOnly') },
   ];
 
   let hasSitemaps = $state(true); // optimistic default
@@ -59,6 +60,8 @@
     <SitemapCoverageURLs {sessionId} filter="sitemap_only" onerror={(msg) => onerror?.(msg)} />
   {:else if subView === 'in_both'}
     <SitemapCoverageURLs {sessionId} filter="in_both" onerror={(msg) => onerror?.(msg)} />
+  {:else if subView === 'crawl_only'}
+    <SitemapCoverageURLs {sessionId} filter="crawl_only" onerror={(msg) => onerror?.(msg)} />
   {/if}
 </div>
 

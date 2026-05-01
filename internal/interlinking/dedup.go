@@ -2,6 +2,7 @@ package interlinking
 
 import (
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/SEObserver/crawlobserver/internal/storage"
@@ -45,6 +46,73 @@ var trackingParams = map[string]bool{
 	"utm_medium":   true,
 	"utm_source":   true,
 	"utm_term":     true,
+}
+
+// paginationQueryParams lists query parameters that indicate a paginated variant
+// of a main page. A page with any of these set to a value > "1" is a paginated
+// duplicate and should be skipped for content similarity analysis.
+var paginationQueryParams = map[string]bool{
+	"page":   true,
+	"paged":  true, // WordPress
+	"p":      true, // WordPress, but also generic "product id" — context-aware check below
+	"_page":  true,
+	"pg":     true,
+	"start":  true, // offset-based
+	"offset": true,
+	"from":   true,
+	"skip":   true,
+}
+
+// paginationPathPattern matches path-based pagination like /page/2, /p/3, /section/page/4.
+// Matches "/page/<N>" or "/p/<N>" where N > 1.
+var paginationPathPattern = regexp.MustCompile(`(?i)/(page|p|pagina|strana|seite)/([2-9]|[1-9][0-9]+)(/|$)`)
+
+// IsPaginatedURL returns true if the URL looks like a paginated variant of
+// another page (e.g. ?page=3, /page/2). Page 1 (or missing page param) is the
+// canonical page and is NOT considered paginated.
+func IsPaginatedURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	// Path-based pagination
+	if paginationPathPattern.MatchString(u.Path) {
+		return true
+	}
+
+	// Query-based pagination
+	for key, values := range u.Query() {
+		lowerKey := strings.ToLower(key)
+		if !paginationQueryParams[lowerKey] {
+			continue
+		}
+		// "p" is ambiguous (WordPress post ID vs page number).
+		// Only treat as pagination if the value is a small integer > 1.
+		for _, v := range values {
+			if v == "" || v == "1" || v == "0" {
+				continue
+			}
+			// Must be a pure integer (pagination values are always integers)
+			isInt := true
+			for _, c := range v {
+				if c < '0' || c > '9' {
+					isInt = false
+					break
+				}
+			}
+			if !isInt {
+				continue
+			}
+			// Small positive integer → almost certainly pagination
+			// (large integers are more likely IDs; cap at reasonable max page count)
+			if len(v) <= 4 { // up to 9999 pages
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // NormalizeURL strips known tracking parameters and normalizes trailing slashes.
@@ -100,6 +168,15 @@ func NormalizeURL(rawURL string) string {
 //     canonical/clean URL, then highest PageRank).
 func DeduplicatePages(pageMeta map[string]storage.PageMetadata) map[string]bool {
 	skip := make(map[string]bool)
+
+	// Phase 0: skip paginated variants (page 2, 3, ...).
+	// These are not meaningful targets for internal linking suggestions —
+	// the main page is the canonical entry point.
+	for rawURL := range pageMeta {
+		if IsPaginatedURL(rawURL) {
+			skip[rawURL] = true
+		}
+	}
 
 	// Phase 1: skip pages with a non-self canonical pointing to another crawled page
 	for rawURL, meta := range pageMeta {

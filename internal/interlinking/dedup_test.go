@@ -348,3 +348,97 @@ func TestDeduplicatePages_RootSlashNormalization(t *testing.T) {
 		t.Errorf("expected 1 root-slash duplicate skipped, got %d", skipped)
 	}
 }
+
+func TestIsPaginatedURL(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want bool
+	}{
+		// Path-based pagination — positives
+		{"path /page/2", "https://example.com/blog/page/2", true},
+		{"path /page/2 trailing slash", "https://example.com/blog/page/2/", true},
+		{"path /page/10", "https://example.com/blog/page/10", true},
+		{"path /p/3", "https://example.com/news/p/3", true},
+		{"path /pagina/2 (es/it)", "https://example.com/blog/pagina/2", true},
+		{"path /seite/4 (de)", "https://example.com/blog/seite/4", true},
+		{"path /strana/5 (sl/cs)", "https://example.com/blog/strana/5", true},
+		{"path uppercase /Page/2", "https://example.com/blog/Page/2", true},
+
+		// Path-based — negatives
+		{"path /page/1 is canonical", "https://example.com/blog/page/1", false},
+		{"path without page segment", "https://example.com/blog/post-2", false},
+		{"path /pages/2 (plural, not pagination)", "https://example.com/pages/2", false},
+
+		// Query-based — positives
+		{"query ?page=2", "https://example.com/blog?page=2", true},
+		{"query ?paged=4 (WP)", "https://example.com/blog?paged=4", true},
+		{"query ?p=2 (small int)", "https://example.com/?p=2", true},
+		{"query ?_page=3", "https://example.com/list?_page=3", true},
+		{"query ?pg=2", "https://example.com/list?pg=2", true},
+		{"query ?offset=20", "https://example.com/list?offset=20", true},
+		{"query ?start=10", "https://example.com/list?start=10", true},
+		{"query ?from=50", "https://example.com/list?from=50", true},
+		{"query ?skip=100", "https://example.com/list?skip=100", true},
+		{"query uppercase ?PAGE=2", "https://example.com/blog?PAGE=2", true},
+		{"query mixed with other params", "https://example.com/list?cat=shoes&page=3", true},
+		{"query large but ≤9999", "https://example.com/list?page=9999", true},
+
+		// Query-based — negatives (canonical / non-pagination)
+		{"query ?page=1 is canonical", "https://example.com/blog?page=1", false},
+		{"query ?page=0 is canonical", "https://example.com/blog?page=0", false},
+		{"query ?page= empty", "https://example.com/blog?page=", false},
+		{"query ?p=1234567 (WP post ID)", "https://example.com/?p=1234567", false},
+		{"query non-integer ?page=abc", "https://example.com/blog?page=abc", false},
+		{"query ?other=2 not pagination param", "https://example.com/blog?other=2", false},
+		{"no query no path pagination", "https://example.com/blog", false},
+
+		// Edge cases
+		{"empty url", "", false},
+		{"malformed url", "://broken", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := IsPaginatedURL(tc.url)
+			if got != tc.want {
+				t.Errorf("IsPaginatedURL(%q) = %v, want %v", tc.url, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDeduplicatePages_SkipsPaginated(t *testing.T) {
+	meta := map[string]storage.PageMetadata{
+		"https://example.com/blog":             {PageRank: 10, CanonicalSelf: true},
+		"https://example.com/blog?page=2":      {PageRank: 5, CanonicalSelf: true},
+		"https://example.com/blog?page=3":      {PageRank: 4, CanonicalSelf: true},
+		"https://example.com/blog/page/4":      {PageRank: 3, CanonicalSelf: true},
+		"https://example.com/blog?page=1":      {PageRank: 9, CanonicalSelf: true},
+		"https://example.com/post?p=1234567":   {PageRank: 6, CanonicalSelf: true},
+	}
+
+	skip := DeduplicatePages(meta)
+
+	wantSkipped := map[string]bool{
+		"https://example.com/blog?page=2": true,
+		"https://example.com/blog?page=3": true,
+		"https://example.com/blog/page/4": true,
+	}
+	wantKept := []string{
+		"https://example.com/blog",
+		"https://example.com/blog?page=1",
+		"https://example.com/post?p=1234567",
+	}
+
+	for url := range wantSkipped {
+		if !skip[url] {
+			t.Errorf("expected %q to be skipped (paginated), but it was kept", url)
+		}
+	}
+	for _, url := range wantKept {
+		if skip[url] {
+			t.Errorf("expected %q to be kept, but it was skipped", url)
+		}
+	}
+}

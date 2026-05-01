@@ -26,7 +26,7 @@
         value: s.crawled_only,
         color: 'var(--warning)',
         label: t('report.sitemap.crawledOnly'),
-        onclick: () => nav('overview'),
+        onclick: () => nav('directives/crawl_only'),
       });
     if (s.sitemap_only > 0)
       segs.push({
@@ -73,8 +73,8 @@
           class="stat-card stat-card-link"
           role="button"
           tabindex="0"
-          onclick={() => nav('overview')}
-          onkeydown={a11yKeydown(() => nav('overview'))}
+          onclick={() => nav('directives/crawl_only')}
+          onkeydown={a11yKeydown(() => nav('directives/crawl_only'))}
         >
           <div class="stat-value text-warning">{fmtN(sitemap.crawled_only || 0)}</div>
           <div class="stat-label">{t('report.sitemap.crawledOnly')}</div>

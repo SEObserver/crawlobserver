@@ -1116,8 +1116,8 @@ func (s *Server) handleSitemapCoverageURLs(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	filter := r.URL.Query().Get("filter")
-	if filter != "sitemap_only" && filter != "in_both" {
-		writeError(w, http.StatusBadRequest, "filter must be sitemap_only or in_both")
+	if filter != "sitemap_only" && filter != "in_both" && filter != "crawl_only" {
+		writeError(w, http.StatusBadRequest, "filter must be sitemap_only, in_both, or crawl_only")
 		return
 	}
 	limit, offset := clampPagination(queryInt(r, "limit", 100), queryInt(r, "offset", 0))

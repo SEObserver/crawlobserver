@@ -530,6 +530,7 @@
   "directives.sitemaps": "Sitemaps",
   "directives.sitemapOnly": "Sitemap uniquement",
   "directives.inBoth": "Crawl et sitemap",
+  "directives.crawlOnly": "Crawl uniquement",
   "pagerank.topPages": "Top pages",
   "pagerank.byDirectory": "Par répertoire",
   "pagerank.distribution": "Distribution",
