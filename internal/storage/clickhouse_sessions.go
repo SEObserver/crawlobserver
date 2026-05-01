@@ -480,7 +480,7 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	// by design and must not inflate "missing" buckets. The `total` here is the
 	// count of auditable HTML pages; raw page totals are reported elsewhere.
 	row := s.conn.QueryRow(ctx, `
-		SELECT count() AS total,
+		SELECT countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300) AS total,
 			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300) AS html_pages,
 			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND title = '') AS title_missing,
 			countIf(content_type LIKE '%html%' AND status_code >= 200 AND status_code < 300 AND title_length > 60) AS title_too_long,
@@ -511,7 +511,9 @@ func (s *Store) SessionAudit(ctx context.Context, sessionID string) (*AuditResul
 	dupRow := s.conn.QueryRow(ctx, `
 		SELECT sum(cnt - 1) FROM (
 			SELECT title, count() AS cnt FROM crawlobserver.pages FINAL
-			WHERE crawl_session_id = ? AND title != '' AND `+notRedirectedFilter+`
+			WHERE crawl_session_id = ? AND content_type LIKE '%html%'
+				AND status_code >= 200 AND status_code < 300
+				AND title != '' AND `+notRedirectedFilter+`
 			GROUP BY title HAVING cnt > 1
 		)`, sessionID)
 	var titleDups int64

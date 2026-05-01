@@ -526,6 +526,7 @@
   "directives.sitemaps": "Sitemaps",
   "directives.sitemapOnly": "Sitemap only",
   "directives.inBoth": "In both",
+  "directives.crawlOnly": "Crawl only",
   "pagerank.topPages": "Top Pages",
   "pagerank.byDirectory": "By Directory",
   "pagerank.distribution": "Distribution",
