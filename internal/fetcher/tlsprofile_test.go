@@ -3,19 +3,30 @@ package fetcher
 import (
 	"context"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
-// TestTLSProfileChromeFetch verifies that the Chrome TLS profile can fetch
-// real HTTPS pages without errors.
-func TestTLSProfileChromeFetch(t *testing.T) {
+func skipLiveNetworkTest(t *testing.T) {
+	t.Helper()
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
+	if os.Getenv("CRAWLOBSERVER_LIVE_TESTS") != "1" {
+		t.Skip("skipping live network test; set CRAWLOBSERVER_LIVE_TESTS=1 to run")
+	}
+}
+
+// TestTLSProfileChromeFetch verifies that the Chrome TLS profile can fetch
+// real HTTPS pages without errors.
+func TestTLSProfileChromeFetch(t *testing.T) {
+	skipLiveNetworkTest(t)
 
 	profiles := []TLSProfile{TLSChrome, TLSFirefox}
 
@@ -41,9 +52,7 @@ func TestTLSProfileChromeFetch(t *testing.T) {
 // TestTLSProfileSitemapFetch verifies that sitemap fetching works correctly
 // with a TLS profile applied to the HTTP client.
 func TestTLSProfileSitemapFetch(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
+	skipLiveNetworkTest(t)
 
 	profiles := []struct {
 		name    string
@@ -63,7 +72,7 @@ func TestTLSProfileSitemapFetch(t *testing.T) {
 			}
 
 			f := New(ua, 15*time.Second, 10*1024*1024, DialOptions{}, tc.profile)
-			entry := FetchSitemap(context.Background(), f.Client(),sitemapURL, ua)
+			entry := FetchSitemap(context.Background(), f.Client(), sitemapURL, ua)
 
 			if entry.StatusCode == 0 {
 				t.Fatalf("sitemap fetch failed (status 0) with profile %s — likely TLS/network error", tc.name)
@@ -77,9 +86,7 @@ func TestTLSProfileSitemapFetch(t *testing.T) {
 // TestTLSProfileCloudflare tests fetching through Cloudflare with TLS profiles.
 // melty.fr is behind Cloudflare.
 func TestTLSProfileCloudflare(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
+	skipLiveNetworkTest(t)
 
 	testURL := "https://www.melty.fr/sitemap_index.xml"
 
@@ -96,7 +103,7 @@ func TestTLSProfileCloudflare(t *testing.T) {
 	for _, tc := range profiles {
 		t.Run(tc.name, func(t *testing.T) {
 			f := New(tc.ua, 15*time.Second, 10*1024*1024, DialOptions{}, tc.profile)
-			entry := FetchSitemap(context.Background(), f.Client(),testURL, tc.ua)
+			entry := FetchSitemap(context.Background(), f.Client(), testURL, tc.ua)
 
 			if entry.StatusCode == 0 {
 				t.Errorf("sitemap fetch failed (status 0) with %s — likely TLS/network error", tc.name)
@@ -120,9 +127,7 @@ func TestTLSProfileCloudflare(t *testing.T) {
 // TestTLSProfileHTTPClientReuse verifies that the HTTP client with TLS profile
 // can handle multiple sequential requests (connection reuse).
 func TestTLSProfileHTTPClientReuse(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
+	skipLiveNetworkTest(t)
 
 	f := New("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 		15*time.Second, 10*1024*1024, DialOptions{}, TLSChrome)
@@ -147,13 +152,46 @@ func TestTLSProfileHTTPClientReuse(t *testing.T) {
 	}
 }
 
-// TestTLSProfileDiscoverSitemaps tests the full sitemap discovery flow
-// with TLS profile — this reproduces the production bug where Chrome TLS
-// profile discovered 0 sitemap URLs while default discovered 45k+.
+// TestTLSProfileDiscoverSitemaps keeps the sitemap discovery flow deterministic
+// in CI. The live Cloudflare/TLS coverage above is opt-in via
+// CRAWLOBSERVER_LIVE_TESTS.
 func TestTLSProfileDiscoverSitemaps(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
+	mux := http.NewServeMux()
+	var server *httptest.Server
+
+	mux.HandleFunc("/sitemap.xml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		fmt.Fprint(w, `<?xml version="1.0"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/home</loc></url>
+</urlset>`)
+	})
+	mux.HandleFunc("/sitemap_index.xml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet type="text/xsl" href="//example.com/main-sitemap.xsl"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>%s/post-sitemap.xml</loc></sitemap>
+  <sitemap><loc>%s/post-sitemap2.xml</loc></sitemap>
+</sitemapindex>`, server.URL, server.URL)
+	})
+	mux.HandleFunc("/post-sitemap.xml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		fmt.Fprint(w, `<?xml version="1.0"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/a</loc></url>
+  <url><loc>https://example.com/b</loc></url>
+</urlset>`)
+	})
+	mux.HandleFunc("/post-sitemap2.xml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		fmt.Fprint(w, `<?xml version="1.0"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/c</loc></url>
+</urlset>`)
+	})
+
+	server = httptest.NewServer(mux)
+	defer server.Close()
 
 	testCases := []struct {
 		name    string
@@ -166,11 +204,11 @@ func TestTLSProfileDiscoverSitemaps(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			f := New(tc.ua, 15*time.Second, 10*1024*1024, DialOptions{}, tc.profile)
+			f := New(tc.ua, 15*time.Second, 10*1024*1024, DialOptions{AllowPrivateIPs: true}, tc.profile)
 
-			entries := DiscoverSitemaps(context.Background(), f.Client(),tc.ua, []string{
-				"https://www.melty.fr/sitemap.xml",
-				"https://www.melty.fr/sitemap_index.xml",
+			entries := DiscoverSitemaps(context.Background(), f.Client(), tc.ua, []string{
+				server.URL + "/sitemap.xml",
+				server.URL + "/sitemap_index.xml",
 			})
 
 			totalURLs := 0
@@ -183,8 +221,11 @@ func TestTLSProfileDiscoverSitemaps(t *testing.T) {
 
 			t.Logf("%s: discovered %d sitemaps, %d total URLs", tc.name, len(entries), totalURLs)
 
-			if len(entries) < 3 {
-				t.Errorf("expected at least 3 sitemaps (index + children), got %d", len(entries))
+			if len(entries) != 4 {
+				t.Errorf("expected 4 sitemaps (root + index + children), got %d", len(entries))
+			}
+			if totalURLs != 4 {
+				t.Errorf("expected 4 total URLs, got %d", totalURLs)
 			}
 		})
 	}
@@ -192,9 +233,7 @@ func TestTLSProfileDiscoverSitemaps(t *testing.T) {
 
 // TestTLSProfileParallelFetch verifies TLS profile works with concurrent requests.
 func TestTLSProfileParallelFetch(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
+	skipLiveNetworkTest(t)
 
 	f := New("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 		15*time.Second, 10*1024*1024, DialOptions{}, TLSChrome)
@@ -235,8 +274,10 @@ func TestTLSProfileParallelFetch(t *testing.T) {
 // status 0 when the HTTP request fails.
 func TestFetchSitemapReturnsZeroOnError(t *testing.T) {
 	f := New("TestBot", 2*time.Second, 10*1024*1024, DialOptions{}, "")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	server.Close()
 
-	entry := FetchSitemap(context.Background(), f.Client(),"https://this-domain-does-not-exist-12345.example.com/sitemap.xml", "TestBot")
+	entry := FetchSitemap(context.Background(), f.Client(), server.URL+"/sitemap.xml", "TestBot")
 
 	if entry.StatusCode != 0 {
 		t.Errorf("expected status 0 for failed request, got %d", entry.StatusCode)

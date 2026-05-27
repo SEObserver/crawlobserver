@@ -106,13 +106,13 @@ type alpnSwitchTransport struct {
 }
 
 func (t *alpnSwitchTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL.Scheme != "https" {
+		return t.h1.RoundTrip(req)
+	}
+
 	addr := req.URL.Host
 	if !hasPort(addr) {
-		if req.URL.Scheme == "https" {
-			addr += ":443"
-		} else {
-			addr += ":80"
-		}
+		addr += ":443"
 	}
 
 	// Check cache first
