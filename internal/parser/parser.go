@@ -6,8 +6,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/PuerkitoBio/goquery"
 	readability "codeberg.org/readeck/go-readability/v2"
+	"github.com/PuerkitoBio/goquery"
+	"github.com/SEObserver/crawlobserver/internal/htmlutil"
 )
 
 // PageData holds all extracted SEO signals from a page.
@@ -113,13 +114,13 @@ func countWords(doc *goquery.Document) int {
 func extractImages(doc *goquery.Document, baseURL *url.URL) []Image {
 	var images []Image
 	doc.Find("img").Each(func(_ int, s *goquery.Selection) {
-		src, _ := s.Attr("src")
+		src, _ := htmlutil.Attr(s, "src")
 		if src == "" {
-			src, _ = s.Attr("data-src") // lazy loading
+			src, _ = htmlutil.Attr(s, "data-src") // lazy loading
 		}
-		alt, _ := s.Attr("alt")
-		width, _ := s.Attr("width")
-		height, _ := s.Attr("height")
+		alt, _ := htmlutil.Attr(s, "alt")
+		width, _ := htmlutil.Attr(s, "width")
+		height, _ := htmlutil.Attr(s, "height")
 
 		if src != "" {
 			// Resolve relative URLs
@@ -141,9 +142,12 @@ func extractImages(doc *goquery.Document, baseURL *url.URL) []Image {
 // extractHreflang extracts hreflang annotations.
 func extractHreflang(doc *goquery.Document) []HreflangEntry {
 	var entries []HreflangEntry
-	doc.Find("link[rel='alternate'][hreflang]").Each(func(_ int, s *goquery.Selection) {
-		lang, _ := s.Attr("hreflang")
-		href, _ := s.Attr("href")
+	doc.Find("link").Each(func(_ int, s *goquery.Selection) {
+		if !htmlutil.AttrTokenContains(s, "rel", "alternate") {
+			return
+		}
+		lang, _ := htmlutil.Attr(s, "hreflang")
+		href, _ := htmlutil.Attr(s, "href")
 		if lang != "" && href != "" {
 			entries = append(entries, HreflangEntry{
 				Lang: strings.TrimSpace(lang),
@@ -156,7 +160,7 @@ func extractHreflang(doc *goquery.Document) []HreflangEntry {
 
 // extractLang extracts the html lang attribute.
 func extractLang(doc *goquery.Document) string {
-	lang, _ := doc.Find("html").First().Attr("lang")
+	lang, _ := htmlutil.Attr(doc.Find("html").First(), "lang")
 	return strings.TrimSpace(lang)
 }
 
@@ -164,9 +168,9 @@ func extractLang(doc *goquery.Document) string {
 func extractMetaProperty(doc *goquery.Document, property string) string {
 	var content string
 	doc.Find("meta").Each(func(_ int, s *goquery.Selection) {
-		p, _ := s.Attr("property")
+		p, _ := htmlutil.Attr(s, "property")
 		if strings.EqualFold(p, property) {
-			content, _ = s.Attr("content")
+			content, _ = htmlutil.Attr(s, "content")
 		}
 	})
 	return strings.TrimSpace(content)
@@ -175,7 +179,10 @@ func extractMetaProperty(doc *goquery.Document, property string) string {
 // extractJSONLDBlocks extracts the raw text content of each <script type="application/ld+json"> block.
 func extractJSONLDBlocks(doc *goquery.Document) []string {
 	var blocks []string
-	doc.Find("script[type='application/ld+json']").Each(func(_ int, s *goquery.Selection) {
+	doc.Find("script").Each(func(_ int, s *goquery.Selection) {
+		if !htmlutil.AttrMediaTypeEqual(s, "type", "application/ld+json") {
+			return
+		}
 		text := strings.TrimSpace(s.Text())
 		if text != "" {
 			blocks = append(blocks, text)
@@ -190,7 +197,10 @@ func extractSchemaTypes(doc *goquery.Document) []string {
 	var types []string
 
 	// JSON-LD
-	doc.Find("script[type='application/ld+json']").Each(func(_ int, s *goquery.Selection) {
+	doc.Find("script").Each(func(_ int, s *goquery.Selection) {
+		if !htmlutil.AttrMediaTypeEqual(s, "type", "application/ld+json") {
+			return
+		}
 		text := s.Text()
 		// Simple extraction of @type values
 		for _, part := range strings.Split(text, "\"@type\"") {
@@ -215,8 +225,11 @@ func extractSchemaTypes(doc *goquery.Document) []string {
 	})
 
 	// Microdata
-	doc.Find("[itemtype]").Each(func(_ int, s *goquery.Selection) {
-		itemtype, _ := s.Attr("itemtype")
+	doc.Find("*").Each(func(_ int, s *goquery.Selection) {
+		itemtype, ok := htmlutil.Attr(s, "itemtype")
+		if !ok {
+			return
+		}
 		// Extract type name from URL like "https://schema.org/Product"
 		if idx := strings.LastIndex(itemtype, "/"); idx >= 0 {
 			t := itemtype[idx+1:]

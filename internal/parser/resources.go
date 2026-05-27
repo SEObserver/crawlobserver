@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/SEObserver/crawlobserver/internal/htmlutil"
 	"github.com/SEObserver/crawlobserver/internal/normalizer"
 )
 
@@ -42,9 +43,9 @@ func ExtractResources(doc *goquery.Document, baseURL *url.URL) []PageResource {
 	}
 
 	// <link> tags
-	doc.Find("link[href]").Each(func(_ int, s *goquery.Selection) {
-		href, _ := s.Attr("href")
-		rel, _ := s.Attr("rel")
+	doc.Find("link").Each(func(_ int, s *goquery.Selection) {
+		href, _ := htmlutil.Attr(s, "href")
+		rel, _ := htmlutil.Attr(s, "rel")
 		rel = strings.ToLower(strings.TrimSpace(rel))
 
 		switch rel {
@@ -53,7 +54,7 @@ func ExtractResources(doc *goquery.Document, baseURL *url.URL) []PageResource {
 		case "icon", "shortcut icon", "apple-touch-icon":
 			add(href, "icon")
 		case "preload":
-			as, _ := s.Attr("as")
+			as, _ := htmlutil.Attr(s, "as")
 			switch strings.ToLower(strings.TrimSpace(as)) {
 			case "style":
 				add(href, "css")
@@ -66,8 +67,8 @@ func ExtractResources(doc *goquery.Document, baseURL *url.URL) []PageResource {
 	})
 
 	// <script src> (external only)
-	doc.Find("script[src]").Each(func(_ int, s *goquery.Selection) {
-		src, _ := s.Attr("src")
+	doc.Find("script").Each(func(_ int, s *goquery.Selection) {
+		src, _ := htmlutil.Attr(s, "src")
 		add(src, "js")
 	})
 

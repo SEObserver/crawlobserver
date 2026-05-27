@@ -74,6 +74,69 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestParseCaseInsensitiveSEOAttributes(t *testing.T) {
+	html := `<html LANG="en-GB"><head>
+		<link REL="CANONICAL" HREF="https://example.com/canonical">
+		<link REL="ALTERNATE" hrefLang="fr" HREF="https://example.com/fr">
+		<link REL="STYLESHEET" HREF="/assets/app.css">
+		<meta NAME="description" CONTENT="Mixed attributes">
+		<meta PROPERTY="OG:Title" CONTENT="OpenGraph Title">
+		<script TYPE="APPLICATION/LD+JSON; charset=utf-8">{"@type": "WebPage"}</script>
+		<script SRC="/assets/app.js"></script>
+	</head><body>
+		<a HREF="/mixed-link" REL="NOFOLLOW">Mixed link</a>
+		<img DATA-SRC="/images/lazy.jpg" ALT="Lazy image">
+		<div ITEMTYPE="https://schema.org/Product"></div>
+	</body></html>`
+
+	data, err := Parse([]byte(html), "https://example.com/page")
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if data.Lang != "en-GB" {
+		t.Errorf("Lang = %q, want %q", data.Lang, "en-GB")
+	}
+	if data.Canonical != "https://example.com/canonical" {
+		t.Errorf("Canonical = %q, want %q", data.Canonical, "https://example.com/canonical")
+	}
+	if data.MetaDescription != "Mixed attributes" {
+		t.Errorf("MetaDescription = %q, want %q", data.MetaDescription, "Mixed attributes")
+	}
+	if data.OGTitle != "OpenGraph Title" {
+		t.Errorf("OGTitle = %q, want %q", data.OGTitle, "OpenGraph Title")
+	}
+	if len(data.Hreflang) != 1 {
+		t.Fatalf("Hreflang count = %d, want 1: %+v", len(data.Hreflang), data.Hreflang)
+	}
+	if data.Hreflang[0].Lang != "fr" || data.Hreflang[0].URL != "https://example.com/fr" {
+		t.Errorf("Hreflang[0] = %+v, want fr -> https://example.com/fr", data.Hreflang[0])
+	}
+
+	found := map[string]bool{}
+	for _, tp := range data.SchemaTypes {
+		found[tp] = true
+	}
+	if !found["WebPage"] || !found["Product"] {
+		t.Errorf("SchemaTypes = %v, want WebPage and Product", data.SchemaTypes)
+	}
+	if len(data.Links) != 1 {
+		t.Fatalf("Links count = %d, want 1: %+v", len(data.Links), data.Links)
+	}
+	if data.Links[0].TargetURL != "https://example.com/mixed-link" || data.Links[0].Rel != "NOFOLLOW" {
+		t.Errorf("Links[0] = %+v, want mixed-link with NOFOLLOW rel", data.Links[0])
+	}
+	if len(data.Images) != 1 {
+		t.Fatalf("Images count = %d, want 1: %+v", len(data.Images), data.Images)
+	}
+	if data.Images[0].Src != "https://example.com/images/lazy.jpg" || data.Images[0].Alt != "Lazy image" {
+		t.Errorf("Images[0] = %+v, want lazy image with resolved src", data.Images[0])
+	}
+	if len(data.Resources) != 2 {
+		t.Fatalf("Resources count = %d, want 2: %+v", len(data.Resources), data.Resources)
+	}
+}
+
 func TestParseLinks(t *testing.T) {
 	data, err := Parse([]byte(testHTML), "https://example.com/page")
 	if err != nil {
@@ -446,6 +509,24 @@ func TestExtractHreflang(t *testing.T) {
 			wantCount: 3,
 			wantLang:  "en",
 			wantURL:   "https://example.com/en",
+		},
+		{
+			name: "mixed-case rel and hrefLang",
+			html: `<html><head>
+				<link REL="ALTERNATE" hrefLang="en" HREF="https://example.com/en">
+			</head><body></body></html>`,
+			wantCount: 1,
+			wantLang:  "en",
+			wantURL:   "https://example.com/en",
+		},
+		{
+			name: "alternate among rel tokens",
+			html: `<html><head>
+				<link rel="alternate stylesheet" hreflang="fr" href="https://example.com/fr">
+			</head><body></body></html>`,
+			wantCount: 1,
+			wantLang:  "fr",
+			wantURL:   "https://example.com/fr",
 		},
 		{
 			name:      "no hreflang",

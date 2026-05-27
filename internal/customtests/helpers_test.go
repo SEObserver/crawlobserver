@@ -306,6 +306,33 @@ func TestEvalGoRule_CSSExtractAttr_MissingAttr(t *testing.T) {
 	}
 }
 
+func TestEvalGoRule_CSSExtractAttr_CaseInsensitiveAttribute(t *testing.T) {
+	store := &mockStorage{
+		htmlPages: []PageHTMLRow{
+			{URL: "https://example.com/", HTML: `<html><body><div dataFoo="one"></div><div DATAFOO="two"></div></body></html>`},
+		},
+	}
+	ruleset := &Ruleset{
+		ID:   "p-case-attr",
+		Name: "CaseAttr",
+		Rules: []TestRule{
+			{ID: "r1", Type: CSSExtractAttr, Name: "First", Value: "div", Extra: "dataFoo"},
+			{ID: "r2", Type: CSSExtractAllAttr, Name: "All", Value: "div", Extra: "dataFoo"},
+		},
+	}
+
+	result, err := RunTests(context.TODO(), store, "s1", ruleset)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Pages[0].Results["r1"] != "one" {
+		t.Errorf("expected first attr 'one', got %q", result.Pages[0].Results["r1"])
+	}
+	if result.Pages[0].Results["r2"] != "one | two" {
+		t.Errorf("expected all attrs 'one | two', got %q", result.Pages[0].Results["r2"])
+	}
+}
+
 // ---------------------------------------------------------------------------
 // RunTests summary computation
 // ---------------------------------------------------------------------------

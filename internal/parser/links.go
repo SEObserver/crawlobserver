@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/SEObserver/crawlobserver/internal/htmlutil"
 	"github.com/SEObserver/crawlobserver/internal/normalizer"
 	"golang.org/x/net/publicsuffix"
 )
@@ -21,8 +22,8 @@ type Link struct {
 func extractLinks(doc *goquery.Document, baseURL *url.URL) []Link {
 	var links []Link
 
-	doc.Find("a[href], area[href]").Each(func(_ int, s *goquery.Selection) {
-		href, exists := s.Attr("href")
+	doc.Find("a, area").Each(func(_ int, s *goquery.Selection) {
+		href, exists := htmlutil.Attr(s, "href")
 		if !exists || href == "" {
 			return
 		}
@@ -39,7 +40,7 @@ func extractLinks(doc *goquery.Document, baseURL *url.URL) []Link {
 			return
 		}
 
-		rel, _ := s.Attr("rel")
+		rel, _ := htmlutil.Attr(s, "rel")
 		tag := goquery.NodeName(s)
 
 		links = append(links, Link{

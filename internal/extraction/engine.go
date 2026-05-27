@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/SEObserver/crawlobserver/internal/htmlutil"
 	"github.com/antchfx/htmlquery"
 	"golang.org/x/net/html"
 )
@@ -66,7 +67,7 @@ func evalExtractor(doc *goquery.Document, htmlNode *html.Node, rawHTML string, e
 	case CSSExtractText:
 		return truncate(doc.Find(ext.Selector).First().Text(), maxExtractLen)
 	case CSSExtractAttr:
-		return truncate(doc.Find(ext.Selector).First().AttrOr(ext.Attribute, ""), maxExtractLen)
+		return truncate(htmlutil.AttrOr(doc.Find(ext.Selector).First(), ext.Attribute, ""), maxExtractLen)
 	case CSSExtractAllText:
 		var items []string
 		doc.Find(ext.Selector).Each(func(_ int, s *goquery.Selection) {
@@ -76,7 +77,7 @@ func evalExtractor(doc *goquery.Document, htmlNode *html.Node, rawHTML string, e
 	case CSSExtractAllAttr:
 		var items []string
 		doc.Find(ext.Selector).Each(func(_ int, s *goquery.Selection) {
-			if v, ok := s.Attr(ext.Attribute); ok {
+			if v, ok := htmlutil.Attr(s, ext.Attribute); ok {
 				items = append(items, truncate(v, maxExtractLen))
 			}
 		})

@@ -233,6 +233,20 @@ func TestRunExtractors_CSSExtractAttr(t *testing.T) {
 	}
 }
 
+func TestRunExtractors_CSSExtractAttr_CaseInsensitiveAttribute(t *testing.T) {
+	body := []byte(`<html><body><div dataFoo="alpha">First</div></body></html>`)
+	ext := []Extractor{
+		{Type: CSSExtractAttr, Name: "data", Selector: "div", Attribute: "dataFoo"},
+	}
+	rows := RunExtractors(body, "http://example.com", "s", ext, testTime)
+	if len(rows) != 1 {
+		t.Fatalf("CSSExtractAttr case-insensitive attr: got %d rows, want 1", len(rows))
+	}
+	if rows[0].Value != "alpha" {
+		t.Errorf("CSSExtractAttr case-insensitive attr: value = %q, want %q", rows[0].Value, "alpha")
+	}
+}
+
 func TestRunExtractors_CSSExtractAttr_MissingAttribute(t *testing.T) {
 	body := []byte(`<a class="btn">click</a>`)
 	ext := []Extractor{
@@ -289,6 +303,20 @@ func TestRunExtractors_CSSExtractAllAttr(t *testing.T) {
 	}
 	if rows[0].Value != "/a | /b | /c" {
 		t.Errorf("CSSExtractAllAttr: value = %q, want %q", rows[0].Value, "/a | /b | /c")
+	}
+}
+
+func TestRunExtractors_CSSExtractAllAttr_CaseInsensitiveAttribute(t *testing.T) {
+	body := []byte(`<span dataFoo="a">A</span><span DATAFOO="b">B</span>`)
+	ext := []Extractor{
+		{Type: CSSExtractAllAttr, Name: "data", Selector: "span", Attribute: "dataFoo"},
+	}
+	rows := RunExtractors(body, "http://example.com", "s", ext, testTime)
+	if len(rows) != 1 {
+		t.Fatalf("CSSExtractAllAttr case-insensitive attr: got %d rows, want 1", len(rows))
+	}
+	if rows[0].Value != "a | b" {
+		t.Errorf("CSSExtractAllAttr case-insensitive attr: value = %q, want %q", rows[0].Value, "a | b")
 	}
 }
 
@@ -565,7 +593,7 @@ func TestRunExtractors_MixedMatchAndSkip(t *testing.T) {
 	body := []byte(`<h1>Found</h1>`)
 	exts := []Extractor{
 		{Type: CSSExtractText, Name: "found", Selector: "h1"},
-		{Type: CSSExtractText, Name: "missing", Selector: "h2"}, // no match, skipped
+		{Type: CSSExtractText, Name: "missing", Selector: "h2"},                     // no match, skipped
 		{Type: CSSExtractAttr, Name: "noattr", Selector: "h1", Attribute: "data-x"}, // no attr, skipped
 	}
 	rows := RunExtractors(body, "http://example.com", "s", exts, testTime)

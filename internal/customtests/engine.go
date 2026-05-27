@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/SEObserver/crawlobserver/internal/htmlutil"
 	"github.com/antchfx/htmlquery"
 	"golang.org/x/net/html"
 )
@@ -147,7 +148,7 @@ func evalGoRule(doc *goquery.Document, htmlNode *html.Node, rawHTML string, r Te
 	case CSSExtractText:
 		return truncate(doc.Find(r.Value).First().Text(), maxExtractLen)
 	case CSSExtractAttr:
-		return truncate(doc.Find(r.Value).First().AttrOr(r.Extra, ""), maxExtractLen)
+		return truncate(htmlutil.AttrOr(doc.Find(r.Value).First(), r.Extra, ""), maxExtractLen)
 
 	// --- CSS extract all ---
 	case CSSExtractAllText:
@@ -159,7 +160,7 @@ func evalGoRule(doc *goquery.Document, htmlNode *html.Node, rawHTML string, r Te
 	case CSSExtractAllAttr:
 		var items []string
 		doc.Find(r.Value).Each(func(_ int, s *goquery.Selection) {
-			if v, ok := s.Attr(r.Extra); ok {
+			if v, ok := htmlutil.Attr(s, r.Extra); ok {
 				items = append(items, truncate(v, maxExtractLen))
 			}
 		})

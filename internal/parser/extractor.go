@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/SEObserver/crawlobserver/internal/htmlutil"
 )
 
 func extractTitle(doc *goquery.Document) string {
@@ -11,16 +12,23 @@ func extractTitle(doc *goquery.Document) string {
 }
 
 func extractCanonical(doc *goquery.Document) string {
-	canonical, _ := doc.Find("link[rel='canonical']").First().Attr("href")
+	var canonical string
+	doc.Find("link").EachWithBreak(func(_ int, s *goquery.Selection) bool {
+		if htmlutil.AttrTokenContains(s, "rel", "canonical") {
+			canonical, _ = htmlutil.Attr(s, "href")
+			return false
+		}
+		return true
+	})
 	return strings.TrimSpace(canonical)
 }
 
 func extractMetaContent(doc *goquery.Document, name string) string {
 	var content string
 	doc.Find("meta").Each(func(_ int, s *goquery.Selection) {
-		n, _ := s.Attr("name")
+		n, _ := htmlutil.Attr(s, "name")
 		if strings.EqualFold(n, name) {
-			content, _ = s.Attr("content")
+			content, _ = htmlutil.Attr(s, "content")
 		}
 	})
 	return strings.TrimSpace(content)
