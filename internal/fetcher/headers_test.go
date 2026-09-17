@@ -82,6 +82,100 @@ func TestValidateExtraHeaders_Limits(t *testing.T) {
 	}
 }
 
+func TestValidateExtraHeaders_RefusesTransportAndProxyHeaders(t *testing.T) {
+	for _, name := range []string{
+		"Keep-Alive", "Proxy-Connection", "Proxy-Authenticate",
+		"Proxy-Authorization", "TE", "Via", "Forwarded",
+		"X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto",
+		"X-Forwarded-Port", "X-Real-IP",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := ValidateExtraHeaders(map[string]string{name: "opaque"}); err == nil {
+				t.Fatalf("ValidateExtraHeaders(%q) = nil, want refusal", name)
+			}
+		})
+	}
+	if err := ValidateExtraHeaders(map[string]string{"X-Opaque": "has-del\x7f"}); err == nil {
+		t.Fatal("ValidateExtraHeaders(DEL value) = nil, want refusal")
+	}
+}
+
+func TestHeaderPolicyOriginMatchingAndCopies(t *testing.T) {
+	policy := NewHeaderPolicy(map[string]string{
+		"x-signature": "opaque",
+	}, []string{
+		"HTTPS://Example.COM/path",
+		"http://example.com:80/",
+	})
+	if policy == nil {
+		t.Fatal("NewHeaderPolicy returned nil for valid headers and seeds")
+	}
+
+	for _, raw := range []string{
+		"https://example.com/other",
+		"https://EXAMPLE.com:443/",
+		"http://example.com/",
+		"http://EXAMPLE.COM:080/",
+	} {
+		got := policy.HeadersForURL(raw)
+		if got["X-Signature"] != "opaque" {
+			t.Errorf("HeadersForURL(%q) = %v, want signature", raw, got)
+		}
+	}
+	for _, raw := range []string{
+		"http://example.com:81/",
+		"https://example.com:8443/",
+		"http://other.example.com/",
+		"ftp://example.com/",
+		"//example.com/",
+	} {
+		if got := policy.HeadersForURL(raw); got != nil {
+			t.Errorf("HeadersForURL(%q) = %v, want nil", raw, got)
+		}
+	}
+
+	got := policy.HeadersForURL("https://example.com/")
+	got["X-Signature"] = "caller mutation"
+	if gotAgain := policy.HeadersForURL("https://example.com/"); gotAgain["X-Signature"] != "opaque" {
+		t.Fatalf("HeadersForURL returned a policy-backed map: %v", gotAgain)
+	}
+
+	req, err := http.NewRequest("GET", "https://other.example.com/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("X-Signature", "stale")
+	req.Header.Set("x-signature", "another stale value")
+	req.Header.Set("Cookie", "session=kept")
+	req.Header.Set("Accept", "application/json")
+	policy.Apply(req)
+	if got := req.Header.Get("X-Signature"); got != "" {
+		t.Errorf("Apply on an untrusted origin kept policy header %q", got)
+	}
+	if got := req.Header.Get("Cookie"); got != "session=kept" {
+		t.Errorf("Apply changed Cookie = %q", got)
+	}
+	if got := req.Header.Get("Accept"); got != "application/json" {
+		t.Errorf("Apply changed unrelated Accept = %q", got)
+	}
+}
+
+func TestNewHeaderPolicyEmptyInputsReturnNil(t *testing.T) {
+	if got := NewHeaderPolicy(nil, []string{"https://example.com/"}); got != nil {
+		t.Fatalf("NewHeaderPolicy(nil, seed) = %#v, want nil", got)
+	}
+	if got := NewHeaderPolicy(map[string]string{"X-Test": "v"}, nil); got != nil {
+		t.Fatalf("NewHeaderPolicy(headers, nil) = %#v, want nil", got)
+	}
+	var policy *HeaderPolicy
+	if got := policy.HeadersForURL("https://example.com/"); got != nil {
+		t.Errorf("nil policy HeadersForURL = %v, want nil", got)
+	}
+	req, _ := http.NewRequest("GET", "https://example.com/", nil)
+	policy.Apply(req)
+	policy.Strip(req)
+}
+
 // recordingServer answers every request and records the headers it received,
 // so that the tests below assert on what reached the wire rather than on what
 // the code meant to send.
@@ -114,7 +208,7 @@ func TestFetcher_SendsExtraHeaders(t *testing.T) {
 
 	f := New("TestBot/1.0", 5*time.Second, 1<<20,
 		DialOptions{AllowPrivateIPs: true}, "",
-		WithExtraHeaders(signatureHeaders))
+		WithHeaderPolicy(NewHeaderPolicy(signatureHeaders, []string{srv.URL})))
 
 	result := f.Fetch(srv.URL+"/page", 0, "")
 	if result.StatusCode != http.StatusOK {
@@ -129,7 +223,7 @@ func TestRobotsCache_SendsExtraHeaders(t *testing.T) {
 	srv, received := recordingServer(t, "User-agent: *\nAllow: /\n")
 
 	rc := NewRobotsCache("TestBot/1.0", 5*time.Second,
-		DialOptions{AllowPrivateIPs: true}, "", signatureHeaders)
+		DialOptions{AllowPrivateIPs: true}, "", NewHeaderPolicy(signatureHeaders, []string{srv.URL}))
 
 	rc.IsAllowed(srv.URL + "/page")
 	assertSignatureHeadersArrived(t, received("/robots.txt"), "robots.txt fetch")
@@ -139,7 +233,7 @@ func TestFetchSitemap_SendsExtraHeaders(t *testing.T) {
 	srv, received := recordingServer(t,
 		`<?xml version="1.0"?><urlset><url><loc>https://example.com/</loc></url></urlset>`)
 
-	FetchSitemap(context.Background(), srv.Client(), srv.URL+"/sitemap.xml", "TestBot/1.0", signatureHeaders)
+	FetchSitemap(context.Background(), srv.Client(), srv.URL+"/sitemap.xml", "TestBot/1.0", NewHeaderPolicy(signatureHeaders, []string{srv.URL}))
 	assertSignatureHeadersArrived(t, received("/sitemap.xml"), "sitemap fetch")
 }
 
@@ -151,7 +245,7 @@ func TestFetcher_ExtraHeadersCannotOverrideUserAgent(t *testing.T) {
 
 	f := New("TestBot/1.0", 5*time.Second, 1<<20,
 		DialOptions{AllowPrivateIPs: true}, "",
-		WithExtraHeaders(map[string]string{"User-Agent": "Impostor/9.9"}))
+		WithHeaderPolicy(NewHeaderPolicy(map[string]string{"User-Agent": "Impostor/9.9"}, []string{srv.URL})))
 
 	f.Fetch(srv.URL+"/page", 0, "")
 	if got := received("/page").Get("User-Agent"); got != "TestBot/1.0" {
@@ -166,7 +260,7 @@ func TestFetcher_ExtraHeadersOverrideAccept(t *testing.T) {
 
 	f := New("TestBot/1.0", 5*time.Second, 1<<20,
 		DialOptions{AllowPrivateIPs: true}, "",
-		WithExtraHeaders(map[string]string{"Accept": "application/json"}))
+		WithHeaderPolicy(NewHeaderPolicy(map[string]string{"Accept": "application/json"}, []string{srv.URL})))
 
 	f.Fetch(srv.URL+"/page", 0, "")
 	if got := received("/page").Get("Accept"); got != "application/json" {
@@ -181,7 +275,7 @@ func TestWithExtraHeaders_CopiesTheMap(t *testing.T) {
 
 	headers := map[string]string{"Signature-Agent": `"https://example.com/"`}
 	f := New("TestBot/1.0", 5*time.Second, 1<<20,
-		DialOptions{AllowPrivateIPs: true}, "", WithExtraHeaders(headers))
+		DialOptions{AllowPrivateIPs: true}, "", WithHeaderPolicy(NewHeaderPolicy(headers, []string{srv.URL})))
 	headers["Signature-Agent"] = `"https://elsewhere.example/"`
 
 	f.Fetch(srv.URL+"/page", 0, "")
@@ -205,9 +299,10 @@ func TestFetcher_NoExtraHeadersIsUnchanged(t *testing.T) {
 	}
 }
 
-// The browser pool cannot go through ApplyExtraHeaders, so it filters with
-// SanitizeExtraHeaders. Both must refuse the same things, or a crawl presents
-// one identity over HTTP and another once it renders.
+// The browser pool cannot go through HeaderPolicy.Apply directly, so it uses
+// the policy's URL-aware copy. The HTTP and browser paths must refuse the same
+// things, or a crawl presents one identity over HTTP and another once it
+// renders.
 func TestSanitizeExtraHeaders_MatchesWhatIsSent(t *testing.T) {
 	cases := map[string]string{
 		"Signature-Agent": `"https://example.com/"`,
@@ -222,7 +317,8 @@ func TestSanitizeExtraHeaders_MatchesWhatIsSent(t *testing.T) {
 
 	srv, received := recordingServer(t, "ok")
 	f := New("TestBot/1.0", 5*time.Second, 1<<20,
-		DialOptions{AllowPrivateIPs: true}, "", WithExtraHeaders(cases))
+		DialOptions{AllowPrivateIPs: true}, "", WithHeaderPolicy(NewHeaderPolicy(cases, []string{srv.URL})))
+
 	f.Fetch(srv.URL+"/page", 0, "")
 	sent := received("/page")
 
@@ -282,7 +378,7 @@ func TestFetcher_ExtraHeadersDoNotFollowCrossHostRedirects(t *testing.T) {
 	t.Cleanup(origin.Close)
 
 	f := New("TestBot/1.0", 5*time.Second, 1<<20,
-		DialOptions{AllowPrivateIPs: true}, "", WithExtraHeaders(signatureHeaders))
+		DialOptions{AllowPrivateIPs: true}, "", WithHeaderPolicy(NewHeaderPolicy(signatureHeaders, []string{origin.URL})))
 
 	// Leaving for another host: the headers must be dropped.
 	if res := f.Fetch(origin.URL+"/leave", 0, ""); res.StatusCode != http.StatusOK {
@@ -303,5 +399,115 @@ func TestFetcher_ExtraHeadersDoNotFollowCrossHostRedirects(t *testing.T) {
 	res := f.Fetch(origin.URL+"/stay", 0, "")
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("same-host redirect status = %d (%s), want 200", res.StatusCode, res.Error)
+	}
+}
+
+func TestFetcher_HeaderPolicyDoesNotRegainHeadersAfterUntrustedRedirect(t *testing.T) {
+	var other *httptest.Server
+	var origin *httptest.Server
+	otherHeaders := make(map[string]http.Header)
+	other = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		otherHeaders[r.URL.Path] = r.Header.Clone()
+		if r.URL.Path == "/return" {
+			// The request comes back to the original seed origin after an
+			// untrusted hop. It must remain unsigned on that final hop too.
+			w.Header().Set("Location", origin.URL+"/arrived")
+			w.WriteHeader(http.StatusFound)
+			return
+		}
+		fmt.Fprint(w, "ok")
+	}))
+	t.Cleanup(other.Close)
+
+	origin = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		otherLocation := other.URL + "/return"
+		if r.URL.Path == "/arrived" {
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, "<html>arrived</html>")
+			return
+		}
+		switch r.URL.Path {
+		case "/leave":
+			http.Redirect(w, r, otherLocation, http.StatusFound)
+		default:
+			http.Redirect(w, r, origin.URL+"/arrived", http.StatusFound)
+		}
+	}))
+	t.Cleanup(origin.Close)
+
+	policy := NewHeaderPolicy(signatureHeaders, []string{origin.URL})
+	f := New("TestBot/1.0", 5*time.Second, 1<<20,
+		DialOptions{AllowPrivateIPs: true}, "", WithHeaderPolicy(policy))
+	result := f.Fetch(origin.URL+"/leave", 0, "")
+	if result.StatusCode != http.StatusOK {
+		t.Fatalf("Fetch status = %d (%s), want 200", result.StatusCode, result.Error)
+	}
+	for name := range signatureHeaders {
+		if got := otherHeaders["/return"].Get(name); got != "" {
+			t.Errorf("untrusted redirect target received %s = %q", name, got)
+		}
+	}
+	// The final response is from the original origin, but it must remain
+	// unsigned because this chain crossed an untrusted origin first.
+	if got := result.RedirectChain; len(got) != 2 {
+		t.Fatalf("redirect chain = %v, want two hops", got)
+	}
+}
+
+func TestFetchSitemap_HeaderPolicyFiltersOffOriginDeclarationsAndChildren(t *testing.T) {
+	other, otherReceived := recordingServer(t,
+		`<?xml version="1.0"?><urlset><url><loc>https://example.invalid/</loc></url></urlset>`)
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		if r.URL.Path == "/index.xml" {
+			fmt.Fprintf(w, `<?xml version="1.0"?><sitemapindex><sitemap><loc>%s/child.xml</loc></sitemap></sitemapindex>`, other.URL)
+			return
+		}
+		fmt.Fprint(w, `<urlset><url><loc>https://example.invalid/</loc></url></urlset>`)
+	}))
+	t.Cleanup(origin.Close)
+
+	policy := NewHeaderPolicy(signatureHeaders, []string{origin.URL})
+	entries := DiscoverSitemaps(context.Background(), origin.Client(), "TestBot/1.0",
+		[]string{origin.URL + "/index.xml", other.URL + "/direct.xml"}, policy)
+	if len(entries) != 3 {
+		t.Fatalf("DiscoverSitemaps returned %d entries, want 3", len(entries))
+	}
+	for _, path := range []string{"/child.xml", "/direct.xml"} {
+		got := otherReceived(path)
+		if got == nil {
+			t.Fatalf("off-origin sitemap %s was not fetched", path)
+		}
+		for name := range signatureHeaders {
+			if value := got.Get(name); value != "" {
+				t.Errorf("off-origin sitemap %s received %s = %q", path, name, value)
+			}
+		}
+	}
+}
+
+func TestRobotsCache_HeaderPolicyStripsRedirectedRobotsHeaders(t *testing.T) {
+	other, otherReceived := recordingServer(t, "User-agent: *\nAllow: /\n")
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, other.URL+"/robots.txt", http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	policy := NewHeaderPolicy(signatureHeaders, []string{origin.URL})
+	rc := NewRobotsCache("TestBot/1.0", 5*time.Second,
+		DialOptions{AllowPrivateIPs: true}, "", policy)
+	if !rc.IsAllowed(origin.URL + "/page") {
+		t.Fatal("redirected robots.txt unexpectedly disallowed page")
+	}
+	got := otherReceived("/robots.txt")
+	if got == nil {
+		t.Fatal("redirect target did not receive robots request")
+	}
+	for name := range signatureHeaders {
+		if value := got.Get(name); value != "" {
+			t.Errorf("redirected robots target received %s = %q", name, value)
+		}
 	}
 }

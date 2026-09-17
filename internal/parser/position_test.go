@@ -2,6 +2,8 @@ package parser
 
 import (
 	"net/url"
+	"strconv"
+	"strings"
 	"testing"
 
 	"golang.org/x/net/html"
@@ -193,6 +195,83 @@ func TestExtractLinksDocumentIndex(t *testing.T) {
 		if got := linkByAnchor(t, links, anchor).DocumentIndex; got != index {
 			t.Errorf("DocumentIndex for %q = %d, want %d", anchor, got, index)
 		}
+	}
+}
+
+func TestExtractLinksPositionLimitRetainsAllLinks(t *testing.T) {
+	base, err := url.Parse("https://example.com/page")
+	if err != nil {
+		t.Fatalf("url.Parse() error = %v", err)
+	}
+	links := extractLinks(docFromHTML(`<html><body>
+		<a href="/first">First</a>
+		<a href="mailto:x@example.com">Skipped</a>
+		<a href="#anchor">Skipped too</a>
+		<a href="/second">Second</a>
+		<a href="/third">Third</a>
+	</body></html>`), base, Options{LinkPosition: true, MaxLinkPositions: 2})
+
+	if len(links) != 3 {
+		t.Fatalf("len(links) = %d, want 3: %+v", len(links), links)
+	}
+	if got := linkByAnchor(t, links, "First").DocumentIndex; got != 0 {
+		t.Errorf("DocumentIndex for First = %d, want 0", got)
+	}
+	if got := linkByAnchor(t, links, "Second").DocumentIndex; got != 1 {
+		t.Errorf("DocumentIndex for Second = %d, want 1", got)
+	}
+	third := linkByAnchor(t, links, "Third")
+	if third.TargetURL != "https://example.com/third" {
+		t.Errorf("TargetURL for uncategorized link = %q, want %q", third.TargetURL, "https://example.com/third")
+	}
+	if third.Landmark != "" || third.XPath != "" || third.Depth != 0 || third.DocumentIndex != 0 || third.BlockSignature != 0 {
+		t.Errorf("position recorded beyond limit: %+v", third)
+	}
+}
+
+func TestExtractLinksPositionLimitKeepsXPathSiblingCounts(t *testing.T) {
+	base, err := url.Parse("https://example.com/page")
+	if err != nil {
+		t.Fatalf("url.Parse() error = %v", err)
+	}
+	links := extractLinks(docFromHTML(`<html><body><p>
+		<a href="/before">Before</a>
+		<a href="/target">Target</a>
+		<a href="/after">After</a>
+	</p></body></html>`), base, Options{LinkPosition: true, MaxLinkPositions: 2})
+
+	if got := linkByAnchor(t, links, "Before").XPath; got != "/html/body/p/a[1]" {
+		t.Errorf("XPath for Before = %q, want %q", got, "/html/body/p/a[1]")
+	}
+	if got := linkByAnchor(t, links, "Target").XPath; got != "/html/body/p/a[2]" {
+		t.Errorf("XPath for Target = %q, want %q", got, "/html/body/p/a[2]")
+	}
+	if got := linkByAnchor(t, links, "After").XPath; got != "" {
+		t.Errorf("XPath for link beyond limit = %q, want empty", got)
+	}
+}
+
+func TestExtractLinksNonPositivePositionLimitUsesDefault(t *testing.T) {
+	markup := `<html><body>` + strings.Repeat(`<a href="/link">Link</a>`, DefaultMaxLinkPositions+1) + `</body></html>`
+	base, err := url.Parse("https://example.com/page")
+	if err != nil {
+		t.Fatalf("url.Parse() error = %v", err)
+	}
+
+	for _, limit := range []int{0, -1} {
+		t.Run("limit="+strconv.Itoa(limit), func(t *testing.T) {
+			links := extractLinks(docFromHTML(markup), base, Options{LinkPosition: true, MaxLinkPositions: limit})
+			if len(links) != DefaultMaxLinkPositions+1 {
+				t.Fatalf("len(links) = %d, want %d", len(links), DefaultMaxLinkPositions+1)
+			}
+			if links[DefaultMaxLinkPositions-1].XPath == "" {
+				t.Errorf("link at default limit did not receive position metadata")
+			}
+			last := links[DefaultMaxLinkPositions]
+			if last.XPath != "" || last.Landmark != "" || last.Depth != 0 || last.DocumentIndex != 0 || last.BlockSignature != 0 {
+				t.Errorf("link beyond default limit has position metadata: %+v", last)
+			}
+		})
 	}
 }
 

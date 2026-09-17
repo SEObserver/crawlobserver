@@ -32,6 +32,20 @@
   }
   const crawlerCfg = untrack(initialCrawlerConfig);
 
+  function initialLinkPositionMode() {
+    if (mode === 'new') return 'default';
+    const stored = crawlerCfg.StoreLinkPosition ?? crawlerCfg.store_link_position;
+    if (typeof stored === 'boolean') return stored ? 'enabled' : 'disabled';
+    return 'default';
+  }
+
+  function initialLinkPositionLimit() {
+    if (mode === 'new') return '';
+    const stored = crawlerCfg.MaxLinkPositionsPerPage ?? crawlerCfg.max_link_positions_per_page;
+    const value = Number(stored);
+    return Number.isSafeInteger(value) && value > 0 ? String(value) : '';
+  }
+
   function nsToMs(ns) {
     if (ns == null || ns < 0) return 1000;
     return Math.round(ns / 1e6);
@@ -74,6 +88,8 @@
   let maxPages = $state(initiallyNew ? 0 : crawlerCfg.MaxPages || 0);
   let maxDepth = $state(initiallyNew ? 0 : crawlerCfg.MaxDepth || 0);
   let storeHtml = $state(initiallyNew ? false : crawlerCfg.StoreHTML || false);
+  let linkPositionMode = $state(initialLinkPositionMode());
+  let linkPositionLimit = $state(initialLinkPositionLimit());
   let crawlScope = $state(initiallyNew ? 'host' : crawlerCfg.CrawlScope || 'host');
   let crawlProjectId = $state(
     untrack(() => (initiallyNew ? initialProjectId : session?.ProjectID || '')),
@@ -100,6 +116,21 @@
   let checkingIP = $state(false);
   let checkedIP = $state('');
   let submitting = $state(false);
+
+  function validateLinkPositionLimit(value) {
+    const raw = String(value ?? '').trim();
+    if (raw === '') return { value: undefined, error: '' };
+    if (!/^[1-9]\d*$/.test(raw)) {
+      return { value: undefined, error: t('newCrawl.linkPositionLimitInvalid') };
+    }
+    const parsed = Number(raw);
+    if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+      return { value: undefined, error: t('newCrawl.linkPositionLimitInvalid') };
+    }
+    return { value: parsed, error: '' };
+  }
+
+  let linkPositionLimitValidation = $derived(validateLinkPositionLimit(linkPositionLimit));
 
   // Load extractor sets on mount
   getExtractorSets()
@@ -156,7 +187,7 @@
 
   function buildOptions() {
     const ua = userAgentPreset === 'custom' ? userAgentCustom : userAgentPreset;
-    return {
+    const options = {
       max_pages: maxPages,
       max_depth: maxDepth,
       workers,
@@ -185,6 +216,14 @@
             .filter(Boolean)
         : undefined,
     };
+
+    if (linkPositionMode === 'enabled') options.store_link_position = true;
+    if (linkPositionMode === 'disabled') options.store_link_position = false;
+    if (linkPositionLimitValidation.value !== undefined) {
+      options.max_link_positions_per_page = linkPositionLimitValidation.value;
+    }
+
+    return options;
   }
 
   async function handleSubmit() {
@@ -229,7 +268,9 @@
           : t('resumeModal.resume'),
   );
 
-  let submitDisabled = $derived(submitting || (isNew && !seedInput.trim()));
+  let submitDisabled = $derived(
+    submitting || (isNew && !seedInput.trim()) || Boolean(linkPositionLimitValidation.error),
+  );
 </script>
 
 {#if isNew}
@@ -420,6 +461,45 @@
         </label>
       </div>
 
+      <div class="link-position-settings">
+        <div class="form-group">
+          <label for="cf-link-position">{t('newCrawl.linkPosition')}</label>
+          <select
+            id="cf-link-position"
+            value={linkPositionMode}
+            onchange={(event) => (linkPositionMode = event.currentTarget.value)}
+          >
+            <option value="default">
+              {t(isNew ? 'newCrawl.linkPositionDefault' : 'newCrawl.linkPositionKeepSession')}
+            </option>
+            <option value="enabled">{t('newCrawl.linkPositionEnabled')}</option>
+            <option value="disabled">{t('newCrawl.linkPositionDisabled')}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cf-link-position-limit">{t('newCrawl.linkPositionLimit')}</label>
+          <input
+            id="cf-link-position-limit"
+            type="text"
+            inputmode="numeric"
+            bind:value={linkPositionLimit}
+            placeholder={t(
+              isNew
+                ? 'newCrawl.linkPositionLimitPlaceholder'
+                : 'newCrawl.linkPositionLimitSessionPlaceholder',
+            )}
+            aria-invalid={Boolean(linkPositionLimitValidation.error)}
+            aria-describedby="cf-link-position-hint cf-link-position-error"
+          />
+        </div>
+        <p id="cf-link-position-hint" class="form-hint">{t('newCrawl.linkPositionHint')}</p>
+        {#if linkPositionLimitValidation.error}
+          <p id="cf-link-position-error" class="form-hint form-error">
+            {linkPositionLimitValidation.error}
+          </p>
+        {/if}
+      </div>
+
       <div class="form-group" style="margin-top: 12px;">
         <label for="cf-excludePatterns">{t('newCrawl.excludePatterns')}</label>
         <textarea
@@ -555,6 +635,37 @@
   .form-group-inline input {
     width: 70px;
   }
+  .link-position-settings {
+    display: grid;
+    grid-template-columns: minmax(200px, 1fr) minmax(180px, 1fr);
+    gap: 12px 16px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .link-position-settings select {
+    min-height: 38px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .link-position-settings select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+  .link-position-settings .form-hint {
+    grid-column: 1 / -1;
+    margin: -4px 0 0;
+  }
+  .link-position-settings .form-error {
+    color: var(--error);
+    margin-top: -8px;
+  }
   .badge-info {
     font-size: 0.8rem;
     padding: 2px 8px;
@@ -580,5 +691,10 @@
   textarea:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+  @media (max-width: 600px) {
+    .link-position-settings {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

@@ -31,14 +31,16 @@ import (
 
 // Engine orchestrates the crawling pipeline.
 type Engine struct {
-	cfg      *config.Config
-	store    *storage.Store
-	bufferMu sync.RWMutex
-	buffer   *storage.Buffer
-	front    *frontier.Frontier
-	fetch    *fetcher.Fetcher
-	robots   *fetcher.RobotsCache
-	session  *Session
+	cfg          *config.Config
+	store        *storage.Store
+	bufferMu     sync.RWMutex
+	buffer       *storage.Buffer
+	front        *frontier.Frontier
+	fetch        *fetcher.Fetcher
+	robots       *fetcher.RobotsCache
+	session      *Session
+	headerPolicy *fetcher.HeaderPolicy
+	headerLoader func() (map[string]string, error)
 
 	pagesCrawled   atomic.Int64
 	lastProgressAt atomic.Int64
@@ -53,7 +55,7 @@ type Engine struct {
 	hostHealth       *HostHealth
 	retryPolicy      *RetryPolicy
 	pendingRetries   atomic.Int64
-	resultsProcessed atomic.Int64 // all results including retries, for circuit breaker
+	resultsProcessed atomic.Int64  // all results including retries, for circuit breaker
 	baseDelay        time.Duration // original frontier delay, for adaptive throttle
 
 	sitemapOnly      bool
@@ -87,7 +89,7 @@ type Engine struct {
 	cfResolver      cfsolve.ChallengeResolver
 	cfHoldQueue     map[string][]*RetryItem // host → URLs parked during CF solve
 	cfSolvingHosts  map[string]bool         // hosts currently being CF-solved
-	cfFailedHosts   map[string]time.Time     // host → time when block expires
+	cfFailedHosts   map[string]time.Time    // host → time when block expires
 	cfHoldMu        sync.Mutex
 	cookieJar       *cookiejar.Jar
 	pendingCFSolves atomic.Int64
@@ -127,8 +129,8 @@ func NewEngine(cfg *config.Config, store *storage.Store) *Engine {
 		cfg:        cfg,
 		store:      store,
 		front:      frontier.New(cfg.Crawler.Delay, cfg.Crawler.MaxFrontierSize),
-		fetch:      fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize, dialOpts, fetcher.TLSProfile(cfg.Crawler.TLSProfile), fetcher.WithExtraHeaders(cfg.Crawler.Headers)),
-		robots:     fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, dialOpts, fetcher.TLSProfile(cfg.Crawler.TLSProfile), cfg.Crawler.Headers),
+		fetch:      fetcher.New(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, cfg.Crawler.MaxBodySize, dialOpts, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
+		robots:     fetcher.NewRobotsCache(cfg.Crawler.UserAgent, cfg.Crawler.Timeout, dialOpts, fetcher.TLSProfile(cfg.Crawler.TLSProfile)),
 		retryQueue: NewRetryQueue(),
 		hostHealth: NewHostHealth(),
 		retryPolicy: &RetryPolicy{
@@ -146,6 +148,7 @@ func NewEngine(cfg *config.Config, store *storage.Store) *Engine {
 // SessionID creates the session and returns its ID without starting the crawl.
 func (e *Engine) SessionID(seeds []string) string {
 	e.session = NewSession(seeds, e.cfg)
+	e.configureHeaderPolicy()
 	return e.session.ID
 }
 
@@ -160,6 +163,37 @@ func (e *Engine) SetSessionID(id string) {
 func (e *Engine) ResumeSession(id string, originalSeeds []string) {
 	e.session = NewSession(originalSeeds, e.cfg)
 	e.session.ID = id
+	e.configureHeaderPolicy()
+}
+
+// Bind credentials to the original user-supplied seeds, never to URLs found in
+// the crawl, a sitemap, a redirect, or a retry queue. Called before workers run.
+func (e *Engine) configureHeaderPolicy() {
+	e.headerPolicy = fetcher.NewHeaderPolicy(e.cfg.Crawler.Headers, e.session.SeedURLs)
+	dialOpts := fetcher.DialOptions{
+		SourceIP:        e.cfg.Crawler.SourceIP,
+		ForceIPv4:       e.cfg.Crawler.ForceIPv4,
+		AllowPrivateIPs: e.cfg.Crawler.AllowPrivateIPs,
+	}
+	e.fetch = fetcher.New(e.cfg.Crawler.UserAgent, e.cfg.Crawler.Timeout, e.cfg.Crawler.MaxBodySize,
+		dialOpts, fetcher.TLSProfile(e.cfg.Crawler.TLSProfile), fetcher.WithHeaderPolicy(e.headerPolicy))
+	e.robots = fetcher.NewRobotsCache(e.cfg.Crawler.UserAgent, e.cfg.Crawler.Timeout,
+		dialOpts, fetcher.TLSProfile(e.cfg.Crawler.TLSProfile), e.headerPolicy)
+}
+
+func (e *Engine) prepareRequestHeaders() error {
+	if e.headerLoader != nil {
+		headers, err := e.headerLoader()
+		if err != nil {
+			return err
+		}
+		e.cfg.Crawler.Headers = headers
+	}
+	if err := fetcher.ValidateExtraHeaders(e.cfg.Crawler.Headers); err != nil {
+		return fmt.Errorf("invalid crawl headers: %w", err)
+	}
+	e.configureHeaderPolicy()
+	return nil
 }
 
 // PagesCrawled returns the current number of pages crawled.
@@ -286,6 +320,18 @@ func (e *Engine) initCrawl(seeds []string) error {
 		e.session.Status = "running"
 	}
 	e.maxPages = int64(e.cfg.Crawler.MaxPages)
+	if err := e.prepareRequestHeaders(); err != nil {
+		// Persist a visible failure even if this engine spent time queued.
+		e.session.Status = "error"
+		if e.store != nil {
+			row := e.session.ToStorageRow()
+			row.FinishedAt = time.Now()
+			if saveErr := e.store.InsertSession(e.ctx, row); saveErr != nil {
+				applog.Errorf("crawler", "saving header load failure: %v", saveErr)
+			}
+		}
+		return fmt.Errorf("preparing crawl headers: %w", err)
+	}
 	e.buildScope()
 	buf := storage.NewBuffer(e.store, e.cfg.Storage.BatchSize, e.cfg.Storage.FlushInterval, e.session.ID)
 	e.bufferMu.Lock()
@@ -316,7 +362,7 @@ func (e *Engine) initCrawl(seeds []string) error {
 			UserAgent:      e.cfg.Crawler.UserAgent,
 			BlockResources: e.cfg.Crawler.JSRender.BlockResources,
 			Headless:       true,
-			ExtraHeaders:   fetcher.SanitizeExtraHeaders(e.cfg.Crawler.Headers),
+			HeaderPolicy:   e.headerPolicy,
 		}
 		pool, err := renderer.NewPool(poolOpts)
 		if err != nil {
@@ -887,7 +933,8 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 		// Parse HTML if applicable
 		if result.IsHTML() && len(result.Body) > 0 && result.Error == "" {
 			pageData, err := parser.ParseWithOptions(result.Body, result.FinalURL, parser.Options{
-				LinkPosition: e.cfg.Crawler.StoreLinkPosition,
+				LinkPosition:     e.cfg.Crawler.StoreLinkPosition,
+				MaxLinkPositions: e.cfg.Crawler.MaxLinkPositionsPerPage,
 			})
 			if err != nil {
 				applog.Warnf("crawler", "Parse error for %s: %v", result.URL, err)
@@ -1439,13 +1486,9 @@ func (e *Engine) resourceCheckWorker() {
 			continue
 		}
 		req.Header.Set("User-Agent", e.cfg.Crawler.UserAgent)
-		// Only this site's own resources are signed. An external resource
-		// belongs to someone else, and a signature naming this site has no
-		// business reaching them — while an internal one checked unsigned
-		// against a gated site answers 403 and is recorded as broken.
-		if item.IsInternal {
-			fetcher.ApplyExtraHeaders(req, e.cfg.Crawler.Headers)
-		}
+		// SEO's "internal" includes sibling subdomains; credentials require
+		// an exact seed origin instead.
+		e.headerPolicy.Apply(req)
 		resp, err := client.Do(req)
 		check.ResponseTimeMs = uint32(time.Since(start).Milliseconds())
 		if err != nil {
@@ -1531,7 +1574,7 @@ func (e *Engine) flushResourceRefs() {
 // it. Sitemaps are a request path like any other: a site that gates on a
 // header refuses an unsigned sitemap the same way it refuses a page.
 func (e *Engine) retrieveSitemaps(sitemapURLs []string) []fetcher.SitemapEntry {
-	return fetcher.DiscoverSitemaps(e.ctx, e.fetch.Client(), e.cfg.Crawler.UserAgent, sitemapURLs, e.cfg.Crawler.Headers)
+	return fetcher.DiscoverSitemaps(e.ctx, e.fetch.Client(), e.cfg.Crawler.UserAgent, sitemapURLs, e.headerPolicy)
 }
 
 // discoverAndPersistSitemaps fetches sitemaps from robots.txt directives and persists them.
@@ -1700,6 +1743,9 @@ func (e *Engine) newCheckClient() *http.Client {
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return http.ErrUseLastResponse
+			}
+			if !e.headerPolicy.AllowsURL(req.URL.String()) {
+				e.headerPolicy.Strip(req)
 			}
 			return nil
 		},

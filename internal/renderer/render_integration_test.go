@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/SEObserver/crawlobserver/internal/fetcher"
 )
 
 // These tests drive a real browser. They are the only place the DevTools path
@@ -19,13 +21,18 @@ import (
 // runs the rest of the suite. A launch that fails for any other reason is a
 // failure, not a skip.
 
-func newTestPool(t *testing.T, headers map[string]string) *Pool {
+func newTestPool(t *testing.T, policy *fetcher.HeaderPolicy) *Pool {
+	return newTestPoolWithBlockResources(t, policy, true)
+}
+
+func newTestPoolWithBlockResources(t *testing.T, policy *fetcher.HeaderPolicy, blockResources bool) *Pool {
 	t.Helper()
 
 	opts := DefaultPoolOptions()
 	opts.MaxPages = 1
 	opts.PageTimeout = 20 * time.Second
-	opts.ExtraHeaders = headers
+	opts.BlockResources = blockResources
+	opts.HeaderPolicy = policy
 
 	pool, err := NewPool(opts)
 	if err != nil {
@@ -81,8 +88,8 @@ func TestRender_HeadersReachTheSiteAndNotThirdParties(t *testing.T) {
 		"Signature-Agent": `"https://example.com/.well-known/http-message-signatures-directory"`,
 		"Signature":       `sig1=:dGVzdA==:`,
 	}
-	pool := newTestPool(t, headers)
 	pageURL, headersFor := renderTestSite(t)
+	pool := newTestPool(t, fetcher.NewHeaderPolicy(headers, []string{pageURL}))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -145,5 +152,102 @@ func TestRender_WithoutHeadersStillRenders(t *testing.T) {
 	}
 	if got := headersFor("/page").Get("Signature"); got != "" {
 		t.Errorf("Signature = %q, want it absent", got)
+	}
+}
+
+func TestRender_OffOriginFinalURLCannotUseSeedHeaders(t *testing.T) {
+	var mu sync.Mutex
+	received := make(map[string]http.Header)
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		received["origin"+r.URL.Path] = r.Header.Clone()
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/javascript")
+		fmt.Fprint(w, "window.__seedAsset = true;")
+	}))
+	t.Cleanup(origin.Close)
+
+	final := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		received["final"+r.URL.Path] = r.Header.Clone()
+		mu.Unlock()
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprintf(w, `<!doctype html><html><body><script src="%s/seed.js"></script><h1>final</h1></body></html>`, origin.URL)
+	}))
+	t.Cleanup(final.Close)
+
+	headers := map[string]string{"Signature": `sig1=:dGVzdA==:`}
+	pool := newTestPool(t, fetcher.NewHeaderPolicy(headers, []string{origin.URL}))
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	result := pool.Render(ctx, final.URL+"/page")
+	if result.Error != nil {
+		t.Fatalf("Render failed: %v", result.Error)
+	}
+	if !strings.Contains(result.RenderedHTML, "final") {
+		t.Fatalf("rendered HTML does not contain final page:\n%s", result.RenderedHTML)
+	}
+
+	mu.Lock()
+	finalHeaders := received["final/page"]
+	seedHeaders := received["origin/seed.js"]
+	mu.Unlock()
+	if finalHeaders == nil {
+		t.Fatal("the browser never requested the off-origin final page")
+	}
+	if seedHeaders == nil {
+		t.Fatal("the off-origin page never requested the seed-origin resource")
+	}
+	if got := finalHeaders.Get("Signature"); got != "" {
+		t.Errorf("off-origin rendered page received Signature = %q", got)
+	}
+	if got := seedHeaders.Get("Signature"); got != "" {
+		t.Errorf("off-origin rendered page caused seed resource Signature = %q", got)
+	}
+}
+
+func TestRender_DifferentPortRedirectCannotUseSeedHeaders(t *testing.T) {
+	var mu sync.Mutex
+	var otherHeaders http.Header
+
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		otherHeaders = r.Header.Clone()
+		mu.Unlock()
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, "<!doctype html><html><body><h1>other port</h1></body></html>")
+	}))
+	t.Cleanup(other.Close)
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, other.URL+"/final", http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	policy := fetcher.NewHeaderPolicy(map[string]string{"Signature": `sig1=:dGVzdA==:`}, []string{origin.URL})
+	// Keep resource loading enabled here so this exercises the same router
+	// path used when callers disable the crawl's resource blocking.
+	pool := newTestPoolWithBlockResources(t, policy, false)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	result := pool.Render(ctx, origin.URL+"/start")
+	if result.Error != nil {
+		t.Fatalf("Render failed: %v", result.Error)
+	}
+	if !strings.Contains(result.RenderedHTML, "other port") {
+		t.Fatalf("rendered HTML does not contain redirect target:\n%s", result.RenderedHTML)
+	}
+
+	mu.Lock()
+	got := otherHeaders
+	mu.Unlock()
+	if got == nil {
+		t.Fatal("the browser never requested the different-port redirect target")
+	}
+	if signature := got.Get("Signature"); signature != "" {
+		t.Errorf("different-port redirect target received Signature = %q", signature)
 	}
 }

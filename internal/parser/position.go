@@ -60,9 +60,17 @@ func landmarkOf(n *html.Node) string {
 // A positional predicate is added only when the element has siblings of the same
 // name, which is how browsers and crawlers usually spell these paths.
 func nodeXPath(n *html.Node) string {
+	return nodeXPathWithCache(n, nil)
+}
+
+// nodeXPathWithCache returns an absolute XPath while reusing the sibling
+// indexes collected for each parent. Keeping nodeXPath as a small wrapper
+// preserves its useful standalone behavior for callers and tests that do not
+// already have a page-level cache.
+func nodeXPathWithCache(n *html.Node, cache *xpathIndexCache) string {
 	var segments []string
 	for e := n; e != nil && e.Type == html.ElementNode; e = e.Parent {
-		segments = append(segments, xpathSegment(e))
+		segments = append(segments, xpathSegmentWithCache(e, cache))
 	}
 
 	var b strings.Builder
@@ -74,9 +82,58 @@ func nodeXPath(n *html.Node) string {
 }
 
 func xpathSegment(e *html.Node) string {
+	return xpathSegmentWithCache(e, nil)
+}
+
+// xpathIndexCache stores same-named sibling positions for parents already
+// encountered while producing paths. Computing a parent's complete index once
+// keeps a long run of links under one list linear instead of repeatedly
+// scanning the list for every link.
+type xpathIndexCache struct {
+	parents map[*html.Node]xpathParentIndex
+}
+
+type xpathParentIndex struct {
+	positions map[*html.Node]int
+	counts    map[string]int
+}
+
+func newXPathIndexCache() *xpathIndexCache {
+	return &xpathIndexCache{parents: make(map[*html.Node]xpathParentIndex)}
+}
+
+func (c *xpathIndexCache) parentIndex(parent *html.Node) xpathParentIndex {
+	if index, ok := c.parents[parent]; ok {
+		return index
+	}
+
+	index := xpathParentIndex{
+		positions: make(map[*html.Node]int),
+		counts:    make(map[string]int),
+	}
+	for sibling := parent.FirstChild; sibling != nil; sibling = sibling.NextSibling {
+		if sibling.Type != html.ElementNode {
+			continue
+		}
+		index.counts[sibling.Data]++
+		index.positions[sibling] = index.counts[sibling.Data]
+	}
+	c.parents[parent] = index
+	return index
+}
+
+func xpathSegmentWithCache(e *html.Node, cache *xpathIndexCache) string {
 	if e.Parent == nil {
 		return e.Data
 	}
+	if cache != nil {
+		index := cache.parentIndex(e.Parent)
+		if index.counts[e.Data] <= 1 {
+			return e.Data
+		}
+		return e.Data + "[" + strconv.Itoa(index.positions[e]) + "]"
+	}
+
 	position, count := 0, 0
 	for s := e.Parent.FirstChild; s != nil; s = s.NextSibling {
 		if s.Type != html.ElementNode || s.Data != e.Data {

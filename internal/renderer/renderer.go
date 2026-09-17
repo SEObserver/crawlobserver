@@ -3,12 +3,13 @@ package renderer
 import (
 	"context"
 	"fmt"
-	"net/url"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/SEObserver/crawlobserver/internal/fetcher"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 )
@@ -44,7 +45,7 @@ func (p *Pool) Render(ctx context.Context, url string) *RenderResult {
 	page = page.Context(ctx)
 
 	// Block heavy resources to speed up rendering, and carry the crawl's
-	// headers to this site's own requests.
+	// headers only to explicitly trusted origins.
 	var blocked []proto.NetworkResourceType
 	if p.opts.BlockResources {
 		blocked = []proto.NetworkResourceType{
@@ -53,7 +54,7 @@ func (p *Pool) Render(ctx context.Context, url string) *RenderResult {
 			proto.NetworkResourceTypeMedia,
 		}
 	}
-	if router := requestRouter(page, url, blocked, p.opts.ExtraHeaders); router != nil {
+	if router := requestRouter(page, url, blocked, p.opts.HeaderPolicy); router != nil {
 		go router.Run()
 		defer router.Stop()
 	}
@@ -134,7 +135,7 @@ func (p *Pool) RenderWithCWV(ctx context.Context, url string) *RenderResult {
 	page = page.Context(ctx)
 
 	// Block fonts and media but NOT images (LCP needs images), and carry the
-	// crawl's headers to this site's own requests.
+	// crawl's headers only to explicitly trusted origins.
 	var blocked []proto.NetworkResourceType
 	if p.opts.BlockResources {
 		blocked = []proto.NetworkResourceType{
@@ -142,7 +143,7 @@ func (p *Pool) RenderWithCWV(ctx context.Context, url string) *RenderResult {
 			proto.NetworkResourceTypeMedia,
 		}
 	}
-	if router := requestRouter(page, url, blocked, p.opts.ExtraHeaders); router != nil {
+	if router := requestRouter(page, url, blocked, p.opts.HeaderPolicy); router != nil {
 		go router.Run()
 		defer router.Stop()
 	}
@@ -270,20 +271,17 @@ func (p *Pool) RenderWithCWV(ctx context.Context, url string) *RenderResult {
 //
 // It serves two purposes that have to share one router, since rod allows a
 // single handler per pattern: dropping resource types the crawl does not need,
-// and attaching the crawl's headers to same-host requests only.
+// and attaching the crawl's headers only to exact policy origins.
 //
-// The host test is the point. A signature identifies the crawler to one site;
-// attaching it to every request a page makes would hand it to each third-party
-// script, tag and iframe the page loads, which can replay it against that site
-// until it expires. Chromium's own setExtraHTTPHeaders cannot make this
-// distinction — it stamps every request — which is why the headers are applied
-// here instead.
-func requestRouter(page *rod.Page, pageURL string, blocked []proto.NetworkResourceType, headers map[string]string) *rod.HijackRouter {
-	if len(blocked) == 0 && len(headers) == 0 {
+// Chromium may carry request headers over a navigation redirect before this
+// handler sees the next hop. Every request therefore strips policy headers
+// first, then adds them again only when the policy allows that URL. A policy
+// header is never attached to an origin that was not explicitly seeded.
+func requestRouter(page *rod.Page, pageURL string, blocked []proto.NetworkResourceType, policy *fetcher.HeaderPolicy) *rod.HijackRouter {
+	if len(blocked) == 0 && policy == nil {
 		return nil
 	}
-
-	host := hostOf(pageURL)
+	renderTargetTrusted := policy == nil || policy.AllowsURL(pageURL)
 	blockedSet := make(map[proto.NetworkResourceType]bool, len(blocked))
 	for _, t := range blocked {
 		blockedSet[t] = true
@@ -295,12 +293,25 @@ func requestRouter(page *rod.Page, pageURL string, blocked []proto.NetworkResour
 			h.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
 			return
 		}
-		if len(headers) == 0 || host == "" || !sameHost(h.Request.URL().Hostname(), host) {
+		if policy == nil {
 			h.ContinueRequest(&proto.FetchContinueRequest{})
 			return
 		}
+
+		rawURL := ""
+		if requestURL := h.Request.URL(); requestURL != nil {
+			rawURL = requestURL.String()
+		}
+		trusted := renderTargetTrusted && policy.AllowsURL(rawURL)
+		req := h.Request.Req()
+		if !trusted {
+			policy.Strip(req)
+			h.ContinueRequest(&proto.FetchContinueRequest{Headers: mergedHeaders(h, nil)})
+			return
+		}
+		policy.Apply(req)
 		h.ContinueRequest(&proto.FetchContinueRequest{
-			Headers: mergedHeaders(h, headers),
+			Headers: mergedHeaders(h, policy.HeadersForURL(rawURL)),
 		})
 	})
 	return router
@@ -310,43 +321,36 @@ func requestRouter(page *rod.Page, pageURL string, blocked []proto.NetworkResour
 // added. CDP replaces the whole set when continueRequest carries headers, so
 // the originals have to be carried across or the request loses them.
 func mergedHeaders(h *rod.Hijack, extra map[string]string) []*proto.FetchHeaderEntry {
+	// CDP replaces the complete header set when Headers is supplied. Keep the
+	// browser's defaults and cookies, while treating header names
+	// case-insensitively so a page cannot retain a stale differently-cased copy
+	// of a policy header across a redirect.
 	merged := make(map[string]string)
+	canonicalNames := make(map[string]string)
 	for name, values := range h.Request.Req().Header {
 		if len(values) > 0 {
-			merged[name] = values[0]
+			key := strings.ToLower(name)
+			if _, exists := merged[key]; !exists {
+				merged[key] = values[0]
+				canonicalNames[key] = http.CanonicalHeaderKey(name)
+			}
 		}
 	}
 	for name, value := range extra {
-		merged[name] = value
+		key := strings.ToLower(name)
+		merged[key] = value
+		canonicalNames[key] = http.CanonicalHeaderKey(name)
 	}
 
 	names := make([]string, 0, len(merged))
-	for name := range merged {
-		names = append(names, name)
+	for key := range merged {
+		names = append(names, key)
 	}
 	sort.Strings(names)
 
 	entries := make([]*proto.FetchHeaderEntry, 0, len(names))
-	for _, name := range names {
-		entries = append(entries, &proto.FetchHeaderEntry{Name: name, Value: merged[name]})
+	for _, key := range names {
+		entries = append(entries, &proto.FetchHeaderEntry{Name: canonicalNames[key], Value: merged[key]})
 	}
 	return entries
-}
-
-// hostOf returns the hostname of a URL, or "" when it cannot be read — in
-// which case no headers are attached, since the safe answer to "is this the
-// site we are crawling?" is no.
-func hostOf(rawURL string) string {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return ""
-	}
-	return u.Hostname()
-}
-
-// sameHost reports whether a request belongs to the site being crawled. A
-// subdomain is not the same host: a signature bound to www.example.com is not
-// meant for static.example.com, which may well be a third-party bucket.
-func sameHost(requestHost, pageHost string) bool {
-	return requestHost != "" && strings.EqualFold(requestHost, pageHost)
 }

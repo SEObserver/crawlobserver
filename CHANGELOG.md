@@ -9,11 +9,12 @@ This is the initial open-source release of CrawlObserver by [SEObserver](https:/
 ### Crawler Engine
 - Concurrent crawl workers with per-host delay and robots.txt compliance
 - 45+ SEO signals extracted per page (title, canonical, meta tags, headings, hreflang, Open Graph, schema.org, images, links, indexability)
-- Link position recorded for every link: enclosing landmark, XPath, tree depth, document order, and a signature identifying the block it sits in (`crawler.store_link_position`, on by default)
+- Link position metadata for the first 1,000 links per page by default: enclosing landmark, XPath, tree depth, document order and block signature. Cached XPath indexing avoids quadratic sibling scans; all links remain in the crawl and PageRank. Enablement and the positive per-page limit are configurable globally and per crawl.
 - Redirect chain tracking with full hop-by-hop detail
 - Sitemap-only crawl mode (`--sitemap-only`) to skip link following
 - Configurable crawl scope: `host` (exact match) or `domain` (eTLD+1)
-- Custom request headers, set per project or as a `crawler.headers` default, sent with pages, robots.txt, sitemaps and rendered pages — enough to carry the HTTP Message Signatures of RFC 9421 to a site that asks a crawler to identify itself
+- Custom request headers restricted to exact original seed origins across pages, robots.txt, sitemaps, resource checks and JavaScript rendering. Project settings replace installation defaults; queued crawls reload headers before starting and stop on credential read errors. Signatures must be supplied and refreshed externally.
+- Thanks to [@A-Asight](https://github.com/A-Asight) for the original implementations in [#17](https://github.com/SEObserver/crawlobserver/pull/17) and [#18](https://github.com/SEObserver/crawlobserver/pull/18); maintainer follow-ups add performance limits and credential isolation.
 - Per-crawl User-Agent override with browser presets
 - TLS fingerprinting via utls to match User-Agent identity
 - SSRF protection: private IP blocking, DNS rebinding defense

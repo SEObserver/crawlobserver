@@ -55,15 +55,24 @@ func TestHeadersForProject(t *testing.T) {
 		want    string
 	}{
 		{"a project with headers uses them", projectID("with-headers"), "Signature-Agent"},
-		{"a project without falls back to the configured ones", projectID("no-headers"), "X-Configured"},
-		{"an unknown project falls back", projectID("nowhere"), "X-Configured"},
+		{"empty project headers replace defaults", projectID("no-headers"), ""},
+		{"unknown project sends no credentials", projectID("nowhere"), ""},
 		{"no project at all uses the configured ones", nil, "X-Configured"},
 		{"an empty project id uses the configured ones", projectID(""), "X-Configured"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := m.headersForProject(tt.project, configured)
+			got, err := m.headersForProject(tt.project, configured)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.want == "" {
+				if len(got) != 0 {
+					t.Fatalf("unexpected default credentials: %v", got)
+				}
+				return
+			}
 			if _, ok := got[tt.want]; !ok {
 				t.Errorf("headers = %v, want the one named %q", got, tt.want)
 			}
@@ -71,8 +80,7 @@ func TestHeadersForProject(t *testing.T) {
 	}
 }
 
-// A store that fails must not take the crawl down with it: the crawl runs with
-// the configured headers, and the site says whether that is enough.
+// A store failure must never substitute installation credentials for a project.
 func TestHeadersForProject_StoreError(t *testing.T) {
 	configured := map[string]string{"X-Configured": "yes"}
 	store := &fakeProjectStore{err: errors.New("database is locked")}
@@ -80,9 +88,9 @@ func TestHeadersForProject_StoreError(t *testing.T) {
 	cfg := &config.Config{}
 	m := NewManager(cfg, nil, store)
 
-	got := m.headersForProject(projectID("any"), configured)
-	if _, ok := got["X-Configured"]; !ok {
-		t.Errorf("headers = %v, want the configured ones", got)
+	got, err := m.headersForProject(projectID("any"), configured)
+	if err == nil || len(got) != 0 {
+		t.Errorf("headers = %v, error = %v, want no headers and a read error", got, err)
 	}
 }
 
@@ -96,9 +104,9 @@ func TestNewManager_LoaderWithoutHeaders(t *testing.T) {
 	if m.projectHeaders != nil {
 		t.Error("projectHeaders was set from a loader that does not implement it")
 	}
-	got := m.headersForProject(projectID("any"), configured)
-	if _, ok := got["X-Configured"]; !ok {
-		t.Errorf("headers = %v, want the configured ones", got)
+	got, err := m.headersForProject(projectID("any"), configured)
+	if err != nil || len(got) != 0 {
+		t.Errorf("headers = %v, error = %v, want no project credentials", got, err)
 	}
 }
 
@@ -106,7 +114,7 @@ func TestNewManager_NoLoaderAtAll(t *testing.T) {
 	cfg := &config.Config{}
 	m := NewManager(cfg, nil)
 
-	if got := m.headersForProject(projectID("any"), nil); len(got) != 0 {
+	if got, err := m.headersForProject(projectID("any"), nil); err != nil || len(got) != 0 {
 		t.Errorf("headers = %v, want none", got)
 	}
 }
@@ -121,14 +129,14 @@ func TestHeadersForProject_ReadsTheStoreEveryTime(t *testing.T) {
 	cfg := &config.Config{}
 	m := NewManager(cfg, nil, store)
 
-	if got := m.headersForProject(projectID("p"), nil); got["Signature"] != "first" {
+	if got, err := m.headersForProject(projectID("p"), nil); err != nil || got["Signature"] != "first" {
 		t.Fatalf("Signature = %q, want %q", got["Signature"], "first")
 	}
 
 	// The signature is refreshed out of band, as it would be before resuming.
 	store.headers["p"] = map[string]string{"Signature": "second"}
 
-	if got := m.headersForProject(projectID("p"), nil); got["Signature"] != "second" {
+	if got, err := m.headersForProject(projectID("p"), nil); err != nil || got["Signature"] != "second" {
 		t.Errorf("Signature = %q, want the refreshed %q", got["Signature"], "second")
 	}
 	if store.calls != 2 {

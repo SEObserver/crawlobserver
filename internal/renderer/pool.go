@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SEObserver/crawlobserver/internal/fetcher"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
@@ -16,11 +17,10 @@ type PoolOptions struct {
 	UserAgent      string
 	BlockResources bool
 	Headless       bool
-	// ExtraHeaders are sent with every request the rendered page makes, so
-	// that a site gating on a header answers the renderer as it answers the
-	// plain fetch. Without them a crawl would be admitted for its HTML and
-	// turned away the moment it rendered.
-	ExtraHeaders map[string]string
+	// HeaderPolicy carries configured headers only to its explicitly trusted
+	// seed origins. The router applies it separately to each browser request,
+	// including redirects and subresources.
+	HeaderPolicy *fetcher.HeaderPolicy
 }
 
 func DefaultPoolOptions() PoolOptions {

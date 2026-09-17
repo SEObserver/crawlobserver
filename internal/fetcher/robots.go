@@ -26,11 +26,11 @@ type RobotsCache struct {
 	cache        map[string]*RobotsCacheEntry
 	client       *http.Client
 	userAgent    string
-	extraHeaders map[string]string
+	headerPolicy *HeaderPolicy
 }
 
 // NewRobotsCache creates a new RobotsCache.
-func NewRobotsCache(userAgent string, timeout time.Duration, dialOpts DialOptions, tlsProfile TLSProfile, extraHeaders ...map[string]string) *RobotsCache {
+func NewRobotsCache(userAgent string, timeout time.Duration, dialOpts DialOptions, tlsProfile TLSProfile, policies ...*HeaderPolicy) *RobotsCache {
 	dialFn := SafeDialContextWithOpts(dialOpts)
 	transport := &http.Transport{
 		DialContext: dialFn,
@@ -39,21 +39,22 @@ func NewRobotsCache(userAgent string, timeout time.Duration, dialOpts DialOption
 	if tlsProfile != "" {
 		rt = utlsTransport(tlsProfile, dialFn, transport)
 	}
-	var extra map[string]string
-	if len(extraHeaders) > 0 && len(extraHeaders[0]) > 0 {
-		extra = make(map[string]string, len(extraHeaders[0]))
-		for k, v := range extraHeaders[0] {
-			extra[k] = v
-		}
+	var policy *HeaderPolicy
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
+	if policy != nil {
+		rt = policy.WrapTransport(rt)
+	}
+	client := &http.Client{Timeout: timeout, Transport: rt}
+	if policy != nil {
+		client.CheckRedirect = policyRedirectHook(policy, nil)
 	}
 	return &RobotsCache{
 		cache:        make(map[string]*RobotsCacheEntry),
 		userAgent:    userAgent,
-		extraHeaders: extra,
-		client: &http.Client{
-			Timeout:   timeout,
-			Transport: rt,
-		},
+		headerPolicy: policy,
+		client:       client,
 	}
 }
 
@@ -163,7 +164,7 @@ func (rc *RobotsCache) fetch(host string) *RobotsCacheEntry {
 		return entry
 	}
 	req.Header.Set("User-Agent", rc.userAgent)
-	ApplyExtraHeaders(req, rc.extraHeaders)
+	req = preparePolicyRequest(req, rc.headerPolicy)
 
 	resp, err := rc.client.Do(req)
 	if err != nil {

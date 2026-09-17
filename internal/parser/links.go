@@ -20,8 +20,8 @@ type Link struct {
 
 	// Where the link sits in the document. These describe the markup around
 	// the link and nothing else: what the link is for is left to the caller.
-	// They are zero when link position extraction is turned off, see
-	// Options.LinkPosition.
+	// They are zero when extraction is disabled or the per-page limit has
+	// been reached; see Options.LinkPosition and Options.MaxLinkPositions.
 	Landmark       string // "main", "article", "nav", "header", "footer", "aside", or "" when the link is in none of them
 	XPath          string // absolute path of the link element, e.g. /html/body/nav/ul/li[2]/a
 	Depth          uint16 // number of element ancestors above the link
@@ -31,6 +31,11 @@ type Link struct {
 
 func extractLinks(doc *goquery.Document, baseURL *url.URL, opts Options) []Link {
 	var links []Link
+	var xpathCache *xpathIndexCache
+	if opts.LinkPosition {
+		xpathCache = newXPathIndexCache()
+	}
+	maxLinkPositions := effectiveMaxLinkPositions(opts.MaxLinkPositions)
 
 	doc.Find("a, area").Each(func(_ int, s *goquery.Selection) {
 		href, exists := htmlutil.Attr(s, "href")
@@ -61,10 +66,14 @@ func extractLinks(doc *goquery.Document, baseURL *url.URL, opts Options) []Link 
 			Tag:        tag,
 		}
 
-		if opts.LinkPosition {
+		// Position metadata is deliberately bounded independently from link
+		// extraction. The link remains in the result so crawling, counts and
+		// PageRank still see the complete page, while expensive position work is
+		// reserved for the first successfully extracted links.
+		if opts.LinkPosition && len(links) < maxLinkPositions {
 			n := s.Nodes[0]
 			link.Landmark = landmarkOf(n)
-			link.XPath = nodeXPath(n)
+			link.XPath = nodeXPathWithCache(n, xpathCache)
 			link.Depth = nodeDepth(n)
 			link.DocumentIndex = uint32(len(links))
 			link.BlockSignature = blockSignature(n)
@@ -74,6 +83,13 @@ func extractLinks(doc *goquery.Document, baseURL *url.URL, opts Options) []Link 
 	})
 
 	return links
+}
+
+func effectiveMaxLinkPositions(max int) int {
+	if max <= 0 {
+		return DefaultMaxLinkPositions
+	}
+	return max
 }
 
 func isInternal(baseURL *url.URL, targetURL string) bool {

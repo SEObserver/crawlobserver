@@ -54,17 +54,20 @@ type xmlURLEntry struct {
 }
 
 // FetchSitemap fetches and parses a single sitemap URL.
-func FetchSitemap(ctx context.Context, client *http.Client, sitemapURL, userAgent string, extraHeaders ...map[string]string) SitemapEntry {
+func FetchSitemap(ctx context.Context, client *http.Client, sitemapURL, userAgent string, policies ...*HeaderPolicy) SitemapEntry {
 	entry := SitemapEntry{URL: sitemapURL}
+	var policy *HeaderPolicy
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", sitemapURL, nil)
 	if err != nil {
 		return entry
 	}
 	req.Header.Set("User-Agent", userAgent)
-	if len(extraHeaders) > 0 {
-		ApplyExtraHeaders(req, extraHeaders[0])
-	}
+	req = preparePolicyRequest(req, policy)
+	client = cloneClientWithHeaderPolicy(client, policy)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -116,7 +119,7 @@ func FetchSitemap(ctx context.Context, client *http.Client, sitemapURL, userAgen
 
 // DiscoverSitemaps fetches all given sitemap URLs, recursing into indexes.
 // Returns at most maxTotalSitemaps entries.
-func DiscoverSitemaps(ctx context.Context, client *http.Client, userAgent string, sitemapURLs []string, extraHeaders ...map[string]string) []SitemapEntry {
+func DiscoverSitemaps(ctx context.Context, client *http.Client, userAgent string, sitemapURLs []string, policies ...*HeaderPolicy) []SitemapEntry {
 	var results []SitemapEntry
 	seen := make(map[string]bool)
 
@@ -138,7 +141,7 @@ func DiscoverSitemaps(ctx context.Context, client *http.Client, userAgent string
 		queue = queue[1:]
 
 		applog.Infof("fetcher", "Fetching sitemap: %s", url)
-		entry := FetchSitemap(ctx, client, url, userAgent, extraHeaders...)
+		entry := FetchSitemap(ctx, client, url, userAgent, policies...)
 		results = append(results, entry)
 
 		// If it's an index, enqueue children

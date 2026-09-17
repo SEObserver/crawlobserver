@@ -184,9 +184,10 @@ All settings can be overridden via **environment variables** with the `CRAWLOBSE
 | `crawler.user_agent` | `CrawlObserver/1.0` | User-Agent string |
 | `crawler.respect_robots` | `true` | Obey robots.txt |
 | `crawler.store_html` | `false` | Store raw HTML (ZSTD compressed) |
-| `crawler.store_link_position` | `true` | Record where each link sits in its page (landmark, XPath, depth, document order, block signature) |
+| `crawler.store_link_position` | `true` | Record position metadata for links; overridable per crawl |
+| `crawler.max_link_positions_per_page` | `1000` | Maximum links per page with position metadata; all links remain in the crawl and PageRank |
 | `crawler.crawl_scope` | `host` | `host`, `domain` (eTLD+1), or `subdirectory` |
-| `crawler.headers` | _(none)_ | Headers sent to the crawled site; a project's own headers replace these |
+| `crawler.headers` | _(none)_ | Headers for crawls without a project, restricted to exact seed origins; project settings replace these, including an empty set |
 | `clickhouse.host` | `localhost` | Database host |
 | `clickhouse.port` | `19000` | Database native protocol port |
 | `clickhouse.mode` | _(auto)_ | `managed`, `external`, or auto-detect |
@@ -197,6 +198,23 @@ All settings can be overridden via **environment variables** with the `CRAWLOBSE
 | `resources.max_cpu` | `0` | CPU limit / GOMAXPROCS (0 = all) |
 
 See [`config.example.yaml`](config.example.yaml) for the full reference.
+
+Link position recording is enabled by default and enriches the first 1,000
+extracted links on each page. Every link is still stored, followed and counted
+for PageRank. Change the defaults in `crawler.store_link_position` and
+`crawler.max_link_positions_per_page`, or override them in the crawl form,
+the API, or with `--store-link-position=false` and
+`--max-link-positions-per-page=500` on the `crawl` command. Existing sessions
+keep their saved settings when resumed; older sessions inherit missing settings.
+
+Custom crawl headers are restricted to the exact origins of the original seed
+URLs: protocol, hostname and effective port must match. A redirect, subdomain,
+external sitemap or rendered third-party resource does not gain permission to
+receive them. Use the final HTTPS origin in your seed URLs when that site needs
+credentials. Project settings replace installation headers entirely, even when
+empty. Headers are reloaded when a crawl starts, resumes or retries, including
+after waiting in the queue. CrawlObserver does not generate or refresh
+signatures; supply values valid for the intended requests and verification window.
 
 ---
 
@@ -342,6 +360,7 @@ We welcome contributions. Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** bef
 
 Thanks to the people who helped shape CrawlObserver with their feedback, testing, and ideas:
 
+- **Arthur / [@A-Asight](https://github.com/A-Asight)** &mdash; original link position and project crawl header contributions ([#17](https://github.com/SEObserver/crawlobserver/pull/17), [#18](https://github.com/SEObserver/crawlobserver/pull/18)), subsequently optimized and hardened by the maintainers.
 - **Fabien Raquidel** &mdash; [referenceur-web.pro](https://www.referenceur-web.pro/) · [@fabienr34](https://x.com/fabienr34)
 - **Jean-Benoît Moingt** &mdash; [watussi.fr](https://www.watussi.fr/) · [@jeanbenoit](https://x.com/jeanbenoit)
 

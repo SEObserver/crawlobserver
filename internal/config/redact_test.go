@@ -82,8 +82,19 @@ func validConfigWithHeaders(headers map[string]string) *Config {
 	cfg.Crawler.MaxBodySize = 1024
 	cfg.Crawler.UserAgent = "TestBot/1.0"
 	cfg.Crawler.Headers = headers
+	cfg.Crawler.MaxLinkPositionsPerPage = 1000
 	cfg.Storage.BatchSize = 1
 	cfg.Storage.FlushInterval = time.Second
 	cfg.Server.Port = 8899
 	return cfg
+}
+
+func TestRedactImportedConfigHeaders(t *testing.T) {
+	got := RedactSensitiveConfigJSON(`{"Crawler":{"Headers":{"Authorization":"credential","X-Custom":"opaque"},"MaxLinkPositionsPerPage":1000}}`)
+	if strings.Contains(got, "credential") || strings.Contains(got, "opaque") || strings.Contains(got, "Headers") {
+		t.Fatalf("imported config leaked headers: %s", got)
+	}
+	if !strings.Contains(got, "MaxLinkPositionsPerPage") {
+		t.Fatal("non-sensitive settings were removed")
+	}
 }

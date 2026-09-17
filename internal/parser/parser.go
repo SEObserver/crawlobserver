@@ -46,6 +46,11 @@ type Image struct {
 	Height string
 }
 
+// DefaultMaxLinkPositions is the maximum number of extracted links for which
+// ParseWithOptions records position metadata when no explicit positive limit
+// is supplied.
+const DefaultMaxLinkPositions = 1000
+
 // HreflangEntry represents a hreflang link.
 type HreflangEntry struct {
 	Lang string
@@ -59,11 +64,20 @@ type Options struct {
 	// block around it. An XPath per link is the one part that is not free on a
 	// large crawl, so it can be turned off.
 	LinkPosition bool
+
+	// MaxLinkPositions limits the number of successfully extracted links that
+	// receive position metadata. A non-positive value uses
+	// DefaultMaxLinkPositions. Links after the limit are still returned with
+	// their crawl fields populated, but their position fields remain zero.
+	MaxLinkPositions int
 }
 
 // defaultOptions returns the options used by Parse.
 func defaultOptions() Options {
-	return Options{LinkPosition: true}
+	return Options{
+		LinkPosition:     true,
+		MaxLinkPositions: DefaultMaxLinkPositions,
+	}
 }
 
 // Parse parses HTML body and extracts SEO signals, with the default options.

@@ -62,6 +62,7 @@ func assertCarriesHeaders(t *testing.T, got http.Header, where string) {
 func TestEngine_PageFetchCarriesConfiguredHeaders(t *testing.T) {
 	srv, received := headerRecordingServer(t, "<html><body>hi</body></html>")
 	e := engineWithHeaders(engineTestHeaders())
+	e.SessionID([]string{srv.URL})
 
 	if res := e.fetch.Fetch(srv.URL+"/page", 0, ""); res.StatusCode != http.StatusOK {
 		t.Fatalf("Fetch status = %d (%s), want 200", res.StatusCode, res.Error)
@@ -75,6 +76,7 @@ func TestEngine_PageFetchCarriesConfiguredHeaders(t *testing.T) {
 func TestEngine_RobotsFetchCarriesConfiguredHeaders(t *testing.T) {
 	srv, received := headerRecordingServer(t, "User-agent: *\nAllow: /\n")
 	e := engineWithHeaders(engineTestHeaders())
+	e.SessionID([]string{srv.URL})
 
 	e.robots.IsAllowed(srv.URL + "/page")
 	assertCarriesHeaders(t, received("/robots.txt"), "robots.txt through the engine")
@@ -84,6 +86,7 @@ func TestEngine_SitemapFetchCarriesConfiguredHeaders(t *testing.T) {
 	srv, received := headerRecordingServer(t,
 		`<?xml version="1.0"?><urlset><url><loc>https://example.com/</loc></url></urlset>`)
 	e := engineWithHeaders(engineTestHeaders())
+	e.SessionID([]string{srv.URL})
 
 	e.ctx = t.Context()
 	e.retrieveSitemaps([]string{srv.URL + "/sitemap.xml"})

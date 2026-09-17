@@ -28,23 +28,17 @@ type Fetcher struct {
 	client       *http.Client
 	userAgent    string
 	maxBodySize  int64
-	extraHeaders map[string]string
+	headerPolicy *HeaderPolicy
 }
 
 // Option configures a Fetcher at construction.
 type Option func(*Fetcher)
 
-// WithExtraHeaders sets headers added to every request the Fetcher makes.
-// The map is copied, so the caller may reuse it.
-func WithExtraHeaders(headers map[string]string) Option {
+// WithHeaderPolicy binds caller-supplied headers to the immutable policy's
+// explicitly trusted seed origins. A nil policy leaves requests unchanged.
+func WithHeaderPolicy(policy *HeaderPolicy) Option {
 	return func(f *Fetcher) {
-		if len(headers) == 0 {
-			return
-		}
-		f.extraHeaders = make(map[string]string, len(headers))
-		for k, v := range headers {
-			f.extraHeaders[k] = v
-		}
+		f.headerPolicy = policy
 	}
 }
 
@@ -73,6 +67,9 @@ func New(userAgent string, timeout time.Duration, maxBodySize int64, dialOpts Di
 	if tlsProfile != "" {
 		rt = utlsTransport(tlsProfile, dialFn, transport)
 	}
+	if f.headerPolicy != nil {
+		rt = f.headerPolicy.WrapTransport(rt)
+	}
 
 	allowPrivate := dialOpts.AllowPrivateIPs
 	f.client = &http.Client{
@@ -82,14 +79,22 @@ func New(userAgent string, timeout time.Duration, maxBodySize int64, dialOpts Di
 			if len(via) >= 10 {
 				return fmt.Errorf("stopped after 10 redirects")
 			}
-			// net/http copies every header across a redirect except a short
-			// list of its own — Authorization, Cookie and the like. A crawl
-			// header is often a signature naming the host it was issued for,
-			// so carrying it to another host would hand it to whoever the
-			// redirect points at. Dropped here, where the new host is known.
-			if len(via) > 0 && !strings.EqualFold(req.URL.Hostname(), via[0].URL.Hostname()) {
-				for name := range f.extraHeaders {
-					req.Header.Del(name)
+			// Apply after net/http has copied the previous request's headers and
+			// after the target URL is known. The hook also makes an untrusted hop
+			// sticky, so a later redirect back to a seed origin cannot regain the
+			// policy headers in the same chain.
+			if f.headerPolicy != nil {
+				trusted := redirectChainTrusted(f.headerPolicy, req, via)
+				if trusted {
+					f.headerPolicy.Apply(req)
+				} else {
+					f.headerPolicy.Strip(req)
+				}
+				state := &headerPolicyRedirectState{trusted: trusted}
+				if len(via) > 0 && via[0] != nil {
+					ctx := context.WithValue(via[0].Context(), headerPolicyContextKey{}, state)
+					*via[0] = *via[0].WithContext(ctx)
+					*req = *req.WithContext(ctx)
 				}
 			}
 			// SSRF: block redirects to private IP literals
@@ -161,7 +166,7 @@ func (f *Fetcher) FetchWithContext(ctx context.Context, targetURL string, depth 
 	req.Header.Set("User-Agent", f.userAgent)
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	ApplyExtraHeaders(req, f.extraHeaders)
+	req = preparePolicyRequest(req, f.headerPolicy)
 
 	resp, err := f.client.Do(req)
 	if err != nil {

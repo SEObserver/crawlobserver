@@ -38,6 +38,9 @@ func TestLoadDefaults(t *testing.T) {
 	if !cfg.Crawler.StoreLinkPosition {
 		t.Error("StoreLinkPosition should default to true")
 	}
+	if cfg.Crawler.MaxLinkPositionsPerPage != 1000 {
+		t.Errorf("MaxLinkPositionsPerPage = %d, want 1000", cfg.Crawler.MaxLinkPositionsPerPage)
+	}
 	if cfg.ClickHouse.Host != "localhost" {
 		t.Errorf("Host = %q, want localhost", cfg.ClickHouse.Host)
 	}
@@ -55,6 +58,8 @@ func TestValidateRejectsInvalid(t *testing.T) {
 		modify func(*Config)
 	}{
 		{"zero workers", func(c *Config) { c.Crawler.Workers = 0 }},
+		{"zero link position limit", func(c *Config) { c.Crawler.MaxLinkPositionsPerPage = 0 }},
+		{"negative link position limit", func(c *Config) { c.Crawler.MaxLinkPositionsPerPage = -1 }},
 		{"negative delay", func(c *Config) { c.Crawler.Delay = -1 }},
 		{"zero timeout", func(c *Config) { c.Crawler.Timeout = 0 }},
 		{"zero max_body_size", func(c *Config) { c.Crawler.MaxBodySize = 0 }},

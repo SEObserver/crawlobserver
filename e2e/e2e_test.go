@@ -891,3 +891,129 @@ func TestE2E_LinkPositionTurnedOffByRequest(t *testing.T) {
 		}
 	}
 }
+
+func TestE2E_LinkPositionLimitKeepsAllLinks(t *testing.T) {
+	env := setup(t)
+	sid := startCrawlWith(t, env, `,"store_link_position":true,"max_link_positions_per_page":1`)
+	t.Cleanup(func() { apiDELETE(t, env.apiURL, "/api/sessions/"+sid) })
+	waitForCrawl(t, env.apiURL, sid, 60*time.Second)
+
+	var links []map[string]interface{}
+	mustUnmarshal(t, apiGET(t, env.apiURL, "/api/sessions/"+sid+"/internal-links?limit=1000"), &links)
+	homeLinks, positioned := 0, 0
+	for _, link := range links {
+		if link["SourceURL"] != env.siteURL+"/" {
+			continue
+		}
+		homeLinks++
+		if xpath, _ := link["XPath"].(string); xpath != "" {
+			positioned++
+			if link["TargetURL"] != env.siteURL+"/products" {
+				t.Errorf("unexpected enriched link: %v", link)
+			}
+		}
+	}
+	if homeLinks < 2 {
+		t.Fatalf("expected links beyond the position cap to be retained; got %d", homeLinks)
+	}
+	if positioned != 1 {
+		t.Fatalf("positioned links = %d, want exactly 1", positioned)
+	}
+
+	// The saved value must survive a round trip through session storage for
+	// resume/retry; a UI-only limit would not satisfy this assertion.
+	var sessions []map[string]interface{}
+	mustUnmarshal(t, apiGET(t, env.apiURL, "/api/sessions"), &sessions)
+	for _, session := range sessions {
+		if session["ID"] != sid {
+			continue
+		}
+		raw, ok := session["Config"].(string)
+		if !ok {
+			t.Fatalf("session has no config: %v", session)
+		}
+		var saved struct {
+			Crawler struct{ MaxLinkPositionsPerPage int }
+		}
+		if err := json.Unmarshal([]byte(raw), &saved); err != nil {
+			t.Fatal(err)
+		}
+		if saved.Crawler.MaxLinkPositionsPerPage != 1 {
+			t.Fatalf("saved limit = %d", saved.Crawler.MaxLinkPositionsPerPage)
+		}
+		return
+	}
+	t.Fatal("crawl session was not found")
+}
+
+func TestE2E_ProjectHeadersReachOnlySeedOrigin(t *testing.T) {
+	env := setup(t)
+	thirdPartyHeaders := make(chan string, 4)
+	thirdParty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		thirdPartyHeaders <- r.Header.Get("Signature")
+		fmt.Fprint(w, `<urlset></urlset>`)
+	}))
+	defer thirdParty.Close()
+	paths := make(chan string, 16)
+	var site *httptest.Server
+	site = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Signature") != "project-secret" {
+			http.Error(w, "missing credential", http.StatusForbidden)
+			return
+		}
+		paths <- r.URL.Path
+		switch r.URL.Path {
+		case "/robots.txt":
+			fmt.Fprintf(w, "User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n", site.URL)
+		case "/sitemap.xml":
+			fmt.Fprintf(w, `<sitemapindex><sitemap><loc>%s/other.xml</loc></sitemap></sitemapindex>`, thirdParty.URL)
+		default:
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, `<html><head><title>Protected</title></head><body>Protected page</body></html>`)
+		}
+	}))
+	defer site.Close()
+	env.siteURL = site.URL
+	var project struct {
+		ID string `json:"id"`
+	}
+	mustUnmarshal(t, apiPOST(t, env.apiURL, "/api/projects", `{"name":"Protected site"}`), &project)
+	endpoint := env.apiURL + "/api/projects/" + project.ID + "/crawl-headers"
+	req, err := http.NewRequest("PUT", endpoint, strings.NewReader(`{"headers":{"Signature":"project-secret"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.SetBasicAuth(testUser, testPass)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("set project headers: %d", resp.StatusCode)
+	}
+	sid := startCrawlWith(t, env, fmt.Sprintf(`,"project_id":%q`, project.ID))
+	t.Cleanup(func() { apiDELETE(t, env.apiURL, "/api/sessions/"+sid) })
+	waitForCrawl(t, env.apiURL, sid, 60*time.Second)
+	seen := map[string]bool{}
+	for len(paths) > 0 {
+		seen[<-paths] = true
+	}
+	for _, path := range []string{"/robots.txt", "/sitemap.xml", "/"} {
+		if !seen[path] {
+			t.Errorf("protected %s did not receive project credentials", path)
+		}
+	}
+	select {
+	case got := <-thirdPartyHeaders:
+		if got != "" {
+			t.Error("external sitemap received project credentials")
+		}
+	default:
+		t.Fatal("external sitemap was not fetched")
+	}
+	if strings.Contains(string(apiGET(t, env.apiURL, "/api/sessions")), "project-secret") {
+		t.Fatal("session API leaked project credentials")
+	}
+}

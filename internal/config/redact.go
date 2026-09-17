@@ -69,7 +69,8 @@ func redactSensitiveFields(value interface{}) {
 
 func isSensitiveConfigKey(key string) bool {
 	normalized := strings.NewReplacer("_", "", "-", "").Replace(strings.ToLower(key))
-	return strings.Contains(normalized, "password") ||
+	return normalized == "headers" ||
+		strings.Contains(normalized, "password") ||
 		strings.Contains(normalized, "secret") ||
 		strings.Contains(normalized, "apikey") ||
 		strings.Contains(normalized, "token")

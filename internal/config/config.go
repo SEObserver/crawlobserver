@@ -46,28 +46,29 @@ type TelemetryConfig struct {
 }
 
 type CrawlerConfig struct {
-	Workers               int              `mapstructure:"workers"`
-	Delay                 time.Duration    `mapstructure:"delay"`
-	MaxPages              int              `mapstructure:"max_pages"`
-	MaxDepth              int              `mapstructure:"max_depth"`
-	Timeout               time.Duration    `mapstructure:"timeout"`
-	UserAgent             string           `mapstructure:"user_agent"`
-	MaxBodySize           int64            `mapstructure:"max_body_size"`
-	RespectRobots         bool             `mapstructure:"respect_robots"`
-	StoreHTML             bool             `mapstructure:"store_html"`
-	StoreLinkPosition     bool             `mapstructure:"store_link_position"`     // record where each link sits in its page (default: true)
-	CrawlScope            string           `mapstructure:"crawl_scope"`             // "host" (default), "domain" (eTLD+1), or "subdirectory"
-	AllowPrivateIPs       bool             `mapstructure:"allow_private_ips"`       // allow crawling private/reserved IPs (default: false)
-	TLSProfile            string           `mapstructure:"tls_profile"`             // "", "chrome", "firefox", "edge"
-	SourceIP              string           `mapstructure:"source_ip"`               // local IP to bind outgoing connections
-	ForceIPv4             bool             `mapstructure:"force_ipv4"`              // force IPv4-only DNS and connections
-	MaxConcurrentSessions int              `mapstructure:"max_concurrent_sessions"` // 0 = 20
-	MaxFrontierSize       int              `mapstructure:"max_frontier_size"`       // 0 = 5_000_000
-	MaxWorkers            int              `mapstructure:"max_workers"`             // 0 = 100
-	ExcludePatterns       []string         `mapstructure:"exclude_patterns"`        // URL substrings to exclude from crawl (links still recorded)
-	Retry                 RetryConfig      `mapstructure:"retry"`
-	JSRender              JSRenderConfig   `mapstructure:"js_render"`
-	Cloudflare            CloudflareConfig `mapstructure:"cloudflare"`
+	Workers                 int              `mapstructure:"workers"`
+	Delay                   time.Duration    `mapstructure:"delay"`
+	MaxPages                int              `mapstructure:"max_pages"`
+	MaxDepth                int              `mapstructure:"max_depth"`
+	Timeout                 time.Duration    `mapstructure:"timeout"`
+	UserAgent               string           `mapstructure:"user_agent"`
+	MaxBodySize             int64            `mapstructure:"max_body_size"`
+	RespectRobots           bool             `mapstructure:"respect_robots"`
+	StoreHTML               bool             `mapstructure:"store_html"`
+	StoreLinkPosition       bool             `mapstructure:"store_link_position"`         // record where each link sits in its page (default: true)
+	MaxLinkPositionsPerPage int              `mapstructure:"max_link_positions_per_page"` // positive cap on enriched links; all links are still extracted
+	CrawlScope              string           `mapstructure:"crawl_scope"`                 // "host" (default), "domain" (eTLD+1), or "subdirectory"
+	AllowPrivateIPs         bool             `mapstructure:"allow_private_ips"`           // allow crawling private/reserved IPs (default: false)
+	TLSProfile              string           `mapstructure:"tls_profile"`                 // "", "chrome", "firefox", "edge"
+	SourceIP                string           `mapstructure:"source_ip"`                   // local IP to bind outgoing connections
+	ForceIPv4               bool             `mapstructure:"force_ipv4"`                  // force IPv4-only DNS and connections
+	MaxConcurrentSessions   int              `mapstructure:"max_concurrent_sessions"`     // 0 = 20
+	MaxFrontierSize         int              `mapstructure:"max_frontier_size"`           // 0 = 5_000_000
+	MaxWorkers              int              `mapstructure:"max_workers"`                 // 0 = 100
+	ExcludePatterns         []string         `mapstructure:"exclude_patterns"`            // URL substrings to exclude from crawl (links still recorded)
+	Retry                   RetryConfig      `mapstructure:"retry"`
+	JSRender                JSRenderConfig   `mapstructure:"js_render"`
+	Cloudflare              CloudflareConfig `mapstructure:"cloudflare"`
 
 	// Headers are sent with every crawl request. A crawl that belongs to a
 	// project takes the project's headers instead of these, so that a site
@@ -203,6 +204,7 @@ func SetDefaults() {
 	viper.SetDefault("crawler.respect_robots", true)
 	viper.SetDefault("crawler.store_html", false)
 	viper.SetDefault("crawler.store_link_position", true)
+	viper.SetDefault("crawler.max_link_positions_per_page", 1000)
 	viper.SetDefault("crawler.crawl_scope", "host")
 	viper.SetDefault("crawler.allow_private_ips", false)
 	viper.SetDefault("crawler.max_concurrent_sessions", 20)
@@ -407,6 +409,9 @@ func DefaultDataDir() (string, error) {
 }
 
 func validate(cfg *Config) error {
+	if cfg.Crawler.MaxLinkPositionsPerPage < 1 {
+		return fmt.Errorf("crawler.max_link_positions_per_page must be >= 1")
+	}
 	// Validated here and not only at the API: a header set in the file
 	// otherwise reached the browser pool unchecked, where none of net/http's
 	// protections apply, and a reserved name refused over HTTP was honoured

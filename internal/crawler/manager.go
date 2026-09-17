@@ -12,6 +12,7 @@ import (
 	"github.com/SEObserver/crawlobserver/internal/applog"
 	"github.com/SEObserver/crawlobserver/internal/config"
 	"github.com/SEObserver/crawlobserver/internal/extraction"
+	"github.com/SEObserver/crawlobserver/internal/fetcher"
 	"github.com/SEObserver/crawlobserver/internal/normalizer"
 	"github.com/SEObserver/crawlobserver/internal/storage"
 	"github.com/SEObserver/crawlobserver/internal/telemetry"
@@ -32,6 +33,9 @@ const (
 // defaults to on.
 func decodeSavedConfig(saved string, running *config.Config) (config.Config, error) {
 	decoded := config.Config{Crawler: running.Crawler}
+	// Headers are reloaded from the project at start. Do not let unmarshalling
+	// an imported snapshot mutate the running configuration's shared map.
+	decoded.Crawler.Headers = nil
 	if err := json.Unmarshal([]byte(saved), &decoded); err != nil {
 		return config.Config{}, err
 	}
@@ -46,27 +50,32 @@ func applySavedCrawlerConfig(cfg *config.Config, saved config.CrawlerConfig) {
 
 // headersForProject returns the headers a crawl of this project must send.
 //
-// It is read when a crawl starts, resumes or retries, never restored from the
-// session snapshot, because a signed header carries an expiry: replaying the
-// one stored at first launch would resume a crawl with a signature the site has
-// already stopped accepting. A project with no headers of its own falls back to
-// the configured ones, which is what a crawl with no project gets.
-func (m *Manager) headersForProject(projectID *string, configured map[string]string) map[string]string {
-	if projectID == nil || *projectID == "" || m.projectHeaders == nil {
-		return configured
+// Project settings replace installation defaults, including an empty set.
+// A read failure aborts the crawl rather than substituting another identity.
+func (m *Manager) headersForProject(projectID *string, configured map[string]string) (map[string]string, error) {
+	headers := configured
+	if projectID != nil && *projectID != "" {
+		if m.projectHeaders == nil {
+			return nil, nil
+		}
+		var err error
+		headers, err = m.projectHeaders.ProjectCrawlHeaders(*projectID)
+		if err != nil {
+			return nil, fmt.Errorf("loading project crawl headers: %w", err)
+		}
 	}
-	headers, err := m.projectHeaders.ProjectCrawlHeaders(*projectID)
-	if err != nil {
-		// Said out loud rather than swallowed: a crawl that goes out unsigned
-		// is refused at the far end as a robots.txt disallow, and the operator
-		// spends the afternoon looking at the wrong thing.
-		applog.Warnf("crawler", "Could not read the crawl headers of project %s, crawling with the configured headers instead: %v", *projectID, err)
-		return configured
+	if err := fetcher.ValidateExtraHeaders(headers); err != nil {
+		return nil, fmt.Errorf("invalid crawl headers: %w", err)
 	}
-	if len(headers) == 0 {
-		return configured
+	return headers, nil
+}
+
+// Also called when a queued engine actually starts. Values changed while it
+// waited must replace the previously loaded headers before any network request.
+func (m *Manager) bindProjectHeaders(engine *Engine) {
+	engine.headerLoader = func() (map[string]string, error) {
+		return m.headersForProject(engine.session.ProjectID, m.cfg.Crawler.Headers)
 	}
-	return headers
 }
 
 // queuedCrawl holds a crawl waiting for a semaphore slot.
@@ -138,40 +147,44 @@ func (m *Manager) LastError(sessionID string) string {
 
 // CrawlRequest holds parameters for starting a new crawl.
 type CrawlRequest struct {
-	Seeds               []string `json:"seeds"`
-	MaxPages            int      `json:"max_pages"`
-	MaxDepth            int      `json:"max_depth"`
-	Workers             int      `json:"workers"`
-	Delay               string   `json:"delay"`
-	StoreHTML           bool     `json:"store_html"`
-	StoreLinkPosition   *bool    `json:"store_link_position"`
-	CrawlScope          string   `json:"crawl_scope"`
-	ProjectID           *string  `json:"project_id"`
-	CheckExternalLinks  *bool    `json:"check_external_links"`
-	ExternalLinkWorkers int      `json:"external_link_workers"`
-	RetryStatusCode     int      `json:"retry_status_code"`
-	UserAgent           string   `json:"user_agent"`
-	CrawlSitemapOnly    bool     `json:"crawl_sitemap_only"`
-	FetchSitemaps       *bool    `json:"fetch_sitemaps"`
-	CheckPageResources  *bool    `json:"check_page_resources"`
-	ResourceWorkers     int      `json:"resource_workers"`
-	TLSProfile          string   `json:"tls_profile"`
-	JSRenderMode        string   `json:"js_render_mode"`
-	JSRenderMaxPages    int      `json:"js_render_max_pages"`
-	JSRenderTimeout     string   `json:"js_render_timeout"`
-	FollowJSLinks       bool     `json:"follow_js_links"`
-	SourceIP            string   `json:"source_ip"`
-	ForceIPv4           bool     `json:"force_ipv4"`
-	ExtractorSetID      string   `json:"extractor_set_id"`
-	IgnoreRobots        bool     `json:"ignore_robots"`
-	ExcludePatterns     []string `json:"exclude_patterns"`
-	MeasureCWV          bool     `json:"measure_cwv"`
+	Seeds                   []string `json:"seeds"`
+	MaxPages                int      `json:"max_pages"`
+	MaxDepth                int      `json:"max_depth"`
+	Workers                 int      `json:"workers"`
+	Delay                   string   `json:"delay"`
+	StoreHTML               bool     `json:"store_html"`
+	StoreLinkPosition       *bool    `json:"store_link_position"`
+	MaxLinkPositionsPerPage *int     `json:"max_link_positions_per_page"`
+	CrawlScope              string   `json:"crawl_scope"`
+	ProjectID               *string  `json:"project_id"`
+	CheckExternalLinks      *bool    `json:"check_external_links"`
+	ExternalLinkWorkers     int      `json:"external_link_workers"`
+	RetryStatusCode         int      `json:"retry_status_code"`
+	UserAgent               string   `json:"user_agent"`
+	CrawlSitemapOnly        bool     `json:"crawl_sitemap_only"`
+	FetchSitemaps           *bool    `json:"fetch_sitemaps"`
+	CheckPageResources      *bool    `json:"check_page_resources"`
+	ResourceWorkers         int      `json:"resource_workers"`
+	TLSProfile              string   `json:"tls_profile"`
+	JSRenderMode            string   `json:"js_render_mode"`
+	JSRenderMaxPages        int      `json:"js_render_max_pages"`
+	JSRenderTimeout         string   `json:"js_render_timeout"`
+	FollowJSLinks           bool     `json:"follow_js_links"`
+	SourceIP                string   `json:"source_ip"`
+	ForceIPv4               bool     `json:"force_ipv4"`
+	ExtractorSetID          string   `json:"extractor_set_id"`
+	IgnoreRobots            bool     `json:"ignore_robots"`
+	ExcludePatterns         []string `json:"exclude_patterns"`
+	MeasureCWV              bool     `json:"measure_cwv"`
 }
 
 // StartCrawl launches a new crawl session in background. Returns the session ID.
 // If all semaphore slots are taken, the crawl is queued and starts automatically
 // when a slot becomes available.
 func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
+	if err := validateLinkPositionLimit(&req); err != nil {
+		return "", err
+	}
 	if len(req.Seeds) == 0 {
 		return "", fmt.Errorf("at least one seed URL is required")
 	}
@@ -201,6 +214,9 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 	crawlerCfg.StoreHTML = req.StoreHTML
 	if req.StoreLinkPosition != nil {
 		crawlerCfg.StoreLinkPosition = *req.StoreLinkPosition
+	}
+	if req.MaxLinkPositionsPerPage != nil {
+		crawlerCfg.MaxLinkPositionsPerPage = *req.MaxLinkPositionsPerPage
 	}
 	if req.CrawlScope != "" {
 		crawlerCfg.CrawlScope = req.CrawlScope
@@ -254,11 +270,16 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 		}
 	}
 
-	cfg.Crawler.Headers = m.headersForProject(req.ProjectID, m.cfg.Crawler.Headers)
+	headers, err := m.headersForProject(req.ProjectID, m.cfg.Crawler.Headers)
+	if err != nil {
+		return "", err
+	}
+	cfg.Crawler.Headers = headers
 
 	engine := NewEngine(&cfg, m.store)
 	sessionID := engine.SessionID(req.Seeds)
 	engine.session.ProjectID = req.ProjectID
+	m.bindProjectHeaders(engine)
 	engine.sitemapOnly = req.CrawlSitemapOnly
 	// Fetch sitemaps: default true; forced true when sitemapOnly
 	engine.fetchSitemaps = req.FetchSitemaps == nil || *req.FetchSitemaps || req.CrawlSitemapOnly
@@ -402,6 +423,9 @@ func (m *Manager) ActiveSessions() []string {
 // ResumeCrawl resumes a stopped/completed session by re-crawling undiscovered links.
 // If overrides is non-nil, its non-zero fields override the default config.
 func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string, error) {
+	if err := validateLinkPositionLimit(overrides); err != nil {
+		return "", err
+	}
 	m.mu.RLock()
 	_, running := m.engines[sessionID]
 	m.mu.RUnlock()
@@ -451,6 +475,9 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		if overrides.StoreLinkPosition != nil {
 			crawlerCfg.StoreLinkPosition = *overrides.StoreLinkPosition
 		}
+		if overrides.MaxLinkPositionsPerPage != nil {
+			crawlerCfg.MaxLinkPositionsPerPage = *overrides.MaxLinkPositionsPerPage
+		}
 		if overrides.CrawlScope != "" {
 			crawlerCfg.CrawlScope = overrides.CrawlScope
 		}
@@ -480,7 +507,11 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		}
 		cfg.Crawler = crawlerCfg
 	}
-	cfg.Crawler.Headers = m.headersForProject(originalSession.ProjectID, m.cfg.Crawler.Headers)
+	headers, err := m.headersForProject(originalSession.ProjectID, m.cfg.Crawler.Headers)
+	if err != nil {
+		return "", err
+	}
+	cfg.Crawler.Headers = headers
 
 	engine := NewEngine(&cfg, m.store)
 	engine.excludePatterns = cfg.Crawler.ExcludePatterns
@@ -495,6 +526,7 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 	// Restore the original session with its seed URLs, not the uncrawled URLs
 	engine.ResumeSession(sessionID, originalSession.SeedURLs)
 	engine.session.ProjectID = originalSession.ProjectID
+	m.bindProjectHeaders(engine)
 
 	// Apply non-config overrides (external links, extractors, JS links)
 	if overrides != nil {
@@ -540,6 +572,9 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 // RetryFailed retries pages with status_code = 0 (fetch errors) or a specific status code.
 // Deletes the failed rows, then runs a mini-crawl with those URLs.
 func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, error) {
+	if err := validateLinkPositionLimit(overrides); err != nil {
+		return 0, err
+	}
 	statusCode := 0
 	if overrides != nil && overrides.RetryStatusCode > 0 {
 		statusCode = overrides.RetryStatusCode
@@ -565,10 +600,6 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 		if len(failedURLs) == 0 {
 			return 0, fmt.Errorf("no failed pages (status 0) found for session %s", sessionID)
 		}
-		deleted, err = m.store.DeleteFailedPages(context.Background(), sessionID)
-		if err != nil {
-			return 0, fmt.Errorf("deleting failed pages: %w", err)
-		}
 	} else {
 		// Retry pages with specific status code
 		failedURLs, err = m.store.URLsByStatus(context.Background(), sessionID, statusCode)
@@ -577,10 +608,6 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 		}
 		if len(failedURLs) == 0 {
 			return 0, fmt.Errorf("no pages with status %d found for session %s", statusCode, sessionID)
-		}
-		deleted, err = m.store.DeletePagesByStatus(context.Background(), sessionID, statusCode)
-		if err != nil {
-			return 0, fmt.Errorf("deleting pages with status %d: %w", statusCode, err)
 		}
 	}
 
@@ -616,6 +643,9 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 		if overrides.StoreLinkPosition != nil {
 			crawlerCfg.StoreLinkPosition = *overrides.StoreLinkPosition
 		}
+		if overrides.MaxLinkPositionsPerPage != nil {
+			crawlerCfg.MaxLinkPositionsPerPage = *overrides.MaxLinkPositionsPerPage
+		}
 		if overrides.CrawlScope != "" {
 			crawlerCfg.CrawlScope = overrides.CrawlScope
 		}
@@ -643,11 +673,16 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 		cfg.Crawler = crawlerCfg
 	}
 	cfg.Crawler.MaxPages = len(failedURLs)
-	cfg.Crawler.Headers = m.headersForProject(originalSession.ProjectID, m.cfg.Crawler.Headers)
+	headers, err := m.headersForProject(originalSession.ProjectID, m.cfg.Crawler.Headers)
+	if err != nil {
+		return 0, err
+	}
+	cfg.Crawler.Headers = headers
 
 	engine := NewEngine(&cfg, m.store)
 	engine.ResumeSession(sessionID, originalSession.SeedURLs)
 	engine.session.ProjectID = originalSession.ProjectID
+	m.bindProjectHeaders(engine)
 
 	// Apply non-config overrides (external links, extractors, JS links)
 	if overrides != nil {
@@ -665,6 +700,17 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 				engine.extractors = es.Extractors
 			}
 		}
+	}
+
+	// Validate the saved configuration and load credentials before deleting
+	// previous failures, so a rejected retry leaves the existing results intact.
+	if statusCode == 0 {
+		deleted, err = m.store.DeleteFailedPages(context.Background(), sessionID)
+	} else {
+		deleted, err = m.store.DeletePagesByStatus(context.Background(), sessionID, statusCode)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("deleting pages for retry: %w", err)
 	}
 
 	// Try to acquire a semaphore slot (non-blocking)

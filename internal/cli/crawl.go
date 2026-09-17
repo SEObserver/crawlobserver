@@ -36,6 +36,7 @@ func init() {
 	crawlCmd.Flags().Int("workers", 0, "Number of concurrent fetch workers")
 	crawlCmd.Flags().Bool("store-html", false, "Store raw HTML body (ZSTD compressed in ClickHouse)")
 	crawlCmd.Flags().Bool("store-link-position", true, "Record where each link sits in its page (landmark, XPath, depth, document order, block signature)")
+	crawlCmd.Flags().Int("max-link-positions-per-page", 1000, "Maximum links per page with position metadata (all links are still crawled)")
 
 	bindCrawlFlags()
 }
@@ -49,6 +50,7 @@ func bindCrawlFlags() {
 	viper.BindPFlag("crawler.workers", crawlCmd.Flags().Lookup("workers"))
 	viper.BindPFlag("crawler.store_html", crawlCmd.Flags().Lookup("store-html"))
 	viper.BindPFlag("crawler.store_link_position", crawlCmd.Flags().Lookup("store-link-position"))
+	viper.BindPFlag("crawler.max_link_positions_per_page", crawlCmd.Flags().Lookup("max-link-positions-per-page"))
 }
 
 func runCrawl(cmd *cobra.Command, args []string) error {

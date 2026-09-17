@@ -236,3 +236,38 @@ func TestStoreLinkPositionFlagReachesConfig(t *testing.T) {
 		t.Error("StoreLinkPosition = true, want the false passed on the command line")
 	}
 }
+
+func TestLinkPositionLimitFromConfigAndFlag(t *testing.T) {
+	flag := crawlCmd.Flags().Lookup("max-link-positions-per-page")
+	if flag == nil {
+		t.Fatal("missing --max-link-positions-per-page")
+	}
+	viper.Reset()
+	t.Cleanup(func() {
+		viper.Reset()
+		_ = flag.Value.Set(flag.DefValue)
+		flag.Changed = false
+	})
+	bindCrawlFlags()
+	viper.SetConfigType("yaml")
+	if err := viper.ReadConfig(strings.NewReader("crawler:\n  max_link_positions_per_page: 250\n")); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Crawler.MaxLinkPositionsPerPage != 250 {
+		t.Fatalf("config limit = %d", cfg.Crawler.MaxLinkPositionsPerPage)
+	}
+	if err := crawlCmd.Flags().Set("max-link-positions-per-page", "50"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Crawler.MaxLinkPositionsPerPage != 50 {
+		t.Fatalf("flag limit = %d", cfg.Crawler.MaxLinkPositionsPerPage)
+	}
+}
