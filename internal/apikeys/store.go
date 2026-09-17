@@ -18,6 +18,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Project deliberately carries no crawl headers. They are read one project at
+// a time through ProjectCrawlHeaders, behind a handler that refuses read-only
+// keys, because the project listings are open to any key that can reach the
+// API — and a header can hold a credential.
 type Project struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
@@ -153,6 +157,9 @@ func NewStore(dbPath string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("creating provider_connections table: %w", err)
 	}
+
+	// Migrate: add per-project crawl headers
+	db.Exec(`ALTER TABLE projects ADD COLUMN crawl_headers TEXT NOT NULL DEFAULT ''`) // ignore duplicate column errors
 
 	// Migrate: add limit columns to provider_connections
 	for _, col := range []string{

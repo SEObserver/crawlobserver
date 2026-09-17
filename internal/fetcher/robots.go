@@ -22,14 +22,15 @@ type RobotsCacheEntry struct {
 
 // RobotsCache caches robots.txt data per host.
 type RobotsCache struct {
-	mu        sync.RWMutex
-	cache     map[string]*RobotsCacheEntry
-	client    *http.Client
-	userAgent string
+	mu           sync.RWMutex
+	cache        map[string]*RobotsCacheEntry
+	client       *http.Client
+	userAgent    string
+	extraHeaders map[string]string
 }
 
 // NewRobotsCache creates a new RobotsCache.
-func NewRobotsCache(userAgent string, timeout time.Duration, dialOpts DialOptions, tlsProfile TLSProfile) *RobotsCache {
+func NewRobotsCache(userAgent string, timeout time.Duration, dialOpts DialOptions, tlsProfile TLSProfile, extraHeaders ...map[string]string) *RobotsCache {
 	dialFn := SafeDialContextWithOpts(dialOpts)
 	transport := &http.Transport{
 		DialContext: dialFn,
@@ -38,9 +39,17 @@ func NewRobotsCache(userAgent string, timeout time.Duration, dialOpts DialOption
 	if tlsProfile != "" {
 		rt = utlsTransport(tlsProfile, dialFn, transport)
 	}
+	var extra map[string]string
+	if len(extraHeaders) > 0 && len(extraHeaders[0]) > 0 {
+		extra = make(map[string]string, len(extraHeaders[0]))
+		for k, v := range extraHeaders[0] {
+			extra[k] = v
+		}
+	}
 	return &RobotsCache{
-		cache:     make(map[string]*RobotsCacheEntry),
-		userAgent: userAgent,
+		cache:        make(map[string]*RobotsCacheEntry),
+		userAgent:    userAgent,
+		extraHeaders: extra,
 		client: &http.Client{
 			Timeout:   timeout,
 			Transport: rt,
@@ -154,6 +163,7 @@ func (rc *RobotsCache) fetch(host string) *RobotsCacheEntry {
 		return entry
 	}
 	req.Header.Set("User-Agent", rc.userAgent)
+	ApplyExtraHeaders(req, rc.extraHeaders)
 
 	resp, err := rc.client.Do(req)
 	if err != nil {

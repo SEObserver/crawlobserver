@@ -16,6 +16,12 @@ func SessionConfigJSON(cfg *Config) (string, error) {
 	}{
 		Crawler: cfg.Crawler,
 	}
+	// Request headers are dropped rather than recorded. They are free text a
+	// person typed, so they can hold a credential that the key-name rules
+	// below would not recognise, and the snapshot has no use for them: a crawl
+	// that resumes reads its project's headers again rather than replaying
+	// these, which would be expired by then anyway.
+	snapshot.Crawler.Headers = nil
 	data, err := json.Marshal(snapshot)
 	if err != nil {
 		return "", err

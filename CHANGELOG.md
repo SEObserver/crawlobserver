@@ -13,6 +13,7 @@ This is the initial open-source release of CrawlObserver by [SEObserver](https:/
 - Redirect chain tracking with full hop-by-hop detail
 - Sitemap-only crawl mode (`--sitemap-only`) to skip link following
 - Configurable crawl scope: `host` (exact match) or `domain` (eTLD+1)
+- Custom request headers, set per project or as a `crawler.headers` default, sent with pages, robots.txt, sitemaps and rendered pages — enough to carry the HTTP Message Signatures of RFC 9421 to a site that asks a crawler to identify itself
 - Per-crawl User-Agent override with browser presets
 - TLS fingerprinting via utls to match User-Agent identity
 - SSRF protection: private IP blocking, DNS rebinding defense

@@ -16,6 +16,11 @@ type PoolOptions struct {
 	UserAgent      string
 	BlockResources bool
 	Headless       bool
+	// ExtraHeaders are sent with every request the rendered page makes, so
+	// that a site gating on a header answers the renderer as it answers the
+	// plain fetch. Without them a crawl would be admitted for its HTML and
+	// turned away the moment it rendered.
+	ExtraHeaders map[string]string
 }
 
 func DefaultPoolOptions() PoolOptions {

@@ -25,17 +25,38 @@ type redirectTracker struct {
 
 // Fetcher performs HTTP requests with redirect chain tracking.
 type Fetcher struct {
-	client      *http.Client
-	userAgent   string
-	maxBodySize int64
+	client       *http.Client
+	userAgent    string
+	maxBodySize  int64
+	extraHeaders map[string]string
+}
+
+// Option configures a Fetcher at construction.
+type Option func(*Fetcher)
+
+// WithExtraHeaders sets headers added to every request the Fetcher makes.
+// The map is copied, so the caller may reuse it.
+func WithExtraHeaders(headers map[string]string) Option {
+	return func(f *Fetcher) {
+		if len(headers) == 0 {
+			return
+		}
+		f.extraHeaders = make(map[string]string, len(headers))
+		for k, v := range headers {
+			f.extraHeaders[k] = v
+		}
+	}
 }
 
 // New creates a new Fetcher. When tlsProfile is non-empty, the transport uses
 // utls to mimic the chosen browser's TLS fingerprint.
-func New(userAgent string, timeout time.Duration, maxBodySize int64, dialOpts DialOptions, tlsProfile TLSProfile) *Fetcher {
+func New(userAgent string, timeout time.Duration, maxBodySize int64, dialOpts DialOptions, tlsProfile TLSProfile, opts ...Option) *Fetcher {
 	f := &Fetcher{
 		userAgent:   userAgent,
 		maxBodySize: maxBodySize,
+	}
+	for _, opt := range opts {
+		opt(f)
 	}
 
 	dialFn := SafeDialContextWithOpts(dialOpts)
@@ -60,6 +81,16 @@ func New(userAgent string, timeout time.Duration, maxBodySize int64, dialOpts Di
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return fmt.Errorf("stopped after 10 redirects")
+			}
+			// net/http copies every header across a redirect except a short
+			// list of its own — Authorization, Cookie and the like. A crawl
+			// header is often a signature naming the host it was issued for,
+			// so carrying it to another host would hand it to whoever the
+			// redirect points at. Dropped here, where the new host is known.
+			if len(via) > 0 && !strings.EqualFold(req.URL.Hostname(), via[0].URL.Hostname()) {
+				for name := range f.extraHeaders {
+					req.Header.Del(name)
+				}
 			}
 			// SSRF: block redirects to private IP literals
 			if !allowPrivate {
@@ -130,6 +161,7 @@ func (f *Fetcher) FetchWithContext(ctx context.Context, targetURL string, depth 
 	req.Header.Set("User-Agent", f.userAgent)
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	ApplyExtraHeaders(req, f.extraHeaders)
 
 	resp, err := f.client.Do(req)
 	if err != nil {

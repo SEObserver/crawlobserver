@@ -186,6 +186,7 @@ All settings can be overridden via **environment variables** with the `CRAWLOBSE
 | `crawler.store_html` | `false` | Store raw HTML (ZSTD compressed) |
 | `crawler.store_link_position` | `true` | Record where each link sits in its page (landmark, XPath, depth, document order, block signature) |
 | `crawler.crawl_scope` | `host` | `host`, `domain` (eTLD+1), or `subdirectory` |
+| `crawler.headers` | _(none)_ | Headers sent to the crawled site; a project's own headers replace these |
 | `clickhouse.host` | `localhost` | Database host |
 | `clickhouse.port` | `19000` | Database native protocol port |
 | `clickhouse.mode` | _(auto)_ | `managed`, `external`, or auto-detect |

@@ -14,6 +14,7 @@
   import GSCTab from './GSCTab.svelte';
   import ProvidersTab from './ProvidersTab.svelte';
   import ConfirmModal from './ConfirmModal.svelte';
+  import ProjectCrawlHeaders from './ProjectCrawlHeaders.svelte';
 
   const PROJ_SESSIONS_LIMIT = 30;
 
@@ -386,6 +387,8 @@
 </div>
 
 {#if projectTab === 'sessions'}
+  <ProjectCrawlHeaders projectId={project.id} onerror={(msg) => onerror?.(msg)} />
+
   <details class="danger-zone">
     <summary>{t('project.dangerZone')}</summary>
     <div class="danger-zone-item">

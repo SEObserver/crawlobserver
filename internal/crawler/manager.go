@@ -44,6 +44,31 @@ func applySavedCrawlerConfig(cfg *config.Config, saved config.CrawlerConfig) {
 	cfg.Crawler.Cloudflare.APIKey = cloudflareAPIKey
 }
 
+// headersForProject returns the headers a crawl of this project must send.
+//
+// It is read when a crawl starts, resumes or retries, never restored from the
+// session snapshot, because a signed header carries an expiry: replaying the
+// one stored at first launch would resume a crawl with a signature the site has
+// already stopped accepting. A project with no headers of its own falls back to
+// the configured ones, which is what a crawl with no project gets.
+func (m *Manager) headersForProject(projectID *string, configured map[string]string) map[string]string {
+	if projectID == nil || *projectID == "" || m.projectHeaders == nil {
+		return configured
+	}
+	headers, err := m.projectHeaders.ProjectCrawlHeaders(*projectID)
+	if err != nil {
+		// Said out loud rather than swallowed: a crawl that goes out unsigned
+		// is refused at the far end as a robots.txt disallow, and the operator
+		// spends the afternoon looking at the wrong thing.
+		applog.Warnf("crawler", "Could not read the crawl headers of project %s, crawling with the configured headers instead: %v", *projectID, err)
+		return configured
+	}
+	if len(headers) == 0 {
+		return configured
+	}
+	return headers
+}
+
 // queuedCrawl holds a crawl waiting for a semaphore slot.
 type queuedCrawl struct {
 	sessionID string
@@ -56,6 +81,15 @@ type ExtractorSetLoader interface {
 	GetExtractorSet(id string) (*extraction.ExtractorSet, error)
 }
 
+// ProjectHeaderLoader loads the headers a project sends with its crawls.
+//
+// The manager discovers it on the loader it is already given, in the way the
+// standard library discovers Flusher on a ResponseWriter: the same store holds
+// both, and asking for it separately would name it twice at the one call site.
+type ProjectHeaderLoader interface {
+	ProjectCrawlHeaders(projectID string) (map[string]string, error)
+}
+
 // Manager manages running crawl engines.
 type Manager struct {
 	mu              sync.RWMutex
@@ -64,6 +98,7 @@ type Manager struct {
 	cfg             *config.Config
 	store           *storage.Store
 	extractorLoader ExtractorSetLoader
+	projectHeaders  ProjectHeaderLoader
 
 	sem       chan struct{} // semaphore limiting concurrent sessions
 	queueMu   sync.Mutex
@@ -87,6 +122,9 @@ func NewManager(cfg *config.Config, store *storage.Store, extractorLoader ...Ext
 	}
 	if len(extractorLoader) > 0 {
 		m.extractorLoader = extractorLoader[0]
+		if loader, ok := extractorLoader[0].(ProjectHeaderLoader); ok {
+			m.projectHeaders = loader
+		}
 	}
 	return m
 }
@@ -215,6 +253,8 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 			cfg.Crawler.JSRender.PageTimeout = d
 		}
 	}
+
+	cfg.Crawler.Headers = m.headersForProject(req.ProjectID, m.cfg.Crawler.Headers)
 
 	engine := NewEngine(&cfg, m.store)
 	sessionID := engine.SessionID(req.Seeds)
@@ -440,6 +480,8 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 		}
 		cfg.Crawler = crawlerCfg
 	}
+	cfg.Crawler.Headers = m.headersForProject(originalSession.ProjectID, m.cfg.Crawler.Headers)
+
 	engine := NewEngine(&cfg, m.store)
 	engine.excludePatterns = cfg.Crawler.ExcludePatterns
 	engine.sitemapOnly = overrides != nil && overrides.CrawlSitemapOnly
@@ -601,6 +643,7 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 		cfg.Crawler = crawlerCfg
 	}
 	cfg.Crawler.MaxPages = len(failedURLs)
+	cfg.Crawler.Headers = m.headersForProject(originalSession.ProjectID, m.cfg.Crawler.Headers)
 
 	engine := NewEngine(&cfg, m.store)
 	engine.ResumeSession(sessionID, originalSession.SeedURLs)

@@ -261,6 +261,8 @@ func (s *Server) buildHandler() (http.Handler, error) {
 	mux.HandleFunc("GET /api/projects", s.handleListProjects)
 	mux.HandleFunc("POST /api/projects", s.handleCreateProject)
 	mux.HandleFunc("PUT /api/projects/{id}", s.handleRenameProject)
+	mux.HandleFunc("GET /api/projects/{id}/crawl-headers", s.handleGetProjectCrawlHeaders)
+	mux.HandleFunc("PUT /api/projects/{id}/crawl-headers", s.handleSetProjectCrawlHeaders)
 	mux.HandleFunc("DELETE /api/projects/{id}", s.handleDeleteProject)
 	mux.HandleFunc("DELETE /api/projects/{id}/with-sessions", s.handleDeleteProjectWithSessions)
 	mux.HandleFunc("POST /api/projects/{pid}/sessions/{sid}", s.handleAssociateSession)

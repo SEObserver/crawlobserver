@@ -584,6 +584,31 @@ export async function renameProject(id, name) {
 }
 
 /**
+ * Returns the headers sent with every crawl of a project.
+ * Served on its own endpoint rather than with the project, so that the project
+ * listings carry nothing a read-only key should not see.
+ * @param {string} id
+ * @returns {Promise<{headers: Record<string, string>}>}
+ */
+export async function getProjectCrawlHeaders(id) {
+  return fetchJSON(`/projects/${id}/crawl-headers`);
+}
+
+/**
+ * Replaces the headers sent with every crawl of a project.
+ * An empty object removes them.
+ * @param {string} id
+ * @param {Record<string, string>} headers
+ */
+export async function setProjectCrawlHeaders(id, headers) {
+  return fetchJSON(`/projects/${id}/crawl-headers`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ headers }),
+  });
+}
+
+/**
  * @param {string} id
  * @returns {Promise<Object>}
  */

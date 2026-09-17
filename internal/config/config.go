@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SEObserver/crawlobserver/internal/fetcher"
 	"github.com/spf13/viper"
 )
 
@@ -67,6 +68,11 @@ type CrawlerConfig struct {
 	Retry                 RetryConfig      `mapstructure:"retry"`
 	JSRender              JSRenderConfig   `mapstructure:"js_render"`
 	Cloudflare            CloudflareConfig `mapstructure:"cloudflare"`
+
+	// Headers are sent with every crawl request. A crawl that belongs to a
+	// project takes the project's headers instead of these, so that a site
+	// gating on a header is answered per site rather than per installation.
+	Headers map[string]string `mapstructure:"headers"`
 }
 
 type JSRenderConfig struct {
@@ -401,6 +407,13 @@ func DefaultDataDir() (string, error) {
 }
 
 func validate(cfg *Config) error {
+	// Validated here and not only at the API: a header set in the file
+	// otherwise reached the browser pool unchecked, where none of net/http's
+	// protections apply, and a reserved name refused over HTTP was honoured
+	// once the page rendered.
+	if err := fetcher.ValidateExtraHeaders(cfg.Crawler.Headers); err != nil {
+		return fmt.Errorf("crawler.headers: %w", err)
+	}
 	if cfg.Crawler.Workers < 1 {
 		return fmt.Errorf("crawler.workers must be >= 1")
 	}

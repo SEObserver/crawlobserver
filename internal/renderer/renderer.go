@@ -3,6 +3,8 @@ package renderer
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -41,20 +43,17 @@ func (p *Pool) Render(ctx context.Context, url string) *RenderResult {
 
 	page = page.Context(ctx)
 
-	// Block heavy resources to speed up rendering
+	// Block heavy resources to speed up rendering, and carry the crawl's
+	// headers to this site's own requests.
+	var blocked []proto.NetworkResourceType
 	if p.opts.BlockResources {
-		router := page.HijackRequests()
-		router.MustAdd("*", func(h *rod.Hijack) {
-			resType := h.Request.Type()
-			switch resType {
-			case proto.NetworkResourceTypeImage,
-				proto.NetworkResourceTypeFont,
-				proto.NetworkResourceTypeMedia:
-				h.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
-			default:
-				h.ContinueRequest(&proto.FetchContinueRequest{})
-			}
-		})
+		blocked = []proto.NetworkResourceType{
+			proto.NetworkResourceTypeImage,
+			proto.NetworkResourceTypeFont,
+			proto.NetworkResourceTypeMedia,
+		}
+	}
+	if router := requestRouter(page, url, blocked, p.opts.ExtraHeaders); router != nil {
 		go router.Run()
 		defer router.Stop()
 	}
@@ -134,19 +133,16 @@ func (p *Pool) RenderWithCWV(ctx context.Context, url string) *RenderResult {
 
 	page = page.Context(ctx)
 
-	// Block fonts and media but NOT images (LCP needs images)
+	// Block fonts and media but NOT images (LCP needs images), and carry the
+	// crawl's headers to this site's own requests.
+	var blocked []proto.NetworkResourceType
 	if p.opts.BlockResources {
-		router := page.HijackRequests()
-		router.MustAdd("*", func(h *rod.Hijack) {
-			resType := h.Request.Type()
-			switch resType {
-			case proto.NetworkResourceTypeFont,
-				proto.NetworkResourceTypeMedia:
-				h.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
-			default:
-				h.ContinueRequest(&proto.FetchContinueRequest{})
-			}
-		})
+		blocked = []proto.NetworkResourceType{
+			proto.NetworkResourceTypeFont,
+			proto.NetworkResourceTypeMedia,
+		}
+	}
+	if router := requestRouter(page, url, blocked, p.opts.ExtraHeaders); router != nil {
 		go router.Run()
 		defer router.Stop()
 	}
@@ -268,4 +264,89 @@ func (p *Pool) RenderWithCWV(ctx context.Context, url string) *RenderResult {
 	}
 
 	return result
+}
+
+// requestRouter installs the page's request interception.
+//
+// It serves two purposes that have to share one router, since rod allows a
+// single handler per pattern: dropping resource types the crawl does not need,
+// and attaching the crawl's headers to same-host requests only.
+//
+// The host test is the point. A signature identifies the crawler to one site;
+// attaching it to every request a page makes would hand it to each third-party
+// script, tag and iframe the page loads, which can replay it against that site
+// until it expires. Chromium's own setExtraHTTPHeaders cannot make this
+// distinction — it stamps every request — which is why the headers are applied
+// here instead.
+func requestRouter(page *rod.Page, pageURL string, blocked []proto.NetworkResourceType, headers map[string]string) *rod.HijackRouter {
+	if len(blocked) == 0 && len(headers) == 0 {
+		return nil
+	}
+
+	host := hostOf(pageURL)
+	blockedSet := make(map[proto.NetworkResourceType]bool, len(blocked))
+	for _, t := range blocked {
+		blockedSet[t] = true
+	}
+
+	router := page.HijackRequests()
+	router.MustAdd("*", func(h *rod.Hijack) {
+		if blockedSet[h.Request.Type()] {
+			h.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
+			return
+		}
+		if len(headers) == 0 || host == "" || !sameHost(h.Request.URL().Hostname(), host) {
+			h.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
+		h.ContinueRequest(&proto.FetchContinueRequest{
+			Headers: mergedHeaders(h, headers),
+		})
+	})
+	return router
+}
+
+// mergedHeaders returns the request's own headers with the crawl's headers
+// added. CDP replaces the whole set when continueRequest carries headers, so
+// the originals have to be carried across or the request loses them.
+func mergedHeaders(h *rod.Hijack, extra map[string]string) []*proto.FetchHeaderEntry {
+	merged := make(map[string]string)
+	for name, values := range h.Request.Req().Header {
+		if len(values) > 0 {
+			merged[name] = values[0]
+		}
+	}
+	for name, value := range extra {
+		merged[name] = value
+	}
+
+	names := make([]string, 0, len(merged))
+	for name := range merged {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	entries := make([]*proto.FetchHeaderEntry, 0, len(names))
+	for _, name := range names {
+		entries = append(entries, &proto.FetchHeaderEntry{Name: name, Value: merged[name]})
+	}
+	return entries
+}
+
+// hostOf returns the hostname of a URL, or "" when it cannot be read — in
+// which case no headers are attached, since the safe answer to "is this the
+// site we are crawling?" is no.
+func hostOf(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return u.Hostname()
+}
+
+// sameHost reports whether a request belongs to the site being crawled. A
+// subdomain is not the same host: a signature bound to www.example.com is not
+// meant for static.example.com, which may well be a third-party bucket.
+func sameHost(requestHost, pageHost string) bool {
+	return requestHost != "" && strings.EqualFold(requestHost, pageHost)
 }
