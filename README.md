@@ -360,7 +360,7 @@ We welcome contributions. Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** bef
 
 Thanks to the people who helped shape CrawlObserver with their feedback, testing, and ideas:
 
-- **Arthur / [@A-Asight](https://github.com/A-Asight)** &mdash; original link position and project crawl header contributions ([#17](https://github.com/SEObserver/crawlobserver/pull/17), [#18](https://github.com/SEObserver/crawlobserver/pull/18)), subsequently optimized and hardened by the maintainers.
+- **[Arthur](https://www.linkedin.com/in/arthur-comets/) / [@A-Asight](https://github.com/A-Asight)** &mdash; link position and project crawl header contributions ([#17](https://github.com/SEObserver/crawlobserver/pull/17), [#18](https://github.com/SEObserver/crawlobserver/pull/18)).
 - **Fabien Raquidel** &mdash; [referenceur-web.pro](https://www.referenceur-web.pro/) · [@fabienr34](https://x.com/fabienr34)
 - **Jean-Benoît Moingt** &mdash; [watussi.fr](https://www.watussi.fr/) · [@jeanbenoit](https://x.com/jeanbenoit)
 
