@@ -13,6 +13,7 @@ This is the initial open-source release of CrawlObserver by [SEObserver](https:/
 - Redirect chain tracking with full hop-by-hop detail
 - Sitemap-only crawl mode (`--sitemap-only`) to skip link following
 - Configurable crawl scope: `host` (exact match) or `domain` (eTLD+1)
+- Optional `follow_hreflang` crawl setting that queues in-scope `<link rel="alternate" hreflang>` targets, reaching language versions that only a JavaScript switcher exposes
 - Custom request headers restricted to exact original seed origins across pages, robots.txt, sitemaps, resource checks and JavaScript rendering. Project settings replace installation defaults; queued crawls reload headers before starting and stop on credential read errors. Signatures must be supplied and refreshed externally.
 - Thanks to [@A-Asight](https://github.com/A-Asight) for the original implementations in [#17](https://github.com/SEObserver/crawlobserver/pull/17) and [#18](https://github.com/SEObserver/crawlobserver/pull/18); maintainer follow-ups add performance limits and credential isolation.
 - Per-crawl User-Agent override with browser presets

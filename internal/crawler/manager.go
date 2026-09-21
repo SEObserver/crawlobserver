@@ -170,6 +170,7 @@ type CrawlRequest struct {
 	JSRenderMaxPages        int      `json:"js_render_max_pages"`
 	JSRenderTimeout         string   `json:"js_render_timeout"`
 	FollowJSLinks           bool     `json:"follow_js_links"`
+	FollowHreflang          bool     `json:"follow_hreflang"`
 	SourceIP                string   `json:"source_ip"`
 	ForceIPv4               bool     `json:"force_ipv4"`
 	ExtractorSetID          string   `json:"extractor_set_id"`
@@ -303,6 +304,7 @@ func (m *Manager) StartCrawl(req CrawlRequest) (string, error) {
 
 	// JS rendering
 	engine.followJSLinks = req.FollowJSLinks
+	engine.followHreflang = req.FollowHreflang
 	engine.measureCWV = req.MeasureCWV
 
 	// Load extractors if requested
@@ -538,6 +540,7 @@ func (m *Manager) ResumeCrawl(sessionID string, overrides *CrawlRequest) (string
 			engine.externalWorkers = defaultExternalWorkers
 		}
 		engine.followJSLinks = overrides.FollowJSLinks
+		engine.followHreflang = overrides.FollowHreflang
 		engine.measureCWV = overrides.MeasureCWV
 		if overrides.ExtractorSetID != "" && m.extractorLoader != nil {
 			if es, err := m.extractorLoader.GetExtractorSet(overrides.ExtractorSetID); err == nil {
@@ -694,6 +697,7 @@ func (m *Manager) RetryFailed(sessionID string, overrides *CrawlRequest) (int, e
 			engine.externalWorkers = defaultExternalWorkers
 		}
 		engine.followJSLinks = overrides.FollowJSLinks
+		engine.followHreflang = overrides.FollowHreflang
 		engine.measureCWV = overrides.MeasureCWV
 		if overrides.ExtractorSetID != "" && m.extractorLoader != nil {
 			if es, err := m.extractorLoader.GetExtractorSet(overrides.ExtractorSetID); err == nil {
