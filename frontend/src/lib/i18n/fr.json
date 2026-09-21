@@ -191,6 +191,8 @@
   "newCrawl.excludePatterns": "Exclure des patterns d'URL",
   "newCrawl.excludePatternsPlaceholder": "/register?redirect_url=\n/login?\n/cart/",
   "newCrawl.excludePatternsHint": "Un pattern par ligne. Les URLs contenant ces chaînes ne seront pas crawlées, mais les liens vers elles seront enregistrés.",
+  "newCrawl.followHreflang": "Suivre les alternates hreflang",
+  "newCrawl.followHreflangHint": "Ajoute à la file les URLs déclarées en <link rel=\"alternate\" hreflang>, dans la limite du périmètre du crawl. Utile quand le sélecteur de langue est en JavaScript et n'expose aucun lien.",
   "newCrawl.checkIP": "Vérifier l'IP",
   "newCrawl.checking": "Vérification...",
   "newCrawl.yourIP": "Votre IP : {ip}",

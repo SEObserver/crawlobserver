@@ -108,6 +108,7 @@
   let sourceIP = $state(initiallyNew ? '' : crawlerCfg.SourceIP || '');
   let forceIPv4 = $state(initiallyNew ? false : crawlerCfg.ForceIPv4 || false);
   let ignoreRobots = $state(false);
+  let followHreflang = $state(false);
   let excludePatternsInput = $state(
     initiallyNew ? '' : (crawlerCfg.ExcludePatterns || []).join('\n'),
   );
@@ -209,6 +210,7 @@
       measure_cwv: jsRenderMode !== 'off' ? measureCWV : undefined,
       extractor_set_id: extractorSetId || undefined,
       ignore_robots: ignoreRobots || undefined,
+      follow_hreflang: followHreflang && !crawlSitemapOnly ? true : undefined,
       exclude_patterns: excludePatternsInput.trim()
         ? excludePatternsInput
             .split('\n')
@@ -509,6 +511,14 @@
           placeholder={t('newCrawl.excludePatternsPlaceholder')}
         ></textarea>
         <p class="form-hint">{t('newCrawl.excludePatternsHint')}</p>
+      </div>
+
+      <div class="form-group" style="margin-top: 12px;">
+        <label class="inline-checkbox">
+          <input type="checkbox" bind:checked={followHreflang} disabled={crawlSitemapOnly} />
+          {t('newCrawl.followHreflang')}
+        </label>
+        <p class="form-hint">{t('newCrawl.followHreflangHint')}</p>
       </div>
 
       <div class="form-grid" style="margin-top: 12px;">

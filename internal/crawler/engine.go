@@ -84,6 +84,9 @@ type Engine struct {
 	followJSLinks bool
 	measureCWV    bool
 
+	// followHreflang queues in-scope hreflang alternates as crawl targets.
+	followHreflang bool
+
 	extractors []extraction.Extractor
 
 	cfResolver      cfsolve.ChallengeResolver
@@ -994,6 +997,7 @@ func (e *Engine) parseWorker(id int, in <-chan *fetcher.FetchResult) {
 						URL:  h.URL,
 					})
 				}
+				e.enqueueHreflangAlternates(result, pageData.Hreflang)
 
 				// Canonical self-referencing check
 				if pageData.Canonical != "" {
@@ -1850,6 +1854,7 @@ func (e *Engine) renderWorker(id int, in <-chan *renderItem) {
 
 				// Compute diffs
 				computeJSDiffs(&item.pageRow, item.staticData, renderedData)
+				e.enqueueHreflangAlternates(item.result, renderedData.Hreflang)
 
 				// Discover new links from rendered content
 				if e.followJSLinks {
